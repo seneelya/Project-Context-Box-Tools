@@ -90,17 +90,24 @@ def resolve_target_names(file_arg: str | None, module_arg: str | None, extra_nam
         except Exception:
             pass
 
+        # Determine what 'dotted' represents:
+        # - For files in subdirs (rel != "."): dotted = directory path (e.g., "_engine.backends")
+        # - For files in root (rel == "."): dotted = module name itself (e.g., "db")
+        file_in_root = rel == "."
+
         names = set()
-        if dotted and is_init:
-            # For __init__.py, the importable name is the package directory itself
-            # e.g., "_engine/backends/__init__.py" → "_engine.backends"
+        if is_init:
+            # __init__.py → the importable name IS the directory path
             names.add(dotted)
-        elif dotted:
-            names.add(dotted + ("." + basename_no_ext if not is_init else ""))
+        elif file_in_root:
+            # File directly in project root (e.g., "db.py") → just its name
+            names.add(basename_no_ext)
+        else:
+            # File in subdir → directory.path.module_name
+            names.add(dotted + "." + basename_no_ext)
 
         # Also add just the module/package basename for simple imports
         if is_init and dotted:
-            # The last component of the package path can be imported directly from parent
             pkg_basename = dotted.split(".")[-1]
             names.add(pkg_basename)
         elif not is_init:
@@ -108,11 +115,17 @@ def resolve_target_names(file_arg: str | None, module_arg: str | None, extra_nam
 
         # If project-root itself is a Python package, add prefixed versions too
         # (relative imports inside the package resolve with the package prefix)
-        if project_pkg_name and dotted and not is_init:
-            full_dotted = dotted + ("." + basename_no_ext)
-            names.add(f"{project_pkg_name}.{full_dotted}")
-        elif project_pkg_name and dotted and is_init:
-            names.add(f"{project_pkg_name}.{dotted}")
+        if project_pkg_name:
+            if is_init and dotted:
+                # Package __init__.py
+                names.add(f"{project_pkg_name}.{dotted}")
+            elif file_in_root:
+                # File in root of package
+                names.add(f"{project_pkg_name}.{basename_no_ext}")
+            else:
+                # File in subdir
+                full_path = dotted + "." + basename_no_ext
+                names.add(f"{project_pkg_name}.{full_path}")
 
     elif module_arg:
         file_path = None  # Not used in v1; could be resolved by importing the module
