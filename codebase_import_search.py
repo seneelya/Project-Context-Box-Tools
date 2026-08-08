@@ -256,11 +256,49 @@ class PythonHandler(LanguageHandler):
         # Sort by length descending so longer aliases match first (avoid 'fa' matching inside 'fake')
         sorted_aliases = sorted(aliases, key=len, reverse=True)
         escaped = [re.escape(a) for a in sorted_aliases]
-        pattern_str = r'\b(' + '|'.join(escaped) + r')\.([a-zA-Z_][\w.]*)'
+        # Match ALIAS.something where something is identifiers separated by dots, ending with identifier char
+        # This ensures no trailing dot: foo.bar.baz OK, foo.bar. NOT OK
+        pattern_str = r'\b(' + '|'.join(escaped) + r')\.([a-zA-Z_]\w*(?:\.\w+)*)'
 
         pat = re.compile(pattern_str)
         self._attr_pattern_cache[key] = pat
         return pat
+
+    def _collect_from_import_items(self, content_lines: List[str], start_idx: int) -> str | None:
+        """
+        Collect the full list of imported items from a 'from X import ...' statement,
+        handling both single-line and parenthesized multi-line forms.
+
+        Returns the combined imports text (e.g., "a, b as c, d"), or None if parsing fails.
+        """
+        line = content_lines[start_idx].strip()
+
+        # Extract everything after 'import' keyword
+        m = re.search(r'\bimport\s+(.*)', line)
+        if not m:
+            return None
+
+        imports_text = m.group(1).strip()
+
+        # Single-line case: no opening paren or already closed on same line
+        if not imports_text.startswith("("):
+            return imports_text.rstrip(")").split("#")[0].strip()
+
+        # Multi-line with parentheses: collect until closing ')'
+        parts = []
+        in_paren = True
+        idx = start_idx + 1
+        while idx < len(content_lines) and in_paren:
+            l = content_lines[idx].strip().split("#")[0].strip()
+            if ")" in l:
+                # Take part before ')'
+                parts.append(l.split(")", 1)[0])
+                in_paren = False
+            elif l:
+                parts.append(l)
+            idx += 1
+
+        return ", ".join(parts).strip(", ") or None
 
     def analyze_file(self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str) -> Set[str]:
         """Analyze a Python file and return symbols from target modules that it uses."""
@@ -268,19 +306,18 @@ class PythonHandler(LanguageHandler):
         # Map: alias/local_name -> original module (for tracking which imports belong to our targets)
         import_aliases: Dict[str, str] = {}  # local_alias -> imported_module_name
 
-        for line in content_lines:
+        for idx, line in enumerate(content_lines):
             stripped = line.strip()
 
             # Skip comments and empty lines
             if not stripped or stripped.startswith("#"):
                 continue
 
-            # Handle 'from X import Y, Z as W'
+            # Handle 'from X import Y, Z as W' (including multi-line)
             m = self.FROM_IMPORT_RE.match(line)
             if m:
                 dots_str = m.group(1)
                 from_module = m.group(2)
-                imports_part = m.group(3)
                 dots = len(dots_str)
 
                 # Resolve the base module name
@@ -293,8 +330,13 @@ class PythonHandler(LanguageHandler):
                 if not resolved_base:
                     continue
 
+                # Collect all imported items (handles multi-line with parentheses)
+                imports_text = self._collect_from_import_items(content_lines, idx)
+                if not imports_text:
+                    continue
+
                 # Parse imported symbols
-                for item in imports_part.split(","):
+                for item in imports_text.split(","):
                     item = item.strip()
                     if not item or item == "*":
                         continue
@@ -351,6 +393,11 @@ class PythonHandler(LanguageHandler):
                     attr_path = m.group(2).strip()
                     # Only record if this alias maps to one of our targets
                     if import_aliases.get(alias) and attr_path:
+                        # Filter out obvious false positives: file extensions in strings
+                        # (e.g., 'module.py' in a docstring or comment)
+                        first_token = attr_path.split(".")[0]
+                        if len(first_token) <= 3 and first_token.isalpha():
+                            continue
                         used_symbols.add(attr_path)
 
         return used_symbols
