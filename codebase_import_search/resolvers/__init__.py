@@ -39,4 +39,5 @@ def _make_ts_resolver():
 
 
 def _make_csharp_resolver():
-    raise NotImplementedError("C# resolver not implemented yet")
+    from .csharp_resolver import CSharpResolver
+    return CSharpResolver()
