@@ -133,7 +133,7 @@ Expected: piped output contains no `^[[` escape sequences.
 
 ## Test --incoming mode (upstream dependencies)
 
-New flag `--incoming` shows where a target file's imports come from within project-root. External packages/stdlib are marked `[not found inside project root]`.
+New flag `--incoming` shows where a target file's imports come from within project-root. Output format matches default mode: `file: [symbols]`. External packages/stdlib grouped as `[external]: <import_line>` at end.
 
 ### Python incoming test
 
@@ -147,8 +147,8 @@ python codebase_import_search.py --incoming --file "_engine/embed.py" \
 
 Expected:
 - Header: `# N imports in target, M resolved to K unique sources`
-- Local imports resolve to files inside project-root with symbols list
-- stdlib/third-party (logging, typing, requests) → `[not found inside project root]`
+- Local imports: `file.py: [symbol1, symbol2]` format
+- stdlib/third-party (logging, typing, requests) → `[external]: import logging`
 
 ### TypeScript incoming test
 
@@ -162,7 +162,7 @@ python codebase_import_search.py --incoming --file "src/analyzer.ts" \
 
 Expected:
 - Relative imports (`./constants`, `../util/...`) resolve to source files with symbols
-- External packages (ts-morph, fs) → `[not found inside project root]`
+- External packages (ts-morph, fs) → `[external]: import ...`
 - Multiline named imports handled correctly (compact display for many symbols)
 
 ### C# incoming test
@@ -176,8 +176,8 @@ python codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/G
 ```
 
 Expected:
-- `using AndreasReitberger.Core.Interfaces;` → resolves to IGlobalStopWatch.cs with symbols list
-- `using System.*;`, `using Microsoft.*;` → `[not found inside project root]` (framework namespaces filtered out)
+- `using AndreasReitberger.Core.Interfaces;` → `file.cs: [IGlobalStopWatch]` format
+- Framework namespaces (`using System.*`) → `[external]: using System;`
 
 ### Incoming mode auto-detect language
 

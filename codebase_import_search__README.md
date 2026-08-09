@@ -7,8 +7,7 @@
 - **Default mode (downstream consumers)** — агент исследует файл → пишет карточку документации описывающую внешний интерфейс модуля → запускает утилиту `codebase_import_search` → видит что из этого файла реально импортируется и используется в других файлах проекта → корректирует описание публичного API.
   - **Ключевой вопрос:** ЧТО из исследуемого модуля является внешним интерфейсом (реально используется вовне)?
 
-- **`--incoming` mode (upstream dependencies)** — показывает откуда целевой файл берёт свои зависимости: каждый импорт маппится на исходный файл внутри project-root. Внешние пакеты и stdlib помечаются как `[not found inside project root]`.
-  - **Ключевой вопрос:** ОТКУДА этот модуль импортирует символы? Где определены его зависимости?
+- **`--incoming` mode (upstream dependencies)** — показывает откуда целевой файл берёт свои зависимости: каждый исходный файл внутри project-root перечислен с символами, которые из него импортируются. Внешние пакеты/stdlib сгруппированы внизу как `[external]: <import_line>`.\n  - **Ключевой вопрос:** ОТКУДА этот модуль импортирует символы? Где определены его зависимости?
 
 Инструмент сканирует весь проект и находит все файлы, которые импортируют целевой модуль, а затем определяет какие именно символы (функции, классы, константы) из него используются в каждом файле-потребителе.
 
@@ -72,10 +71,12 @@ path/to/file2.ts: [SymbolA, SymbolB]
 Показывает откуда целевой файл импортирует символы. Формат вывода:
 ```text
 # N imports in target, M resolved to K unique sources
-import foo as fa          -> path/to/foo.py [symbols: bar, baz]
-from .security import X   -> _engine/security.py [symbols: DEFAULT_USER_AGENT]
-import logging            -> [not found inside project root]
+_engine/__init__.py: [backends, db]
+_engine/security.py: [DEFAULT_USER_AGENT]
+[external]: import logging
 ```
+
+(Формат `file: [symbols]` совпадает с default mode для консистентности.)
 
 ### Примеры запуска default mode (downstream consumers)
 
@@ -104,9 +105,9 @@ cd /workspace/SRC/memohood
 python3 codebase_import_search.py --incoming --file "_engine/embed.py"
 # Вывод:
 # # 12 imports in target, 3 resolved to 2 unique sources
-# from .. import db -> _engine/__init__.py [symbols: db]
-# from .security import DEFAULT_USER_AGENT -> _engine/security.py [symbols: DEFAULT_USER_AGENT]
-# import logging -> [not found inside project root]
+# _engine/__init__.py: [backends, db]
+# _engine/security.py: [DEFAULT_USER_AGENT]
+# [external]: import logging
 ```
 
 **TypeScript:** показать зависимости файла `src/analyzer.ts`:
@@ -115,8 +116,9 @@ cd /workspace/SRC/ts-prune
 python3 codebase_import_search.py --incoming --file "src/analyzer.ts"
 # Вывод:
 # # 8 imports in target, 6 resolved to 6 unique sources
-# import { ignoreComment } from "./constants"; -> src/constants.ts [symbols: ignoreComment]
-# import {(10 symbols) from "ts-morph"}; -> [not found inside project root]
+# src/configurator.ts: [IConfigInterface]
+# src/constants.ts: [ignoreComment]
+# [external]: import {(10 symbols) from "ts-morph"};
 ```
 
 **C#:** показать зависимости файла `GlobalStopWatchInstance.cs`:
@@ -125,8 +127,8 @@ cd /workspace/SRC/CoreSharp
 python3 codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/GlobalStopWatchInstance.cs"
 # Вывод:
 # # 4 imports in target, 1 resolved to 1 unique source
-# using AndreasReitberger.Core.Interfaces; -> source/CoreSharp/Interfaces/IGlobalStopWatch.cs [symbols: IGlobalStopWatch]
-# using System; -> [not found inside project root]
+# source/CoreSharp/Interfaces/IGlobalStopWatch.cs: [IGlobalStopWatch]
+# [external]: using System;
 ```
 
 **Автодетект языка:** достаточно указать `--file` — язык определяется по расширению:

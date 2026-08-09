@@ -3,7 +3,7 @@
 Two modes (default: downstream consumers; `--incoming`: upstream dependencies):
 
 - **Default mode** — returns a table of all usages of the given module/file in the codebase with import categories: top-level (always loaded), lazy (inside function/method), conditional (inside if block), fallback (try/catch optional dep), and dynamic runtime access via string names.
-- **`--incoming` mode** — shows where the target file's imports come from within project-root: each import mapped to its source file path, plus symbols imported. External packages/stdlib shown as `[not found inside project root]`.
+- **`--incoming` mode** — shows where the target file's imports come from within project-root: each source file listed with symbols imported. External packages/stdlib grouped as `[external]: <import_line>` at end.
 
 ## Parameters CLI flags
 
