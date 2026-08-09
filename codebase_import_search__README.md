@@ -2,9 +2,13 @@
 
 ## Цель инструмента
 
-Агент исследует файл → пишет карточку документации описывающую внешний интерфейс модуля → запускает утилиту `codebase_import_search` → видит что из этого файла реально импортируется и используется в других файлах проекта → корректирует описание публичного API.
+Два режима работы:
 
-**Ключевой вопрос:** ЧТО из исследуемого модуля является внешним интерфейсом (реально используется вовне)?
+- **Default mode (downstream consumers)** — агент исследует файл → пишет карточку документации описывающую внешний интерфейс модуля → запускает утилиту `codebase_import_search` → видит что из этого файла реально импортируется и используется в других файлах проекта → корректирует описание публичного API.
+  - **Ключевой вопрос:** ЧТО из исследуемого модуля является внешним интерфейсом (реально используется вовне)?
+
+- **`--incoming` mode (upstream dependencies)** — показывает откуда целевой файл берёт свои зависимости: каждый импорт маппится на исходный файл внутри project-root. Внешние пакеты и stdlib помечаются как `[not found inside project root]`.
+  - **Ключевой вопрос:** ОТКУДА этот модуль импортирует символы? Где определены его зависимости?
 
 Инструмент сканирует весь проект и находит все файлы, которые импортируют целевой модуль, а затем определяет какие именно символы (функции, классы, константы) из него используются в каждом файле-потребителе.
 
@@ -49,11 +53,31 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 | `--file PATH` | Путь к исследуемому файлу (относительный от project-root или абсолютный) | `_engine/auth.py`, `src/analyzer.ts` |
 | `--module NAME` | Имя модуля (альтернатива --file; в v1 не используется активно) | `auth_module` |
 | `--module-names N1,N2,...` | Дополнительные имена по которым этот модуль можно импортировать | `_secret_module,auth_core` |
-| `--language LNG` | No (default: `python`) | Language handler to use (supports Python, TypeScript/JS, C#) | `python`, `typescript`, `csharp` |
+| `--language LNG` | No (default: `python`) | Language handler/resolver to use (supports Python, TypeScript/JS, C#) | `python`, `typescript`, `csharp` |
+| `--incoming` | Show upstream dependencies (where target's imports come from) instead of downstream consumers | (no value needed) |
 | `--project-root PATH` | Root directory to scan for imports (default from tools_config.py or current dir) | `/workspace/SRC/memohood`, `.` |
 | `--tests-only` | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
 
-### Примеры запуска
+### Режимы работы
+
+**Default mode (downstream consumers)** — без флага `--incoming`:
+Показывает кто использует символы из целевого файла. Формат вывода:
+```text
+# N files, M unique symbols (+K with dynamic access)
+path/to/file1.py: [symbol1] [lazy: symbol2]
+path/to/file2.ts: [SymbolA, SymbolB]
+```
+
+**`--incoming` mode (upstream dependencies)** — с флагом `--incoming`:
+Показывает откуда целевой файл импортирует символы. Формат вывода:
+```text
+# N imports in target, M resolved to K unique sources
+import foo as fa          -> path/to/foo.py [symbols: bar, baz]
+from .security import X   -> _engine/security.py [symbols: DEFAULT_USER_AGENT]
+import logging            -> [not found inside project root]
+```
+
+### Примеры запуска default mode (downstream consumers)
 
 **Базовый случай:** исследуем файл внутри текущего проекта:
 ```bash
@@ -72,7 +96,45 @@ cd /workspace/SRC/memohood
 python3 codebase_import_search.py --file "_engine/backends/__init__.py" --project-root "."
 ```
 
-### Формат вывода
+### Примеры запуска `--incoming` mode (upstream dependencies)
+
+**Python:** показать зависимости файла `_engine/embed.py`:
+```bash
+cd /workspace/SRC/memohood
+python3 codebase_import_search.py --incoming --file "_engine/embed.py"
+# Вывод:
+# # 12 imports in target, 3 resolved to 2 unique sources
+# from .. import db -> _engine/__init__.py [symbols: db]
+# from .security import DEFAULT_USER_AGENT -> _engine/security.py [symbols: DEFAULT_USER_AGENT]
+# import logging -> [not found inside project root]
+```
+
+**TypeScript:** показать зависимости файла `src/analyzer.ts`:
+```bash
+cd /workspace/SRC/ts-prune
+python3 codebase_import_search.py --incoming --file "src/analyzer.ts"
+# Вывод:
+# # 8 imports in target, 6 resolved to 6 unique sources
+# import { ignoreComment } from "./constants"; -> src/constants.ts [symbols: ignoreComment]
+# import {(10 symbols) from "ts-morph"}; -> [not found inside project root]
+```
+
+**C#:** показать зависимости файла `GlobalStopWatchInstance.cs`:
+```bash
+cd /workspace/SRC/CoreSharp
+python3 codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/GlobalStopWatchInstance.cs"
+# Вывод:
+# # 4 imports in target, 1 resolved to 1 unique source
+# using AndreasReitberger.Core.Interfaces; -> source/CoreSharp/Interfaces/IGlobalStopWatch.cs [symbols: IGlobalStopWatch]
+# using System; -> [not found inside project root]
+```
+
+**Автодетект языка:** достаточно указать `--file` — язык определяется по расширению:
+```bash
+python3 codebase_import_search.py --incoming --file "src/state.ts" --project-root "/workspace/SRC/ts-prune"
+```
+
+### Формат вывода default mode (downstream consumers)
 
 **Первая строка — саммари:**
 ```text

@@ -131,6 +131,96 @@ python codebase_import_search.py --file "_engine/backends/__init__.py" \
 
 Expected: piped output contains no `^[[` escape sequences.
 
+## Test --incoming mode (upstream dependencies)
+
+New flag `--incoming` shows where a target file's imports come from within project-root. External packages/stdlib are marked `[not found inside project root]`.
+
+### Python incoming test
+
+```bash
+cd /project/tools
+
+# Show upstream deps of _engine/embed.py
+python codebase_import_search.py --incoming --file "_engine/embed.py" \
+  --project-root "/workspace/SRC/memohood"
+```
+
+Expected:
+- Header: `# N imports in target, M resolved to K unique sources`
+- Local imports resolve to files inside project-root with symbols list
+- stdlib/third-party (logging, typing, requests) → `[not found inside project root]`
+
+### TypeScript incoming test
+
+```bash
+cd /project/tools
+
+# Show upstream deps of src/analyzer.ts
+python codebase_import_search.py --incoming --file "src/analyzer.ts" \
+  --project-root "/workspace/SRC/ts-prune"
+```
+
+Expected:
+- Relative imports (`./constants`, `../util/...`) resolve to source files with symbols
+- External packages (ts-morph, fs) → `[not found inside project root]`
+- Multiline named imports handled correctly (compact display for many symbols)
+
+### C# incoming test
+
+```bash
+cd /project/tools
+
+# Show upstream deps of GlobalStopWatchInstance.cs
+python codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/GlobalStopWatchInstance.cs" \
+  --project-root "/workspace/SRC/CoreSharp"
+```
+
+Expected:
+- `using AndreasReitberger.Core.Interfaces;` → resolves to IGlobalStopWatch.cs with symbols list
+- `using System.*;`, `using Microsoft.*;` → `[not found inside project root]` (framework namespaces filtered out)
+
+### Incoming mode auto-detect language
+
+Language should be auto-detected from file extension in incoming mode too:
+
+```bash
+cd /project/tools
+
+# .py auto-detect
+python codebase_import_search.py --incoming --file "_engine/embed.py" \
+  --project-root "/workspace/SRC/memohood" | head -1
+
+# .ts auto-detect  
+python codebase_import_search.py --incoming --file "src/state.ts" \
+  --project-root "/workspace/SRC/ts-prune" | head -1
+
+# .cs auto-detect
+python codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/CommonConverters.cs" \
+  --project-root "/workspace/SRC/CoreSharp" | head -1
+```
+
+Expected: each command works without explicit `--language` flag.
+
+### Incoming mode regression check (ensure default mode still works)
+
+After testing incoming mode, verify default downstream consumers mode unchanged:
+
+```bash
+cd /project/tools
+
+# Python — should match known result: "# 10 files, 16 unique symbols"
+python codebase_import_search.py --file "_engine/backends/__init__.py" \
+  --project-root "/workspace/SRC/memohood" | head -1
+
+# TypeScript — should match known result: "# 5 files, 1 unique symbol"  
+python codebase_import_search.py --file "src/state.ts" \
+  --project-root "/workspace/SRC/ts-prune" | head -1
+
+# C# — should match known result: "# 1 file, 1 unique symbol"
+python codebase_import_search.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" \
+  --project-root "/workspace/SRC/CoreSharp" | head -1
+```
+
 ## Test data locations (Docker container paths)
 
 All test projects are mounted at `/workspace/SRC/`:
