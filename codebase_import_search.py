@@ -26,7 +26,7 @@ try:
     import tools_config
 
     CFG_PROJECT_ROOT = getattr(tools_config, "PROJECT_ROOT", None)
-    CFG_LANGUAGE = getattr(tools_config, "DEFAULT_LANGUAGE", "python")
+    CFG_LANGUAGE = getattr(tools_config, "LANGUAGE", "python")
     CFG_TEST_DIRS = getattr(tools_config, "TEST_DIRS", [])
 except ImportError:
     print("Warning: tools_config.py missing — using defaults.", file=sys.stderr)

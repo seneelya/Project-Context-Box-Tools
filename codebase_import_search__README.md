@@ -231,7 +231,7 @@ If `./tools_config.py` exists and defines valid paths/languages, the tool reads 
 | Config constant | Used as default for | Cascade priority |
 |-----------------|---------------------|------------------|
 | `PROJECT_ROOT` | `--project-root PATH` | CLI flag > config value > current dir (`.`) |
-| `DEFAULT_LANGUAGE` | `--language LNG` | CLI flag > auto-detect from file extension > config value > `python` |
+| `LANGUAGE` | `--language LNG` | CLI flag > auto-detect from file extension > config value > `python` |
 | `TEST_DIRS` | Test directories to exclude/include | Config value > empty list (no exclusions) |
 
 **How it works:**

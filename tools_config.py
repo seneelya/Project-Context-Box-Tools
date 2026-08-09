@@ -5,7 +5,8 @@ Each project should have its own copy of this file with appropriate paths and la
 
 Public interface (tools just import these):
     PROJECT_ROOT       -> str  # first existing path from candidates list, or "." as fallback
-    DEFAULT_LANGUAGE   -> str  # default language for tools that support --language flag
+    LANGUAGE           -> str  # default language for tools that support --language flag
+    TEST_DIRS          -> list # test directories excluded from scanning by default
 """
 
 
@@ -32,12 +33,12 @@ PROJECT_ROOT = _resolve_root([
 ]) or "."
 
 # ---------------------------------------------------------------------------
-# DEFAULT_LANGUAGE: default language handler to use
+# LANGUAGE: default language handler to use
 # Change this according to your project's primary language.
 # Supported values depend on each tool — codebase_import_search supports:
 #   python, typescript (ts), js, csharp (cs)
 # ---------------------------------------------------------------------------
-DEFAULT_LANGUAGE = "python"
+LANGUAGE = "python"
 
 # ---------------------------------------------------------------------------
 # TEST_DIRS: list of test directories relative to PROJECT_ROOT.
