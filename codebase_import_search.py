@@ -215,15 +215,81 @@ def main():
     symbol_lines_global: Dict[str, Dict[str, List[int]]] = {}  # rel_path -> {symbol: [lines]}
     dynamic_results: Dict[str, Set[str]] = {}     # rel_path -> set of dynamic pattern labels
 
+    # FAST FILTER: extract symbols from target file to search for (not just module names!)
+    # Files use symbols like "BackendError", not necessarily the module name "backends".
+    fast_filter_symbols: List[str] = []
+    if args.file and os.path.isfile(target_path_abs):
+        try:
+            with open(target_path_abs, "r", encoding="utf-8", errors="replace") as fh:
+                target_content = fh.read()
+            
+            # Extract all potential public symbols from target file (simple heuristic)
+            import re as _re
+            
+            # Class names
+            for m in _re.finditer(r'^class\s+(\w+)', target_content, _re.MULTILINE):
+                fast_filter_symbols.append(m.group(1))
+            
+            # Function/method names at module level (def not inside class)
+            for m in _re.finditer(r'^(?:async\s+)?def\s+(\w+)\s*\(', target_content, _re.MULTILINE):
+                name = m.group(1)
+                if not name.startswith('_'):  # Prefer public symbols; private ones still useful but lower priority
+                    fast_filter_symbols.append(name)
+            
+            # Constants (UPPER_CASE names at module level)
+            for m in _re.finditer(r'^(\w+)\s*=', target_content, _re.MULTILINE):
+                name = m.group(1)
+                if name.isupper() or (name[0].isupper() and '_' in name):
+                    fast_filter_symbols.append(name)
+            
+            # Exported via __all__
+            all_match = _re.search(r'__all__\s*=\s*\[(.*?)\]', target_content, _re.DOTALL)
+            if all_match:
+                for item in _re.findall(r'''['"](\w+)['"]''', all_match.group(1)):
+                    fast_filter_symbols.append(item)
+        except Exception:
+            pass
+    
+    # Also include module names as fallback (some files import the module directly)
+    fast_filter_symbols.extend(sorted(target_names, key=len))
+    
+    # Deduplicate and sort by length descending (longer first → fewer false positives)
+    fast_filter_symbols = sorted(set(fast_filter_symbols), key=len, reverse=True)
+    
+    if not fast_filter_symbols:
+        use_fast_filter = False
+    elif len(fast_filter_symbols) > 10:
+        # For many symbols, one combined regex is faster than N str.contains() calls
+        import re as _re
+        escaped = [_re.escape(s) for s in fast_filter_symbols]
+        fast_filter_re = _re.compile("|".join(escaped))
+        use_fast_filter = True
+        use_regex_filter = True
+    else:
+        import re as _re
+        escaped = [_re.escape(s) for s in fast_filter_symbols]
+        fast_filter_re = _re.compile("|".join(escaped))
+        use_fast_filter = True
+        use_regex_filter = True
+    
+    skipped_by_fast_filter = 0
+
     for fpath in all_files:
         if os.path.abspath(fpath) == target_path_abs:
             continue
 
         try:
             with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
-                lines = fh.readlines()
+                content = fh.read()
+                lines = content.splitlines(keepends=True)
         except Exception:
             continue
+
+        # FAST FILTER: skip files that don't contain any of our target symbols
+        if use_fast_filter:
+            if not fast_filter_re.search(content):
+                skipped_by_fast_filter += 1
+                continue
 
         symbols_dict, symbol_lines_dict, dyn_patterns = handler.analyze_file(fpath, lines, target_names, project_root)
 
@@ -234,6 +300,11 @@ def main():
             symbol_lines_global[rp] = symbol_lines_dict
         if dyn_patterns:
             dynamic_results[rp] = dyn_patterns
+
+    # Debug: show fast filter stats (only when verbose or to stderr)
+    total_scanned = len(all_files) - 1  # minus target file itself
+    if skipped_by_fast_filter > 0 and args.verbose:
+        print(f"# Fast filter skipped {skipped_by_fast_filter}/{total_scanned} files ({100*skipped_by_fast_filter//max(total_scanned,1)}% reduction)")
 
     # Output sorted by file path, symbols alphabetically within each file
     all_symbols = set()
