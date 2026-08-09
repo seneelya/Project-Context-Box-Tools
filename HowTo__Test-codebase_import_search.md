@@ -221,6 +221,76 @@ python codebase_import_search.py --file "source/CoreSharp/Interfaces/IGlobalStop
   --project-root "/workspace/SRC/CoreSharp" | head -1
 ```
 
+## Test --verbose mode (per-symbol line numbers)
+
+New flag `--verbose` groups default mode output by symbol instead of file, showing exact usage lines and load types. Includes self-documenting format legend on first line. Works only in default mode (not with --incoming).
+
+### Python verbose test
+
+```bash
+cd /project/tools
+
+python codebase_import_search.py --file "_engine/backends/__init__.py" \
+  --project-root "/workspace/SRC/memohood" --verbose | head -25
+```
+
+Expected:
+- Header: `# N files, M unique symbols`
+- Legend line: `# Format: Symbol -> load_type: file_path: lines=[usage_line_numbers]`
+- Symbols grouped alphabetically with load type prefixes (`top-level:`, `lazy:`, `fallback:`)
+- Line numbers point to actual usage locations (NOT import lines)
+
+Example expected output:
+```text
+BackendError:
+  top-level: _engine/backends/chat.py: lines=[52]
+_embed_once:
+  lazy: _engine/embed.py: lines=[18]
+backends:
+  fallback: _lab/backends_cfg.py: lines=[1]
+```
+
+### TypeScript verbose test
+
+```bash
+cd /project/tools
+
+python codebase_import_search.py --file "src/state.ts" \
+  --project-root "/workspace/SRC/ts-prune" --verbose
+```
+
+Expected: State symbol listed with line numbers from test files where it's used (lines=[N], not import lines).
+
+### C# verbose test
+
+```bash
+cd /project/tools
+
+python codebase_import_search.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" \
+  --project-root "/workspace/SRC/CoreSharp" --verbose
+```
+
+Expected: IGlobalStopWatch interface shown with exact line in GlobalStopWatchInstance.cs where it's implemented/used.
+
+### Verbose mode regression check (default format unchanged)
+
+After testing --verbose, verify default file-grouped format still works correctly:
+
+```bash
+cd /project/tools
+
+# Should show "file: [symbols]" format (NOT per-symbol grouping)
+python codebase_import_search.py --file "_engine/backends/__init__.py" \
+  --project-root "/workspace/SRC/memohood" | head -5
+```
+
+Expected output (default mode, no --verbose):
+```text
+# 10 files, 16 unique symbols
+_engine/backends/chat.py: [BackendError, _build_headers, _post_with_retries, _timeouts_for]
+_engine/backends/embed_driver.py: [BackendError, _api_key_for]
+```
+
 ## Test data locations (Docker container paths)
 
 All test projects are mounted at `/workspace/SRC/`:

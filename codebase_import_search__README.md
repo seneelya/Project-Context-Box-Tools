@@ -7,7 +7,11 @@
 - **Default mode (downstream consumers)** — агент исследует файл → пишет карточку документации описывающую внешний интерфейс модуля → запускает утилиту `codebase_import_search` → видит что из этого файла реально импортируется и используется в других файлах проекта → корректирует описание публичного API.
   - **Ключевой вопрос:** ЧТО из исследуемого модуля является внешним интерфейсом (реально используется вовне)?
 
-- **`--incoming` mode (upstream dependencies)** — показывает откуда целевой файл берёт свои зависимости: каждый исходный файл внутри project-root перечислен с символами, которые из него импортируются. Внешние пакеты/stdlib сгруппированы внизу как `[external]: <import_line>`.\n  - **Ключевой вопрос:** ОТКУДА этот модуль импортирует символы? Где определены его зависимости?
+- **`--incoming` mode (upstream dependencies)** — показывает откуда целевой файл берёт свои зависимости: каждый исходный файл внутри project-root перечислен с символами, которые из него импортируются. Внешние пакеты/stdlib сгруппированы внизу как `[external]: <import_line>`.
+  - **Ключевой вопрос:** ОТКУДА этот модуль импортирует символы? Где определены его зависимости?
+
+- **`--verbose` mode (per-symbol detail)** — группирует вывод default mode по символам вместо файлов: для каждого символа показывает все файлы и точные номера строк где он используется, плюс тип загрузки (lazy/top-level/conditional/fallback). Включает самодокументирующую легенду формата на первой строке.
+  - **Ключевой вопрос:** ГДЕ именно (в каких файлах на каких строках) используется каждый конкретный символ моего API?
 
 Инструмент сканирует весь проект и находит все файлы, которые импортируют целевой модуль, а затем определяет какие именно символы (функции, классы, константы) из него используются в каждом файле-потребителе.
 
@@ -52,8 +56,9 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 | `--file PATH` | Путь к исследуемому файлу (относительный от project-root или абсолютный) | `_engine/auth.py`, `src/analyzer.ts` |
 | `--module NAME` | Имя модуля (альтернатива --file; в v1 не используется активно) | `auth_module` |
 | `--module-names N1,N2,...` | Дополнительные имена по которым этот модуль можно импортировать | `_secret_module,auth_core` |
-| `--language LNG` | No (default: `python`) | Language handler/resolver to use (supports Python, TypeScript/JS, C#) | `python`, `typescript`, `csharp` |
-| `--incoming` | Show upstream dependencies (where target's imports come from) instead of downstream consumers | (no value needed) |
+| `--language LNG` | Язык обработчика/резолвера (поддерживает Python, TypeScript/JS, C#). По умолчанию автодетект по расширению файла или python | `python`, `typescript`, `csharp` |
+| `--incoming` | Показать upstream зависимости (откуда целевой файл импортирует символы) вместо downstream consumers | (без значения) |
+| `--verbose` | Группировать вывод по символам с номерами строк и типами загрузки (работает только в default mode); добавляет легенду формата | (без значения) |
 | `--project-root PATH` | Root directory to scan for imports (default from tools_config.py or current dir) | `/workspace/SRC/memohood`, `.` |
 | `--tests-only` | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
 
@@ -77,6 +82,26 @@ _engine/security.py: [DEFAULT_USER_AGENT]
 ```
 
 (Формат `file: [symbols]` совпадает с default mode для консистентности.)
+
+**`--verbose` mode (per-symbol detail)** — в default mode с флагом `--verbose`:
+Группирует вывод по символам вместо файлов, показывая точные номера строк использования и тип загрузки. Формат вывода:
+```text
+# N files, M unique symbols (+K with dynamic access)
+# Format: Symbol -> load_type: file_path: lines=[usage_line_numbers]
+
+BackendError:
+  top-level: _engine/backends/chat.py: lines=[52]
+_embed_once:
+  lazy: _engine/embed.py: lines=[18]
+backends:
+  fallback: _lab/backends_cfg.py: lines=[1]
+```
+
+Типы загрузки:
+- `top-level` — символ импортирован на уровне модуля (загружается сразу)
+- `lazy` — импорт внутри функции/метода (ленивая загрузка при вызове)
+- `conditional` — импорт в if блоке (условная загрузка)
+- `fallback` — импорт в try/except (опциональная зависимость)
 
 ### Примеры запуска default mode (downstream consumers)
 

@@ -1,9 +1,10 @@
 # codebase_import_search
 
-Two modes (default: downstream consumers; `--incoming`: upstream dependencies):
+Three modes: default (downstream consumers), `--incoming` (upstream dependencies), verbose detail (`--verbose`).
 
 - **Default mode** — returns a table of all usages of the given module/file in the codebase with import categories: top-level (always loaded), lazy (inside function/method), conditional (inside if block), fallback (try/catch optional dep), and dynamic runtime access via string names.
 - **`--incoming` mode** — shows where the target file's imports come from within project-root: each source file listed with symbols imported. External packages/stdlib grouped as `[external]: <import_line>` at end.
+- **`--verbose` mode** — groups output by symbol instead of file, showing exact line numbers where each symbol is used plus load type. Includes a self-documenting format legend on first line.
 
 ## Parameters CLI flags
 
@@ -11,8 +12,9 @@ Two modes (default: downstream consumers; `--incoming`: upstream dependencies):
 |------|----------|-------------|---------|
 | `--file PATH` | One of `--file` or `--module` | Target file path relative to project-root | `_engine/auth.py`, `src/analyzer.ts` |
 | `--module NAME` | One of `--file` or `--module` | Module name instead of file path (alternative to --file) | `auth_module`, `pkg.submodule` |
-| `--language LNG` | No (default: `python`) | Language handler/resolver to use | `python`, `typescript`, `ts`, `js`, `csharp`, `cs` |
+| `--language LNG` | No (default: auto or python) | Language handler/resolver to use | `python`, `typescript`, `ts`, `js`, `csharp`, `cs` |
 | `--incoming` | No | Show upstream dependencies (where target's imports come from) instead of downstream consumers | (no value needed) |
+| `--verbose` | No (default mode only) | Group output by symbol with line numbers and load types; adds format legend | (no value needed) |
 | `--module-names N1,N2,...` | No | Extra names by which this module can be imported | `_secret_module,auth_core` |
 | `--project-root PATH` | No (default: current dir) | Root directory to scan for imports | `/workspace/SRC/memohood`, `.` |
 | `--tests-only` | No | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
