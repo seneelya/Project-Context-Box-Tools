@@ -428,7 +428,8 @@ def main():
     args = parser.parse_args()
 
     if not args.file and not args.module:
-        print("Error: must specify --file or --module", file=sys.stderr)
+        parser.print_help(sys.stderr)
+        print("\nError: must specify --file or --module", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -468,6 +469,19 @@ def main():
             results[rp] = symbols
 
     # Output sorted by file path, symbols alphabetically within each file
+
+    if not results:
+        print("# No external usages found.")
+        return
+
+    # Summary line for agent convenience (counting is hard for LLMs)
+    all_symbols = set()
+    for syms in results.values():
+        all_symbols.update(syms)
+    num_files = len(results)
+    num_symbols = len(all_symbols)
+    print(f"# {num_files} file{'s' if num_files != 1 else ''}, {num_symbols} unique symbol{'s' if num_symbols != 1 else ''}")
+
     for fpath in sorted(results.keys()):
         syms = sorted(results[fpath])
         print(f"{fpath}: [{', '.join(syms)}]")
