@@ -141,7 +141,7 @@ class CSharpHandler(LanguageHandler):
                 continue
 
             # Dynamic type loading: Type.GetType("Namespace.Class") or Assembly.Load(...)
-            if 'Type.GetType("' in line and any(tname.replace(".", "\\.") in line for tname in target_names):
+            if 'Type.GetType("' in line and any(tname.replace(".", "\\\\.") in line for tname in target_names):
                 dyn_patterns.add('Type.GetType()')
             if 'Assembly.Load' in line and 'CreateInstance' in line:
                 dyn_patterns.add("Assembly.CreateInstance()")
@@ -213,7 +213,7 @@ class CSharpHandler(LanguageHandler):
                 # Check if this type name appears as a word boundary match
                 pattern = re.compile(rf"\b{re.escape(type_name)}\b")
                 matches = pattern.findall(content_text)
-                if matches and len(matches) > 1:  # More than just declaration context
+                if matches:  # At least one usage (e.g., inheritance, method signature) counts
                     _, kind = imported_target_ns[0]
                     used_symbols[type_name] = kind
 
