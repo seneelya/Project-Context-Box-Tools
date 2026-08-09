@@ -155,6 +155,23 @@ def resolve_target_names(
         except Exception:
             pass
 
+        # For C# projects add namespace-style dotted paths
+        # e.g., MyProject.Core/Services/AuthService.cs -> "MyProject.Core.Services.AuthService"
+        try:
+            rel_dir = os.path.relpath(os.path.dirname(file_path), pr_path)
+            if rel_dir != "." and rel_dir != "..":
+                parts = [p for p in Path(rel_dir).parts if p not in {".", ".."}]
+                if parts:
+                    ns_dotted = ".".join(parts) + "." + basename_no_ext
+                    names.add(ns_dotted)  # Full namespace path like "Core.Services.AuthService"
+                    
+                    # Also add parent namespaces (for using directives that reference the namespace, not type)
+                    for i in range(1, len(parts) + 2):
+                        ns_prefix = ".".join(parts[:i])
+                        names.add(ns_prefix)  # "Core", "Core.Services", etc.
+        except Exception:
+            pass
+
     elif module_arg:
         file_path = None
         basename_no_ext = Path(module_arg).stem.replace(".", os.sep)

@@ -13,6 +13,8 @@ def get_handler(language: str) -> LanguageHandler:
         "typescript": _make_ts_handler,
         "ts": _make_ts_handler,
         "js": _make_ts_handler,
+        "csharp": _make_csharp_handler,
+        "cs": _make_csharp_handler,
         # Add more here as they are implemented
     }
 
@@ -32,3 +34,8 @@ def _make_python_handler():
 def _make_ts_handler():
     from .ts_handler import TypeScriptHandler
     return TypeScriptHandler()
+
+
+def _make_csharp_handler():
+    from .csharp_handler import CSharpHandler
+    return CSharpHandler()
