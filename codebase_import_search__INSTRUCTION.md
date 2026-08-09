@@ -1,5 +1,4 @@
 # codebase_import_search
-
 Returns a table of all usages of the given module/file in the codebase with import categories: top-level (always loaded), lazy (inside function/method), conditional (inside if block), fallback (try/catch optional dep), and dynamic runtime access via string names.
 
 ## Parameters CLI flags
