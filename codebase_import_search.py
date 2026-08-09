@@ -208,20 +208,16 @@ class PythonHandler(LanguageHandler):
     """Python import analysis using regex heuristics (not full AST)."""
 
     # Patterns for import lines
-    # Handles: import foo, import foo as bar, import foo, bar as baz
-    IMPORT_RE = re.compile(
-        r'^\s*import\s+(.+)$'
-    )
+    IMPORT_RE = re.compile(r'^\s*import\s+(.+)$')
+    FROM_IMPORT_RE = re.compile(r'^\s*from\s+(\.*)([\w\.]*)\s+import\s+(.+)\s*$')
 
-    # from X import Y, Z as W
-    FROM_IMPORT_RE = re.compile(
-        r'^\s*from\s+(\.*)([\w\.]*)\s+import\s+(.+)\s*$'
-    )
-
-    # Attribute access after alias: ALIAS.something or ALIAS.foo.bar.baz()
-    ATTR_ACCESS_RE = re.compile(
-        r'\b(' + r'|'.join([re.escape(a) for a in []]) + r')\.'  # filled dynamically
-    )
+    # Runtime/dynamic import patterns — detect when module name appears as string argument
+    DYNAMIC_PATTERNS = [
+        ("__import__",    re.compile(r'__import__\s*\(\s*["\']([^"\']+)["\']')),
+        ("sys.modules[]", re.compile(r'sys\.modules\s*\[\s*["\']([^"\']+)["\']')),
+        ("getattr(sys.modules)", re.compile(r'getattr\s*\(\s*sys\.modules\s*\[\s*["\']([^"\']+)["\']')),
+        ("import_module", re.compile(r'import_module\s*\(\s*["\']([^"\']+)["\']')),
+    ]
 
     def __init__(self):
         self._attr_pattern_cache = {}
@@ -263,6 +259,25 @@ class PythonHandler(LanguageHandler):
         pat = re.compile(pattern_str)
         self._attr_pattern_cache[key] = pat
         return pat
+
+    def _detect_dynamic_access(self, full_text: str, target_names: Set[str]) -> Set[str]:
+        """
+        Detect runtime/dynamic access to target modules via string module names.
+        
+        Returns set of pattern labels like {"__import__", "import_module"} that reference our targets.
+        Exact symbols are unknown — we only flag that the file uses strings matching our target names.
+        """
+        found_patterns: Set[str] = set()
+        
+        for label, pat in self.DYNAMIC_PATTERNS:
+            for m in pat.finditer(full_text):
+                module_str = m.group(1)  # string argument like "target" or "pkg.target"
+                
+                # Check if this string matches any of our target names
+                if self.matches_target(module_str, target_names):
+                    found_patterns.add(label)
+        
+        return found_patterns
 
     def _collect_from_import_items(self, content_lines: List[str], start_idx: int) -> str | None:
         """
@@ -383,7 +398,7 @@ class PythonHandler(LanguageHandler):
 
                 continue
 
-        # Second pass (or same pass continuation): find attribute accesses for our aliases
+        # Second pass: find attribute accesses for our aliases
         if import_aliases:
             pattern = self._build_attr_pattern(set(import_aliases.keys()))
             if pattern:
@@ -391,16 +406,17 @@ class PythonHandler(LanguageHandler):
                 for m in pattern.finditer(full_text):
                     alias = m.group(1)
                     attr_path = m.group(2).strip()
-                    # Only record if this alias maps to one of our targets
                     if import_aliases.get(alias) and attr_path:
-                        # Filter out obvious false positives: file extensions in strings
-                        # (e.g., 'module.py' in a docstring or comment)
                         first_token = attr_path.split(".")[0]
                         if len(first_token) <= 3 and first_token.isalpha():
                             continue
                         used_symbols.add(attr_path)
 
-        return used_symbols
+        # Third pass: detect runtime/dynamic access via string module names
+        full_text = "\n".join(content_lines)
+        dynamic_patterns = self._detect_dynamic_access(full_text, target_names)
+
+        return used_symbols, dynamic_patterns
 
 
 def main():
@@ -464,10 +480,10 @@ def main():
     # Collect all .py files in the project
     all_files = collect_py_files(project_root)
 
-    results: Dict[str, Set[str]] = {}  # rel_path -> set of symbols
+    results: Dict[str, Set[str]] = {}       # rel_path -> set of symbols
+    dynamic_results: Dict[str, Set[str]] = {}  # rel_path -> set of dynamic pattern labels
 
     for fpath in all_files:
-        # Skip the target file itself
         if os.path.abspath(fpath) == target_path_abs:
             continue
 
@@ -477,28 +493,43 @@ def main():
         except Exception:
             continue
 
-        symbols = handler.analyze_file(fpath, lines, target_names, project_root)
+        symbols, dyn_patterns = handler.analyze_file(fpath, lines, target_names, project_root)
+        
+        rp = rel_path(fpath, project_root)
         if symbols:
-            rp = rel_path(fpath, project_root)
             results[rp] = symbols
+        if dyn_patterns:
+            dynamic_results[rp] = dyn_patterns
 
     # Output sorted by file path, symbols alphabetically within each file
 
-    if not results:
-        print("# No external usages found.")
-        return
-
-    # Summary line for agent convenience (counting is hard for LLMs)
     all_symbols = set()
     for syms in results.values():
         all_symbols.update(syms)
     num_files = len(results)
     num_symbols = len(all_symbols)
-    print(f"# {num_files} file{'s' if num_files != 1 else ''}, {num_symbols} unique symbol{'s' if num_symbols != 1 else ''}")
+    num_dynamic = len(dynamic_results)
 
+    if not results and not dynamic_results:
+        print("# No external usages found.")
+        return
+
+    # Summary line (with dynamic access count if any)
+    summary_suffix = f" (+{num_dynamic} with dynamic access)" if num_dynamic else ""
+    static_part = "# No static imports," if not results else f"# {num_files} file{'s' if num_files != 1 else ''}, {num_symbols} unique symbol{'s' if num_symbols != 1 else ''}"
+    print(f"{static_part}{summary_suffix}")
+
+    # Static imports first
     for fpath in sorted(results.keys()):
         syms = sorted(results[fpath])
         print(f"{fpath}: [{', '.join(syms)}]")
+
+    # Dynamic/runtime access (separate section)
+    if dynamic_results:
+        for fpath in sorted(dynamic_results.keys()):
+            patterns = sorted(dynamic_results[fpath])
+            # If file also has static symbols, show as additional line; otherwise standalone
+            print(f"{fpath}: Possible Dynamic import [{', '.join(patterns)}]")
 
 
 if __name__ == "__main__":
