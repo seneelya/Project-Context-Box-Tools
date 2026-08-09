@@ -46,10 +46,10 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 
 | Параметр | Описание | Пример |
 |----------|----------|--------|
-| `--file PATH` | Путь к исследуемому файлу Python (относительный от project-root или абсолютный) | `_engine/auth.py`, `db.py` |
+| `--file PATH` | Путь к исследуемому файлу (относительный от project-root или абсолютный) | `_engine/auth.py`, `src/analyzer.ts` |
 | `--module NAME` | Имя модуля (альтернатива --file; в v1 не используется активно) | `auth_module` |
 | `--module-names N1,N2,...` | Дополнительные имена по которым этот модуль можно импортировать | `_secret_module,auth_core` |
-| `--language LNG` | Язык (по умолчанию `python`; только python поддерживается в v1) | `python` |
+| `--language LNG` | No (default: `python`) | Language handler to use (supports Python, TypeScript/JS, C#) | `python`, `typescript`, `csharp` |
 | `--project-root PATH` | Корень проекта для поиска (по умолчанию текущая директория) | `/workspace/SRC/memohood`, `.` |
 
 ### Примеры запуска
@@ -200,11 +200,11 @@ Regex-based подход не идеален — он видит текст, а 
 ✅ Детекция типа импорта: top-level / lazy / conditional / fallback  
 ✅ Dynamic/runtime imports: `__import__('target')`, `sys.modules['target']`, `importlib.import_module('target')`
 
-## НЕ ловим в v1.2 (отложено на будущие версии)
+## НЕ ловим (отложено на будущие версии)
 
 ❌ Полное извлечение символов из dynamic imports (только флажим что есть)  
 ❌ Runtime сборка имени строками (`getattr(sys.modules[...], ...)`) без прямого упоминания target name  
-❌ Языки кроме Python (архитектура готова для расширения через LanguageHandler)
+❌ Языки кроме Python, TypeScript/JS, C# — но архитектура готова для расширения через LanguageHandler
 
 ---
 
@@ -212,8 +212,11 @@ Regex-based подход не идеален — он видит текст, а 
 
 Инструмент спроектирован модульно с самого начала:
 
-- `LanguageHandler(ABC)` — абстрактный класс обработчика языка
-- `PythonHandler(LanguageHandler)` — референс-реализация для Python встроенная в файл
-- Будущие языки подключаются через отдельные файлы или классы, импортируемые по имени языка
+- `LanguageHandler(ABC)` — абстрактный класс обработчика языка в `codebase_import_search/core.py`
+- Реализации по языкам в отдельных файлах:
+  - `handlers/python_handler.py` — PythonHandler (static imports, dynamic detection, import kinds)
+  - `handlers/ts_handler.py` — TypeScriptHandler (ES modules, CommonJS require, namespace imports)
+  - `handlers/csharp_handler.py` — CSharpHandler (using directives, namespace extraction from source files)
+- Реестр хендлеров в `handlers/__init__.py`: `get_handler('python')`, `get_handler('typescript')`, ...
 
-Это позволяет добавлять поддержку TypeScript/JS/C++ и др. без переписывания ядра.
+Это позволяет добавлять поддержку новых языков без переписывания ядра.
