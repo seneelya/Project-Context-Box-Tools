@@ -4,3 +4,10 @@ py codebase_import_search.py --file "_engine/backends/__init__.py"           --p
 
 
 py codebase_import_search.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --language csharp --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\CoreSharp"
+
+
+# --incoming mode (upstream dependencies)
+
+py codebase_import_search.py --incoming --file "_engine/embed.py"           --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\memohood"
+py codebase_import_search.py --incoming --file "src/analyzer.ts"            --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\ts-prune"
+py codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/GlobalStopWatchInstance.cs" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\CoreSharp"

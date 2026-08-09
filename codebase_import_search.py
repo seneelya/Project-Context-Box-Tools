@@ -158,18 +158,22 @@ def main():
             )
         print(_YELLOW + ", ".join(summary_parts) + _RESET)
 
-        # Show all imports (resolved first, then unresolved)
+        # Group by source file: show as "file: [symbols]" (same format as default mode)
+        from collections import defaultdict
+        file_symbols: Dict[str, List[str]] = defaultdict(list)
         for imp in resolved:
             rel_src = rel_path(imp.resolved_path, project_root)
-            line_out = f"{imp.raw_line}"
-            suffix = f" -> {rel_src}"
-            if imp.symbol_names:
-                suffix += f" [symbols: {', '.join(sorted(imp.symbol_names))}]"
-            print(line_out + suffix)
+            file_symbols[rel_src].extend(imp.symbol_names)
 
-        for imp in unresolved:
-            line_out = f"{imp.raw_line}"
-            print(line_out + " -> [not found inside project root]")
+        # Show resolved imports first, sorted by file path
+        for src_file in sorted(file_symbols.keys()):
+            symbols_sorted = sorted(set(file_symbols[src_file]))
+            print(f"{src_file}: [{', '.join(symbols_sorted)}]")
+
+        # Show unresolved imports grouped together at the end
+        if unresolved:
+            for imp in unresolved:
+                print(f"[external]: {imp.raw_line}")
 
         return
 
