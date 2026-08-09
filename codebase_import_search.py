@@ -34,7 +34,7 @@ def main():
     parser.add_argument(
         "--language",
         default="python",
-        help="Language of the codebase (default: python). Supported: python, typescript.",
+        help="Language of the codebase (default: python). Supported: python, typescript, csharp.",
     )
     parser.add_argument(
         "--project-root",
@@ -78,6 +78,16 @@ def main():
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # For C#, extract namespace from target file and add to target_names
+    if args.language.lower() in {"csharp", "cs"} and hasattr(handler, "_extract_namespace"):
+        ns = handler._extract_namespace(target_path_abs)
+        if ns:
+            target_names.add(ns)
+            # Also add parent namespaces (for using directives that reference parent namespace)
+            parts = ns.split(".")
+            for i in range(1, len(parts)):
+                target_names.add(".".join(parts[:i]))
 
     # Collect files matching the handler's extensions
     all_files = collect_files(project_root, handler.get_extensions())
