@@ -442,10 +442,24 @@ def main():
         print(f"Error: language '{args.language}' not supported yet (only 'python' in v1)", file=sys.stderr)
         sys.exit(1)
 
-    handler = PythonHandler()
-
+    # Validate inputs before scanning
     project_root = os.path.abspath(args.project_root)
-    target_path_abs = target_path if target_path else ""
+    if not os.path.isdir(project_root):
+        print(f"Error: --project-root is not a directory: {project_root}", file=sys.stderr)
+        sys.exit(1)
+
+    target_path_abs = ""
+    if args.file:
+        # Resolve relative path against project_root or cwd
+        file_arg = args.file
+        if not os.path.isabs(file_arg):
+            file_arg = os.path.join(project_root, file_arg)
+        target_path_abs = os.path.abspath(file_arg)
+        if not os.path.isfile(target_path_abs):
+            print(f"Error: --file does not exist or is not a file: {target_path_abs}", file=sys.stderr)
+            sys.exit(1)
+
+    handler = PythonHandler()
 
     # Collect all .py files in the project
     all_files = collect_py_files(project_root)
