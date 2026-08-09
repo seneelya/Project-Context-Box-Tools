@@ -63,6 +63,11 @@ class TypeScriptHandler(LanguageHandler):
         "conditional": re.compile(r'\s*if\s+\('),
     }
 
+    # Symbols that are clearly NOT from the target module (Jest mock methods, etc.)
+    MOCK_METHODS = {"mock", "mockImplementation", "mockResolvedValue", "mockRejectedValue",
+                    "mockReturnValue", "mockClear", "mockReset", "mockRestore",
+                    "mock.calls", "mock.instances", "mock.results"}
+
     def __init__(self):
         self._attr_pattern_cache = {}
 
@@ -226,8 +231,31 @@ class TypeScriptHandler(LanguageHandler):
                         # Filter obvious false positives like file extensions in strings
                         if len(first_token) <= 3 and first_token.isalpha():
                             continue
+                        # Filter Jest mock methods and similar test utilities
+                        if first_token in self.MOCK_METHODS or any(attr_path.startswith(mp + ".") for mp in self.MOCK_METHODS):
+                            continue
                         _, kind = import_aliases[alias]
                         used_symbols[attr_path] = kind
+
+        # Post-processing: filter out attribute access that is clearly on a direct named import
+        # (e.g., when 'analyze' is imported directly via `import { analyze } from "./analyzer"`,
+        # then `analyze.mockImplementation()` in tests should NOT be reported as symbol "mockImplementation").
+        # Only keep attribute paths whose first token is NOT already a direct used symbol.
+        to_remove = []
+        for sym in list(used_symbols.keys()):
+            if "." in sym:
+                first_token = sym.split(".")[0]
+                # If the base name is itself a direct import from our target, this attr path
+                # is likely an operation on that imported value (mock calls, method chaining), not a separate symbol.
+                # BUT only remove it if it looks like a known pattern (mock*, tests*).
+                if first_token in used_symbols:
+                    # Check if the rest of the path is clearly NOT a submodule/symbol from target
+                    rest = sym[len(first_token)+1:]
+                    if rest.startswith("mock") or rest.startswith("test"):
+                        to_remove.append(sym)
+
+        for sym in to_remove:
+            del used_symbols[sym]
 
         # Third pass: dynamic import() detection
         full_text = "\n".join(content_lines)
