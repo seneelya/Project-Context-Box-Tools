@@ -256,7 +256,7 @@ def main():
     static_part = "# No static imports," if not results else f"# {num_files} file{'s' if num_files != 1 else ''}, {num_symbols} unique symbol{'s' if num_symbols != 1 else ''}"
     print(f"{_YELLOW}{static_part}{summary_suffix}{_RESET}")
 
-    # Verbose mode: group by symbol with line numbers
+    # Verbose mode: group by symbol with line numbers and load types
     if args.verbose and results:
         from collections import defaultdict
         symbol_usages: Dict[str, List[Tuple[str, str, int]]] = defaultdict(list)  # sym -> [(file, kind, line)]
@@ -270,8 +270,12 @@ def main():
                     for line_num in lines_for_sym:
                         symbol_usages[sym].append((fpath, kind, line_num))
                 else:
-                    # Fallback: symbol detected but no specific line tracked — use first occurrence of that kind
+                    # Fallback: symbol detected but no specific line tracked
                     symbol_usages[sym].append((fpath, kind, 0))
+
+        # Legend explaining the format
+        print("# Format: Symbol -> load_type: file_path: lines=[usage_line_numbers]")
+        print()
 
         for sym in sorted(symbol_usages.keys()):
             usages = symbol_usages[sym]
@@ -282,13 +286,13 @@ def main():
                 key = (fpath, kind)
                 if key not in seen:
                     seen.add(key)
-                    prefix = "" if kind == "top-level" else f"{kind}: "
+                    prefix = kind + ": "  # Always show load type (lazy/top-level/conditional/fallback)
                     if line_num > 0:
                         parts.append(f"{prefix}{fpath}: lines=[{line_num}]")
                     else:
                         parts.append(f"{prefix}{fpath}")
 
-            print(f"\n{sym}:")
+            print(f"{sym}:")
             for part in parts:
                 print(f"  {part}")
 
