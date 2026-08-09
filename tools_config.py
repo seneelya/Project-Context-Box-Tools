@@ -38,3 +38,15 @@ PROJECT_ROOT = _resolve_root([
 #   python, typescript (ts), js, csharp (cs)
 # ---------------------------------------------------------------------------
 DEFAULT_LANGUAGE = "python"
+
+# ---------------------------------------------------------------------------
+# TEST_DIRS: list of test directories relative to PROJECT_ROOT.
+# Files under these paths are excluded from scanning by default.
+# Use --tests-only flag to show usages FROM test files only.
+# Paths are relative to PROJECT_ROOT, e.g.:
+#   "tests"              -> /workspace/SRC/memohood/tests/...
+#   "_engine/tests"      -> /workspace/SRC/memohood/_engine/tests/...
+# ---------------------------------------------------------------------------
+TEST_DIRS = [
+    # Add your project's test directories here (relative to PROJECT_ROOT)
+]
