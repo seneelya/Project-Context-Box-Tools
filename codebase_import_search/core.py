@@ -12,21 +12,40 @@ EXCLUDED_DIRS = {".git", "__pycache__", ".venv", "node_modules", "dist", "build"
 EXCLUDED_SUFFIXES = {".egg-info"}
 
 
-def collect_files(project_root: str, extensions: Set[str]) -> List[str]:
-    """Recursively collect files with given extensions under project_root."""
+def collect_files(project_root: str, extensions: Set[str], test_dirs: List[str] = None, tests_only: bool = False) -> List[str]:
+    """Recursively collect files with given extensions under project_root.
+    
+    Args:
+        project_root: Root directory to scan
+        extensions: File extensions to include (e.g. {'.py'})
+        test_dirs: List of test directories relative to project_root (excluded by default)
+        tests_only: If True, only include files from test_dirs
+    """
     root_path = Path(project_root).resolve()
+    test_paths = [root_path / d for d in (test_dirs or [])]
     result = []
     for dirpath, dirnames, filenames in os.walk(root_path):
         dirnames[:] = [d for d in dirnames if should_include_dir(d)]
+        current = Path(dirpath)
+        
+        # Check if this directory is a test directory
+        is_in_test = any(current.is_relative_to(tp) for tp in test_paths if tp.exists())
+        
+        # Filter logic: exclude tests by default, include only with tests_only
+        if tests_only and not is_in_test:
+            continue
+        elif not tests_only and is_in_test:
+            continue
+            
         for fname in sorted(filenames):
             if any(fname.endswith(ext) for ext in extensions):
-                result.append(str(Path(dirpath) / fname))
+                result.append(str(current / fname))
     return result
 
 
-def collect_py_files(project_root: str) -> List[str]:
+def collect_py_files(project_root: str, test_dirs: List[str] = None, tests_only: bool = False) -> List[str]:
     """Backward compat wrapper."""
-    return collect_files(project_root, {".py"})
+    return collect_files(project_root, {".py"}, test_dirs or [], tests_only)
 
 
 def should_include_dir(dirname: str) -> bool:

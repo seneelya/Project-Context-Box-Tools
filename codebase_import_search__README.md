@@ -50,7 +50,8 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 | `--module NAME` | Имя модуля (альтернатива --file; в v1 не используется активно) | `auth_module` |
 | `--module-names N1,N2,...` | Дополнительные имена по которым этот модуль можно импортировать | `_secret_module,auth_core` |
 | `--language LNG` | No (default: `python`) | Language handler to use (supports Python, TypeScript/JS, C#) | `python`, `typescript`, `csharp` |
-| `--project-root PATH` | Корень проекта для поиска (по умолчанию текущая директория) | `/workspace/SRC/memohood`, `.` |
+| `--project-root PATH` | Root directory to scan for imports (default from tools_config.py or current dir) | `/workspace/SRC/memohood`, `.` |
+| `--tests-only` | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
 
 ### Примеры запуска
 
@@ -225,16 +226,29 @@ Regex-based подход не идеален — он видит текст, а 
 
 ## Default values from tools_config.py
 
-If `/project/tools/tools_config.py` exists and defines valid paths/languages, the tool reads defaults automatically:
+If `./tools_config.py` exists and defines valid paths/languages, the tool reads defaults automatically:
 
 | Config constant | Used as default for | Cascade priority |
 |-----------------|---------------------|------------------|
 | `PROJECT_ROOT` | `--project-root PATH` | CLI flag > config value > current dir (`.`) |
-| `DEFAULT_LANGUAGE` | `--language LNG` | CLI flag > config value > `python` |
+| `DEFAULT_LANGUAGE` | `--language LNG` | CLI flag > auto-detect from file extension > config value > `python` |
+| `TEST_DIRS` | Test directories to exclude/include | Config value > empty list (no exclusions) |
 
 **How it works:**
 1. Tool loads `tools_config.py` at startup (optional — if missing, prints warning and uses hardcoded defaults)
 2. `PROJECT_ROOT` is computed by `_resolve_root([...])` which returns the first existing path from a list of candidates (works across Docker/Windows/Linux without environment detection)
 3. When config is present, agent only needs to specify `--file PATH` or `--module NAME`; project root and language are taken from config automatically
+
+**Auto-detect language from file extension:**
+- When `--file PATH` is provided and `--language` is not explicitly set, tool automatically detects language from file extension:
+  - `.ts`, `.js` → TypeScript handler
+  - `.cs` → C# handler  
+  - `.py` → Python handler
+- This uses the same cascade priority mechanism, so explicit CLI flag still takes precedence over auto-detection
+
+**Test directory exclusion:**
+- By default, files under directories listed in `TEST_DIRS` (relative to PROJECT_ROOT) are **excluded** from scanning
+- Use `--tests-only` flag to show usages **only from test directories** (reveals what public API is covered by tests)
+- Example: if production scan shows 10 symbols but `--tests-only` shows 7, then 3 symbols have no test coverage
 
 This simplifies CLI for agents working on a specific project — no need to repeat the same paths/languages in every command.

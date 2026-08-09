@@ -1,0 +1,6 @@
+py codebase_import_search.py --file "src/state.ts"     --language ts         --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\ts-prune"
+py codebase_import_search.py --file "src/analyzer.ts"  --language typescript --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\ts-prune"
+py codebase_import_search.py --file "_engine/backends/__init__.py"           --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\memohood"
+
+
+py codebase_import_search.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --language csharp --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\CoreSharp"

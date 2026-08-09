@@ -10,7 +10,11 @@ Returns a table of all usages of the given module/file in the codebase with impo
 | `--language LNG` | No (default: `python`) | Language handler to use | `python`, `typescript`, `ts`, `js`, `csharp`, `cs` |
 | `--module-names N1,N2,...` | No | Extra names by which this module can be imported | `_secret_module,auth_core` |
 | `--project-root PATH` | No (default: current dir) | Root directory to scan for imports | `/workspace/SRC/memohood`, `.` |
+| `--tests-only` | No | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
 
 ## When tools_config.py exists:
-You only need:  `--file` or `--module` — target to analyze
+You only need:  `--file` or `--module` — target to analyze imports
+**Auto-detect language:** When using `--file`, tool detects language from extension 
+
+**Test coverage:** Configure `TEST_DIRS` in tools_config.py — by default test files are excluded. Use `--tests-only` to see what API is covered by tests.
 

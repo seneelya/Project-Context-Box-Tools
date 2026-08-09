@@ -27,13 +27,29 @@ try:
 
     CFG_PROJECT_ROOT = getattr(tools_config, "PROJECT_ROOT", None)
     CFG_LANGUAGE = getattr(tools_config, "DEFAULT_LANGUAGE", "python")
+    CFG_TEST_DIRS = getattr(tools_config, "TEST_DIRS", [])
 except ImportError:
     print("Warning: tools_config.py missing — using defaults.", file=sys.stderr)
     CFG_PROJECT_ROOT = None
     CFG_LANGUAGE = "python"
+    CFG_TEST_DIRS = []
 
 
 def main():
+    # Minimal parser to detect --file/--module before full parsing (for auto-detect)
+    mini = argparse.ArgumentParser(add_help=False)
+    mini.add_argument("--file")
+    mini.add_argument("--language")  # Also check if language is explicitly set
+    
+    known, _ = mini.parse_known_args()
+    
+    # Auto-detect language from file extension only if --file provided and no explicit --language
+    auto_lang = None
+    if known.file and not known.language:
+        ext = Path(known.file).suffix.lower()
+        LANG_MAP = {".ts": "typescript", ".js": "typescript", ".cs": "csharp", ".py": "python"}
+        auto_lang = LANG_MAP.get(ext)
+
     parser = argparse.ArgumentParser(
         description="Find which symbols from a target module are actually imported/used elsewhere in the project."
     )
@@ -44,16 +60,22 @@ def main():
         default="",
         help="Comma-separated additional names by which this module can be imported.",
     )
+    
     parser.add_argument(
         "--language",
-        default=CFG_LANGUAGE,
-        help=f"Language of the codebase (default: {CFG_LANGUAGE}). Supported: python, typescript, csharp.",
+        default=auto_lang or CFG_LANGUAGE,
+        help=f"Language of the codebase (default: auto-detect from extension or '{CFG_LANGUAGE}'). Supported: python, typescript, csharp.",
     )
     cfg_root = CFG_PROJECT_ROOT if CFG_PROJECT_ROOT else "."
     parser.add_argument(
         "--project-root",
         default=cfg_root,
         help=f"Root directory to scan for imports (default from tools_config.py or '.'): {cfg_root}",
+    )
+    parser.add_argument(
+        "--tests-only",
+        action="store_true",
+        help="Show usages only from configured test directories (reveals API covered by tests)"
     )
 
     args = parser.parse_args()
@@ -109,7 +131,12 @@ def main():
                 target_names.add(".".join(parts[:i]))
 
     # Collect files matching the handler's extensions
-    all_files = collect_files(project_root, handler.get_extensions())
+    all_files = collect_files(
+        project_root, 
+        handler.get_extensions(), 
+        CFG_TEST_DIRS, 
+        args.tests_only
+    )
 
     results: Dict[str, Dict[str, str]] = {}       # rel_path -> {symbol: kind}
     dynamic_results: Dict[str, Set[str]] = {}     # rel_path -> set of dynamic pattern labels
