@@ -87,11 +87,12 @@ class LanguageHandler(ABC):
     @abstractmethod
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str
-    ) -> Tuple[Dict[str, str], Set[str]]:
-        """Analyze a file and return (symbols_dict, dynamic_patterns).
+    ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
+        """Analyze a file and return (symbols_dict, symbol_lines, dynamic_patterns).
 
         - symbols_dict: {symbol_name: import_kind}
           where kind is 'top-level', 'lazy', 'conditional', or 'fallback'
+        - symbol_lines: {symbol_name: [line_numbers]} — line numbers where each symbol is used
         - dynamic_patterns: set of pattern labels for runtime/dynamic access
         """
 

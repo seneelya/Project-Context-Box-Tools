@@ -96,10 +96,19 @@ class PythonHandler(LanguageHandler):
 
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str
-    ) -> Tuple[Dict[str, str], Set[str]]:
+    ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
+        """Analyze a Python file for target symbol usages.
+
+        Returns:
+            Tuple of (symbol_kinds, symbol_lines, dynamic_patterns) where:
+                - symbol_kinds: {symbol_name: import_kind}
+                - symbol_lines: {symbol_name: [line_numbers]}
+                - dynamic_patterns: set of dynamic access labels found
+        """
         from ..core import get_import_kind_generic
 
         used_symbols: Dict[str, str] = {}
+        symbol_lines: Dict[str, List[int]] = {}
         import_aliases: Dict[str, Tuple[str, str]] = {}  # local_alias -> (module_name, kind)
 
         for idx, line in enumerate(content_lines):
@@ -141,6 +150,7 @@ class PythonHandler(LanguageHandler):
                             import_aliases[local_name] = (full_module_path, kind)
                         else:
                             used_symbols[original_name] = kind
+                            # Don't track import line here — second pass will find actual usages
 
                 continue
 
@@ -161,7 +171,7 @@ class PythonHandler(LanguageHandler):
 
                 continue
 
-        # Attribute access for aliases
+        # Attribute access for aliases — track line numbers via full text scan
         if import_aliases:
             pattern = self._build_attr_pattern(set(import_aliases.keys()))
             if pattern:
@@ -175,9 +185,43 @@ class PythonHandler(LanguageHandler):
                             continue
                         _, kind = import_aliases[alias]
                         used_symbols[attr_path] = kind
+                        # Calculate line number from position in full_text
+                        pos = m.start()
+                        line_num = full_text[:pos].count("\n") + 1
+                        symbol_lines.setdefault(attr_path, []).append(line_num)
+
+        # Second pass for direct named imports: find where symbols are actually USED (not just imported)
+        # Collect all directly imported symbol names that need usage tracking
+        direct_imported_names = set(used_symbols.keys())
+
+        if direct_imported_names and content_lines:
+            # Build word-boundary regex for each symbol to avoid partial matches
+            sorted_syms = sorted(direct_imported_names, key=len, reverse=True)
+            escaped_syms = [re.escape(s) for s in sorted_syms]
+            usage_pattern = re.compile(r'\b(' + '|'.join(escaped_syms) + r')\b')
+
+            # Collect lines that are import lines (to exclude them from usage results)
+            import_line_indices = set()
+            for idx, line in enumerate(content_lines):
+                stripped = line.strip()
+                if stripped.startswith("import ") or stripped.startswith("from "):
+                    import_line_indices.add(idx)
+
+            # Scan all non-import lines for symbol usages
+            for idx, line in enumerate(content_lines):
+                if idx in import_line_indices:
+                    continue
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+
+                for usage_match in usage_pattern.finditer(stripped):
+                    sym_name = usage_match.group(1)
+                    if sym_name in direct_imported_names:
+                        symbol_lines.setdefault(sym_name, []).append(idx + 1)
 
         # Dynamic access
         full_text = "\n".join(content_lines)
         dynamic_patterns = self._detect_dynamic_access(full_text, target_names)
 
-        return used_symbols, dynamic_patterns
+        return used_symbols, symbol_lines, dynamic_patterns

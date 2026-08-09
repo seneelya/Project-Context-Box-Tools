@@ -89,9 +89,10 @@ class CSharpHandler(LanguageHandler):
 
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str
-    ) -> Tuple[Dict[str, str], Set[str]]:
-        """Analyze a C# file and return (symbols_dict, dynamic_patterns)."""
+    ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
+        """Analyze a C# file and return (symbols_dict, symbol_lines, dynamic_patterns)."""
         used_symbols: Dict[str, str] = {}
+        symbol_lines: Dict[str, List[int]] = {}
         dyn_patterns: Set[str] = set()
 
         # Track aliases that refer to target namespaces (for attribute access)
@@ -146,11 +147,11 @@ class CSharpHandler(LanguageHandler):
             if 'Assembly.Load' in line and 'CreateInstance' in line:
                 dyn_patterns.add("Assembly.CreateInstance()")
 
-        # Second pass: attribute access for aliases (namespace segments used as prefixes)
+        # Second pass: attribute access for aliases — track line numbers
         if import_aliases:
             pattern = self._build_attr_pattern(set(import_aliases.keys()))
 
-            for line in content_lines:
+            for idx, line in enumerate(content_lines):
                 stripped = line.strip()
                 if not stripped or stripped.startswith("//") or stripped.startswith("/*"):
                     continue
@@ -160,24 +161,22 @@ class CSharpHandler(LanguageHandler):
                     member = m.group(2)
                     attr_path = f"{alias}.{member}"
 
-                    # Filter common C# test/mock methods (similar to Jest mocks in TS)
                     mock_suffixes = {"Mock", "Setup", "Verify", "Returns", "Object"}
                     if any(member == s or member.startswith(s + ".") for s in mock_suffixes):
                         continue
 
                     _, kind = import_aliases[alias]
                     used_symbols[attr_path] = kind
+                    symbol_lines.setdefault(attr_path, []).append(idx + 1)
 
         # Third pass: if target namespace is imported via using directive,
-        # check for usage of types from that namespace
+        # check for usage of types from that namespace — track line numbers
         if imported_target_ns:
             # Extract all public type names from the target file(s)
             target_types = set()
             for tname in target_names:
-                # Try to find corresponding file path and extract types
                 try:
-                    # Search for .cs files with matching name (handle both dotted names and basenames)
-                    basename = tname.split(".")[-1]  # Last segment of namespace or filename
+                    basename = tname.split(".")[-1]
                     import glob
                     patterns = [
                         os.path.join(project_root, "**", f"{tname}.cs"),
@@ -191,15 +190,11 @@ class CSharpHandler(LanguageHandler):
                     pass
 
             if not target_types:
-                # Fallback: mark namespace usage without specific types
                 for ns, kind in imported_target_ns:
                     used_symbols[f"[namespace:{ns}]"] = kind
-                return used_symbols, dyn_patterns
+                return used_symbols, symbol_lines, dyn_patterns
 
-            # Now scan file for type usages (PascalCase identifiers that match target types)
-            content_text = "\n".join(content_lines)
-
-            # Common keywords/types to exclude from detection
+            # Scan file for type usages with line numbers
             excluded_identifiers = {
                 "System", "String", "Int32", "Int64", "Boolean", "Double", "Float",
                 "Object", "Array", "List", "Dictionary", "Task", "Action", "Func",
@@ -209,12 +204,21 @@ class CSharpHandler(LanguageHandler):
 
             candidate_types = target_types - excluded_identifiers
 
-            for type_name in candidate_types:
-                # Check if this type name appears as a word boundary match
-                pattern = re.compile(rf"\b{re.escape(type_name)}\b")
-                matches = pattern.findall(content_text)
-                if matches:  # At least one usage (e.g., inheritance, method signature) counts
-                    _, kind = imported_target_ns[0]
-                    used_symbols[type_name] = kind
+            # Collect using directive lines to exclude from usage results
+            using_line_indices = set()
+            for idx, line in enumerate(content_lines):
+                stripped = line.strip()
+                if stripped.startswith("using "):
+                    using_line_indices.add(idx)
 
-        return used_symbols, dyn_patterns
+            for type_name in candidate_types:
+                pattern = re.compile(rf"\b{re.escape(type_name)}\b")
+                for idx, line in enumerate(content_lines):
+                    if idx in using_line_indices:
+                        continue  # Skip using directive lines — we want actual type usages
+                    if pattern.search(line):
+                        _, kind = imported_target_ns[0]
+                        used_symbols[type_name] = kind
+                        symbol_lines.setdefault(type_name, []).append(idx + 1)
+
+        return used_symbols, symbol_lines, dyn_patterns

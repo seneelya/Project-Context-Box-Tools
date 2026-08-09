@@ -138,9 +138,10 @@ class TypeScriptHandler(LanguageHandler):
 
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str
-    ) -> Tuple[Dict[str, str], Set[str]]:
-        """Analyze a TS/JS file and return (symbols_dict, dynamic_patterns)."""
+    ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
+        """Analyze a TS/JS file and return (symbols_dict, symbol_lines, dynamic_patterns)."""
         used_symbols: Dict[str, str] = {}
+        symbol_lines: Dict[str, List[int]] = {}
         import_aliases: Dict[str, Tuple[str, str]] = {}  # local_alias -> (module_specifier, kind)
 
         for idx, line in enumerate(content_lines):
@@ -156,16 +157,15 @@ class TypeScriptHandler(LanguageHandler):
                 kind = self._get_import_kind(line, content_lines, idx)
 
                 for original, local in self._parse_named_items(items_text):
-                    # Build full path for sub-module check (e.g., 'from "./src" -> Analyzer' where target is './src/analyzer')
                     base_path = module_specifier.rstrip("/") or "."
                     full_path = f"{base_path}/{original}"
 
                     if self.matches_target(module_specifier, target_names):
-                        # Importing symbols directly FROM the target module
                         used_symbols[original] = kind
+                        symbol_lines.setdefault(original, []).append(idx + 1)
                     elif self.matches_target(full_path, target_names):
-                        # The imported name itself IS a submodule of our target
                         used_symbols[original] = kind
+                        symbol_lines.setdefault(original, []).append(idx + 1)
 
                 continue
 
@@ -203,6 +203,7 @@ class TypeScriptHandler(LanguageHandler):
                 if self.matches_target(module_specifier, target_names):
                     for original, local in self._parse_named_items(items_text):
                         used_symbols[original] = kind
+                        symbol_lines.setdefault(original, []).append(idx + 1)
 
                 continue
 
@@ -218,7 +219,7 @@ class TypeScriptHandler(LanguageHandler):
 
                 continue
 
-        # Second pass: attribute access for aliases (namespace/default/CJS require targets)
+        # Second pass: attribute access for aliases — track line numbers via full text scan
         if import_aliases:
             pattern = self._build_attr_pattern(set(import_aliases.keys()))
             if pattern:
@@ -228,34 +229,57 @@ class TypeScriptHandler(LanguageHandler):
                     attr_path = m.group(2).strip()
                     if import_aliases.get(alias) and attr_path:
                         first_token = attr_path.split(".")[0]
-                        # Filter obvious false positives like file extensions in strings
                         if len(first_token) <= 3 and first_token.isalpha():
                             continue
-                        # Filter Jest mock methods and similar test utilities
                         if first_token in self.MOCK_METHODS or any(attr_path.startswith(mp + ".") for mp in self.MOCK_METHODS):
                             continue
                         _, kind = import_aliases[alias]
                         used_symbols[attr_path] = kind
+                        pos = m.start()
+                        line_num = full_text[:pos].count("\n") + 1
+                        symbol_lines.setdefault(attr_path, []).append(line_num)
 
         # Post-processing: filter out attribute access that is clearly on a direct named import
-        # (e.g., when 'analyze' is imported directly via `import { analyze } from "./analyzer"`,
-        # then `analyze.mockImplementation()` in tests should NOT be reported as symbol "mockImplementation").
-        # Only keep attribute paths whose first token is NOT already a direct used symbol.
         to_remove = []
         for sym in list(used_symbols.keys()):
             if "." in sym:
                 first_token = sym.split(".")[0]
-                # If the base name is itself a direct import from our target, this attr path
-                # is likely an operation on that imported value (mock calls, method chaining), not a separate symbol.
-                # BUT only remove it if it looks like a known pattern (mock*, tests*).
                 if first_token in used_symbols:
-                    # Check if the rest of the path is clearly NOT a submodule/symbol from target
                     rest = sym[len(first_token)+1:]
                     if rest.startswith("mock") or rest.startswith("test"):
                         to_remove.append(sym)
 
         for sym in to_remove:
             del used_symbols[sym]
+
+        # Second pass for direct named imports: find where symbols are actually USED (not just imported)
+        direct_imported_names = set(used_symbols.keys())
+
+        if direct_imported_names and content_lines:
+            # Build word-boundary regex for each symbol (TS allows $ and _ in identifiers)
+            sorted_syms = sorted(direct_imported_names, key=len, reverse=True)
+            escaped_syms = [re.escape(s) for s in sorted_syms]
+            usage_pattern = re.compile(r'\b(' + '|'.join(escaped_syms) + r')\b')
+
+            # Collect lines that are import/require lines (to exclude them from usage results)
+            import_line_indices = set()
+            for idx, line in enumerate(content_lines):
+                stripped = line.strip()
+                if stripped.startswith("import ") or stripped.startswith("from ") or "require(" in stripped:
+                    import_line_indices.add(idx)
+
+            # Scan all non-import lines for symbol usages
+            for idx, line in enumerate(content_lines):
+                if idx in import_line_indices:
+                    continue
+                stripped = line.strip()
+                if not stripped or stripped.startswith("//") or stripped.startswith("*"):
+                    continue
+
+                for usage_match in usage_pattern.finditer(stripped):
+                    sym_name = usage_match.group(1)
+                    if sym_name in direct_imported_names:
+                        symbol_lines.setdefault(sym_name, []).append(idx + 1)
 
         # Third pass: dynamic import() detection
         full_text = "\n".join(content_lines)
@@ -265,4 +289,4 @@ class TypeScriptHandler(LanguageHandler):
             if self.matches_target(module_str, target_names):
                 dynamic_patterns.add("import()")
 
-        return used_symbols, dynamic_patterns
+        return used_symbols, symbol_lines, dynamic_patterns

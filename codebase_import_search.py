@@ -82,6 +82,11 @@ def main():
         action="store_true",
         help="Show where the target file's imports come from (upstream dependencies within project-root)"
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Group output by symbol with line numbers instead of by file"
+    )
 
     args = parser.parse_args()
 
@@ -207,6 +212,7 @@ def main():
     )
 
     results: Dict[str, Dict[str, str]] = {}       # rel_path -> {symbol: kind}
+    symbol_lines_global: Dict[str, Dict[str, List[int]]] = {}  # rel_path -> {symbol: [lines]}
     dynamic_results: Dict[str, Set[str]] = {}     # rel_path -> set of dynamic pattern labels
 
     for fpath in all_files:
@@ -219,11 +225,13 @@ def main():
         except Exception:
             continue
 
-        symbols_dict, dyn_patterns = handler.analyze_file(fpath, lines, target_names, project_root)
+        symbols_dict, symbol_lines_dict, dyn_patterns = handler.analyze_file(fpath, lines, target_names, project_root)
 
         rp = rel_path(fpath, project_root)
         if symbols_dict:
             results[rp] = symbols_dict
+        if symbol_lines_dict:
+            symbol_lines_global[rp] = symbol_lines_dict
         if dyn_patterns:
             dynamic_results[rp] = dyn_patterns
 
@@ -248,31 +256,73 @@ def main():
     static_part = "# No static imports," if not results else f"# {num_files} file{'s' if num_files != 1 else ''}, {num_symbols} unique symbol{'s' if num_symbols != 1 else ''}"
     print(f"{_YELLOW}{static_part}{summary_suffix}{_RESET}")
 
-    # Static imports first — group symbols by kind within each file
-    for fpath in sorted(results.keys()):
-        syms_dict = results[fpath]
+    # Verbose mode: group by symbol with line numbers
+    if args.verbose and results:
+        from collections import defaultdict
+        symbol_usages: Dict[str, List[Tuple[str, str, int]]] = defaultdict(list)  # sym -> [(file, kind, line)]
 
-        # Group symbols by import kind (priority order: top-level, lazy, conditional, fallback)
-        groups: Dict[str, List[str]] = {}
-        for sym, kind in syms_dict.items():
-            groups.setdefault(kind, []).append(sym)
-
-        parts = []
-        for kind in ["top-level", "lazy", "conditional", "fallback"]:
-            if kind in groups:
-                syms = sorted(groups[kind])
-                if kind == "top-level":
-                    parts.append("[" + ", ".join(syms) + "]")
+        for fpath in sorted(results.keys()):
+            syms_dict = results[fpath]
+            lines_map = symbol_lines_global.get(fpath, {})
+            for sym, kind in syms_dict.items():
+                lines_for_sym = lines_map.get(sym, [])
+                if lines_for_sym:
+                    for line_num in lines_for_sym:
+                        symbol_usages[sym].append((fpath, kind, line_num))
                 else:
-                    parts.append(f"[{kind}: " + ", ".join(syms) + "]")
+                    # Fallback: symbol detected but no specific line tracked — use first occurrence of that kind
+                    symbol_usages[sym].append((fpath, kind, 0))
 
-        print(f"{fpath}: {' '.join(parts)}")
+        for sym in sorted(symbol_usages.keys()):
+            usages = symbol_usages[sym]
+            # Group by (file, kind) to avoid duplicates
+            seen: Set[Tuple[str, str]] = set()
+            parts = []
+            for fpath, kind, line_num in sorted(usages):
+                key = (fpath, kind)
+                if key not in seen:
+                    seen.add(key)
+                    prefix = "" if kind == "top-level" else f"{kind}: "
+                    if line_num > 0:
+                        parts.append(f"{prefix}{fpath}: lines=[{line_num}]")
+                    else:
+                        parts.append(f"{prefix}{fpath}")
 
-    # Dynamic/runtime access (separate section)
-    if dynamic_results:
-        for fpath in sorted(dynamic_results.keys()):
-            patterns = sorted(dynamic_results[fpath])
-            print(f"{fpath}: Possible Dynamic import [{', '.join(patterns)}]")
+            print(f"\n{sym}:")
+            for part in parts:
+                print(f"  {part}")
+
+        # Dynamic/runtime access section (unchanged)
+        if dynamic_results:
+            print("\n# Dynamic/runtime access:")
+            for fpath in sorted(dynamic_results.keys()):
+                patterns = sorted(dynamic_results[fpath])
+                print(f"{fpath}: Possible Dynamic import [{', '.join(patterns)}]")
+    else:
+        # Static imports first — group symbols by kind within each file (original format)
+        for fpath in sorted(results.keys()):
+            syms_dict = results[fpath]
+
+            groups: Dict[str, List[str]] = {}
+            for sym, kind in syms_dict.items():
+                groups.setdefault(kind, []).append(sym)
+
+            parts = []
+            for kind in ["top-level", "lazy", "conditional", "fallback"]:
+                if kind in groups:
+                    syms = sorted(groups[kind])
+                    if kind == "top-level":
+                        parts.append("[" + ", ".join(syms) + "]")
+                    else:
+                        parts.append(f"[{kind}: " + ", ".join(syms) + "]")
+
+            print(f"{fpath}: {' '.join(parts)}")
+
+        # Dynamic/runtime access (separate section)
+        if dynamic_results:
+            for fpath in sorted(dynamic_results.keys()):
+                patterns = sorted(dynamic_results[fpath])
+                print(f"{fpath}: Possible Dynamic import [{', '.join(patterns)}]")
 
 
 if __name__ == "__main__":
