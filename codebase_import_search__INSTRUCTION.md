@@ -1,47 +1,32 @@
-# codebase_import_search — агент-инструкция (TL;DR)
+# codebase_import_search
 
-## Когда использовать
+Returns a table of all usages of the given module/file in the codebase with import categories: top-level (always loaded), lazy (inside function/method), conditional (inside if block), fallback (try/catch optional dep), and dynamic runtime access via string names.
 
-Пишешь карточку документации модуля и хочешь знать **что из него реально используется вовне** → запусти этот инструмент вместо того чтобы гадать.
+## Parameters CLI flags
 
-## Как вызвать
+| Flag | Required | Description | Example |
+|------|----------|-------------|---------|
+| `--file PATH` | One of `--file` or `--module` | Target file path relative to project-root | `_engine/auth.py`, `src/analyzer.ts` |
+| `--language LANG` | No (default: `python`) | Language handler to use | `python`, `typescript`, `ts`, `js` |
+| `--module-names N1,N2,...` | No | Extra names by which this module can be imported | `_secret_module,auth_core` |
+| `--project-root PATH` | No (default: current dir) | Root directory to scan for imports | `/workspace/SRC/memohood`, `.` |
 
-```bash
-cd /workspace/SRC/memohood
-python3 codebase_import_search.py --file "_engine/auth.py" [--language python|typescript]
+## Output format explained
+
+First line summary:
+```text
+# N files, M unique symbols (+K with dynamic access)
 ```
 
-Ключевые флаги:
-- `--file PATH` — исследуемый файл (относительно project-root)
-- `--module-names N1,N2` — дополнительные имена модуля если импортируют под другим именем
-- `--project-root PATH` — корень проекта (по умолчанию текущая директория)
-
-## Что значит вывод
-
+Each following line is one consumer file grouped by import kind:
 ```text
-# 7 files, 4 unique symbols (+1 with dynamic access)
-
-src/runner.ts: [analyze]
-src/presenter.ts: [ResultSymbol]
-tests/mocks.test.ts: [lazy: analyze]
+src/runner.ts: [analyze] [lazy: initCache] [fallback: optionalHelper]
 config_loader.ts: Possible Dynamic import [import()]
 ```
 
-- `# N files` — сколько файлов проекта зависят от этого модуля
-- `[symbol]` — top-level импорт (всегда загружается)
-- `[lazy: x]` — ленивый импорт в функции/методе (загрузится только при вызове)
-- `[fallback: y]` — опциональный импорт в try/catch (не обязательная зависимость)
-- `Possible Dynamic import [...]` — модуль упоминается как строка, точные символы неизвестны
-
-## Как интерпретировать для документации
-
-| Сигнал | Что писать в карточку |
-|--------|----------------------|
-| Символ используется в 3+ файлах top-level | Публичный API (обязательно документировать) |
-| Только lazy/conditional/fallback | Опциональный или внутренний API |
-| `Possible Dynamic import` | Есть runtime-загрузка, точный API неизвестен |
-| Подчёркивание (`_private`) но широко используется | Фактически публичный (хотя и с префиксом) |
-
-## Языки
-
-Python (`python`, по умолчанию), TypeScript/JS (`typescript`, `ts`, `js`).
+Categories meaning for documentation:
+- `[symbol]` — top-level static import → public API always available
+- `[lazy: x]` — loaded only when function runs → optional dependency path
+- `[conditional: y]` — imported under if condition → feature-gated or platform-specific
+- `[fallback: z]` — inside try/catch → soft dependency may be absent at runtime
+- `Possible Dynamic import [...]` — module name appears as string → symbols unknown but module is reachable dynamically
