@@ -11,3 +11,18 @@ py codebase_import_search.py --file "source/CoreSharp/Interfaces/IGlobalStopWatc
 py codebase_import_search.py --incoming --file "_engine/embed.py"           --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\memohood"
 py codebase_import_search.py --incoming --file "src/analyzer.ts"            --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\ts-prune"
 py codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/GlobalStopWatchInstance.cs" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\CoreSharp"
+
+
+# --verbose mode (per-symbol line numbers)
+
+py codebase_import_search.py --file "_engine/backends/__init__.py" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\memohood" --verbose
+py codebase_import_search.py --file "src/state.ts" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\ts-prune" --verbose
+py codebase_import_search.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\CoreSharp" --verbose
+
+
+# C# test projects (SWARM_SRC, Unity)
+
+py codebase_import_search.py --file "Backends/BackendHandler.cs" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\test_SWARM_SRC"
+py codebase_import_search.py --incoming --file "Accounts/User.cs" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\test_SWARM_SRC"
+py codebase_import_search.py --file "Code/Core/Common/Commands/HttpCmd.cs" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\test_Unity"
+py codebase_import_search.py --incoming --file "Code/Core/Common/Commands/HttpCmd.cs" --project-root "Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\test_Unity"

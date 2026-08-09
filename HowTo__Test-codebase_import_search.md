@@ -300,7 +300,11 @@ All test projects are mounted at `/workspace/SRC/`:
 | memohood     | `/workspace/SRC/memohood`               | Python     | Primary test project          |
 | hermes-agent | `/workspace/SRC/hermes-agent-src`       | Python     | Large project, has tests/     |
 | ts-prune     | `/workspace/SRC/ts-prune`               | TypeScript | Small TS project              |
-| CoreSharp    | `/workspace/SRC/CoreSharp`              | C#         | .NET library                  |
+| CoreSharp    | `/workspace/SRC/CoreSharp`              | C#         | .NET library (small)          |
+| SWARM_SRC    | `/workspace/SRC/test_SWARM_SRC`         | C#         | Swarm backend (medium-large)  |
+| Unity        | `/workspace/SRC/test_Unity`             | C#         | Unity game project (large)    |
+
+Note: Large projects (hermes-agent, SWARM_SRC, Unity) may take longer to scan — use `head -N` or increase timeout for verbose mode on big codebases.
 
 ## Config constant naming convention rule
 
