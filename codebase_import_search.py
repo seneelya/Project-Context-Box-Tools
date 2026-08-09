@@ -12,23 +12,25 @@ Output (plain text):
 import argparse
 import os
 import sys
+from pathlib import Path
 from typing import Dict, List, Set
 
-# ANSI color support (only when output goes to terminal, not pipe/script)
-_IS_TTY = sys.stdout.isatty()
-_YELLOW = "\033[93m" if _IS_TTY else ""
-_RESET = "\033[0m" if _IS_TTY else ""
+# ---------------------------------------------------------------------------
+# Load shared config (optional) — cascade: CLI > tools_config > hardcoded defaults
+# ---------------------------------------------------------------------------
+_TOOLS_DIR = Path(__file__).resolve().parent
+if str(_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TOOLS_DIR))
 
+try:
+    import tools_config
 
-def cprint(*args, color=_YELLOW, **kwargs):
-    """Print with ANSI color (no-op when piped/redirected)."""
-    print(f"{color}{args[0]}{_RESET}", *args[1:], **kwargs)
-
-
-# Import shared utilities and handler registry from the package structure
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from codebase_import_search.core import collect_files, resolve_target_names, rel_path
-from codebase_import_search.handlers import get_handler
+    CFG_PROJECT_ROOT = getattr(tools_config, "PROJECT_ROOT", None)
+    CFG_LANGUAGE = getattr(tools_config, "DEFAULT_LANGUAGE", "python")
+except ImportError:
+    print("Warning: tools_config.py missing — using defaults.", file=sys.stderr)
+    CFG_PROJECT_ROOT = None
+    CFG_LANGUAGE = "python"
 
 
 def main():
@@ -44,32 +46,38 @@ def main():
     )
     parser.add_argument(
         "--language",
-        default="python",
-        help="Language of the codebase (default: python). Supported: python, typescript, csharp.",
+        default=CFG_LANGUAGE,
+        help=f"Language of the codebase (default: {CFG_LANGUAGE}). Supported: python, typescript, csharp.",
     )
+    cfg_root = CFG_PROJECT_ROOT if CFG_PROJECT_ROOT else "."
     parser.add_argument(
         "--project-root",
-        default=".",
-        help="Root directory to scan for imports (default: current directory).",
+        default=cfg_root,
+        help=f"Root directory to scan for imports (default from tools_config.py or '.'): {cfg_root}",
     )
 
     args = parser.parse_args()
+
+    # Validate project-root
+    project_root = os.path.abspath(args.project_root)
+    if not os.path.isdir(project_root):
+        print(f"Error: --project-root is not a directory: {project_root}", file=sys.stderr)
+        sys.exit(1)
 
     if not args.file and not args.module:
         parser.print_help(sys.stderr)
         print("\nError: must specify --file or --module", file=sys.stderr)
         sys.exit(1)
 
+    # Import shared utilities and handler registry from the package structure
+    sys.path.insert(0, str(_TOOLS_DIR))
+    from codebase_import_search.core import collect_files, resolve_target_names, rel_path
+    from codebase_import_search.handlers import get_handler
+
     try:
-        target_path, target_names = resolve_target_names(args.file, args.module, args.module_names, args.project_root)
+        target_path, target_names = resolve_target_names(args.file, args.module, args.module_names, project_root)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # Validate project-root
-    project_root = os.path.abspath(args.project_root)
-    if not os.path.isdir(project_root):
-        print(f"Error: --project-root is not a directory: {project_root}", file=sys.stderr)
         sys.exit(1)
 
     # Validate --file if provided
@@ -136,10 +144,14 @@ def main():
         print("# No external usages found.")
         return
 
-    # Summary line (with dynamic access count if any) — colored when in terminal
+    # Summary line (with dynamic access count if any) — colored when in terminal (if still TTY)
+    _IS_TTY = sys.stdout.isatty()
+    _YELLOW = "\033[93m" if _IS_TTY else ""
+    _RESET = "\033[0m" if _IS_TTY else ""
+
     summary_suffix = f" (+{num_dynamic} with dynamic access)" if num_dynamic else ""
     static_part = "# No static imports," if not results else f"# {num_files} file{'s' if num_files != 1 else ''}, {num_symbols} unique symbol{'s' if num_symbols != 1 else ''}"
-    cprint(f"{static_part}{summary_suffix}")
+    print(f"{_YELLOW}{static_part}{summary_suffix}{_RESET}")
 
     # Static imports first — group symbols by kind within each file
     for fpath in sorted(results.keys()):
