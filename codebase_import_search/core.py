@@ -101,6 +101,7 @@ def resolve_target_names(
             else:
                 dotted = basename_no_ext
         except Exception:
+            rel = "."
             dotted = basename_no_ext
 
         file_in_root = rel == "."
