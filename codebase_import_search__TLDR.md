@@ -11,10 +11,6 @@ Returns a table of all usages of the given module/file in the codebase with impo
 | `--module-names N1,N2,...` | No | Extra names by which this module can be imported | `_secret_module,auth_core` |
 | `--project-root PATH` | No (default: current dir) | Root directory to scan for imports | `/workspace/SRC/memohood`, `.` |
 
-## When tools_config.py exists
+## When tools_config.py exists:
+You only need:  `--file` or `--module` — target to analyze
 
-If `/project/tools/tools_config.py` is present and defines valid paths, you only need:
-
-- `--file PATH` or `--module NAME` — target to analyze
-
-The tool will automatically use configured `PROJECT_ROOT` and `DEFAULT_LANGUAGE`. CLI flags always override config values.

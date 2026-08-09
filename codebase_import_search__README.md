@@ -220,3 +220,21 @@ Regex-based подход не идеален — он видит текст, а 
 - Реестр хендлеров в `handlers/__init__.py`: `get_handler('python')`, `get_handler('typescript')`, ...
 
 Это позволяет добавлять поддержку новых языков без переписывания ядра.
+
+---
+
+## Default values from tools_config.py
+
+If `/project/tools/tools_config.py` exists and defines valid paths/languages, the tool reads defaults automatically:
+
+| Config constant | Used as default for | Cascade priority |
+|-----------------|---------------------|------------------|
+| `PROJECT_ROOT` | `--project-root PATH` | CLI flag > config value > current dir (`.`) |
+| `DEFAULT_LANGUAGE` | `--language LNG` | CLI flag > config value > `python` |
+
+**How it works:**
+1. Tool loads `tools_config.py` at startup (optional — if missing, prints warning and uses hardcoded defaults)
+2. `PROJECT_ROOT` is computed by `_resolve_root([...])` which returns the first existing path from a list of candidates (works across Docker/Windows/Linux without environment detection)
+3. When config is present, agent only needs to specify `--file PATH` or `--module NAME`; project root and language are taken from config automatically
+
+This simplifies CLI for agents working on a specific project — no need to repeat the same paths/languages in every command.
