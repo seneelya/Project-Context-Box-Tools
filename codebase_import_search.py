@@ -14,6 +14,17 @@ import os
 import sys
 from typing import Dict, List, Set
 
+# ANSI color support (only when output goes to terminal, not pipe/script)
+_IS_TTY = sys.stdout.isatty()
+_YELLOW = "\033[93m" if _IS_TTY else ""
+_RESET = "\033[0m" if _IS_TTY else ""
+
+
+def cprint(*args, color=_YELLOW, **kwargs):
+    """Print with ANSI color (no-op when piped/redirected)."""
+    print(f"{color}{args[0]}{_RESET}", *args[1:], **kwargs)
+
+
 # Import shared utilities and handler registry from the package structure
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from codebase_import_search.core import collect_files, resolve_target_names, rel_path
@@ -125,10 +136,10 @@ def main():
         print("# No external usages found.")
         return
 
-    # Summary line (with dynamic access count if any)
+    # Summary line (with dynamic access count if any) — colored when in terminal
     summary_suffix = f" (+{num_dynamic} with dynamic access)" if num_dynamic else ""
     static_part = "# No static imports," if not results else f"# {num_files} file{'s' if num_files != 1 else ''}, {num_symbols} unique symbol{'s' if num_symbols != 1 else ''}"
-    print(f"{static_part}{summary_suffix}")
+    cprint(f"{static_part}{summary_suffix}")
 
     # Static imports first — group symbols by kind within each file
     for fpath in sorted(results.keys()):
