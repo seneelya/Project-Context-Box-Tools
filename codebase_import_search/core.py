@@ -239,7 +239,7 @@ def resolve_relative_import(importing_file: str, from_module: str, dots: int) ->
 
 
 def get_import_kind_generic(line: str, content_lines: List[str], idx: int, block_patterns: Dict[str, re.Pattern]) -> str:
-    """Generic import kind detection based on indentation and block openers.
+    r"""Generic import kind detection based on indentation and block openers.
 
     Args:
         line: current import line (raw with whitespace)
@@ -247,9 +247,9 @@ def get_import_kind_generic(line: str, content_lines: List[str], idx: int, block
         idx: index of current line
         block_patterns: dict mapping kind name to regex for block opener, e.g.:
             {
-                'lazy': re.compile(r'\s*(?:def|async def|function)\s+\w+'),
-                'conditional': re.compile(r'\s*if\s+.+:'),
-                'fallback': re.compile(r'\s*(?:try\b|\bexcept|\bfinally)'),
+                "lazy": re.compile(r"\s*(?:def|async def|function)\s+\w+"),
+                "conditional": re.compile(r"\s*if\s+.+:"),
+                "fallback": re.compile(r"\s*(?:try\b|\bexcept|\bfinally)"),
             }
 
     Returns one of the kind labels or 'top-level'.
