@@ -261,23 +261,86 @@ class PythonHandler(LanguageHandler):
         return pat
 
     def _detect_dynamic_access(self, full_text: str, target_names: Set[str]) -> Set[str]:
-        """
-        Detect runtime/dynamic access to target modules via string module names.
-        
-        Returns set of pattern labels like {"__import__", "import_module"} that reference our targets.
-        Exact symbols are unknown — we only flag that the file uses strings matching our target names.
-        """
+        """Detect runtime/dynamic access to target modules via string module names."""
         found_patterns: Set[str] = set()
         
         for label, pat in self.DYNAMIC_PATTERNS:
             for m in pat.finditer(full_text):
-                module_str = m.group(1)  # string argument like "target" or "pkg.target"
-                
-                # Check if this string matches any of our target names
+                module_str = m.group(1)
                 if self.matches_target(module_str, target_names):
                     found_patterns.add(label)
         
         return found_patterns
+
+    def _get_import_kind(self, line: str, content_lines: List[str], idx: int) -> str:
+        """
+        Determine the semantic kind of an import based on its location.
+
+        Returns one of: 'top-level', 'lazy' (inside function/method),
+                        'conditional' (inside if block), 'fallback' (try/except).
+
+        Heuristic approach — not full AST parsing.
+        """
+        stripped = line.strip()
+        indent_len = len(line) - len(stripped)
+
+        # Determine the base indentation level of this file (first non-empty, non-comment line with code)
+        # This handles files that use consistent leading whitespace or are inside a block themselves.
+        base_indent = self._get_file_base_indent(content_lines)
+
+        relative_indent = indent_len - base_indent
+
+        # If import is at the base indentation level → top-level
+        if relative_indent <= 0:
+            return "top-level"
+
+        # Check if we're inside a function/method definition (lazy import)
+        # Look backwards from current line to find the nearest block opener at lower indent
+        func_pattern = re.compile(r'\s*(?:def|async def)\s+\w+')
+        class_pattern = re.compile(r'\s*class\s+\w+')
+        if_pattern = re.compile(r'\s*if\s+.+:')
+        try_pattern = re.compile(r'\s*try\s*:')
+        except_pattern = re.compile(r'\s*(?:except\b|\bfinally\s*:)')  # except [Type] [: msg]: or finally:
+
+        # Walk backwards to find what block this import belongs to
+        for prev_idx in range(idx - 1, -1, -1):
+            prev_line = content_lines[prev_idx]
+            prev_stripped = prev_line.strip()
+            prev_indent = len(prev_line) - len(prev_stripped)
+            prev_relative = prev_indent - base_indent
+
+            # Skip empty lines and comments
+            if not prev_stripped or prev_stripped.startswith("#"):
+                continue
+
+            # If we hit a line at lesser relative indentation → that's the parent block
+            if prev_relative < relative_indent:
+                # This is the parent block — check what kind it is
+                if func_pattern.match(prev_line) or class_pattern.match(prev_line):
+                    return "lazy"
+                elif try_pattern.match(prev_line):
+                    return "fallback"
+                elif except_pattern.match(prev_line):
+                    return "fallback"
+                elif if_pattern.match(prev_line):
+                    return "conditional"
+                else:
+                    # Some other statement at parent level — treat as lazy (inside something non-trivial)
+                    return "lazy"
+
+            # If same or greater relative indent → keep looking up past siblings
+
+        # Default: if we can't determine precisely, it's indented so likely inside function/class
+        return "lazy"
+
+    def _get_file_base_indent(self, content_lines: List[str]) -> int:
+        """Determine the base indentation level of a file from its first code lines."""
+        for line in content_lines[:20]:  # Check first ~20 lines
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            return len(line) - len(stripped)
+        return 0
 
     def _collect_from_import_items(self, content_lines: List[str], start_idx: int) -> str | None:
         """
@@ -315,10 +378,14 @@ class PythonHandler(LanguageHandler):
 
         return ", ".join(parts).strip(", ") or None
 
-    def analyze_file(self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str) -> Set[str]:
-        """Analyze a Python file and return symbols from target modules that it uses."""
-        used_symbols: Set[str] = set()
-        # Map: alias/local_name -> original module (for tracking which imports belong to our targets)
+    def analyze_file(self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str) -> Tuple[Dict[str, str], Set[str]]:
+        """Analyze a Python file and return symbols from target modules that it uses.
+
+        Returns (symbols_dict, dynamic_patterns):
+            - symbols_dict: {symbol_name: import_kind} where kind is 'top-level', 'lazy', 'conditional', or 'fallback'
+            - dynamic_patterns: set of pattern labels for runtime/dynamic access
+        """
+        used_symbols: Dict[str, str] = {}  # symbol -> import kind
         import_aliases: Dict[str, str] = {}  # local_alias -> imported_module_name
 
         for idx, line in enumerate(content_lines):
@@ -368,21 +435,22 @@ class PythonHandler(LanguageHandler):
                     full_matches = self.matches_target(full_module_path, target_names)
 
                     if base_matches or full_matches:
-                        # If the imported thing IS a target module/package itself (not just a symbol from it),
-                        # treat local_name as an alias for attribute access.
+                        # Determine import kind based on location in file
+                        kind = self._get_import_kind(line, content_lines, idx)
+
                         if full_matches and base_matches is False:
-                            # e.g., 'from ._engine import backends as _backends' where '_engine.backends' is our target
-                            # → track _backends as alias to find _backends.resolve_chain(), etc.
-                            import_aliases[local_name] = full_module_path
+                            # Package itself imported → track alias for attribute access later
+                            import_aliases[local_name] = (full_module_path, kind)
                         else:
-                            # Importing specific symbols FROM a target module
-                            used_symbols.add(original_name)
+                            # Specific symbol from target module
+                            used_symbols[original_name] = kind
 
                 continue
 
             # Handle 'import X', 'import X as Y', 'import X, Y as Z'
             m = self.IMPORT_RE.match(line)
             if m:
+                kind = self._get_import_kind(line, content_lines, idx)
                 imports_part = m.group(1)
                 for item in imports_part.split(","):
                     item = item.strip()
@@ -394,7 +462,7 @@ class PythonHandler(LanguageHandler):
                     local_alias = parts[1].strip() if len(parts) > 1 else module_name
 
                     if self.matches_target(module_name, target_names):
-                        import_aliases[local_alias] = module_name
+                        import_aliases[local_alias] = (module_name, kind)
 
                 continue
 
@@ -410,7 +478,9 @@ class PythonHandler(LanguageHandler):
                         first_token = attr_path.split(".")[0]
                         if len(first_token) <= 3 and first_token.isalpha():
                             continue
-                        used_symbols.add(attr_path)
+                        # Attribute access inherits the import kind of its parent alias
+                        _, kind = import_aliases[alias]
+                        used_symbols[attr_path] = kind
 
         # Third pass: detect runtime/dynamic access via string module names
         full_text = "\n".join(content_lines)
@@ -480,8 +550,8 @@ def main():
     # Collect all .py files in the project
     all_files = collect_py_files(project_root)
 
-    results: Dict[str, Set[str]] = {}       # rel_path -> set of symbols
-    dynamic_results: Dict[str, Set[str]] = {}  # rel_path -> set of dynamic pattern labels
+    results: Dict[str, Dict[str, str]] = {}        # rel_path -> {symbol: kind}
+    dynamic_results: Dict[str, Set[str]] = {}      # rel_path -> set of dynamic pattern labels
 
     for fpath in all_files:
         if os.path.abspath(fpath) == target_path_abs:
@@ -493,19 +563,19 @@ def main():
         except Exception:
             continue
 
-        symbols, dyn_patterns = handler.analyze_file(fpath, lines, target_names, project_root)
+        symbols_dict, dyn_patterns = handler.analyze_file(fpath, lines, target_names, project_root)
         
         rp = rel_path(fpath, project_root)
-        if symbols:
-            results[rp] = symbols
+        if symbols_dict:
+            results[rp] = symbols_dict
         if dyn_patterns:
             dynamic_results[rp] = dyn_patterns
 
     # Output sorted by file path, symbols alphabetically within each file
 
     all_symbols = set()
-    for syms in results.values():
-        all_symbols.update(syms)
+    for syms_dict in results.values():
+        all_symbols.update(syms_dict.keys())
     num_files = len(results)
     num_symbols = len(all_symbols)
     num_dynamic = len(dynamic_results)
@@ -519,16 +589,30 @@ def main():
     static_part = "# No static imports," if not results else f"# {num_files} file{'s' if num_files != 1 else ''}, {num_symbols} unique symbol{'s' if num_symbols != 1 else ''}"
     print(f"{static_part}{summary_suffix}")
 
-    # Static imports first
+    # Static imports first — group symbols by kind within each file
     for fpath in sorted(results.keys()):
-        syms = sorted(results[fpath])
-        print(f"{fpath}: [{', '.join(syms)}]")
+        syms_dict = results[fpath]
+
+        # Group symbols by import kind (priority order: top-level, lazy, conditional, fallback)
+        groups: Dict[str, List[str]] = {}
+        for sym, kind in syms_dict.items():
+            groups.setdefault(kind, []).append(sym)
+
+        parts = []
+        for kind in ["top-level", "lazy", "conditional", "fallback"]:
+            if kind in groups:
+                syms = sorted(groups[kind])
+                if kind == "top-level":
+                    parts.append("[" + ", ".join(syms) + "]")
+                else:
+                    parts.append(f"[{kind}: " + ", ".join(syms) + "]")
+
+        print(f"{fpath}: {' '.join(parts)}")
 
     # Dynamic/runtime access (separate section)
     if dynamic_results:
         for fpath in sorted(dynamic_results.keys()):
             patterns = sorted(dynamic_results[fpath])
-            # If file also has static symbols, show as additional line; otherwise standalone
             print(f"{fpath}: Possible Dynamic import [{', '.join(patterns)}]")
 
 
