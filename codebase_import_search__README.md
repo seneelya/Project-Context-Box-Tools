@@ -23,12 +23,20 @@ python3 codebase_import_search.py --file "_engine/backends/__init__.py" --module
 # 10 files, 15 unique symbols
 
 _engine/backends/chat.py: [BackendError, _build_headers, _post_with_retries]
-_lab/backends_cfg.py: [chat, embed, rerank]
-selftest.py: [BackendError, _RERANK_PROVIDERS, _chat_once, chat, is_local_backend, rerank, resolve_chain]
+_engine/embed.py: [lazy: _embed_once, embed, resolve_chain]
+selftest.py: [BackendError, _RERANK_PROVIDERS, chat, is_local_backend, rerank, resolve_chain]
+plugin_loader.py: Possible Dynamic import [__import__, import_module]
 ...
 ```
 
-**Что это значит:** модуль `_engine/backends/__init__.py` используется в 10 других файлах. В `selftest.py` из него берутся конкретные символы: `resolve_chain`, `chat`, `_chat_once` и др. Это — реальный публичный API этого модуля (даже если некоторые символы начинаются с подчёркивания).
+**Что это значит:** модуль `_engine/backends/__init__.py` используется в 10 других файлах. В `selftest.py` из него берутся конкретные символы: `resolve_chain`, `chat` и др. Это — реальный публичный API этого модуля (даже если некоторые символы начинаются с подчёркивания).
+
+**Маркеры:**
+- `[symbol]` — top-level импорт (загружается сразу при инициализации модуля)
+- `[lazy: symbol]` — ленивый импорт внутри функции/метода (загрузится только при вызове)
+- `[conditional: x]` — условный импорт в if блоке (только при определённых условиях)
+- `[fallback: y, z]` — опциональный импорт в try/except (fallback паттерн)
+- `Possible Dynamic import [...]` — динамический доступ через строковое имя модуля (точные символы неизвестны)
 
 ---
 
@@ -67,10 +75,11 @@ python3 codebase_import_search.py --file "_engine/backends/__init__.py" --projec
 
 **Первая строка — саммари:**
 ```text
-# N files, M unique symbols
+# N files, M unique symbols (+K with dynamic access)
 ```
-- `N` — количество файлов проекта, которые используют целевой модуль
+- `N` — количество файлов проекта, которые используют целевой модуль через статические импорты
 - `M` — общее количество уникальных символов из целевого модуля, используемых во всём проекте
+- `(+K with dynamic access)` — опционально: файлы с динамическим доступом через строки (точные символы неизвестны)
 
 Если ничего не найдено:
 ```text
@@ -79,11 +88,16 @@ python3 codebase_import_search.py --file "_engine/backends/__init__.py" --projec
 
 **Каждая последующая строка — один файл-потребитель:**
 ```text
-path/to/file.py: [symbol1, symbol2, symbol3]
+path/to/file.py: [symbol1, symbol2] [lazy: symbol3] [fallback: symbol4]
 ```
 - `path/to/file.py` — путь файла относительно project-root
-- `[symbol1, symbol2, ...]` — уникальные символы из целевого модуля, используемые в этом файле (отсортированы по алфавиту)
+- Символы сгруппированы по типу импорта (см. маркеры выше), внутри группы отсортированы по алфавиту
 - Файлы отсортированы по пути
+
+Файлы с динамическим доступом выводятся отдельно:
+```text
+plugin_loader.py: Possible Dynamic import [__import__, import_module]
+```
 
 ### Обработка ошибок
 
@@ -172,7 +186,7 @@ Regex-based подход не идеален — он видит текст, а 
 
 ---
 
-## Что ловим (v1 для Python)
+## Что ловим (v1.2 для Python)
 
 ✅ `import foo` → alias = `foo`, ищем `foo.sym`  
 ✅ `import foo as fa` → alias = `fa`, ищем `fa.sym`  
@@ -182,13 +196,14 @@ Regex-based подход не идеален — он видит текст, а 
 ✅ `import os, sys, foo as f` — множественный импорт в одной строке  
 ✅ Локальные импорты внутри функций (сканируем весь файл целиком)  
 ✅ Multiline imports: `from module import (\n    name1,\n    name2\n)`  
-✅ Атрибутный доступ без скобок: `fa.CONSTANT`, `some_func(fa.handler)`
+✅ Атрибутный доступ без скобок: `fa.CONSTANT`, `some_func(fa.handler)`  
+✅ Детекция типа импорта: top-level / lazy / conditional / fallback  
+✅ Dynamic/runtime imports: `__import__('target')`, `sys.modules['target']`, `importlib.import_module('target')`
 
-## НЕ ловим в v1 (отложено на будущие версии)
+## НЕ ловим в v1.2 (отложено на будущие версии)
 
-❌ Динамические импорты через `__import__('foo')`  
-❌ Runtime сборка имени строками (`getattr(sys.modules[...], ...)`)  
-❌ Импорт через `importlib.import_module()` без статического анализа  
+❌ Полное извлечение символов из dynamic imports (только флажим что есть)  
+❌ Runtime сборка имени строками (`getattr(sys.modules[...], ...)`) без прямого упоминания target name  
 ❌ Языки кроме Python (архитектура готова для расширения через LanguageHandler)
 
 ---
