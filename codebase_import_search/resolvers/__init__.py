@@ -34,7 +34,8 @@ def _make_python_resolver():
 
 
 def _make_ts_resolver():
-    raise NotImplementedError("TypeScript resolver not implemented yet")
+    from .ts_resolver import TypeScriptResolver
+    return TypeScriptResolver()
 
 
 def _make_csharp_resolver():
