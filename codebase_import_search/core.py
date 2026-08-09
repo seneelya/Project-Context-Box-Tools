@@ -130,6 +130,31 @@ def resolve_target_names(
                 full_path = f"{dotted}.{basename_no_ext}"
                 names.add(f"{project_pkg_name}.{full_path}")
 
+        # For TS/JS projects also add relative-path style specifiers
+        # (e.g., "./analyzer", "./src/analyzer") which are common in ES modules
+        try:
+            rel_dir = os.path.relpath(os.path.dirname(file_path), pr_path)
+            if rel_dir == ".":
+                names.add(f"./{basename_no_ext}")
+            else:
+                ts_rel = "/" + rel_dir.replace("\\", "/")  # e.g., "src/analyzer" -> "/src/analyzer"
+                names.add(ts_rel)                          # without ./ prefix (for imports like 'from "src/analyzer"')
+                names.add(f"./{ts_rel.lstrip('/')}")       # with ./ prefix (for 'from "./src/analyzer"')
+
+            # Add path-without-extension variants for subdirs too
+            if not is_init and rel_dir != ".":
+                parts_ts = ts_rel.strip("/").split("/") + [basename_no_ext]
+                names.add("/".join(parts_ts))              # "src/analyzer"
+                names.add("./" + "/".join(parts_ts))       # "./src/analyzer"
+
+            # For files in subdirs, sibling imports use just "./basename"
+            # (e.g., from src/presenter.ts: import { x } from "./analyzer")
+            if not is_init:
+                names.add(f"./{basename_no_ext}")          # "./analyzer" — sibling import style
+
+        except Exception:
+            pass
+
     elif module_arg:
         file_path = None
         basename_no_ext = Path(module_arg).stem.replace(".", os.sep)
