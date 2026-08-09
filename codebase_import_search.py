@@ -77,6 +77,11 @@ def main():
         action="store_true",
         help="Show usages only from configured test directories (reveals API covered by tests)"
     )
+    parser.add_argument(
+        "--incoming",
+        action="store_true",
+        help="Show where the target file's imports come from (upstream dependencies within project-root)"
+    )
 
     args = parser.parse_args()
 
@@ -91,7 +96,7 @@ def main():
         print("\nError: must specify --file or --module", file=sys.stderr)
         sys.exit(1)
 
-    # Import shared utilities and handler registry from the package structure
+    # Import shared utilities (needed by both modes)
     sys.path.insert(0, str(_TOOLS_DIR))
     from codebase_import_search.core import collect_files, resolve_target_names, rel_path
     from codebase_import_search.handlers import get_handler
@@ -102,7 +107,7 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Validate --file if provided
+    # Validate --file if provided (required for --incoming mode)
     target_path_abs = ""
     if args.file:
         file_arg = args.file
@@ -112,6 +117,65 @@ def main():
         if not os.path.isfile(target_path_abs):
             print(f"Error: --file does not exist or is not a file: {target_path_abs}", file=sys.stderr)
             sys.exit(1)
+    elif args.incoming:
+        print("Error: --incoming requires --file to be specified", file=sys.stderr)
+        sys.exit(1)
+
+    # ---------------------------------------------------------------------------
+    # Incoming mode (--incoming): resolve imports of the target file
+    # ---------------------------------------------------------------------------
+    if args.incoming:
+        from codebase_import_search.resolvers import get_resolver
+
+        try:
+            resolver = get_resolver(args.language)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        imports = resolver.resolve_imports(target_path_abs, project_root)
+        if not imports:
+            print("# No imports found in target file.")
+            return
+
+        # Separate resolved vs unresolved imports
+        resolved = [imp for imp in imports if imp.resolved_path]
+        unresolved = [imp for imp in imports if not imp.resolved_path]
+        unique_resolved_files = set(imp.resolved_path for imp in resolved)
+
+        num_total = len(imports)
+        num_resolved = len(resolved)
+        num_unique_sources = len(unique_resolved_files)
+
+        _IS_TTY = sys.stdout.isatty()
+        _YELLOW = "\033[93m" if _IS_TTY else ""
+        _RESET = "\033[0m" if _IS_TTY else ""
+
+        summary_parts = [f"# {num_total} import{'s' if num_total != 1 else ''} in target"]
+        if resolved:
+            summary_parts.append(
+                f"{num_resolved} resolved to {num_unique_sources} unique source{'s' if num_unique_sources != 1 else ''}"
+            )
+        print(_YELLOW + ", ".join(summary_parts) + _RESET)
+
+        # Show all imports (resolved first, then unresolved)
+        for imp in resolved:
+            rel_src = rel_path(imp.resolved_path, project_root)
+            line_out = f"{imp.raw_line}"
+            suffix = f" -> {rel_src}"
+            if imp.symbol_names:
+                suffix += f" [symbols: {', '.join(sorted(imp.symbol_names))}]"
+            print(line_out + suffix)
+
+        for imp in unresolved:
+            line_out = f"{imp.raw_line}"
+            print(line_out + " -> [not found inside project root]")
+
+        return
+
+    # ---------------------------------------------------------------------------
+    # Default mode (downstream consumers of target's public API) — existing logic below
+    # ---------------------------------------------------------------------------
 
     # Get handler for the requested language
     try:

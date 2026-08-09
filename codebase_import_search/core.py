@@ -3,8 +3,18 @@
 import os
 import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
+
+
+@dataclass(frozen=True)
+class ImportInfo:
+    """Information about a single import resolved by --incoming mode."""
+    raw_line: str                # original import line (trimmed)
+    module_name: str             # dotted name or path from the import
+    symbol_names: List[str]      # specific symbols imported (empty if whole module)
+    resolved_path: Optional[str] # absolute path to source file inside project-root, or None
 
 
 # Directories to skip during project scan
@@ -309,3 +319,28 @@ def _get_file_base_indent(content_lines: List[str]) -> int:
             continue
         return len(line) - len(stripped)
     return 0
+
+
+class ImportResolver(ABC):
+    """Abstract resolver for upstream dependencies (--incoming mode).
+    
+    Given a target file, finds where its imports originate from within project_root.
+    """
+
+    @abstractmethod
+    def get_extensions(self) -> Set[str]:
+        """File extensions this resolver supports (e.g. {'.py'})."""
+
+    @abstractmethod
+    def resolve_imports(
+        self, target_file: str, project_root: str
+    ) -> List[ImportInfo]:
+        """Resolve imports in target_file to files inside project_root.
+
+        Args:
+            target_file: Absolute path to the file whose imports we're resolving.
+            project_root: Root directory — only return resolved paths within this dir.
+
+        Returns:
+            List of ImportInfo for each import found (including unresolved ones).
+        """
