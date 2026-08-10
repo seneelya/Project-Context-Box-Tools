@@ -7,16 +7,15 @@ from pathlib import Path
 
 
 def normalize_path(p):
-    """Normalize path separators for cross-platform compatibility."""
+    """Normalize path separators for current OS."""
     if not p:
         return p
-    # Replace all backslashes with forward slashes (critical for Windows paths on Linux)
-    p = p.replace('\\', '/')
-    # Normalize path components (. and ..)
-    normalized = str(Path(os.path.normpath(p)))
-    # Map Windows workspace path to container mount point (Y:/ -> /workspace/)
-    normalized = normalized.replace('Y:/Hermess/body/sandboxes/docker/default/workspace/', '/workspace/')
-    return normalized
+    # Replace all slashes with system separator
+    p = p.replace('\\', os.sep).replace('/', os.sep)
+    # Map Windows workspace path to container mount point (Docker only)
+    if os.name == 'posix':  # Linux/macOS inside Docker
+        p = p.replace('Y:' + os.sep + 'Hermess' + os.sep + 'body' + os.sep + 'sandboxes' + os.sep + 'docker' + os.sep + 'default' + os.sep + 'workspace', '/workspace')
+    return p
 
 
 def is_absolute_path(p):
@@ -24,7 +23,7 @@ def is_absolute_path(p):
     if Path(p).is_absolute():
         return True
     # Handle Windows drive letters like C:/ or Y:/ on non-Windows systems
-    return bool(p and len(p) >= 2 and p[1] == ':' and os.sep in p[2:])
+    return bool(p and len(p) >= 2 and p[1] == ':')
 
 
 def load_config():
