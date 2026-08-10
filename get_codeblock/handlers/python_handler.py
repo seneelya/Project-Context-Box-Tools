@@ -317,7 +317,9 @@ class PythonHandler:
         containing = find_containing_blocks(lines, idx)
         
         if not containing:
-            return []
+            # Fallback mode: line is outside all blocks but blocks exist nearby
+            # Return the nearest block (above or below), ignoring comments
+            return self._find_nearest_block(lines, idx)
         
         result = []
         for i, (h, end) in enumerate(containing):
@@ -336,6 +338,62 @@ class PythonHandler:
             })
         
         return result
+    
+    def _find_nearest_block(self, lines, target_idx):
+        """Fallback: find nearest block above or below when line is between blocks."""
+        # If target line itself is a block header, return that block
+        if is_block_header(lines[target_idx]):
+            end = find_body_end(lines, target_idx)
+            ps = collect_preamble(lines, target_idx)
+            return [{
+                'level': 1,
+                'start': ps + 1,
+                'end': end + 1,
+            }]
+        
+        # Find nearest block header above (ignoring comments)
+        above_dist = float('inf')
+        above_header = None
+        for i in range(target_idx - 1, -1, -1):
+            if not lines[i].strip() or lines[i].strip().startswith('#'):
+                continue
+            if is_block_header(lines[i]):
+                dist = target_idx - find_body_end(lines, i)
+                above_dist = abs(dist)
+                above_header = i
+                break
+        
+        # Find nearest block header below (ignoring comments)
+        below_dist = float('inf')
+        below_header = None
+        for i in range(target_idx + 1, len(lines)):
+            if not lines[i].strip() or lines[i].strip().startswith('#'):
+                continue
+            if is_block_header(lines[i]):
+                dist = i - target_idx
+                below_dist = abs(dist)
+                below_header = i
+                break
+        
+        # Return whichever is closer; if tie, prefer above
+        if above_header is None and below_header is None:
+            return []
+        
+        if above_header is None:
+            chosen = below_header
+        elif below_header is None:
+            chosen = above_header
+        else:
+            chosen = above_header if above_dist <= below_dist else below_header
+        
+        end = find_body_end(lines, chosen)
+        ps = collect_preamble(lines, chosen)
+        
+        return [{
+            'level': 1,
+            'start': ps + 1,
+            'end': end + 1,
+        }]
     
     def _build_hierarchy_for_header(self, lines, header_idx):
         """Build full hierarchy of blocks containing the given header, plus the header's own block."""
