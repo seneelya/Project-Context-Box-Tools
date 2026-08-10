@@ -76,6 +76,7 @@ def chat(
                 backend, system_prompt, user_content,
                 timeout=timeout, max_retries=max_retries, params=params, **extra,
             )
+# this is test comment
         except BackendError as exc:
             last_exc = exc
             logger.info(
