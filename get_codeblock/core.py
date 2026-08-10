@@ -10,11 +10,11 @@ def normalize_path(p):
     """Normalize path separators for cross-platform compatibility."""
     if not p:
         return p
-    # First: replace all backslashes with forward slashes
+    # Replace all backslashes with forward slashes (critical for Windows paths on Linux)
     p = p.replace('\\', '/')
-    # Then normalize (removes . and .. components)
+    # Normalize path components (. and ..)
     normalized = str(Path(os.path.normpath(p)))
-    # Map Windows workspace path to container mount point
+    # Map Windows workspace path to container mount point (Y:/ -> /workspace/)
     normalized = normalized.replace('Y:/Hermess/body/sandboxes/docker/default/workspace/', '/workspace/')
     return normalized
 
