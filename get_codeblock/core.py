@@ -29,23 +29,29 @@ def resolve(blocks, n, is_query=False):
     
     if is_query:
         if n > 0:
+            # Level from top (1-indexed), clamp to innermost
             return blocks[min(n - 1, len(blocks) - 1)]
         elif n == 0:
+            # Current block (innermost)
             return blocks[-1]
         else:
             # Negative: relative to innermost, going up
-            # -1 = parent, -2 = grandparent, etc.
+            # -1 = parent, -2 = grandparent
             idx = len(blocks) - 1 + n
             return blocks[0] if idx < 0 else blocks[idx]
     else:
+        # Level mode (no --query): relative to innermost
+        # 0 = current block, positive = going up, negative = same as query
         if n == 0:
             return blocks[-1]
         elif n > 0:
+            # Going up from innermost
             idx = len(blocks) - 1 - n
             return blocks[0] if idx < 0 else blocks[idx]
         else:
-            idx = len(blocks) + n
-            return blocks[-1] if idx < 0 else blocks[idx]
+            # Negative in level mode: same as query (going up)
+            idx = len(blocks) - 1 + n
+            return blocks[0] if idx < 0 else blocks[idx]
 
 
 def main():
