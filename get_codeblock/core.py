@@ -208,7 +208,7 @@ def main():
 
     # Build metadata header line (valid comment for the language)
     prefix = make_comment_prefix(language)
-    meta_line = f"{prefix}Block level: {block['level']} from: {start} to: {end} lines"
+    meta_line = f"{prefix}Block level: {block['level']} range: {start}-{end}"
 
     if args['query']:
         # Output metadata header as first line, then text byte-for-byte from file
