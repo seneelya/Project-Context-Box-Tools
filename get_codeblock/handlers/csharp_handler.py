@@ -1,120 +1,484 @@
 """C# language handler for get_codeblock."""
 
-from ..core import read_lines, resolve
+
+def is_block_header(line):
+    """Check if line starts a named block (class/method/namespace/etc)."""
+    stripped = line.strip()
+
+    # Skip pure comments or empty lines
+    if not stripped or stripped.startswith('//') or stripped.startswith('/*'):
+        return False
+
+    # Block keywords that introduce braces: namespace, class, struct, interface, enum, method-like
+    block_starts = {
+        'namespace', 'class', 'struct', 'interface', 'enum',
+        'delegate', 'record',
+    }
+
+    parts = stripped.split(None, 1)
+    if not parts:
+        return False
+
+    # Handle access modifiers / keywords before the actual keyword
+    first = parts[0]
+    second_word = None
+    if len(parts) > 1:
+        second_word = parts[1].split()[0] if parts[1] else None
+
+    # Direct block start (no modifier prefix)
+    if first in block_starts or first.endswith('{'):
+        return True
+
+    # Modifier + keyword pattern: public class, static void Method(...), etc.
+    modifiers_and_types = {
+        'public', 'private', 'protected', 'internal', 'static', 'sealed',
+        'abstract', 'partial', 'virtual', 'override', 'async', 'readonly',
+        'new', 'extern', 'unsafe', 'fixed', 'volatile',
+    }
+
+    if first in modifiers_and_types and second_word:
+        # Second word could be a block keyword, type+method name, etc.
+        if second_word in block_starts:
+            return True
+        # Type + method/property pattern: "void Method(" or "int Property {" 
+        rest = stripped.split(None, 2)
+        if len(rest) >= 3 and '(' in rest[2]:
+            return True
+
+    # Lambda / anonymous methods: () => {
+    if '=>' in stripped and '{' in stripped:
+        return True
+
+    # Control flow blocks: if/for/while/switch/catch/finally/using/lock with braces on same line or next
+    control_keywords = {'if', 'else', 'for', 'foreach', 'while', 'do', 'switch', 'case', 'catch', 'finally', 'using', 'lock'}
+    if first in control_keywords:
+        return True
+
+    # Method-like pattern without explicit modifier but with parentheses and braces nearby
+    if '(' in stripped and any(c in stripped for c in ['{']):
+        return True
+
+    return False
+
+
+def get_block_keyword(line):
+    """Extract the block keyword from a header line."""
+    stripped = line.strip()
+    parts = stripped.split(None, 1)
+    if not parts:
+        return None
+
+    # Skip modifiers to find the real keyword
+    skip_modifiers = {
+        'public', 'private', 'protected', 'internal', 'static', 'sealed',
+        'abstract', 'partial', 'virtual', 'override', 'async', 'readonly',
+        'new', 'extern', 'unsafe', 'fixed', 'volatile',
+    }
+
+    first = parts[0]
+    if first in skip_modifiers and len(parts) > 1:
+        second_part = parts[1].split(None, 1)[0]
+        return second_part.lower()
+    
+    # Check control keywords directly
+    control_keywords = {'if', 'else', 'for', 'foreach', 'while', 'do', 'switch', 'case', 'catch', 'finally', 'using', 'lock'}
+    if first.lower() in control_keywords:
+        return first.lower()
+
+    # Direct block keywords
+    block_keywords = {'namespace', 'class', 'struct', 'interface', 'enum', 'delegate', 'record'}
+    if first.lower() in block_keywords:
+        return first.lower()
+
+    return None
+
+
+def get_indent(line):
+    """Get indent level (spaces count) and whether line is blank."""
+    stripped = line.lstrip(' \t')
+    if not stripped or stripped.startswith('//') or stripped.startswith('/*'):
+        return len(line) - len(stripped), True  # treat comments as "blank-like" for structure purposes
+    return len(line) - len(stripped), False
+
+
+def find_body_end(lines, header_idx):
+    """Find last line of block body starting at header_idx.
+    
+    Handles:
+    - multi-line headers (method signatures spanning lines)
+    - sibling branches (if/else, try/catch/finally)
+    
+    Returns inclusive end line index.
+    """
+    if not lines or header_idx < 0 or header_idx >= len(lines):
+        return header_idx
+
+    # Find the opening brace position
+    open_brace_line = None
+    depth = 0
+    
+    for i in range(header_idx, min(header_idx + 15, len(lines))):
+        stripped = lines[i].strip()
+        
+        # Skip string literals and comments
+        if not stripped or stripped.startswith('//'):
+            continue
+        
+        # Count braces on this line (simplified: ignore strings/comments inside signature)
+        brace_count = stripped.count('{') - stripped.count('}')
+        depth += brace_count
+        
+        if brace_count > 0 or (stripped.endswith('{')):
+            open_brace_line = i
+            break
+    
+    if open_brace_line is None:
+        return header_idx
+
+    header_indent = get_indent(lines[header_idx])[0]
+    keyword = get_block_keyword(lines[header_idx])
+    
+    # Determine compound group for sibling merging (try/catch/finally, if/else)
+    group = None
+    if keyword in ('if', 'else'):
+        group = {'if', 'else'}
+    elif keyword in ('try', 'catch', 'finally'):
+        group = {'try', 'catch', 'finally'}
+
+    last_line = open_brace_line
+    
+    for i in range(open_brace_line + 1, len(lines)):
+        stripped = lines[i].strip()
+        
+        if not stripped or stripped.startswith('//') or stripped.startswith('/*'):
+            # Comments don't end the block — they belong to it or a sibling
+            last_line = i
+            continue
+        
+        ind = get_indent(lines[i])[0]
+        
+        # Count braces on this line
+        brace_count = stripped.count('{') - stripped.count('}')
+        
+        if brace_count < 0:
+            # Closing brace — check if it closes our block (depth becomes 0)
+            depth += brace_count
+            if depth == 0:
+                return i
+            elif depth < 0:
+                # Block ended before we found matching close — stop here
+                return last_line
+        
+        if brace_count > 0 and ind > header_indent:
+            depth += brace_count
+            last_line = i
+            continue
+        
+        # Lines with indent less than header → might have left this block
+        if ind < header_indent:
+            # For compound blocks (if/else, try/catch), peek ahead past comments/blanks
+            # to see if a sibling branch follows at our indent level
+            found_sibling = False
+            if group is not None:
+                peek = i + 1
+                while peek < len(lines):
+                    peek_stripped = lines[peek].strip()
+                    if not peek_stripped or peek_stripped.startswith('//'):
+                        last_line = peek
+                        peek += 1
+                        continue
+                    
+                    pi = get_indent(lines[peek])[0]
+                    
+                    if pi == header_indent and is_block_header(lines[peek]):
+                        kw = get_block_keyword(lines[peek])
+                        if kw in group:
+                            # Sibling branch follows — include this region and continue scanning
+                            last_line = peek
+                            found_sibling = True
+                            break
+                    # Next real content doesn't match our compound → we're done
+                    break
+            
+            if not found_sibling:
+                break
+            continue
+        
+        # At same indent level: only stop on actual block headers, not comments/docstrings
+        if ind == header_indent:
+            if is_block_header(lines[i]):
+                kw = get_keyword(lines[i])
+                if group is not None and kw in group:
+                    # Sibling of our compound block — include it
+                    last_line = i
+                    continue
+                else:
+                    # Different block at same level — end here
+                    break
+            last_line = i
+            continue
+        
+        # Indent > header_indent: body line
+        last_line = i
+    
+    return last_line
+
+
+def find_containing_braces(lines, target_idx):
+    """Find all brace blocks containing the target line.
+    
+    Returns list sorted outermost-first (by increasing depth).
+    Each item: {'header_idx': int, 'body_end': int}
+    """
+    stack = []  # List of indices where '{' was seen
+    
+    for i in range(target_idx + 1):
+        line = lines[i]
+        
+        # Skip pure comment lines (but still track braces inside them)
+        stripped = line.strip()
+        if stripped.startswith('//'):
+            continue
+        
+        # Track braces character by character, ignoring strings/comments
+        j = 0
+        in_string = False
+        string_char = None
+        n = len(line)
+        
+        while j < n:
+            ch = line[j]
+            
+            # Handle escape sequences in strings
+            if in_string and ch == '\\\\' and j + 1 < n:
+                j += 2
+                continue
+            
+            # Handle character literals (@"" for verbatim strings)
+            if j > 0 and line[j - 1] == '@':
+                j += 1
+                continue
+            
+            # String handling
+            if (ch == '"' or ch == "'") and not in_string:
+                in_string = True
+                string_char = ch
+                j += 1
+                continue
+            
+            if in_string and ch == string_char:
+                in_string = False
+                string_char = None
+                j += 1
+                continue
+            
+            if in_string:
+                j += 1
+                continue
+            
+            # Line comment
+            if ch == '/' and j + 1 < n and line[j + 1] == '/':
+                break
+            
+            # Multi-line comment start
+            if ch == '/' and j + 1 < n and line[j + 1] == '*':
+                j += 2
+                while j < n - 1:
+                    if line[j] == '*' and line[j + 1] == '/':
+                        break
+                    j += 1
+                j += 2
+                continue
+            
+            # Braces
+            if ch == '{':
+                stack.append(i)
+            
+            elif ch == '}':
+                if stack:
+                    stack.pop()
+            
+            j += 1
+    
+    # Now find matching '}' for each brace in stack (outermost first = bottom of stack)
+    containing = []
+    
+    for brace_idx in stack:
+        depth = 0
+        
+        for i in range(brace_idx, len(lines)):
+            line = lines[i]
+            
+            stripped = line.strip()
+            if stripped.startswith('//'):
+                continue
+            
+            # Count braces on this line (ignore strings/comments)
+            j = 0
+            n = len(line)
+            found_close = False
+            
+            while j < n and not found_close:
+                ch = line[j]
+                
+                if ch == '/' and j + 1 < n and line[j + 1] == '/':
+                    break
+                
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        containing.append({'header_idx': brace_idx, 'body_end': i})
+                        found_close = True
+                
+                j += 1
+            
+            if found_close:
+                break
+    
+    return containing
 
 
 class CSharpHandler:
-    """Handles C# code block detection using brace matching + #region."""
-
-    def __init__(self):
-        self.block_keywords = [
-            'class', 'struct', 'interface', 'enum', 'namespace',
-            'public', 'private', 'protected', 'internal',
-            'void', 'static', 'async', 'sealed', 'abstract',
-            'partial', 'readonly', 'const', 'event', 'delegate',
-        ]
+    """Handles C# code block detection using brace matching."""
 
     def get_blocks(self, file_path, line_num):
-        lines = read_lines(file_path)
-        blocks = []
-        self._scan_blocks(lines, blocks)
+        """Get blocks hierarchy containing the given line.
+        
+        Args:
+            file_path: Path to source file
+            line_num: 1-based target line number
+            
+        Returns:
+            List of dicts sorted outermost-first:
+            [{'level': N, 'start': X, 'end': Y}, ...]
+            
+            level=1 means top-level block in the file (not inside any other)
+        """
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
 
-        containing = [b for b in blocks if b['start'] <= line_num <= b['end']]
-        containing.sort(key=lambda b: b['level'])
-        return containing
+        target_idx = line_num - 1
+        
+        if not lines or target_idx < 0 or target_idx >= len(lines):
+            return []
 
-    def _scan_blocks(self, lines, blocks):
-        """Scan for code blocks using brace matching and #region."""
-        stack = []  # [(start_line, block_type)]
-        in_multiline_comment = False
+        # Check if target is a comment — attach to nearest block header above it
+        stripped = lines[target_idx].strip()
+        
+        if stripped.startswith('//') or stripped.startswith('/*'):
+            # Comment belongs to block above it
+            attached = self._find_attached_block(lines, target_idx)
+            if attached is not None:
+                return self._build_hierarchy_for_header(lines, attached)
+            else:
+                return []
 
-        for i, line in enumerate(lines):
-            stripped = line.strip()
+        # Find containing brace blocks
+        containing_braces = find_containing_braces(lines, target_idx)
+        
+        if not containing_braces:
+            return []
 
-            if stripped.startswith('//'):
+        # Build hierarchy from brace blocks
+        result = []
+        for i, block_info in enumerate(containing_braces):
+            header_idx = block_info['header_idx']
+            body_end = block_info['body_end']
+            
+            # Find actual semantic header line (may be before '{' on previous lines)
+            actual_header = self._find_semantic_header(lines, header_idx)
+            
+            result.append({
+                'level': i + 1,
+                'start': actual_header + 1,  # Convert to 1-based
+                'end': body_end + 1,
+            })
+
+        return result
+
+    def _find_attached_block(self, lines, target_idx):
+        """For a comment line, find the nearest block header above it."""
+        for i in range(target_idx - 1, -1, -1):
+            stripped = lines[i].strip()
+            if not stripped or stripped.startswith('//'):
                 continue
+            
+            if is_block_header(lines[i]):
+                return i
+        
+        return None
 
-            # Handle multi-line comments
-            if in_multiline_comment:
-                if '*/' in stripped:
-                    in_multiline_comment = False
-                continue
-            if stripped.startswith('/*'):
-                if '*/' not in stripped:
-                    in_multiline_comment = True
-                continue
-
-            # Handle #region blocks
-            if stripped.startswith('#region'):
-                region_name = stripped[8:].strip() if stripped.startswith('#region ') else stripped[7:].strip()
-                stack.append((i + 1, 'region', region_name))
-            elif stripped == '#endregion':
-                if stack and len(stack[-1]) > 2 and stack[-1][1] == 'region':
-                    start_line, _, name = stack.pop()
-                    blocks.append({
-                        'start': start_line,
-                        'end': i + 1,
-                        'level': len(stack),
-                        'type': 'region',
-                        'name': name
-                    })
-
-            # Handle { } blocks character by character
-            in_string = False
-            string_char = None
-
-            for ch_idx in range(len(stripped)):
-                ch = stripped[ch_idx]
-
-                # Skip escaped chars
-                if in_string and ch == '\\\\':
+    def _find_semantic_header(self, lines, brace_line_idx):
+        """Find the semantic header line for a '{' position.
+        
+        In C#, headers can span multiple lines before the opening brace.
+        We look backwards from the '{' to find where the declaration starts.
+        """
+        if brace_line_idx < 0 or brace_line_idx >= len(lines):
+            return brace_line_idx
+        
+        brace_indent = get_indent(lines[brace_line_idx])[0]
+        
+        # If '{' is on its own line, look backwards for the header
+        stripped = lines[brace_line_idx].strip()
+        if stripped == '{':
+            # Search backwards from previous non-blank/non-comment line
+            i = brace_line_idx - 1
+            
+            while i >= 0:
+                s = lines[i].strip()
+                
+                # Skip blank lines and comments immediately before header
+                if not s or s.startswith('//'):
+                    i -= 1
                     continue
-
-                # Handle strings
-                if (ch == '"' or ch == "'") and not in_string:
-                    in_string = True
-                    string_char = ch
-                    continue
-                if in_string and ch == string_char:
-                    in_string = False
-                    string_char = None
-                    continue
-
-                if in_string:
-                    continue
-
-                # Skip line comments after strings
-                if ch == '/' and ch_idx + 1 < len(stripped) and stripped[ch_idx + 1] == '/':
+                
+                # Check if this line is part of a multi-line declaration
+                ind = get_indent(lines[i])[0]
+                
+                # If indent matches brace level but it's not '{', we've gone too far
+                if ind <= brace_indent and s != '{' and i < brace_line_idx - 1:
                     break
+                
+                return i
+            
+            return brace_line_idx
+        
+        return brace_line_idx
 
-                if ch == '{':
-                    block_type = self._detect_block_type(lines, i)
-                    stack.append((i + 1, block_type))
+    def _build_hierarchy_for_header(self, lines, header_idx):
+        """Build full hierarchy of blocks containing the given header."""
+        target = header_idx
+        ancestors = []
+        
+        while target >= 0:
+            # Find nearest block header above current position
+            found = False
+            for h in range(target - 1, -1, -1):
+                if is_block_header(lines[h]):
+                    body_end = find_body_end(lines, h)
+                    
+                    # Check if this block contains our target line
+                    if target >= h and target <= body_end:
+                        ancestors.append((h, body_end))
+                        found = True
+                        target = h - 1
+                        break
+            
+            if not found:
+                break
+        
+        ancestors.reverse()
+        
+        result = []
+        for i, (h, end) in enumerate(ancestors):
+            result.append({
+                'level': i + 1,
+                'start': h + 1,  # Convert to 1-based
+                'end': end + 1,
+            })
+        
+        return result
 
-                elif ch == '}':
-                    if stack:
-                        start_line, block_type = stack.pop()
-                        blocks.append({
-                            'start': start_line,
-                            'end': i + 1,
-                            'level': len(stack),
-                            'type': block_type
-                        })
-
-    def _detect_block_type(self, lines, idx):
-        """Detect block type from line content."""
-        line = lines[idx].strip()
-
-        if line.startswith('//') or line.startswith('/*'):
-            return 'comment'
-
-        for kw in self.block_keywords:
-            if line.startswith(kw + ' ') or line.startswith(kw + '('):
-                return kw
-
-        return 'block'
-
-    def extract(self, file_path, start_line, end_line):
-        """Extract text from file."""
-        lines = read_lines(file_path)
-        return '\n'.join(lines[start_line - 1:end_line])
