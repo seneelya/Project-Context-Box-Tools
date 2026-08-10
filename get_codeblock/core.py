@@ -17,27 +17,41 @@ def load_config():
 def parse_args():
     config = load_config()
     default_root = config['PROJECT_ROOT'] if config else None
-    
-    parser = argparse.ArgumentParser(description="Get code block containing a line.")
+
+    class CleanHelpFormatter(argparse.HelpFormatter):
+        def _format_actions_usage(self, required_actions, optional_actions):
+            usage = super()._format_actions_usage(required_actions, optional_actions)
+            return usage.replace("[-h] ", "")
+
+        def _format_action(self, action):
+            if action.dest == 'help':
+                return ''
+            return super()._format_action(action)
+
+    parser = argparse.ArgumentParser(
+        description="Search or query exact code block from given line at given depth.",
+        usage="get_codeblock.py --file PATH --line N [--level LEVEL] [--query Q]",
+        formatter_class=CleanHelpFormatter
+    )
     parser.add_argument("--file", required=False)
     parser.add_argument("--line", type=int, required=False)
     parser.add_argument("--level", type=int, default=None)
     parser.add_argument("--query", type=int, default=None)
     parser.add_argument("--project_root", type=str, default=default_root)
-    
+
     args = parser.parse_args()
-    
+
     # No arguments: show short usage hint (not full --help)
     if not args.file and not args.line:
         root_info = f'Current PROJECT_ROOT="{default_root}"\n\n' if default_root else ''
         print("get_codeblock.py")
-        print("Get code block containing a line in a file.")
-        print(f"Usage: get_codeblock.py --file PATH --line N [--level LEVEL|--query Q] [options]\n{root_info}Full help with --help")
+        print("Search or query exact code block from given line at given depth.")
+        print(f"Usage: get_codeblock.py --file PATH --line N [--level LEVEL] [--query Q]\n{root_info}Full help with --help")
         sys.exit(0)
-    
+
     if not args.file or not args.line:
         parser.error("the following arguments are required: --file, --line")
-    
+
     return args, config
 
 
