@@ -94,6 +94,48 @@ class PythonHandler(LanguageHandler):
 
         return ", ".join(parts).strip(", ") or None
 
+    def _get_non_docstring_indices(self, content_lines):
+        """Return set of line indices NOT inside docstrings."""
+        non_ds = set(range(len(content_lines)))
+        in_triple = None
+        
+        for i, line in enumerate(content_lines):
+            j = 0
+            n = len(line)
+            
+            while j < n:
+                ch = line[j]
+                
+                if in_triple is not None:
+                    non_ds.discard(i)
+                    
+                    tq = in_triple
+                    if ch == tq[0] and j + 2 < n and line[j:j+3] == tq:
+                        rest_start = j + 3
+                        rest = line[rest_start:].strip()
+                        if rest and not rest.startswith('#'):
+                            non_ds.add(i)
+                        in_triple = None
+                    j += 1
+                    continue
+                
+                if j + 2 < n:
+                    candidate = line[j:j+3]
+                    if len(set(candidate)) == 1 and candidate[0] in ('"', "'"):
+                        close_pos = line.find(candidate, j + 3)
+                        if close_pos != -1:
+                            rest_start = close_pos + 3
+                            rest = line[rest_start:].strip()
+                            if not rest or rest.startswith('#'):
+                                non_ds.discard(i)
+                        else:
+                            in_triple = candidate
+                            non_ds.discard(i)
+                
+                j += 1
+        
+        return non_ds
+
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
     ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
@@ -178,7 +220,13 @@ class PythonHandler(LanguageHandler):
         if import_aliases:
             pattern = self._build_attr_pattern(set(import_aliases.keys()))
             if pattern:
-                full_text = "\n".join(content_lines)
+                # Read raw file to preserve exact line endings (CRLF vs LF matters!)
+                with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                    full_text = f.read()
+
+                # Get set of valid lines (not inside docstrings) for usage scanning
+                non_docstring_indices = self._get_non_docstring_indices(content_lines)
+
                 for m in pattern.finditer(full_text):
                     alias = m.group(1)
                     attr_path = m.group(2).strip()
@@ -188,10 +236,14 @@ class PythonHandler(LanguageHandler):
                             continue
                         _, kind = import_aliases[alias]
                         used_symbols[attr_path] = kind
-                        # Calculate line number from position in full_text
+                        # Calculate line number from position in full_text (preserves exact line endings)
                         pos = m.start()
                         line_num = full_text[:pos].count("\n") + 1
-                        symbol_lines.setdefault(attr_path, []).append(line_num)
+                        line_idx = line_num - 1  # Convert to 0-based index
+                        
+                        # Only count if this line is not inside a docstring
+                        if line_idx in non_docstring_indices:
+                            symbol_lines.setdefault(attr_path, []).append(line_num)
 
         # Second pass for direct named imports: find where symbols are actually USED (not just imported)
         # Collect all directly imported symbol names that need usage tracking
@@ -210,10 +262,15 @@ class PythonHandler(LanguageHandler):
                 if stripped.startswith("import ") or stripped.startswith("from "):
                     import_line_indices.add(idx)
 
-            # Scan all non-import lines for symbol usages
-            for idx, line in enumerate(content_lines):
+            # Get set of valid lines (not inside docstrings) for usage scanning
+            non_docstring_indices = self._get_non_docstring_indices(content_lines)
+
+            # Scan all non-import, non-docstring lines for symbol usages
+            for idx in sorted(non_docstring_indices):
                 if idx in import_line_indices:
                     continue
+                
+                line = content_lines[idx]
                 stripped = line.strip()
                 if not stripped or stripped.startswith("#"):
                     continue
@@ -223,8 +280,10 @@ class PythonHandler(LanguageHandler):
                     if sym_name in direct_imported_names:
                         symbol_lines.setdefault(sym_name, []).append(idx + 1)
 
-        # Dynamic access
-        full_text = "\n".join(content_lines)
-        dynamic_patterns = self._detect_dynamic_access(full_text, target_names)
+        # Dynamic access — exclude docstrings by building text from valid lines only
+        non_docstring_text = "\n".join(
+            content_lines[i] for i in sorted(self._get_non_docstring_indices(content_lines))
+        )
+        dynamic_patterns = self._detect_dynamic_access(non_docstring_text, target_names)
 
         return used_symbols, symbol_lines, dynamic_patterns
