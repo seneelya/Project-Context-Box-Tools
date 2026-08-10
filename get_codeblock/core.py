@@ -75,7 +75,6 @@ def parse_args():
             i += 2
         elif token == '--help':
             root_info = f'Current PROJECT_ROOT="{default_root}"\n\n' if default_root else ''
-            print("get_codeblock.py")
             print("Search or query exact code block from given line at given depth.")
             print("")
             print("Usage:")
