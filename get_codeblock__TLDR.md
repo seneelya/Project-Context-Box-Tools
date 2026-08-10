@@ -6,14 +6,9 @@ Get code block containing a line in a file, with optional query for parent block
 
 ## Modes
 
-* **Default** — Returns `<level> <from_line> <to_line>` for the block containing the line.
-* **`--query N`** — Returns text of block at level N (1 = topmost, 0 = current, -1 = parent).
-* **`--level N`** — Returns block boundaries at level N (0 = current, 1 = parent, -1 = grandparent).
+* **Default** — Returns `<level> <from_line> <to_line>` for the block containing the line. Use with `--level` to target blocks relative to current position (`0`=current block, `-1`=parent).
+* **`--query Q`** — Returns raw text of block at level `Q` (from top: `1`=outermost containing block) or relative to line (`-1`=parent, `-2`=grandparent). Returns entire block contents as-is from the file.
 
 ## Configuration notes
 
-When `tools_config.py` exists, `PROJECT_ROOT`, `LANGUAGE`, and `TEST_DIRS` are used as defaults.
-
-Language priority: CLI `--language` → file extension → config → `python`.
-
-Configure `TEST_DIRS` to define test directories (relative paths). Tests are excluded from default scans; use `--tests-only` to inspect what API tests cover.
+When `tools_config.py` exists, `PROJECT_ROOT` is used as default for resolving relative file paths. Language is detected by file extension (`.py`, `.ts`, `.js`, `.cs`).

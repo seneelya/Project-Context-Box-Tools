@@ -19,12 +19,26 @@ def parse_args():
     default_root = config['PROJECT_ROOT'] if config else None
     
     parser = argparse.ArgumentParser(description="Get code block containing a line.")
-    parser.add_argument("--file", required=True)
-    parser.add_argument("--line", type=int, required=True)
+    parser.add_argument("--file", required=False)
+    parser.add_argument("--line", type=int, required=False)
     parser.add_argument("--level", type=int, default=None)
     parser.add_argument("--query", type=int, default=None)
     parser.add_argument("--project_root", type=str, default=default_root)
-    return parser.parse_args(), config
+    
+    args = parser.parse_args()
+    
+    # No arguments: show short usage hint (not full --help)
+    if not args.file and not args.line:
+        root_info = f'Current PROJECT_ROOT="{default_root}"\n\n' if default_root else ''
+        print("get_codeblock.py")
+        print("Get code block containing a line in a file.")
+        print(f"Usage: get_codeblock.py --file PATH --line N [--level LEVEL|--query Q] [options]\n{root_info}Full help with --help")
+        sys.exit(0)
+    
+    if not args.file or not args.line:
+        parser.error("the following arguments are required: --file, --line")
+    
+    return args, config
 
 
 def read_lines(file_path):
