@@ -54,7 +54,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Find where symbols from a target module are imported or used across the project.",
-        usage="%(prog)s --file PATH [--module-names N1,N2,...] [--language LNG] [--project-root ROOT] [--incoming|--verbose|--tests-only]"
+        usage="%(prog)s --file PATH [--module-names N1,N2,...] [--language LNG] [--project-root ROOT] [--incoming] [--verbose] [--tests-only] [--symbol NAME]"
     )
     parser.add_argument("--file", help="Path to target file (relative or absolute)")
     parser.add_argument("--module", help="Module name instead of file path")
@@ -88,7 +88,7 @@ def main():
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Group output by symbol with load type and usage line numbers with their code block levels"
+        help="Per-symbol detail with usage line numbers and code block levels. Default mode: where each symbol is used across the project. With --incoming: where each imported symbol is used inside the target file."
     )
     parser.add_argument(
         "--symbol",

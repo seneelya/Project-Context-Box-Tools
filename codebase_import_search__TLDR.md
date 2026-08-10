@@ -1,18 +1,33 @@
 # codebase_import_search
 
-Find where a target module's symbols are imported or used across the project.
+Find where a target module's symbols are imported or used across the project — the
+FACT of the real interface, not a guess.
 
 **Target:** provide one of `--file PATH` or `--module NAME`.
 
 ## Modes
 
-* **Default** — Which files consume the target's symbols? Groups usages by file with load types (`top-level` / `lazy` / `conditional` / `fallback`) and dynamic access detection.
-* **`--verbose`** — Where exactly is each symbol used? Groups by symbol and adds precise usage line numbers, load types, and code block levels (depth).
-* **`--incoming`** — What does the target import? Shows upstream dependencies within `project-root`; external dependencies are grouped as `[external]: <line>`.
-* **`--tests-only`** — Which API is covered by tests? Shows usages only from configured test directories.
+* **Default** — Who consumes the target's symbols? Groups usages by file with load
+  types (`top-level` / `lazy` / `conditional` / `fallback`) and dynamic-access detection.
+* **`--verbose`** — Where exactly is each symbol used? Groups by symbol with precise
+  usage line numbers, load types, and code block levels (depth). Symbols that are
+  imported but never used land in a `# dangling imports` section.
+* **`--incoming`** — What does the target import? Upstream sources within `project-root`;
+  everything else is grouped under `# external (...)`.
+* **`--incoming --verbose`** — For each imported symbol: its source file + where it is
+  used INSIDE the target file (lines + block levels). This is the feed for `get_codeblock`:
+  take a line, ranging-shot it to the enclosing block. Ideal for huge files.
+* **`--tests-only`** — Which API is covered by tests? Usages only from configured test dirs.
+
+## Filtering
+
+* **`--symbol NAME[,NAME]`** — Post-filter the output to one or a few symbols. Works in
+  every mode (it filters the produced data, not the logic). Use when you care about a
+  single symbol's fan-in/fan-out.
 
 ## Configuration notes
 
 Language priority: CLI `--language` → file extension → config → `python`.
-
-Configure `TEST_DIRS` to define test directories (relative paths). Tests are excluded from default scans; use `--tests-only` to inspect what API tests cover.
+Paths in output are always `/`-normalized (cross-platform, joinable with card File Path).
+Configure `TEST_DIRS` (relative paths) to define test directories; excluded from default
+scans, shown alone with `--tests-only`.

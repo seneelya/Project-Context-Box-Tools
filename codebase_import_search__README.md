@@ -10,8 +10,13 @@
 - **`--incoming` mode (upstream dependencies)** — показывает откуда целевой файл берёт свои зависимости: каждый исходный файл внутри project-root перечислен с символами, которые из него импортируются. Внешние пакеты/stdlib сгруппированы внизу как `[external]: <import_line>`.
   - **Ключевой вопрос:** ОТКУДА этот модуль импортирует символы? Где определены его зависимости?
 
-- **`--verbose` mode (per-symbol detail)** — группирует вывод default mode по символам вместо файлов: для каждого символа показывает все файлы и точные номера строк где он используется, тип загрузки (lazy/top-level/conditional/fallback) и глубину блока на этой строке. Включает самодокументирующую легенду формата на первой строке.
+- **`--verbose` mode (per-symbol detail)** — группирует вывод default mode по символам вместо файлов: для каждого символа показывает все файлы и точные номера строк где он используется, тип загрузки (lazy/top-level/conditional/fallback) и глубину блока на этой строке. Символы, которые импортируются, но нигде не используются, выносятся в раздел `# dangling imports`. Включает самодокументирующую легенду формата на первой строке.
   - **Ключевой вопрос:** ГДЕ именно (в каких файлах на каких строках и в каком контексте) используется каждый конкретный символ моего API?
+
+- **`--incoming --verbose` mode** — для каждого импортированного символа: его файл-источник + где символ используется ВНУТРИ таргет-файла (строки + уровни блоков). Это прямой вход для `get_codeblock`: берёшь строку → пристрелка до объемлющего блока. Незадействованные внутри таргета импорты — в раздел `# dangling imports`.
+  - **Ключевой вопрос:** Откуда пришёл символ и где я его использую в ЭТОМ (возможно, огромном) файле?
+
+- **`--symbol N1,N2,...` filter** — пост-фильтр вывода по имени символа(ов), работает во всех режимах (фильтрует готовые данные, не логику). Для случая «мне важен фан-ин/фан-аут одного символа».
 
 Инструмент сканирует весь проект и находит все файлы, которые импортируют целевой модуль, а затем определяет какие именно символы (функции, классы, константы) из него используются в каждом файле-потребителе.
 
@@ -61,6 +66,7 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 | `--verbose` | Группировать вывод по символам с номерами строк, типами загрузки и уровнями блоков (работает только в default mode); добавляет легенду формата | (без значения) |
 | `--project-root PATH` | Root directory to scan for imports (default from tools_config.py or current dir) | `/workspace/SRC/memohood`, `.` |
 | `--tests-only` | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
+| `--symbol N1,N2,...` | Post-filter output to these symbol name(s). Works in every mode (filters the produced data, not the logic) | `resolve_chain`, `chat,embed` |
 
 ### Режимы работы
 
@@ -78,10 +84,26 @@ path/to/file2.ts: [SymbolA, SymbolB]
 # N imports in target, M resolved to K unique sources
 _engine/__init__.py: [backends, db]
 _engine/security.py: [DEFAULT_USER_AGENT]
-[external]: import logging
+
+# external (P not resolved in project):
+  import logging
+  from typing import Any, Dict, List
 ```
 
-(Формат `file: [symbols]` совпадает с default mode для консистентности.)
+(Формат `file: [symbols]` совпадает с default mode для консистентности. Пути всегда `/`.
+Внешние/нерезолвнутые импорты собраны в раздел `# external (...)`.)
+
+**`--incoming --verbose`** — по каждому импортированному символу: источник + где он
+используется внутри таргет-файла (строки + уровни блоков через `get_codeblock`):
+```text
+# N imports in target, M resolved to K unique sources
+# Format: symbol <- source_file: used in target lines=[..] levels=[..]
+
+db <- _engine/__init__.py: lines=[407, 408, 415, 427] levels=[3, 3, 3, 6]
+
+# dangling imports (imported, not used in target):
+  IConfigInterface <- src/configurator.ts
+```
 
 **`--verbose` mode (per-symbol detail)** — в default mode с флагом `--verbose`:
 Группирует вывод по символам вместо файлов, показывая точные номера строк использования, тип загрузки и глубину блока на каждой строке. Формат вывода:
