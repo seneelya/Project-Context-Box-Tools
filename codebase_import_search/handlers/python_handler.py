@@ -123,6 +123,37 @@ class PythonHandler(LanguageHandler):
             return all_idx  # fail open: never drop a real usage on a parse error
         return code_lines
 
+    def find_symbol_usages(self, filepath: str, content_lines: List[str], names: Set[str]) -> Dict[str, List[int]]:
+        """Where each name in `names` is USED as real code in this file (1-based lines).
+
+        Excludes import lines, comments and docstrings. Shared by analyze_file
+        (downstream) and by --incoming --verbose (usages inside the target file).
+        """
+        result: Dict[str, List[int]] = {}
+        if not names or not content_lines:
+            return result
+
+        sorted_syms = sorted(names, key=len, reverse=True)
+        usage_pattern = re.compile(r'\b(' + '|'.join(re.escape(s) for s in sorted_syms) + r')\b')
+
+        import_line_indices = {
+            idx for idx, line in enumerate(content_lines)
+            if line.strip().startswith("import ") or line.strip().startswith("from ")
+        }
+        code_indices = self._get_non_docstring_indices(content_lines)
+
+        for idx in sorted(code_indices):
+            if idx in import_line_indices:
+                continue
+            stripped = content_lines[idx].strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            for m in usage_pattern.finditer(stripped):
+                sym = m.group(1)
+                if sym in names:
+                    result.setdefault(sym, []).append(idx + 1)
+        return result
+
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
     ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
@@ -239,39 +270,9 @@ class PythonHandler(LanguageHandler):
                         symbol_lines.setdefault(attr_path, []).append(line_num)
 
         # Second pass for direct named imports: find where symbols are actually USED (not just imported)
-        # Collect all directly imported symbol names that need usage tracking
         direct_imported_names = set(used_symbols.keys())
-
-        if direct_imported_names and content_lines:
-            # Build word-boundary regex for each symbol to avoid partial matches
-            sorted_syms = sorted(direct_imported_names, key=len, reverse=True)
-            escaped_syms = [re.escape(s) for s in sorted_syms]
-            usage_pattern = re.compile(r'\b(' + '|'.join(escaped_syms) + r')\b')
-
-            # Collect lines that are import lines (to exclude them from usage results)
-            import_line_indices = set()
-            for idx, line in enumerate(content_lines):
-                stripped = line.strip()
-                if stripped.startswith("import ") or stripped.startswith("from "):
-                    import_line_indices.add(idx)
-
-            # Get set of valid lines (not inside docstrings) for usage scanning
-            non_docstring_indices = self._get_non_docstring_indices(content_lines)
-
-            # Scan all non-import, non-docstring lines for symbol usages
-            for idx in sorted(non_docstring_indices):
-                if idx in import_line_indices:
-                    continue
-                
-                line = content_lines[idx]
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-
-                for usage_match in usage_pattern.finditer(stripped):
-                    sym_name = usage_match.group(1)
-                    if sym_name in direct_imported_names:
-                        symbol_lines.setdefault(sym_name, []).append(idx + 1)
+        for sym_name, lns in self.find_symbol_usages(filepath, content_lines, direct_imported_names).items():
+            symbol_lines.setdefault(sym_name, []).extend(lns)
 
         # Dynamic access — exclude docstrings by building text from valid lines only
         non_docstring_text = "\n".join(

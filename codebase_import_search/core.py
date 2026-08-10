@@ -350,3 +350,171 @@ class ImportResolver(ABC):
         Returns:
             List of ImportInfo for each import found (including unresolved ones).
         """
+
+
+# ---------------------------------------------------------------------------
+# Data producers — separate WHAT we found from HOW we print it.
+# main() wires args -> producer -> formatter; producers return plain structures.
+# ---------------------------------------------------------------------------
+
+def _fast_filter_symbols(target_content: str, language: str, target_names: Set[str]) -> List[str]:
+    """Candidate public symbols of the target file, used to skip files that can't
+    reference it. Cheap regex heuristics; over-inclusion only costs a wasted scan.
+    """
+    syms: List[str] = []
+    lang = language.lower()
+
+    if lang in {"python"}:
+        for m in re.finditer(r'^class\s+(\w+)', target_content, re.MULTILINE):
+            syms.append(m.group(1))
+        for m in re.finditer(r'^(?:async\s+)?def\s+(\w+)\s*\(', target_content, re.MULTILINE):
+            syms.append(m.group(1))
+        for m in re.finditer(r'^(\w+)\s*=', target_content, re.MULTILINE):
+            name = m.group(1)
+            if name.isupper() or (name[0].isupper() and '_' in name):
+                syms.append(name)
+        all_match = re.search(r'__all__\s*=\s*\[(.*?)\]', target_content, re.DOTALL)
+        if all_match:
+            for item in re.findall(r'''['"](\w+)['"]''', all_match.group(1)):
+                syms.append(item)
+
+    elif lang in {"typescript", "ts", "js"}:
+        for m in re.finditer(r'(?:export\s+)?class\s+(\w+)', target_content, re.MULTILINE):
+            syms.append(m.group(1))
+        for m in re.finditer(r'(?:export\s+)?interface\s+(\w+)', target_content, re.MULTILINE):
+            syms.append(m.group(1))
+        for m in re.finditer(r'(?:export\s+)?type\s+(\w+)', target_content, re.MULTILINE):
+            syms.append(m.group(1))
+        for m in re.finditer(r'(?:export\s+)?(?:async\s+)?function\s+(\w+)', target_content, re.MULTILINE):
+            syms.append(m.group(1))
+        for m in re.finditer(r'export\s+\{([^}]+)\}', target_content):
+            for item in m.group(1).split(','):
+                name = item.split(' as ')[-1].strip()
+                if name:
+                    syms.append(name)
+
+    elif lang in {"csharp", "cs"}:
+        for m in re.finditer(r'(?:public\s+)?(?:partial\s+)*(?:class|struct|interface|enum)\s+(\w+)', target_content, re.MULTILINE):
+            syms.append(m.group(1))
+        for m in re.finditer(r'public\s+(?:static\s+)?(?:async\s+)?\w+\s+(\w+)\s*\(', target_content):
+            syms.append(m.group(1))
+
+    # Module-name fallback (some files import the module directly), skipping
+    # ultra-generic short names that would match too much.
+    for name in sorted(target_names, key=len):
+        if len(name) >= 4 and not re.match(r'^[A-Z]$', name):
+            syms.append(name)
+
+    return sorted(set(syms), key=len, reverse=True)
+
+
+def scan_downstream(
+    project_root: str,
+    handler: "LanguageHandler",
+    target_names: Set[str],
+    target_path_abs: str,
+    language: str,
+    has_file: bool,
+    test_dirs: List[str],
+    tests_only: bool,
+) -> Tuple[Dict[str, Dict[str, dict]], Dict[str, Set[str]]]:
+    """Find downstream consumers of the target's symbols across the project.
+
+    Returns (data, dynamic):
+      data    = {rel_file: {symbol: {"kind": str, "lines": [int]}}}  (lines=[] → dangling import)
+      dynamic = {rel_file: {dynamic_label, ...}}
+    """
+    all_files = collect_files(project_root, handler.get_extensions(), test_dirs, tests_only)
+
+    fast_syms: List[str] = []
+    if has_file and target_path_abs and os.path.isfile(target_path_abs):
+        try:
+            with open(target_path_abs, "r", encoding="utf-8", errors="replace") as fh:
+                fast_syms = _fast_filter_symbols(fh.read(), language, target_names)
+        except OSError:
+            fast_syms = []
+    fast_re = re.compile("|".join(re.escape(s) for s in fast_syms)) if fast_syms else None
+
+    data: Dict[str, Dict[str, dict]] = {}
+    dynamic: Dict[str, Set[str]] = {}
+
+    for fpath in all_files:
+        if os.path.abspath(fpath) == target_path_abs:
+            continue
+        try:
+            with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
+                content = fh.read()
+                lines = content.splitlines(keepends=True)
+        except OSError:
+            continue
+
+        if fast_re is not None and not fast_re.search(content):
+            continue
+
+        symbols_dict, symbol_lines_dict, dyn = handler.analyze_file(
+            fpath, lines, target_names, project_root, target_path_abs if has_file else None
+        )
+
+        rp = rel_path(fpath, project_root)
+        if symbols_dict:
+            data[rp] = {
+                sym: {"kind": kind, "lines": sorted(set(symbol_lines_dict.get(sym, [])))}
+                for sym, kind in symbols_dict.items()
+            }
+        if dyn:
+            dynamic[rp] = dyn
+
+    return data, dynamic
+
+
+def scan_incoming(
+    resolver: "ImportResolver",
+    target_path_abs: str,
+    project_root: str,
+    handler: "LanguageHandler" = None,
+    verbose: bool = False,
+) -> Tuple[List[dict], List[str], Dict[str, dict], Dict[str, int]]:
+    """Resolve the target file's upstream imports.
+
+    Returns (resolved, externals, usages, stats):
+      resolved  = [{"file": rel_src, "symbols": [names]}]  (sorted)
+      externals = [raw_line, ...]  (imports not resolved inside project_root)
+      usages    = {symbol: {"source": rel_src, "lines": [int]}}  (only when verbose;
+                  where each imported symbol is used INSIDE the target file)
+      stats     = {"total": import-statements, "resolved": ..., "sources": unique-files}
+    """
+    imports = resolver.resolve_imports(target_path_abs, project_root)
+    stats = {
+        "total": len(imports),
+        "resolved": sum(1 for i in imports if i.resolved_path),
+        "sources": len({i.resolved_path for i in imports if i.resolved_path}),
+    }
+
+    from collections import defaultdict
+    by_file: Dict[str, List[str]] = defaultdict(list)
+    sym_source: Dict[str, str] = {}
+    externals: List[str] = []
+
+    for imp in imports:
+        if imp.resolved_path:
+            rel_src = rel_path(imp.resolved_path, project_root)
+            by_file[rel_src].extend(imp.symbol_names)
+            for s in imp.symbol_names:
+                sym_source.setdefault(s, rel_src)
+        else:
+            externals.append(imp.raw_line)
+
+    resolved = [{"file": f, "symbols": sorted(set(by_file[f]))} for f in sorted(by_file)]
+
+    usages: Dict[str, dict] = {}
+    if verbose and handler is not None and sym_source:
+        try:
+            with open(target_path_abs, "r", encoding="utf-8", errors="replace") as fh:
+                tlines = fh.read().splitlines(keepends=True)
+            found = handler.find_symbol_usages(target_path_abs, tlines, set(sym_source.keys()))
+        except (OSError, AttributeError):
+            found = {}
+        for sym, src in sym_source.items():
+            usages[sym] = {"source": src, "lines": sorted(set(found.get(sym, [])))}
+
+    return resolved, externals, usages, stats

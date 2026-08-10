@@ -132,6 +132,33 @@ class CSharpHandler(LanguageHandler):
         self._namespace_types_cache[cache_key] = result_types
         return result_types
 
+    def find_symbol_usages(self, filepath: str, content_lines: List[str], names: Set[str]) -> Dict[str, List[int]]:
+        """Where each name is USED as real code in this file (1-based lines).
+
+        Excludes `using` directives and `//` / full-line `/* */` comments. Shared by
+        --incoming --verbose (usages inside the target file).
+        """
+        result: Dict[str, List[int]] = {}
+        if not names or not content_lines:
+            return result
+
+        sorted_syms = sorted(names, key=len, reverse=True)
+        usage_pattern = re.compile(r'\b(' + '|'.join(re.escape(s) for s in sorted_syms) + r')\b')
+
+        for idx, line in enumerate(content_lines):
+            stripped = line.strip()
+            if stripped.startswith('\ufeff'):
+                stripped = stripped[1:].strip()
+            if not stripped or stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
+                continue
+            if stripped.startswith("using "):
+                continue
+            for m in usage_pattern.finditer(stripped):
+                sym = m.group(1)
+                if sym in names:
+                    result.setdefault(sym, []).append(idx + 1)
+        return result
+
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
     ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:

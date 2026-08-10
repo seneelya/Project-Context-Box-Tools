@@ -136,6 +136,36 @@ class TypeScriptHandler(LanguageHandler):
                 result.append((original, local))
         return result
 
+    def find_symbol_usages(self, filepath: str, content_lines: List[str], names: Set[str]) -> Dict[str, List[int]]:
+        """Where each name is USED as real code in this file (1-based lines).
+
+        Excludes import/require lines and line/JSDoc comments. Shared by analyze_file
+        (downstream) and by --incoming --verbose (usages inside the target file).
+        """
+        result: Dict[str, List[int]] = {}
+        if not names or not content_lines:
+            return result
+
+        sorted_syms = sorted(names, key=len, reverse=True)
+        usage_pattern = re.compile(r'\b(' + '|'.join(re.escape(s) for s in sorted_syms) + r')\b')
+
+        import_line_indices = {
+            idx for idx, line in enumerate(content_lines)
+            if line.strip().startswith("import ") or line.strip().startswith("from ") or "require(" in line.strip()
+        }
+
+        for idx, line in enumerate(content_lines):
+            if idx in import_line_indices:
+                continue
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//") or stripped.startswith("*"):
+                continue
+            for m in usage_pattern.finditer(stripped):
+                sym = m.group(1)
+                if sym in names:
+                    result.setdefault(sym, []).append(idx + 1)
+        return result
+
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
     ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
@@ -267,32 +297,8 @@ class TypeScriptHandler(LanguageHandler):
 
         # Second pass for direct named imports: find where symbols are actually USED (not just imported)
         direct_imported_names = set(used_symbols.keys())
-
-        if direct_imported_names and content_lines:
-            # Build word-boundary regex for each symbol (TS allows $ and _ in identifiers)
-            sorted_syms = sorted(direct_imported_names, key=len, reverse=True)
-            escaped_syms = [re.escape(s) for s in sorted_syms]
-            usage_pattern = re.compile(r'\b(' + '|'.join(escaped_syms) + r')\b')
-
-            # Collect lines that are import/require lines (to exclude them from usage results)
-            import_line_indices = set()
-            for idx, line in enumerate(content_lines):
-                stripped = line.strip()
-                if stripped.startswith("import ") or stripped.startswith("from ") or "require(" in stripped:
-                    import_line_indices.add(idx)
-
-            # Scan all non-import lines for symbol usages
-            for idx, line in enumerate(content_lines):
-                if idx in import_line_indices:
-                    continue
-                stripped = line.strip()
-                if not stripped or stripped.startswith("//") or stripped.startswith("*"):
-                    continue
-
-                for usage_match in usage_pattern.finditer(stripped):
-                    sym_name = usage_match.group(1)
-                    if sym_name in direct_imported_names:
-                        symbol_lines.setdefault(sym_name, []).append(idx + 1)
+        for sym_name, lns in self.find_symbol_usages(filepath, content_lines, direct_imported_names).items():
+            symbol_lines.setdefault(sym_name, []).extend(lns)
 
         # Third pass: dynamic import() detection
         full_text = "\n".join(content_lines)
