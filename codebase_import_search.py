@@ -384,19 +384,23 @@ def main():
 
         for sym in sorted(symbol_usages.keys()):
             usages = symbol_usages[sym]
-            # Group by (file, kind) to avoid duplicates
-            seen: Set[Tuple[str, str]] = set()
+            # Group by (file, kind) and collect ALL line numbers together
+            from collections import defaultdict as _dd
+            file_kind_lines = _dd(list)  # (file, kind) -> [line_nums]
+            
+            for fpath, kind, line_num in usages:
+                if line_num > 0:  # Only include actual tracked lines
+                    file_kind_lines[(fpath, kind)].append(line_num)
+            
             parts = []
-            for fpath, kind, line_num in sorted(usages):
-                key = (fpath, kind)
-                if key not in seen:
-                    seen.add(key)
-                    prefix = kind + ": "  # Always show load type (lazy/top-level/conditional/fallback)
-                    if line_num > 0:
-                        parts.append(f"{prefix}{fpath}: lines=[{line_num}]")
-                    else:
-                        parts.append(f"{prefix}{fpath}")
-
+            for (fpath, kind), all_lines in sorted(file_kind_lines.items()):
+                prefix = kind + ": "
+                unique_lines = sorted(set(all_lines))
+                if len(unique_lines) == 1:
+                    parts.append(f"{prefix}{fpath}: lines=[{unique_lines[0]}]")
+                else:
+                    parts.append(f"{prefix}{fpath}: lines={unique_lines}")
+            
             print(f"{sym}:")
             for part in parts:
                 print(f"  {part}")
