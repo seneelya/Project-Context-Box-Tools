@@ -19,6 +19,7 @@ def load_config():
 
 def parse_args():
     config = load_config()
+    default_root = config['PROJECT_ROOT'] if config else None
     default_lang = config['LANGUAGE'] if config else None
     
     parser = argparse.ArgumentParser(description="Get code block containing a line.")
@@ -26,6 +27,7 @@ def parse_args():
     parser.add_argument("--line", type=int, required=True)
     parser.add_argument("--level", type=int, default=None)
     parser.add_argument("--query", type=int, default=None)
+    parser.add_argument("--project_root", type=str, default=default_root)
     parser.add_argument("--language", type=str, default=default_lang)
     return parser.parse_args(), config
 
@@ -72,24 +74,31 @@ def resolve(blocks, n, is_query=False):
 
 def main():
     args, config = parse_args()
+
+    # Resolve file path: relative paths are joined with --root (or config PROJECT_ROOT)
+    file_path = args.file
+    if not Path(file_path).is_absolute() and args.project_root:
+        resolved = str(Path(args.project_root) / file_path)
+        if Path(resolved).exists():
+            file_path = resolved
     
     try:
-        lines = read_lines(args.file)
+        lines = read_lines(file_path)
     except FileNotFoundError:
-        print(f"Error: File not found: {args.file}", file=sys.stderr)
+        print(f"Error: File not found: {file_path}", file=sys.stderr)
         sys.exit(1)
     
     if args.line < 1 or args.line > len(lines):
         print(f"Error: Line {args.line} out of range (1-{len(lines)})", file=sys.stderr)
         sys.exit(1)
     
-    ext = Path(args.file).suffix.lower()
+    ext = Path(file_path).suffix.lower()
     lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
-    language = lang_map.get(ext, 'python')
+    language = args.language or lang_map.get(ext, 'python')
     
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
-    blocks = handler.get_blocks(args.file, args.line)
+    blocks = handler.get_blocks(file_path, args.line)
     
     if not blocks:
         print("Error: No blocks found", file=sys.stderr)
