@@ -157,14 +157,7 @@ def resolve(blocks, n, is_query=False):
 
 
 def main():
-    print(f"[DEBUG] main() started", file=sys.stderr)
-    
-    try:
-        args, config = parse_args()
-        print(f"[DEBUG] parse_args returned: {args}", file=sys.stderr)
-    except Exception as e:
-        print(f"[DEBUG] parse_args crashed: {type(e).__name__}: {e}", file=sys.stderr)
-        raise
+    args, config = parse_args()
 
     # Resolve file path: relative paths are joined with --root (or config PROJECT_ROOT)
     file_path = args['file']
