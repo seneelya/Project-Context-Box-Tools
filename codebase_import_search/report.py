@@ -40,7 +40,8 @@ def _levels_for(abs_file: str, lines: List[int]) -> str:
         return ""
     try:
         lv = get_line_levels(abs_file, lines)
-        return f" levels={[lv.get(ln) or 0 for ln in lines]}"
+        # Real depths are 1,2,3,... — a missing/root line is level 1, never 0.
+        return f" levels={[lv.get(ln) if lv.get(ln) is not None else 1 for ln in lines]}"
     except Exception:
         return ""
 

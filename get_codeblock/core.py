@@ -234,7 +234,9 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
         file_path: Path to source file (absolute or relative)
         line_nums: List of target line numbers (1-based, can be unsorted/duplicates)
 
-    Returns dict mapping each line_num -> level int, or None if no block contains that line:
+    Returns dict mapping each line_num -> level int (1-based; real levels are 1,2,3,...).
+    A line inside no block sits at the file root = level 1 (never 0 — 0 is reserved for
+    --level addressing, not a real depth):
         {18: 1, 45: 3, ...}
 
     Raises:
@@ -260,7 +262,8 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     all_blocks = handler.get_all_blocks(file_path)
 
     if not all_blocks:
-        return {ln: None for ln in line_nums}
+        # No blocks at all → every line sits at the file root = level 1.
+        return {ln: 1 for ln in line_nums}
 
     result = {}
     for ln in line_nums:
@@ -270,11 +273,13 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     return result
 
 
-def _find_level_for_line(all_blocks: list, target_line: int):
+def _find_level_for_line(all_blocks: list, target_line: int) -> int:
     """Find the deepest block (highest level) containing target_line.
 
     all_blocks is sorted by position; each has {'level': N, 'start': X, 'end': Y}.
-    Returns level of innermost containing block, or None if no block contains the line.
+    Returns the level of the innermost containing block. A line inside no block sits
+    at the file ROOT, which is level 1 (the file itself is unnumbered; real levels are
+    1,2,3,...; 0 is reserved for --level addressing, never a real depth).
     """
     best_level = None
 
@@ -287,7 +292,7 @@ def _find_level_for_line(all_blocks: list, target_line: int):
             if best_level is None or lvl > best_level:
                 best_level = lvl
 
-    return best_level
+    return best_level if best_level is not None else 1
 
 
 def main():
