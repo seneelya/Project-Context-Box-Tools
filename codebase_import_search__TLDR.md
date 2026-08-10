@@ -2,9 +2,9 @@
 
 Three modes: default (downstream consumers), `--incoming` (upstream dependencies), verbose detail (`--verbose`).
 
-- **Default mode** — returns a table of all usages of the given module/file in the codebase with import categories: top-level (always loaded), lazy (inside function/method), conditional (inside if block), fallback (try/catch optional dep), and dynamic runtime access via string names.
-- **`--incoming` mode** — shows where the target file's imports come from within project-root: each source file listed with symbols imported. External packages/stdlib grouped as `[external]: <import_line>` at end.
-- **`--verbose` mode** — groups output by symbol instead of file, showing exact line numbers where each symbol is used plus load type. Includes a self-documenting format legend on first line.
+- **Default mode** — shows all usages of target's symbols in the codebase with import categories (top-level/lazy/conditional/fallback) and dynamic runtime access detection.
+- **`--incoming` mode** — shows where target file's imports originate from within project-root; externals grouped as `[external]: <line>` at end.
+- **`--verbose` mode** (default only) — groups by symbol with exact usage line numbers and load types; includes self-documenting legend.
 
 ## Parameters CLI flags
 
@@ -23,6 +23,6 @@ Three modes: default (downstream consumers), `--incoming` (upstream dependencies
 
 You only need: `--file` or `--module` — target to analyze. Config provides PROJECT_ROOT and LANGUAGE defaults.
 
-**Auto-detect language:** When using `--file`, tool detects language from extension (.py → python, .ts/.js → typescript, .cs → csharp). Priority: CLI flag > auto-detect > config > default.
+**Auto-detect language:** When using `--file`, tool detects language from extension. Priority: CLI flag > auto-detect > config > default.
 
 **Test coverage:** Configure `TEST_DIRS` in tools_config.py — by default test files are excluded. Use `--tests-only` to see what API is covered by tests.
