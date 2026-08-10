@@ -25,7 +25,7 @@ class CSharpHandler:
 
     def _scan_blocks(self, lines, blocks):
         """Scan for code blocks using brace matching and #region."""
-        stack = []  # [(start_line, block_type, name), ...]
+        stack = []
 
         for i, line in enumerate(lines):
             stripped = line.strip()
@@ -35,7 +35,7 @@ class CSharpHandler:
 
             # Handle #region blocks
             if stripped.startswith('#region'):
-                region_name = stripped[9:].strip()
+                region_name = stripped[8:].strip() if stripped.startswith('#region ') else stripped[7:].strip()
                 stack.append((i + 1, 'region', region_name))
             elif stripped == '#endregion':
                 if stack and stack[-1][1] == 'region':
@@ -83,31 +83,3 @@ class CSharpHandler:
         """Extract text from file."""
         lines = read_lines(file_path)
         return '\n'.join(lines[start_line - 1:end_line])
-
-
-def resolve(blocks, n, is_query=False):
-    """Resolve block query.
-    
-    blocks: list sorted outermost-first [0=outermost, N=innermost]
-    """
-    if not blocks:
-        return None
-    
-    if is_query:
-        if n > 0:
-            idx = min(n - 1, len(blocks) - 1)
-            return blocks[idx]
-        elif n == 0:
-            return blocks[-1]
-        else:
-            idx = len(blocks) - 1 + n
-            return blocks[0] if idx < 0 else blocks[idx]
-    else:
-        if n == 0:
-            return blocks[-1]
-        elif n > 0:
-            idx = len(blocks) - 1 - n
-            return blocks[0] if idx < 0 else blocks[idx]
-        else:
-            idx = len(blocks) + n
-            return blocks[-1] if idx < 0 else blocks[idx]
