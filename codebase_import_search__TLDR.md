@@ -4,7 +4,7 @@ Three modes: default (downstream consumers), `--incoming` (upstream dependencies
 
 - **Default mode** — shows all usages of target's symbols in the codebase with import categories (top-level/lazy/conditional/fallback) and dynamic runtime access detection.
 - **`--incoming` mode** — shows where target file's imports originate from within project-root; externals grouped as `[external]: <line>` at end.
-- **`--verbose` mode** (default only) — groups by symbol with exact usage line numbers and load types; includes self-documenting legend.
+- **`--verbose` mode** (default only) — groups by symbol with exact usage line numbers and load types; includes self-documenting legend. Use `--verbose` when you need import/load type and exact usage line numbers instead of just which files use what symbols.
 
 ## Parameters CLI flags
 
