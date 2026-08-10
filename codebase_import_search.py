@@ -51,7 +51,8 @@ def main():
         auto_lang = LANG_MAP.get(ext)
 
     parser = argparse.ArgumentParser(
-        description="Find which symbols from a target module are actually imported/used elsewhere in the project."
+        description="Find which symbols from a target module are actually imported/used elsewhere in the project.",
+        usage="%(prog)s --file PATH [--module-names N1,N2,...] [--language LNG] [--project-root ROOT]"
     )
     parser.add_argument("--file", help="Path to target file (e.g., '_core/auth.py')")
     parser.add_argument("--module", help="Module name (alternative to --file)")
@@ -85,7 +86,7 @@ def main():
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Group output by symbol with line numbers instead of by file"
+        help="Group output by symbol with load type and usage line numbers"
     )
 
     args = parser.parse_args()
@@ -97,8 +98,10 @@ def main():
         sys.exit(1)
 
     if not args.file and not args.module:
-        parser.print_help(sys.stderr)
-        print("\nError: must specify --file or --module", file=sys.stderr)
+        print("Find symbols from a target module that are actually used elsewhere in the project.")
+        print(f"Usage: codebase_import_search.py --file PATH [--module-names N1,N2,...] [--language LNG] [--incoming|--verbose]")
+        print(f"PROJECT_ROOT=\"{cfg_root}\"")
+        print("\nNeed full help? Use --help")
         sys.exit(1)
 
     # Import shared utilities (needed by both modes)

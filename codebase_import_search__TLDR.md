@@ -1,28 +1,20 @@
 # codebase_import_search
 
-Use the mode that matches your question:
+Find where a target module's symbols are imported or used across the project.
 
-- **Need to know which files consume target's symbols and what import type?** → default mode shows all usages with categories (top-level/lazy/conditional/fallback) and dynamic access detection.
-- **Need to see where target file gets its imports from?** → `--incoming` shows upstream dependencies within project-root; externals grouped as `[external]: <line>` at end.
-- **Need exact line numbers per symbol plus load type for refactoring or audit?** → add `--verbose` (default mode only) to group by symbol with precise usage locations and self-documenting legend.
+**Target:** provide one of `--file PATH` or `--module NAME`.
 
-## Parameters CLI flags
+## Modes
 
-| Flag | Required | Description | Example |
-|------|----------|-------------|---------|
-| `--file PATH` | One of `--file` or `--module` | Target file path relative to project-root | `_engine/auth.py`, `src/analyzer.ts` |
-| `--module NAME` | One of `--file` or `--module` | Module name instead of file path (alternative to --file) | `auth_module`, `pkg.submodule` |
-| `--language LNG` | No (default: auto or python) | Language handler/resolver to use | `python`, `typescript`, `ts`, `js`, `csharp`, `cs` |
-| `--incoming` | No | Show upstream dependencies (where target's imports come from) instead of downstream consumers | (no value needed) |
-| `--verbose` | No (default mode only) | Group output by symbol with line numbers and load types; adds format legend | (no value needed) |
-| `--module-names N1,N2,...` | No | Extra names by which this module can be imported | `_secret_module,auth_core` |
-| `--project-root PATH` | No (default: current dir) | Root directory to scan for imports | `/workspace/SRC/memohood`, `.` |
-| `--tests-only` | No | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
+* **Default** — Which files consume the target's symbols? Groups usages by file with load types (`top-level` / `lazy` / `conditional` / `fallback`) and dynamic access detection.
+* **`--verbose`** — Where exactly is each symbol used? Groups by symbol and adds precise usage line numbers and load types.
+* **`--incoming`** — What does the target import? Shows upstream dependencies within `project-root`; external dependencies are grouped as `[external]: <line>`.
+* **`--tests-only`** — Which API is covered by tests? Shows usages only from configured test directories.
 
-## When tools_config.py exists:
+## Configuration notes
 
-You only need: `--file` or `--module` — target to analyze. Config provides PROJECT_ROOT and LANGUAGE defaults.
+When `tools_config.py` exists, `PROJECT_ROOT`, `LANGUAGE`, and `TEST_DIRS` are used as defaults.
 
-**Auto-detect language:** When using `--file`, tool detects language from extension. Priority: CLI flag > auto-detect > config > default.
+Language priority: CLI `--language` → file extension → config → `python`.
 
-**Test coverage:** Configure `TEST_DIRS` in tools_config.py — by default test files are excluded. Use `--tests-only` to see what API is covered by tests.
+Configure `TEST_DIRS` to define test directories (relative paths). Tests are excluded from default scans; use `--tests-only` to inspect what API tests cover.
