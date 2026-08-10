@@ -1,21 +1,19 @@
 """Core CLI logic for get_codeblock."""
 
-import argparse
 import os
 import sys
 from pathlib import Path
 
 
 def normalize_path(p):
-    """Normalize path separators for current OS."""
+    """Normalize path separators to forward slashes."""
     if not p:
         return p
-    # Replace all slashes with system separator
-    return p.replace('\\', os.sep).replace('/', os.sep)
+    return p.replace('\\', '/')
 
 
 def is_absolute_path(p):
-    """Check if path is absolute, including Windows paths on Linux (e.g. Y:/path)."""
+    """Check if path is absolute (Unix or Windows style)."""
     if Path(p).is_absolute():
         return True
     # Handle Windows drive letters like C:/ or Y:/ on non-Windows systems
@@ -32,50 +30,90 @@ def load_config():
 
 
 def parse_args():
+    """Manually parse command line arguments from sys.argv."""
     config = load_config()
     default_root = config['PROJECT_ROOT'] if config else None
 
-    class CleanHelpFormatter(argparse.HelpFormatter):
-        def _format_actions_usage(self, required_actions, optional_actions):
-            usage = super()._format_actions_usage(required_actions, optional_actions)
-            return usage.replace("[-h] ", "")
+    tokens = sys.argv[1:]
 
-        def _format_action(self, action):
-            if action.dest == 'help':
-                return ''
-            return super()._format_action(action)
+    file_path = None
+    line_num = None
+    level = None
+    query = None
+    project_root = default_root
 
-    parser = argparse.ArgumentParser(
-        description="Search or query exact code block from given line at given depth.",
-        usage="get_codeblock.py --file PATH --line N [--level LEVEL] [--query Q]",
-        formatter_class=CleanHelpFormatter
-    )
-    parser.add_argument("--file", required=False)
-    parser.add_argument("--line", type=int, required=False)
-    parser.add_argument("--level", type=int, default=None)
-    parser.add_argument("--query", type=int, default=None)
-    parser.add_argument("--project_root", type=str, default=default_root)
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
 
-    args = parser.parse_args()
+        if token == '--file' and i + 1 < len(tokens):
+            file_path = tokens[i + 1]
+            i += 2
+        elif token == '--line' and i + 1 < len(tokens):
+            try:
+                line_num = int(tokens[i + 1])
+            except ValueError:
+                print(f"Error: --line requires an integer value", file=sys.stderr)
+                sys.exit(1)
+            i += 2
+        elif token == '--level' and i + 1 < len(tokens):
+            try:
+                level = int(tokens[i + 1])
+            except ValueError:
+                print(f"Error: --level requires an integer value", file=sys.stderr)
+                sys.exit(1)
+            i += 2
+        elif token == '--query' and i + 1 < len(tokens):
+            try:
+                query = int(tokens[i + 1])
+            except ValueError:
+                print(f"Error: --query requires an integer value", file=sys.stderr)
+                sys.exit(1)
+            i += 2
+        elif token in ('--project-root', '--project_root') and i + 1 < len(tokens):
+            value = tokens[i + 1]
+            # Check for Windows CMD quoting issue: trailing backslash escapes quote, swallowing next args
+            if ' --' in value or '--line' in value or '--file' in value or '--level' in value or '--query' in value:
+                print(f"Error: --project-root incorrect: {value}", file=sys.stderr)
+                sys.exit(1)
+            
+            project_root = value
+            i += 2
+        elif token == '--help':
+            root_info = f'Current PROJECT_ROOT="{default_root}"\n\n' if default_root else ''
+            print("get_codeblock.py")
+            print("Search or query exact code block from given line at given depth.")
+            print(f"Usage: get_codeblock.py --file PATH --line N [--level LEVEL] [--query Q]\n{root_info}Full help with --help")
+            sys.exit(0)
+        else:
+            # Unknown argument, skip it
+            i += 1
 
-    # Normalize path separators (handle both \ and / on Windows)
-    if args.file:
-        args.file = normalize_path(args.file)
-    if args.project_root:
-        args.project_root = normalize_path(args.project_root)
+    # Normalize paths (handle both \ and / on Windows/Linux)
+    if file_path:
+        file_path = normalize_path(file_path)
+    if project_root:
+        project_root = normalize_path(project_root)
 
-    # No arguments: show short usage hint (not full --help)
-    if not args.file and not args.line:
+    # No arguments or missing required ones: show usage hint
+    if not file_path and not line_num:
         root_info = f'Current PROJECT_ROOT="{default_root}"\n\n' if default_root else ''
         print("get_codeblock.py")
         print("Search or query exact code block from given line at given depth.")
         print(f"Usage: get_codeblock.py --file PATH --line N [--level LEVEL] [--query Q]\n{root_info}Full help with --help")
         sys.exit(0)
 
-    if not args.file or not args.line:
-        parser.error("the following arguments are required: --file, --line")
+    if not file_path or line_num is None:
+        print("Error: the following arguments are required: --file, --line", file=sys.stderr)
+        sys.exit(1)
 
-    return args, config
+    return {
+        'file': file_path,
+        'line': line_num,
+        'level': level,
+        'query': query,
+        'project_root': project_root
+    }, config
 
 
 def read_lines(file_path):
@@ -119,12 +157,19 @@ def resolve(blocks, n, is_query=False):
 
 
 def main():
-    args, config = parse_args()
+    print(f"[DEBUG] main() started", file=sys.stderr)
+    
+    try:
+        args, config = parse_args()
+        print(f"[DEBUG] parse_args returned: {args}", file=sys.stderr)
+    except Exception as e:
+        print(f"[DEBUG] parse_args crashed: {type(e).__name__}: {e}", file=sys.stderr)
+        raise
 
     # Resolve file path: relative paths are joined with --root (or config PROJECT_ROOT)
-    file_path = args.file
-    if not is_absolute_path(file_path) and args.project_root:
-        resolved = str(Path(args.project_root) / file_path)
+    file_path = args['file']
+    if not is_absolute_path(file_path) and args.get('project_root'):
+        resolved = str(Path(args['project_root']) / file_path)
         if Path(resolved).exists():
             file_path = resolved
     
@@ -134,8 +179,9 @@ def main():
         print(f"Error: File not found: {file_path}", file=sys.stderr)
         sys.exit(1)
     
-    if args.line < 1 or args.line > len(lines):
-        print(f"Error: Line {args.line} out of range (1-{len(lines)})", file=sys.stderr)
+    line_num = args['line']
+    if line_num < 1 or line_num > len(lines):
+        print(f"Error: Line {line_num} out of range (1-{len(lines)})", file=sys.stderr)
         sys.exit(1)
     
     ext = Path(file_path).suffix.lower()
@@ -144,21 +190,22 @@ def main():
     
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
-    blocks = handler.get_blocks(file_path, args.line)
+    blocks = handler.get_blocks(file_path, line_num)
     
     if not blocks:
         print("Error: No blocks found", file=sys.stderr)
         sys.exit(1)
     
-    if args.query is not None:
-        block = resolve(blocks, args.query, is_query=True)
+    if args.get('query') is not None:
+        block = resolve(blocks, args['query'], is_query=True)
         for i in range(block["start"] - 1, min(block["end"], len(lines))):
             sys.stdout.write(lines[i])
     else:
-        block = resolve(blocks, args.level if args.level is not None else 0)
+        level_or_default = args.get('level') if args.get('level') is not None else 0
+        block = resolve(blocks, level_or_default)
         start = block["start"]
-        end = block["end"] - 1 if block["end"] > 0 else args.line
-        print(f"{block['level']} {start} {end}")
+        end = block["end"] - 1 if block["end"] > 0 else line_num
+        print(f"Block level: {block['level']}  from: {start} to: {end}  lines")
 
 
 if __name__ == "__main__":

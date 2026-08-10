@@ -1,72 +1,140 @@
 """Python language handler for get_codeblock."""
 
-import ast
-from ..core import read_lines
-
 
 class PythonHandler:
-    """Handles Python code block detection using AST parsing."""
+    """Handles Python code block detection using indentation and keywords."""
 
-    def __init__(self):
-        self.language = "python"
+    BLOCK_KEYWORDS = ("def ", "class ", "if ", "elif ", "else:", "for ", "while ", 
+                      "try:", "except", "finally:", "with ")
 
     def get_blocks(self, file_path, line_num):
         """Get all code blocks containing the specified line.
 
-        Returns:
-            List of block dicts sorted outermost-first.
+        Returns list of blocks sorted by level (0=outermost).
         """
-        with open(file_path, 'r', encoding='utf-8') as f:
-            source = f.read()
-        tree = ast.parse(source)
-        lines = source.splitlines(keepends=True)
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
 
-        blocks = []
-        self._collect(tree, blocks, 0)
+        if line_num < 1 or line_num > len(lines):
+            return []
 
-        containing = [b for b in blocks if b['start'] <= line_num <= b['end']]
-        containing.sort(key=lambda b: b['level'])
+        # Build block structure using indentation and keywords
+        block_starts = self._find_block_starts(lines)
 
-        # Deduplicate per level
-        seen = set()
-        result = []
-        for b in containing:
-            if b['level'] not in seen:
-                seen.add(b['level'])
-                result.append(b)
-
-        if not result or result[0]['level'] != 0:
-            result.insert(0, {'start': 1, 'end': len(lines), 'level': 0, 'type': 'file'})
+        # Find which blocks contain line_num
+        result = [b for b in block_starts if b["start"] <= line_num <= b["end"]]
 
         return result
 
-    def _collect(self, node, blocks, level):
-        """Recursively collect all code blocks from AST."""
-        btype = None
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            btype = 'function'
-        elif isinstance(node, ast.ClassDef):
-            btype = 'class'
-        elif isinstance(node, (ast.If, ast.For, ast.AsyncFor, ast.While,
-                                ast.Try, ast.With, ast.AsyncWith)):
-            btype = 'control_flow'
+    def _find_block_starts(self, lines):
+        """Find all block starts and their ranges based on indentation."""
+        blocks = []
+        
+        # Track open paren/bracket levels for multi-line constructs
+        paren_depth = 0
+        
+        for i in range(len(lines)):
+            line = lines[i]
+            stripped = line.rstrip("\n\r")
+            
+            # Calculate current indent (spaces only)
+            indent = len(line) - len(line.lstrip(" "))
+            
+            # Track parentheses/brackets depth
+            paren_depth += stripped.count("(") + stripped.count("[")
+            paren_depth -= stripped.count(")") + stripped.count("]")
+            
+            # Check if this is a block start keyword
+            for kw in self.BLOCK_KEYWORDS:
+                if stripped.lstrip().startswith(kw):
+                    start_line = i + 1  # 1-indexed
+                    
+                    # Find end of this block by tracking indent
+                    end_line = self._find_block_end(lines, i, indent)
+                    
+                    level = len([b for b in blocks if b["start"] <= i and b["end"] >= i])
+                    
+                    blocks.append({
+                        "type": kw.strip().rstrip(":"),
+                        "level": level + 1,
+                        "start": start_line,
+                        "end": end_line + 1  # inclusive
+                    })
+                    break
+            
+            # Handle multi-line imports with parentheses
+            if paren_depth > 0 and stripped.lstrip().startswith(("from ", "import ")) \
+               and "(" in stripped:
+                start_line = i + 1
+                
+                # Find where this import ends (when we're back at same level or lower)
+                end_line = self._find_multi_line_end(lines, i, indent)
+                
+                blocks.append({
+                    "type": "import",
+                    "level": 1,
+                    "start": start_line,
+                    "end": end_line + 1
+                })
 
-        if btype:
-            blocks.append({
-                'start': node.lineno,
-                'end': self._last_line(node),
-                'level': level,
-                'type': btype
-            })
+        return sorted(blocks, key=lambda b: (b["level"], b["start"]))
 
-        # Children of a block are at level+1, otherwise same level
-        child_level = level + 1 if btype else level
-        for child in ast.iter_child_nodes(node):
-            self._collect(child, blocks, child_level)
+    def _find_block_end(self, lines, start_idx, base_indent):
+        """Find where a block ends by tracking indentation and parentheses."""
+        i = start_idx
+        paren_depth = 0
+        
+        while i + 1 < len(lines):
+            next_line = lines[i + 1]
+            stripped = next_line.rstrip("\n\r")
+            
+            # Skip empty lines and comments
+            if not stripped.strip() or stripped.lstrip().startswith("#"):
+                paren_depth += stripped.count("(") - stripped.count(")")
+                i += 1
+                continue
+            
+            # Track parentheses first (before checking indent)
+            paren_depth += stripped.count("(") - stripped.count(")")
+            
+            next_indent = len(next_line) - len(next_line.lstrip(" "))
+            
+            # Block ends when: at base indent or less AND no unclosed parens
+            # BUT we must include the line that closes any open parens
+            if next_indent <= base_indent and paren_depth == 0:
+                break
+            
+            i += 1
+        
+        return i
 
-    def _last_line(self, node):
-        max_line = node.lineno
-        for child in ast.walk(node):
-            if hasattr(child, 'lineno'):
-                max_line = max(max_line, child.lineno)
-        return max_line
+    def _find_multi_line_end(self, lines, start_idx, base_indent):
+        """Find where a multi-line import/construct ends."""
+        i = start_idx
+        paren_depth = 0
+        
+        # Count initial parentheses on first line
+        first_stripped = lines[start_idx].rstrip("\n\r")
+        paren_depth += first_stripped.count("(") - first_stripped.count(")")
+        
+        while i + 1 < len(lines):
+            next_line = lines[i + 1]
+            stripped = next_line.rstrip("\n\r")
+            
+            # Skip empty lines and comments
+            if not stripped.strip() or stripped.lstrip().startswith("#"):
+                i += 1
+                continue
+            
+            next_indent = len(next_line) - len(next_line.lstrip(" "))
+            
+            # Count parentheses
+            paren_depth += stripped.count("(") - stripped.count(")")
+            
+            # If parentheses closed or we're back at base indent, done
+            if paren_depth <= 0 or (next_indent <= base_indent and "(" not in stripped):
+                break
+            
+            i += 1
+        
+        return i

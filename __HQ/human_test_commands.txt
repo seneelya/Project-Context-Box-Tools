@@ -64,3 +64,9 @@ py get_codeblock.py --file "_engine/backends/__init__.py" --line 50 --level -1 -
 py get_codeblock.py --file "src/analyzer.ts" --line 100 --level -1 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
 
 py get_codeblock.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --level -1 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+
+
+py get_codeblock.py --file "t:\AgentsWork\tools\test\testPy.py" --project-root "t:\AgentsWork\tools\" --level 0 --line 50
+
+py get_codeblock.py --file "test\testPy.py" --project-root "t:\AgentsWork\tools\" --level 0 --line 50
+
