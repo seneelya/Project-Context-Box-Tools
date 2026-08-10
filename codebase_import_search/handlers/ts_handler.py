@@ -137,9 +137,13 @@ class TypeScriptHandler(LanguageHandler):
         return result
 
     def analyze_file(
-        self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str
+        self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
     ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
-        """Analyze a TS/JS file and return (symbols_dict, symbol_lines, dynamic_patterns)."""
+        """Analyze a TS/JS file and return (symbols_dict, symbol_lines, dynamic_patterns).
+
+        Args:
+            target_file_path: Optional path to the target file being analyzed (used by some handlers for optimization).
+        """
         used_symbols: Dict[str, str] = {}
         symbol_lines: Dict[str, List[int]] = {}
         import_aliases: Dict[str, Tuple[str, str]] = {}  # local_alias -> (module_specifier, kind)

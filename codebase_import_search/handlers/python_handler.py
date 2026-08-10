@@ -95,7 +95,7 @@ class PythonHandler(LanguageHandler):
         return ", ".join(parts).strip(", ") or None
 
     def analyze_file(
-        self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str
+        self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
     ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
         """Analyze a Python file for target symbol usages.
 
@@ -104,6 +104,9 @@ class PythonHandler(LanguageHandler):
                 - symbol_kinds: {symbol_name: import_kind}
                 - symbol_lines: {symbol_name: [line_numbers]}
                 - dynamic_patterns: set of dynamic access labels found
+
+        Args:
+            target_file_path: Optional path to the target file being analyzed (used by some handlers for optimization).
         """
         from ..core import get_import_kind_generic
 
