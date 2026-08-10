@@ -256,11 +256,20 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
     language = lang_map.get(ext, 'python')
 
-    # Get ALL blocks in file with ONE parse (efficient!)
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
-    all_blocks = handler.get_all_blocks(file_path)
 
+    # Preferred path: per-line logical level (level = 1 + enclosing block BODIES;
+    # a block header sits at its parent's level). Handlers expose line_level when
+    # they implement this rule; others fall back to the block-span method below.
+    if hasattr(handler, "line_level"):
+        result = {}
+        for ln in line_nums:
+            result[ln] = handler.line_level(lines, ln - 1) if 1 <= ln <= len(lines) else 1
+        return result
+
+    # Fallback (block-span): deepest block whose span contains the line.
+    all_blocks = handler.get_all_blocks(file_path)
     if not all_blocks:
         # No blocks at all → every line sits at the file root = level 1.
         return {ln: 1 for ln in line_nums}

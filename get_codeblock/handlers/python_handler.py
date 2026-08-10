@@ -281,9 +281,33 @@ def find_attached_block(lines, comment_idx):
 
 
 class PythonHandler:
-    
+
     def __init__(self):
         pass
+
+    def line_level(self, lines, idx):
+        """Logical nesting level of ONE line (0-based idx), 1-based.
+
+        Rule: level = 1 + number of enclosing block BODIES. A block header sits at
+        its parent's level; the body is one deeper. Multi-line headers (wrapped
+        signatures) count as one logical line at the header's level.
+        Root / not inside any block body = 1. (0 is never a real depth — it is
+        reserved for --level addressing.)
+        """
+        if idx < 0 or idx >= len(lines):
+            return 1
+        # A wrapped-signature continuation line belongs to its header → use the header.
+        if not is_block_header(lines[idx]):
+            j = idx - 1
+            while j >= 0:
+                if not lines[j].strip():
+                    break
+                if is_block_header(lines[j]):
+                    if find_colon_line(lines, j) >= idx:
+                        idx = j  # part of this header's multi-line signature
+                    break
+                j -= 1
+        return len(find_containing_blocks(lines, idx)) + 1
 
     def get_all_blocks(self, file_path):
         """Parse entire file once and return ALL blocks with levels.
