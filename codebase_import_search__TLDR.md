@@ -14,9 +14,10 @@ FACT of the real interface, not a guess.
   imported but never used land in a `# dangling imports` section.
 * **`--incoming`** — What does the target import? Upstream sources within `project-root`;
   everything else is grouped under `# external (...)`.
-* **`--incoming --verbose`** — For each imported symbol: its source file + where it is
-  used INSIDE the target file (lines + block levels). This is the feed for `get_codeblock`:
-  take a line, ranging-shot it to the enclosing block. Ideal for huge files.
+* **`--incoming --verbose`** — Grouped by source file; under each, its symbols and where
+  they are used INSIDE the target file (lines + block levels). Grouped by source (not by
+  symbol as in default verbose) because incoming works over ONE file. This is the feed for
+  `get_codeblock`: take a line, ranging-shot it to the enclosing block. Ideal for huge files.
 * **`--tests-only`** — Which API is covered by tests? Usages only from configured test dirs.
 
 ## Filtering

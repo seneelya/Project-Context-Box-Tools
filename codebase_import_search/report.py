@@ -185,20 +185,30 @@ def _format_incoming_verbose(
     target_path_abs: str,
     symbol_filter: Optional[Set[str]],
 ) -> None:
-    print("# Format: symbol <- source_file: used in target lines=[..]" +
+    # Incoming analyses ONE target file: many source files feed into it, so group
+    # by source file and nest the symbols under it (mirror of default verbose,
+    # which groups by symbol because there the "many" is the consumer files).
+    print("# Format: source_file -> symbol: used in target lines=[..]" +
           (" levels=[..]" if _HAS_LEVELS else ""))
     print()
-    dangling: List[str] = []
+
+    by_source: Dict[str, List[tuple]] = {}   # source -> [(symbol, lines)]  (symbols in sorted order)
+    dangling: List[tuple] = []               # (source, symbol)
     for sym in sorted(usages):
         if not _match(sym, symbol_filter):
             continue
         info = usages[sym]
         if info["lines"]:
-            lv = _levels_for(target_path_abs, info["lines"])
-            print(f"{sym} <- {info['source']}: {_lines_field(info['lines'])}{lv}")
+            by_source.setdefault(info["source"], []).append((sym, info["lines"]))
         else:
-            dangling.append(f"{sym} <- {info['source']}")
+            dangling.append((info["source"], sym))
+
+    for src in sorted(by_source):
+        print(f"{src}:")
+        for sym, lines in by_source[src]:
+            print(f"  {sym}: {_lines_field(lines)}{_levels_for(target_path_abs, lines)}")
+
     if dangling:
         print("\n# dangling imports (imported, not used in target):")
-        for d in dangling:
-            print(f"  {d}")
+        for src, sym in sorted(dangling):
+            print(f"  {sym} <- {src}")

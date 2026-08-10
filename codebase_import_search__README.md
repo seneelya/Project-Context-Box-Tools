@@ -93,13 +93,19 @@ _engine/security.py: [DEFAULT_USER_AGENT]
 (Формат `file: [symbols]` совпадает с default mode для консистентности. Пути всегда `/`.
 Внешние/нерезолвнутые импорты собраны в раздел `# external (...)`.)
 
-**`--incoming --verbose`** — по каждому импортированному символу: источник + где он
-используется внутри таргет-файла (строки + уровни блоков через `get_codeblock`):
+**`--incoming --verbose`** — сгруппировано по файлу-источнику; под каждым — символы и где
+они используются внутри таргет-файла (строки + уровни блоков через `get_codeblock`).
+Группировка по источнику (а не по символу как в default verbose), потому что incoming
+работает над ОДНИМ файлом, куда входит много источников:
 ```text
 # N imports in target, M resolved to K unique sources
-# Format: symbol <- source_file: used in target lines=[..] levels=[..]
+# Format: source_file -> symbol: used in target lines=[..] levels=[..]
 
-db <- _engine/__init__.py: lines=[407, 408, 415, 427] levels=[3, 3, 3, 6]
+_engine/backends/_http.py:
+  BackendError: lines=[51, 136, 154] levels=[0, 2, 3]
+  _post_with_retries: lines=[59] levels=[0]
+_engine/backends/resolve.py:
+  resolve_chain: lines=[72, 131, 200, 270] levels=[0, 1, 2, 2]
 
 # dangling imports (imported, not used in target):
   IConfigInterface <- src/configurator.ts
