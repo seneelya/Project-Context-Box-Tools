@@ -5,13 +5,29 @@ import sys
 from pathlib import Path
 
 
+def load_config():
+    """Load tools_config.py if available.
+    
+    Returns dict with PROJECT_ROOT, LANGUAGE, or None if not found.
+    """
+    try:
+        from tools_config import PROJECT_ROOT, LANGUAGE
+        return {'PROJECT_ROOT': PROJECT_ROOT, 'LANGUAGE': LANGUAGE}
+    except ImportError:
+        return None
+
+
 def parse_args():
+    config = load_config()
+    default_lang = config['LANGUAGE'] if config else None
+    
     parser = argparse.ArgumentParser(description="Get code block containing a line.")
     parser.add_argument("--file", required=True)
     parser.add_argument("--line", type=int, required=True)
     parser.add_argument("--level", type=int, default=None)
     parser.add_argument("--query", type=int, default=None)
-    return parser.parse_args()
+    parser.add_argument("--language", type=str, default=default_lang)
+    return parser.parse_args(), config
 
 
 def read_lines(file_path):
@@ -55,7 +71,7 @@ def resolve(blocks, n, is_query=False):
 
 
 def main():
-    args = parse_args()
+    args, config = parse_args()
     
     try:
         lines = read_lines(args.file)
