@@ -51,44 +51,43 @@ def main():
         auto_lang = LANG_MAP.get(ext)
 
     parser = argparse.ArgumentParser(
-        description="Find which symbols from a target module are actually imported/used elsewhere in the project.",
-        usage="%(prog)s --file PATH [--module-names N1,N2,...] [--language LNG] [--project-root ROOT]"
+        description="Find where symbols from a target module are imported or used across the project.",
+        usage="%(prog)s --file PATH [--module-names N1,N2,...] [--language LNG] [--project-root ROOT] [--incoming|--verbose|--tests-only]"
     )
-    parser.add_argument("--file", help="Path to target file (e.g., '_core/auth.py')")
-    parser.add_argument("--module", help="Module name (alternative to --file)")
+    parser.add_argument("--file", help="Path to target file (relative or absolute)")
+    parser.add_argument("--module", help="Module name instead of file path")
     parser.add_argument(
         "--module-names",
         default="",
-        help="Comma-separated additional names by which this module can be imported.",
+        help="Comma-separated additional names by which this module can be imported"
     )
     
     parser.add_argument(
         "--language",
         default=auto_lang or CFG_LANGUAGE,
-        help=f"Language of the codebase (default: auto-detect from extension or '{CFG_LANGUAGE}'). Supported: python, typescript, csharp.",
+        help=f"Language handler/resolver. Auto-detected from extension if omitted. Supported: python, typescript, csharp (default: {CFG_LANGUAGE})"
     )
     cfg_root = CFG_PROJECT_ROOT if CFG_PROJECT_ROOT else "."
     parser.add_argument(
         "--project-root",
         default=cfg_root,
-        help=f"Root directory to scan for imports (default from tools_config.py or '.'): {cfg_root}",
+        help=f"Root directory to scan. Defaults from tools_config.py PROJECT_ROOT or '.' (current: {cfg_root})"
     )
     parser.add_argument(
         "--tests-only",
         action="store_true",
-        help="Show usages only from configured test directories (reveals API covered by tests)"
+        help="Show usages only from files under TEST_DIRS (configured in tools_config.py)"
     )
     parser.add_argument(
         "--incoming",
         action="store_true",
-        help="Show where the target file's imports come from (upstream dependencies within project-root)"
+        help="Resolve target file's upstream dependencies (requires --file)"
     )
     parser.add_argument(
         "--verbose",
         action="store_true",
         help="Group output by symbol with load type and usage line numbers"
     )
-
     args = parser.parse_args()
 
     # Validate project-root
@@ -98,10 +97,11 @@ def main():
         sys.exit(1)
 
     if not args.file and not args.module:
-        print("Find symbols from a target module that are actually used elsewhere in the project.")
-        print(f"Usage: codebase_import_search.py --file PATH [--module-names N1,N2,...] [--language LNG] [--incoming|--verbose]")
-        print(f"PROJECT_ROOT=\"{cfg_root}\"")
-        print("\nNeed full help? Use --help")
+        print("Find where symbols from a target module are imported or used across the project.")
+        print(f"Usage: codebase_import_search.py --file PATH [--module-names N1,N2,...] [--language LNG] [--incoming|--verbose|--tests-only]")
+        print(f"Current PROJECT_ROOT=\"{cfg_root}\"")
+        print()
+        print("Full help with --help")
         sys.exit(1)
 
     # Import shared utilities (needed by both modes)
