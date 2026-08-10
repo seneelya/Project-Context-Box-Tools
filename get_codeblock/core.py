@@ -104,7 +104,6 @@ def parse_args():
     # No arguments or missing required ones: show usage hint
     if not file_path and line_num is None:
         root_info = f'Current PROJECT_ROOT="{default_root}"\n\n' if default_root else ''
-        print("get_codeblock.py")
         print("Search or query exact code block from given line at given depth.")
         print(f"Usage: get_codeblock.py --file PATH --line N [--level LEVEL] [--query]")
         print("")
