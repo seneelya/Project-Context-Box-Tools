@@ -1,8 +1,30 @@
 """Core CLI logic for get_codeblock."""
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+
+def normalize_path(p):
+    """Normalize path separators for cross-platform compatibility."""
+    if not p:
+        return p
+    # First: replace all backslashes with forward slashes
+    p = p.replace('\\', '/')
+    # Then normalize (removes . and .. components)
+    normalized = str(Path(os.path.normpath(p)))
+    # Map Windows workspace path to container mount point
+    normalized = normalized.replace('Y:/Hermess/body/sandboxes/docker/default/workspace/', '/workspace/')
+    return normalized
+
+
+def is_absolute_path(p):
+    """Check if path is absolute, including Windows paths on Linux (e.g. Y:/path)."""
+    if Path(p).is_absolute():
+        return True
+    # Handle Windows drive letters like C:/ or Y:/ on non-Windows systems
+    return bool(p and len(p) >= 2 and p[1] == ':' and os.sep in p[2:])
 
 
 def load_config():
@@ -40,6 +62,12 @@ def parse_args():
     parser.add_argument("--project_root", type=str, default=default_root)
 
     args = parser.parse_args()
+
+    # Normalize path separators (handle both \ and / on Windows)
+    if args.file:
+        args.file = normalize_path(args.file)
+    if args.project_root:
+        args.project_root = normalize_path(args.project_root)
 
     # No arguments: show short usage hint (not full --help)
     if not args.file and not args.line:
@@ -100,7 +128,7 @@ def main():
 
     # Resolve file path: relative paths are joined with --root (or config PROJECT_ROOT)
     file_path = args.file
-    if not Path(file_path).is_absolute() and args.project_root:
+    if not is_absolute_path(file_path) and args.project_root:
         resolved = str(Path(args.project_root) / file_path)
         if Path(resolved).exists():
             file_path = resolved
