@@ -70,3 +70,42 @@ py get_codeblock.py --file "t:\AgentsWork\tools\test\testPy.py" --project-root "
 
 py get_codeblock.py --file "test\testPy.py" --project-root "t:\AgentsWork\tools\" --level 0 --line 50
 
+py get_codeblock.py --file "test\testPy.py" --project-root "t:\AgentsWork\tools\" --line 50
+
+py get_codeblock.py --file "t:\AgentsWork\tools\test\testPy.py" --line 50
+
+
+# get_codeblock — updated tests (Vision contract v2)
+# Query is now a flag WITHOUT digits; level controls block address
+
+# Python: memohood project
+py get_codeblock.py --file "_engine/backends/__init__.py" --line 50 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+py get_codeblock.py --file "_engine/backends/__init__.py" --line 50 --level -1 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+py get_codeblock.py --file "_engine/backends/__init__.py" --line 50 --query --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+# TypeScript: ts-prune project
+py get_codeblock.py --file "src/analyzer.ts" --line 100 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+
+py get_codeblock.py --file "src/analyzer.ts" --line 100 --level -2 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+
+py get_codeblock.py --file "src/analyzer.ts" --line 100 --query --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+
+# C#: CoreSharp project
+py get_codeblock.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+
+py get_codeblock.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --level -1 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+
+py get_codeblock.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --query --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+
+# C#: SWARM_SRC project
+py get_codeblock.py --file "Backends/BackendHandler.cs" --line 50 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC"
+
+py get_codeblock.py --file "Accounts/User.cs" --line 80 --level -1 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC"
+
+py get_codeblock.py --file "Accounts/User.cs" --line 80 --query --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC"
+
+# C#: Unity test project
+py get_codeblock.py --file "Code/Core/Common/Commands/HttpCmd.cs" --line 100 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity"
+

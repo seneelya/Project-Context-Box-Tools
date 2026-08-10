@@ -1,4 +1,4 @@
-# get_codeblock — TL;DR
+# get_codeblock
 
 Returns a self-contained code block containing the specified line in a source file. Works as both CLI tool and importable library function for LLM agents.
 

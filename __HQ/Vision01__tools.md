@@ -33,7 +33,7 @@ codebase_import_search — finds where symbols from a target module are used acr
 Дополнительно в самом `TOOLS.md` один раз можно сказать:
 
 ```text
-Each tool has a corresponding .TLDR.md with usage guidance and exposes its complete CLI interface through --help.
+Each tool has a corresponding <tool>__TLDR.md with usage guidance and exposes its complete CLI interface through --help.
 ```
 
 То есть `TOOLS.md` отвечает только на:
@@ -42,7 +42,7 @@ Each tool has a corresponding .TLDR.md with usage guidance and exposes its compl
 
 ---
 
-### 2. `tool__TLDR.md` — инструкция выбора
+### 2. `<tool>__TLDR.md` — инструкция выбора
 
 Это **не справочник параметров**.
 
@@ -76,7 +76,7 @@ Each tool has a corresponding .TLDR.md with usage guidance and exposes its compl
 
 ---
 
-### 3. `tool --help` — полный CLI-контракт
+### 3. `<tool>  --help` — полный CLI-контракт
 
 Это уже **машиночитаемая/точная техническая документация интерфейса**.
 
