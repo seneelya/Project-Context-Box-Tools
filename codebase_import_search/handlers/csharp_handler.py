@@ -15,7 +15,9 @@ class CSharpHandler(LanguageHandler):
 
     def __init__(self):
         self._attr_pattern_cache = {}
-
+        # Cache for namespace→types mapping (computed once per project)
+        self._namespace_types_cache: Dict[str, Set[str]] = {}
+        
         # Block patterns for import kind detection (using context)
         self.BLOCK_PATTERNS: Dict[str, re.Pattern] = {
             "lazy": re.compile(r"\s*(?:public\s+)?(?:void|int|string|Task<\w+>|bool|\w+)\s+\w+\s*\("),
@@ -87,8 +89,51 @@ class CSharpHandler(LanguageHandler):
 
         return None
 
+    def _get_target_types_cached(
+        self, target_names: Set[str], project_root: str, target_file_path: str = None
+    ) -> Set[str]:
+        """Get all public types from target namespaces — computed once per run via cache."""
+        # Use a combined key for all target names to avoid recomputation
+        cache_key = tuple(sorted(target_names)) + (project_root,)
+        
+        if cache_key in self._namespace_types_cache:
+            return self._namespace_types_cache[cache_key]
+
+        result_types: Set[str] = set()
+        
+        # OPTIMIZATION: If we have an actual target file path, extract types directly from it.
+        # This avoids expensive glob.glob("**/*.cs") on large projects like Unity with thousands of files.
+        if target_file_path and os.path.isfile(target_file_path):
+            result_types.update(self._extract_public_types(target_file_path))
+        else:
+            # Fallback: search via glob patterns (--module mode or no specific file)
+            # This is slower but necessary when we don't know the exact source file.
+            import glob
+            
+            seen_files: Set[str] = set()
+            
+            for tname in target_names:
+                try:
+                    basename = tname.split(".")[-1]
+                    patterns = [
+                        os.path.join(project_root, "**", f"{tname}.cs"),
+                        os.path.join(project_root, "**", f"{basename}.cs"),
+                        os.path.join(project_root, "**", tname.replace(".", "/") + "*.cs"),
+                    ]
+                    for pattern in patterns:
+                        for cs_file in glob.glob(pattern, recursive=True):
+                            real_path = os.path.realpath(cs_file)
+                            if real_path not in seen_files:
+                                seen_files.add(real_path)
+                                result_types.update(self._extract_public_types(cs_file))
+                except Exception:
+                    pass
+        
+        self._namespace_types_cache[cache_key] = result_types
+        return result_types
+
     def analyze_file(
-        self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str
+        self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
     ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
         """Analyze a C# file and return (symbols_dict, symbol_lines, dynamic_patterns)."""
         used_symbols: Dict[str, str] = {}
@@ -172,22 +217,8 @@ class CSharpHandler(LanguageHandler):
         # Third pass: if target namespace is imported via using directive,
         # check for usage of types from that namespace — track line numbers
         if imported_target_ns:
-            # Extract all public type names from the target file(s)
-            target_types = set()
-            for tname in target_names:
-                try:
-                    basename = tname.split(".")[-1]
-                    import glob
-                    patterns = [
-                        os.path.join(project_root, "**", f"{tname}.cs"),
-                        os.path.join(project_root, "**", f"{basename}.cs"),
-                        os.path.join(project_root, "**", tname.replace(".", "/") + "*.cs"),
-                    ]
-                    for pattern in patterns:
-                        for cs_file in glob.glob(pattern, recursive=True):
-                            target_types.update(self._extract_public_types(cs_file))
-                except Exception:
-                    pass
+            # Use cached target types (computed once per run) instead of repeated glob scans
+            target_types = self._get_target_types_cached(target_names, project_root)
 
             if not target_types:
                 for ns, kind in imported_target_ns:

@@ -223,54 +223,86 @@ def main():
             with open(target_path_abs, "r", encoding="utf-8", errors="replace") as fh:
                 target_content = fh.read()
             
-            # Extract all potential public symbols from target file (simple heuristic)
+            # Extract all potential public symbols from target file (language-specific heuristics)
             import re as _re
             
-            # Class names
-            for m in _re.finditer(r'^class\s+(\w+)', target_content, _re.MULTILINE):
-                fast_filter_symbols.append(m.group(1))
+            lang_lower = args.language.lower()
             
-            # Function/method names at module level (def not inside class)
-            for m in _re.finditer(r'^(?:async\s+)?def\s+(\w+)\s*\(', target_content, _re.MULTILINE):
-                name = m.group(1)
-                if not name.startswith('_'):  # Prefer public symbols; private ones still useful but lower priority
-                    fast_filter_symbols.append(name)
+            if lang_lower in {"python"}:
+                # Class names
+                for m in _re.finditer(r'^class\s+(\w+)', target_content, _re.MULTILINE):
+                    fast_filter_symbols.append(m.group(1))
+                
+                # Function/method names at module level (def not inside class)
+                for m in _re.finditer(r'^(?:async\s+)?def\s+(\w+)\s*\(', target_content, _re.MULTILINE):
+                    fast_filter_symbols.append(m.group(1))
+                
+                # Constants (UPPER_CASE names at module level)
+                for m in _re.finditer(r'^(\w+)\s*=', target_content, _re.MULTILINE):
+                    name = m.group(1)
+                    if name.isupper() or (name[0].isupper() and '_' in name):
+                        fast_filter_symbols.append(name)
+                
+                # Exported via __all__
+                all_match = _re.search(r'__all__\s*=\s*\[(.*?)\]', target_content, _re.DOTALL)
+                if all_match:
+                    for item in _re.findall(r'''['"](\w+)['"]''', all_match.group(1)):
+                        fast_filter_symbols.append(item)
             
-            # Constants (UPPER_CASE names at module level)
-            for m in _re.finditer(r'^(\w+)\s*=', target_content, _re.MULTILINE):
-                name = m.group(1)
-                if name.isupper() or (name[0].isupper() and '_' in name):
-                    fast_filter_symbols.append(name)
+            elif lang_lower in {"typescript", "ts", "js"}:
+                # Class names
+                for m in _re.finditer(r'(?:export\s+)?class\s+(\w+)', target_content, _re.MULTILINE):
+                    fast_filter_symbols.append(m.group(1))
+                
+                # Interface names
+                for m in _re.finditer(r'(?:export\s+)?interface\s+(\w+)', target_content, _re.MULTILINE):
+                    fast_filter_symbols.append(m.group(1))
+                
+                # Type aliases
+                for m in _re.finditer(r'(?:export\s+)?type\s+(\w+)', target_content, _re.MULTILINE):
+                    fast_filter_symbols.append(m.group(1))
+                
+                # Function exports
+                for m in _re.finditer(r'(?:export\s+)?(?:async\s+)?function\s+(\w+)', target_content, _re.MULTILINE):
+                    fast_filter_symbols.append(m.group(1))
+                
+                # Named exports
+                for m in _re.finditer(r'export\s+\{([^}]+)\}', target_content):
+                    for item in m.group(1).split(','):
+                        name = item.split(' as ')[-1].strip()
+                        if name:
+                            fast_filter_symbols.append(name)
             
-            # Exported via __all__
-            all_match = _re.search(r'__all__\s*=\s*\[(.*?)\]', target_content, _re.DOTALL)
-            if all_match:
-                for item in _re.findall(r'''['"](\w+)['"]''', all_match.group(1)):
-                    fast_filter_symbols.append(item)
+            elif lang_lower in {"csharp", "cs"}:
+                # Public class/struct/interface/enum names
+                for m in _re.finditer(r'(?:public\s+)?(?:partial\s+)*(?:class|struct|interface|enum)\s+(\w+)', target_content, _re.MULTILINE):
+                    fast_filter_symbols.append(m.group(1))
+                
+                # Public methods at class level
+                for m in _re.finditer(r'public\s+(?:static\s+)?(?:async\s+)?\w+\s+(\w+)\s*\(', target_content):
+                    fast_filter_symbols.append(m.group(1))
+            
+            # Also include module names as fallback (some files import the module directly)
+            # Filter out overly generic short names that match too many files (< 4 chars or single word only)
+            filtered_module_names = []
+            for name in sorted(target_names, key=len):
+                if len(name) >= 4 and not re.match(r'^[A-Z]$', name):  # Skip single-letter or ultra-generic names like "Code"
+                    filtered_module_names.append(name)
+            
+            fast_filter_symbols.extend(filtered_module_names)
         except Exception:
             pass
-    
-    # Also include module names as fallback (some files import the module directly)
-    fast_filter_symbols.extend(sorted(target_names, key=len))
     
     # Deduplicate and sort by length descending (longer first → fewer false positives)
     fast_filter_symbols = sorted(set(fast_filter_symbols), key=len, reverse=True)
     
     if not fast_filter_symbols:
         use_fast_filter = False
-    elif len(fast_filter_symbols) > 10:
-        # For many symbols, one combined regex is faster than N str.contains() calls
-        import re as _re
-        escaped = [_re.escape(s) for s in fast_filter_symbols]
-        fast_filter_re = _re.compile("|".join(escaped))
-        use_fast_filter = True
-        use_regex_filter = True
     else:
         import re as _re
         escaped = [_re.escape(s) for s in fast_filter_symbols]
         fast_filter_re = _re.compile("|".join(escaped))
         use_fast_filter = True
-        use_regex_filter = True
     
     skipped_by_fast_filter = 0
 

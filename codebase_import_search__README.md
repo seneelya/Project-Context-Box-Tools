@@ -161,6 +161,12 @@ python3 codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/
 python3 codebase_import_search.py --incoming --file "src/state.ts" --project-root "/workspace/SRC/ts-prune"
 ```
 
+**C# на больших проектах:** SWARM_SRC и Unity (автодетект по .cs):
+```bash
+python3 codebase_import_search.py --incoming --file "Backends/BackendHandler.cs" --project-root "/workspace/SRC/test_SWARM_SRC"
+python3 codebase_import_search.py --incoming --file "Code/Core/Common/Commands/HttpCmd.cs" --project-root "/workspace/SRC/test_Unity"
+```
+
 ### Формат вывода default mode (downstream consumers)
 
 **Первая строка — саммари:**
