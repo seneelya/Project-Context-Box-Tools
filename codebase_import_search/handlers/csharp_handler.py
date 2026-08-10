@@ -217,8 +217,8 @@ class CSharpHandler(LanguageHandler):
         # Third pass: if target namespace is imported via using directive,
         # check for usage of types from that namespace — track line numbers
         if imported_target_ns:
-            # Use cached target types (computed once per run) instead of repeated glob scans
-            target_types = self._get_target_types_cached(target_names, project_root)
+            # Use cached target types — pass target_file_path to avoid expensive glob.glob on large projects
+            target_types = self._get_target_types_cached(target_names, project_root, target_file_path)
 
             if not target_types:
                 for ns, kind in imported_target_ns:

@@ -323,7 +323,9 @@ def main():
                 skipped_by_fast_filter += 1
                 continue
 
-        symbols_dict, symbol_lines_dict, dyn_patterns = handler.analyze_file(fpath, lines, target_names, project_root)
+        symbols_dict, symbol_lines_dict, dyn_patterns = handler.analyze_file(
+            fpath, lines, target_names, project_root, target_path_abs if args.file else None
+        )
 
         rp = rel_path(fpath, project_root)
         if symbols_dict:
