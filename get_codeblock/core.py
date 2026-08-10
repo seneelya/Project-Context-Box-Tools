@@ -6,13 +6,10 @@ from pathlib import Path
 
 
 def load_config():
-    """Load tools_config.py if available.
-    
-    Returns dict with PROJECT_ROOT, LANGUAGE, or None if not found.
-    """
+    """Load tools_config.py if available."""
     try:
-        from tools_config import PROJECT_ROOT, LANGUAGE
-        return {'PROJECT_ROOT': PROJECT_ROOT, 'LANGUAGE': LANGUAGE}
+        from tools_config import PROJECT_ROOT
+        return {'PROJECT_ROOT': PROJECT_ROOT}
     except ImportError:
         return None
 
@@ -20,7 +17,6 @@ def load_config():
 def parse_args():
     config = load_config()
     default_root = config['PROJECT_ROOT'] if config else None
-    default_lang = config['LANGUAGE'] if config else None
     
     parser = argparse.ArgumentParser(description="Get code block containing a line.")
     parser.add_argument("--file", required=True)
@@ -28,7 +24,6 @@ def parse_args():
     parser.add_argument("--level", type=int, default=None)
     parser.add_argument("--query", type=int, default=None)
     parser.add_argument("--project_root", type=str, default=default_root)
-    parser.add_argument("--language", type=str, default=default_lang)
     return parser.parse_args(), config
 
 
@@ -94,7 +89,7 @@ def main():
     
     ext = Path(file_path).suffix.lower()
     lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
-    language = args.language or lang_map.get(ext, 'python')
+    language = lang_map.get(ext, 'python')
     
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
