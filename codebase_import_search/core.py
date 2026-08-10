@@ -69,8 +69,13 @@ def should_include_dir(dirname: str) -> bool:
 
 
 def rel_path(filepath: str, project_root: str) -> str:
-    """Return filepath relative to project_root."""
-    return os.path.relpath(filepath, project_root)
+    """Return filepath relative to project_root, normalized to forward slashes.
+
+    Canonical stored/printed form is always '/', regardless of OS — so output is
+    stable cross-platform and joinable with card File Path addresses. Native '\\'
+    is only for actual filesystem calls, which happen elsewhere.
+    """
+    return os.path.relpath(filepath, project_root).replace(os.sep, "/")
 
 
 class LanguageHandler(ABC):

@@ -11,9 +11,10 @@ Output (plain text):
 
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 # ---------------------------------------------------------------------------
 # Load shared config (optional) — cascade: CLI > tools_config > hardcoded defaults

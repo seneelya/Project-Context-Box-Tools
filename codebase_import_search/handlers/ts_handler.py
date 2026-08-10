@@ -227,7 +227,9 @@ class TypeScriptHandler(LanguageHandler):
         if import_aliases:
             pattern = self._build_attr_pattern(set(import_aliases.keys()))
             if pattern:
-                full_text = "\n".join(content_lines)
+                # content_lines is keepends=True → join without adding newlines,
+                # otherwise "\n".join doubles line breaks and shifts line numbers.
+                full_text = "".join(content_lines)
                 for m in pattern.finditer(full_text):
                     alias = m.group(1)
                     attr_path = m.group(2).strip()
@@ -237,10 +239,17 @@ class TypeScriptHandler(LanguageHandler):
                             continue
                         if first_token in self.MOCK_METHODS or any(attr_path.startswith(mp + ".") for mp in self.MOCK_METHODS):
                             continue
-                        _, kind = import_aliases[alias]
-                        used_symbols[attr_path] = kind
                         pos = m.start()
                         line_num = full_text[:pos].count("\n") + 1
+                        line_idx = line_num - 1
+                        # Skip mentions inside line/JSDoc comments — guarding
+                        # used_symbols (not just symbol_lines) avoids phantom symbols.
+                        if 0 <= line_idx < len(content_lines):
+                            ls = content_lines[line_idx].lstrip()
+                            if ls.startswith("//") or ls.startswith("*"):
+                                continue
+                        _, kind = import_aliases[alias]
+                        used_symbols[attr_path] = kind
                         symbol_lines.setdefault(attr_path, []).append(line_num)
 
         # Post-processing: filter out attribute access that is clearly on a direct named import

@@ -1,6 +1,8 @@
 """Python language handler for codebase_import_search."""
 
+import io
 import re
+import tokenize
 from typing import Dict, List, Set, Tuple
 
 from ..core import LanguageHandler, resolve_relative_import
@@ -95,46 +97,31 @@ class PythonHandler(LanguageHandler):
         return ", ".join(parts).strip(", ") or None
 
     def _get_non_docstring_indices(self, content_lines):
-        """Return set of line indices NOT inside docstrings."""
-        non_ds = set(range(len(content_lines)))
-        in_triple = None
-        
-        for i, line in enumerate(content_lines):
-            j = 0
-            n = len(line)
-            
-            while j < n:
-                ch = line[j]
-                
-                if in_triple is not None:
-                    non_ds.discard(i)
-                    
-                    tq = in_triple
-                    if ch == tq[0] and j + 2 < n and line[j:j+3] == tq:
-                        rest_start = j + 3
-                        rest = line[rest_start:].strip()
-                        if rest and not rest.startswith('#'):
-                            non_ds.add(i)
-                        in_triple = None
-                    j += 1
-                    continue
-                
-                if j + 2 < n:
-                    candidate = line[j:j+3]
-                    if len(set(candidate)) == 1 and candidate[0] in ('"', "'"):
-                        close_pos = line.find(candidate, j + 3)
-                        if close_pos != -1:
-                            rest_start = close_pos + 3
-                            rest = line[rest_start:].strip()
-                            if not rest or rest.startswith('#'):
-                                non_ds.discard(i)
-                        else:
-                            in_triple = candidate
-                            non_ds.discard(i)
-                
-                j += 1
-        
-        return non_ds
+        """Return the set of 0-based line indices that carry real CODE.
+
+        A line counts as code if it holds at least one code token (NAME / NUMBER /
+        OP). Lines that are entirely string/docstring content or comment-only carry
+        no such token and are excluded — so a symbol mentioned inside a docstring or
+        comment is not mistaken for a usage.
+
+        Uses stdlib ``tokenize`` (exact: handles multi-line strings, f-strings, raw,
+        implicit concatenation, CRLF). Fails OPEN — on any tokenize error every line
+        is treated as code, because dropping a real usage is worse than an occasional
+        phantom from a doc mention.
+        """
+        n = len(content_lines)
+        all_idx = set(range(n))
+        code_lines: Set[int] = set()
+        code_types = {tokenize.NAME, tokenize.NUMBER, tokenize.OP}
+        try:
+            src = "".join(content_lines)
+            for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+                if tok.type in code_types:
+                    for row in range(tok.start[0], tok.end[0] + 1):
+                        code_lines.add(row - 1)  # tokenize rows are 1-based
+        except (tokenize.TokenError, IndentationError, SyntaxError, ValueError):
+            return all_idx  # fail open: never drop a real usage on a parse error
+        return code_lines
 
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
@@ -234,16 +221,22 @@ class PythonHandler(LanguageHandler):
                         first_token = attr_path.split(".")[0]
                         if len(first_token) <= 3 and first_token.isalpha():
                             continue
-                        _, kind = import_aliases[alias]
-                        used_symbols[attr_path] = kind
                         # Calculate line number from position in full_text (preserves exact line endings)
                         pos = m.start()
                         line_num = full_text[:pos].count("\n") + 1
                         line_idx = line_num - 1  # Convert to 0-based index
-                        
-                        # Only count if this line is not inside a docstring
-                        if line_idx in non_docstring_indices:
-                            symbol_lines.setdefault(attr_path, []).append(line_num)
+
+                        # Register the symbol ONLY for real-code access — not inside a
+                        # docstring, not a full-line '#' comment. Guarding used_symbols
+                        # here (not just symbol_lines) prevents phantom empty symbols
+                        # from mere mentions in docs/comments.
+                        if line_idx not in non_docstring_indices:
+                            continue
+                        if 0 <= line_idx < len(content_lines) and content_lines[line_idx].lstrip().startswith("#"):
+                            continue
+                        _, kind = import_aliases[alias]
+                        used_symbols[attr_path] = kind
+                        symbol_lines.setdefault(attr_path, []).append(line_num)
 
         # Second pass for direct named imports: find where symbols are actually USED (not just imported)
         # Collect all directly imported symbol names that need usage tracking
