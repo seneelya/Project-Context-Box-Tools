@@ -11,11 +11,7 @@ def normalize_path(p):
     if not p:
         return p
     # Replace all slashes with system separator
-    p = p.replace('\\', os.sep).replace('/', os.sep)
-    # Map Windows workspace path to container mount point (Docker only)
-    if os.name == 'posix':  # Linux/macOS inside Docker
-        p = p.replace('Y:' + os.sep + 'Hermess' + os.sep + 'body' + os.sep + 'sandboxes' + os.sep + 'docker' + os.sep + 'default' + os.sep + 'workspace', '/workspace')
-    return p
+    return p.replace('\\', os.sep).replace('/', os.sep)
 
 
 def is_absolute_path(p):
