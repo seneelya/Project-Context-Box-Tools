@@ -9,7 +9,11 @@ def get_handler(language: str):
     handlers = {
         "python": _make_python_handler,
         "py": _make_python_handler,
-        # Add more here as they are implemented
+        "typescript": _make_ts_handler,
+        "ts": _make_ts_handler,
+        "js": _make_ts_handler,
+        "csharp": _make_csharp_handler,
+        "cs": _make_csharp_handler,
     }
 
     factory = handlers.get(language.lower())
@@ -25,3 +29,13 @@ def get_handler(language: str):
 def _make_python_handler():
     from .python_handler import PythonHandler
     return PythonHandler()
+
+
+def _make_ts_handler():
+    from .typescript_handler import TypeScriptHandler
+    return TypeScriptHandler()
+
+
+def _make_csharp_handler():
+    from .csharp_handler import CSharpHandler
+    return CSharpHandler()
