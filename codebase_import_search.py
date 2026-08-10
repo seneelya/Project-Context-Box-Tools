@@ -336,9 +336,10 @@ def main():
             dynamic_results[rp] = dyn_patterns
 
     # Debug: show fast filter stats (only when verbose or to stderr)
-    total_scanned = len(all_files) - 1  # minus target file itself
-    if skipped_by_fast_filter > 0 and args.verbose:
-        print(f"# Fast filter skipped {skipped_by_fast_filter}/{total_scanned} files ({100*skipped_by_fast_filter//max(total_scanned,1)}% reduction)")
+    # Uncomment below to enable fast filter statistics output (useful for performance analysis):
+    # total_scanned = len(all_files) - 1  # minus target file itself
+    # if skipped_by_fast_filter > 0 and args.verbose:
+    #     print(f"# Fast filter skipped {skipped_by_fast_filter}/{total_scanned} files ({100*skipped_by_fast_filter//max(total_scanned,1)}% reduction)")
 
     # Output sorted by file path, symbols alphabetically within each file
     all_symbols = set()
