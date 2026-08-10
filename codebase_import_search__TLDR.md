@@ -13,8 +13,6 @@ Find where a target module's symbols are imported or used across the project.
 
 ## Configuration notes
 
-When `tools_config.py` exists, `PROJECT_ROOT`, `LANGUAGE`, and `TEST_DIRS` are used as defaults.
-
 Language priority: CLI `--language` → file extension → config → `python`.
 
 Configure `TEST_DIRS` to define test directories (relative paths). Tests are excluded from default scans; use `--tests-only` to inspect what API tests cover.
