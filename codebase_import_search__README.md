@@ -10,8 +10,8 @@
 - **`--incoming` mode (upstream dependencies)** — показывает откуда целевой файл берёт свои зависимости: каждый исходный файл внутри project-root перечислен с символами, которые из него импортируются. Внешние пакеты/stdlib сгруппированы внизу как `[external]: <import_line>`.
   - **Ключевой вопрос:** ОТКУДА этот модуль импортирует символы? Где определены его зависимости?
 
-- **`--verbose` mode (per-symbol detail)** — группирует вывод default mode по символам вместо файлов: для каждого символа показывает все файлы и точные номера строк где он используется, плюс тип загрузки (lazy/top-level/conditional/fallback). Включает самодокументирующую легенду формата на первой строке.
-  - **Ключевой вопрос:** ГДЕ именно (в каких файлах на каких строках) используется каждый конкретный символ моего API?
+- **`--verbose` mode (per-symbol detail)** — группирует вывод default mode по символам вместо файлов: для каждого символа показывает все файлы и точные номера строк где он используется, тип загрузки (lazy/top-level/conditional/fallback) и глубину блока на этой строке. Включает самодокументирующую легенду формата на первой строке.
+  - **Ключевой вопрос:** ГДЕ именно (в каких файлах на каких строках и в каком контексте) используется каждый конкретный символ моего API?
 
 Инструмент сканирует весь проект и находит все файлы, которые импортируют целевой модуль, а затем определяет какие именно символы (функции, классы, константы) из него используются в каждом файле-потребителе.
 
@@ -58,7 +58,7 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 | `--module-names N1,N2,...` | Дополнительные имена по которым этот модуль можно импортировать | `_secret_module,auth_core` |
 | `--language LNG` | Язык обработчика/резолвера (поддерживает Python, TypeScript/JS, C#). По умолчанию автодетект по расширению файла или python | `python`, `typescript`, `csharp` |
 | `--incoming` | Показать upstream зависимости (откуда целевой файл импортирует символы) вместо downstream consumers | (без значения) |
-| `--verbose` | Группировать вывод по символам с номерами строк и типами загрузки (работает только в default mode); добавляет легенду формата | (без значения) |
+| `--verbose` | Группировать вывод по символам с номерами строк, типами загрузки и уровнями блоков (работает только в default mode); добавляет легенду формата | (без значения) |
 | `--project-root PATH` | Root directory to scan for imports (default from tools_config.py or current dir) | `/workspace/SRC/memohood`, `.` |
 | `--tests-only` | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
 
@@ -84,17 +84,17 @@ _engine/security.py: [DEFAULT_USER_AGENT]
 (Формат `file: [symbols]` совпадает с default mode для консистентности.)
 
 **`--verbose` mode (per-symbol detail)** — в default mode с флагом `--verbose`:
-Группирует вывод по символам вместо файлов, показывая точные номера строк использования и тип загрузки. Формат вывода:
+Группирует вывод по символам вместо файлов, показывая точные номера строк использования, тип загрузки и глубину блока на каждой строке. Формат вывода:
 ```text
 # N files, M unique symbols (+K with dynamic access)
-# Format: Symbol -> load_type: file_path: lines=[usage_line_numbers]
+# Format: Symbol -> load_type: file_path: lines=[usage_line_numbers] levels=[block_depths]
 
 BackendError:
-  top-level: _engine/backends/chat.py: lines=[52]
+  top-level: _engine/backends/chat.py: lines=[52, 81, 83] levels=[1, 2, 2]
 _embed_once:
-  lazy: _engine/embed.py: lines=[18]
+  lazy: _engine/embed.py: lines=[18, 495] levels=[1, 0]
 backends:
-  fallback: _lab/backends_cfg.py: lines=[1]
+  fallback: _lab/backends_cfg.py: lines=[1, 6, 11] levels=[0, 1, 1]
 ```
 
 Типы загрузки:
@@ -102,6 +102,10 @@ backends:
 - `lazy` — импорт внутри функции/метода (ленивая загрузка при вызове)
 - `conditional` — импорт в if блоке (условная загрузка)
 - `fallback` — импорт в try/except (опциональная зависимость)
+
+Уровни блоков (`levels=[]`) показывают глубину вложенности на каждой строке использования:
+- level 0 = код на уровне модуля (top-level, обычно публичный API или инициализация)
+- level 1+ = внутри функции/класса (чем выше число, тем глубже вложенность)
 
 ### Примеры запуска default mode (downstream consumers)
 

@@ -93,7 +93,7 @@ def main():
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Group output by symbol with load type and usage line numbers"
+        help="Group output by symbol with load type and usage line numbers with their code block levels"
     )
     args = parser.parse_args()
 
