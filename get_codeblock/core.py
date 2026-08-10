@@ -163,6 +163,67 @@ def make_comment_prefix(language):
     return {"python": "#", "typescript": "//", "csharp": "//"}.get(language, "#")
 
 
+def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool = False) -> dict:
+    """Importable function to get code block metadata (and optionally text).
+
+    Args:
+        file_path: Path to source file (absolute or relative)
+        line_num: Target line number (1-based)
+        level: Block address level (0=current, -N=parents, +N=from top)
+        query: If True, also return block text
+
+    Returns dict with keys:
+        level   : int — real depth level of returned block
+        start   : int — start line number (1-based)
+        end     : int — end line number (1-based, inclusive)
+        text    : str — block content byte-for-byte (only if query=True)
+
+    Raises:
+        FileNotFoundError: file doesn't exist
+        ValueError: line out of range or no blocks found
+    """
+    # Read file
+    try:
+        lines = read_lines(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    if line_num < 1 or line_num > len(lines):
+        raise ValueError(f"Line {line_num} out of range (1-{len(lines)})")
+
+    # Detect language by extension
+    ext = Path(file_path).suffix.lower()
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
+    language = lang_map.get(ext, 'python')
+
+    # Get blocks via handler
+    from get_codeblock.handlers import get_handler
+    handler = get_handler(language)
+    blocks = handler.get_blocks(file_path, line_num)
+
+    if not blocks:
+        raise ValueError("No blocks found")
+
+    # Resolve block by level address
+    block = resolve(blocks, level)
+    if not block:
+        raise ValueError("Level out of range")
+
+    result = {
+        "level": block["level"],
+        "start": block["start"],
+        "end": block["end"],  # inclusive
+    }
+
+    # Optionally return text byte-for-byte from file
+    if query:
+        start_idx = block["start"] - 1  # to 0-based
+        end_idx = min(block["end"], len(lines))
+        result["text"] = "".join(lines[start_idx:end_idx])
+
+    return result
+
+
 def main():
     args, config = parse_args()
 
