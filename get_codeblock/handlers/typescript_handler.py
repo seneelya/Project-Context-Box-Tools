@@ -35,6 +35,86 @@ class TypeScriptHandler:
     def __init__(self):
         pass
 
+    def get_all_blocks(self, file_path):
+        """Parse entire file once and return ALL blocks with levels.
+        
+        Returns list sorted by position:
+        [{'level': N, 'start': X, 'end': Y}, ...]
+        Level = depth from root (1=top-level block).
+        start/end = 1-indexed inclusive line numbers.
+        """
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        if not lines:
+            return []
+        
+        blocks = []
+        stack = []  # [(brace_line_idx, depth), ...] tracks open braces
+        
+        for i in range(len(lines)):
+            line = lines[i]
+            
+            j = 0
+            n = len(line)
+            while j < n:
+                ch = line[j]
+                
+                # Skip strings
+                if ch in ('"', "'"):
+                    quote = ch
+                    j += 1
+                    while j < n and line[j] != quote:
+                        if line[j] == '\\': j += 2
+                        else: j += 1
+                    j += 1
+                    continue
+                
+                # Skip template literals
+                if ch == '`':
+                    j += 1
+                    while j < n and line[j] != '`':
+                        if line[j] == '\\': j += 2
+                        else: j += 1
+                    j += 1
+                    continue
+                
+                # Skip line comments
+                if j + 1 < n and ch == '/' and line[j+1] == '/':
+                    break
+                
+                # Skip block comments
+                if j + 1 < n and ch == '/' and line[j+1] == '*':
+                    j += 2
+                    while j < n - 1:
+                        if line[j] == '*' and line[j+1] == '/':
+                            j += 2
+                            break
+                        j += 1
+                    else:
+                        j = n
+                    continue
+                
+                # Handle braces
+                if ch == '{':
+                    depth = len(stack) + 1
+                    stack.append((i, depth))
+                
+                elif ch == '}':
+                    if stack:
+                        brace_line_idx, depth = stack.pop()
+                        header_start = self._find_block_header_start(lines, brace_line_idx)
+                        blocks.append({
+                            'level': depth,
+                            'start': header_start + 1,
+                            'end': i + 1,
+                        })
+                
+                j += 1
+        
+        return blocks
+
+
     def get_blocks(self, file_path, target_line):
         """Get blocks containing target line.
 

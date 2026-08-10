@@ -224,6 +224,72 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
     return result
 
 
+def get_line_levels(file_path: str, line_nums: list) -> dict:
+    """Efficiently get block levels for multiple lines in ONE file parse.
+
+    Designed for callers like codebase_import_search that need levels for many
+    usage lines in the same file — avoids re-parsing file N times.
+
+    Args:
+        file_path: Path to source file (absolute or relative)
+        line_nums: List of target line numbers (1-based, can be unsorted/duplicates)
+
+    Returns dict mapping each line_num -> level int, or None if no block contains that line:
+        {18: 1, 45: 3, ...}
+
+    Raises:
+        FileNotFoundError: file doesn't exist
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    if not line_nums or not lines:
+        return {}
+
+    # Detect language by extension
+    ext = Path(file_path).suffix.lower()
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
+    language = lang_map.get(ext, 'python')
+
+    # Get ALL blocks in file with ONE parse (efficient!)
+    from get_codeblock.handlers import get_handler
+    handler = get_handler(language)
+    all_blocks = handler.get_all_blocks(file_path)
+
+    if not all_blocks:
+        return {ln: None for ln in line_nums}
+
+    result = {}
+    for ln in line_nums:
+        level = _find_level_for_line(all_blocks, ln)
+        result[ln] = level
+
+    return result
+
+
+def _find_level_for_line(all_blocks: list, target_line: int):
+    """Find the deepest block (highest level) containing target_line.
+
+    all_blocks is sorted by position; each has {'level': N, 'start': X, 'end': Y}.
+    Returns level of innermost containing block, or None if no block contains the line.
+    """
+    best_level = None
+
+    for blk in all_blocks:
+        start = blk['start']
+        end = blk['end']
+
+        if start <= target_line <= end:
+            lvl = blk['level']
+            if best_level is None or lvl > best_level:
+                best_level = lvl
+
+    return best_level
+
+
 def main():
     args, config = parse_args()
 

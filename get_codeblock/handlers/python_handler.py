@@ -284,6 +284,54 @@ class PythonHandler:
     
     def __init__(self):
         pass
+
+    def get_all_blocks(self, file_path):
+        """Parse entire file once and return ALL blocks with levels.
+        
+        Returns list sorted by position:
+        [{'level': N, 'start': X, 'end': Y}, ...]
+        Level = depth from root (1=top-level block).
+        start/end = 1-indexed inclusive line numbers.
+        """
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        if not lines:
+            return []
+        
+        blocks = []
+        stack = []  # [(header_idx, header_indent), ...] tracks open blocks
+        
+        for i in range(len(lines)):
+            ind, blank = get_indent(lines[i])
+            
+            if blank or lines[i].strip().startswith('#'):
+                continue
+            
+            if not is_block_header(lines[i]):
+                continue
+            
+            # Pop stack until we find parent with smaller indent
+            while stack and stack[-1][1] >= ind:
+                h_idx, _ = stack.pop()
+                end = i - 1
+                level = len(stack) + 1
+                ps = collect_preamble(lines, h_idx)
+                blocks.append({'level': level, 'start': ps + 1, 'end': end + 1})
+            
+            # Push current header onto stack
+            stack.append((i, ind))
+        
+        # Close remaining open blocks at EOF
+        while stack:
+            h_idx, _ = stack.pop()
+            end = len(lines) - 1
+            level = len(stack) + 1
+            ps = collect_preamble(lines, h_idx)
+            blocks.append({'level': level, 'start': ps + 1, 'end': end + 1})
+        
+        return blocks
+    
     
     def get_blocks(self, file_path, target_line):
         """Get blocks containing target line.

@@ -343,6 +343,92 @@ def find_containing_braces(lines, target_idx):
 class CSharpHandler:
     """Handles C# code block detection using brace matching."""
 
+
+    def get_all_blocks(self, file_path):
+        """Parse entire C# file once and return ALL blocks with levels.
+        
+        Returns list sorted by position:
+        [{'level': N, 'start': X, 'end': Y}, ...]
+        Level = depth from root (1=top-level block like namespace/class).
+        start/end = 1-indexed inclusive line numbers.
+        Includes compound blocks: if/else, try/catch/finally merged as single block.
+        """
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        if not lines:
+            return []
+        
+        blocks = []
+        stack = []  # [(header_idx, depth), ...] tracks open blocks by header
+        
+        for i in range(len(lines)):
+            line = lines[i]
+            
+            # Skip pure comments/blanks for structure detection
+            stripped = line.strip()
+            if not stripped or stripped.startswith('//'):
+                continue
+            
+            # Track braces character by character (ignore strings/comments)
+            j = 0
+            n = len(line)
+            
+            while j < n:
+                ch = line[j]
+                
+                # Skip strings
+                if ch in ('"', "'"):
+                    quote = ch
+                    j += 1
+                    while j < n and line[j] != quote:
+                        if line[j] == '\\': j += 2
+                        else: j += 1
+                    j += 1
+                    continue
+                
+                # Skip line comments
+                if j + 1 < n and ch == '/' and line[j+1] == '/':
+                    break
+                
+                # Skip block comments
+                if j + 1 < n and ch == '/' and line[j+1] == '*':
+                    j += 2
+                    while j < n - 1:
+                        if line[j] == '*' and line[j+1] == '/':
+                            j += 2
+                            break
+                        j += 1
+                    else:
+                        j = n
+                    continue
+                
+                # Handle braces
+                if ch == '{':
+                    depth = len(stack) + 1
+                    
+                    # Find semantic header for this brace (may be on current or previous lines)
+                    header_idx = self._find_semantic_header(lines, i)
+                    
+                    stack.append((header_idx, depth))
+                
+                elif ch == '}':
+                    if stack:
+                        header_idx, depth = stack.pop()
+                        
+                        # Use find_body_end to properly merge compound siblings (if/else, try/catch)
+                        body_end = find_body_end(lines, header_idx)
+                        
+                        blocks.append({
+                            'level': depth,
+                            'start': header_idx + 1,
+                            'end': body_end + 1,
+                        })
+                
+                j += 1
+        
+        return blocks
+
     def get_blocks(self, file_path, line_num):
         """Get blocks hierarchy containing the given line.
         

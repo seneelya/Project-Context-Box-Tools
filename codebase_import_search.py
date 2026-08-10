@@ -34,6 +34,13 @@ except ImportError:
     CFG_LANGUAGE = "python"
     CFG_TEST_DIRS = []
 
+# Try to import get_codeblock for level info (graceful degradation if unavailable)
+try:
+    from get_codeblock.core import get_line_levels
+    _HAS_GET_CODEBLOCK = True
+except ImportError:
+    _HAS_GET_CODEBLOCK = False
+
 
 def main():
     # Minimal parser to detect --file/--module before full parsing (for auto-detect)
@@ -382,8 +389,11 @@ def main():
                     # Fallback: symbol detected but no specific line tracked
                     symbol_usages[sym].append((fpath, kind, 0))
 
-        # Legend explaining the format
-        print("# Format: Symbol -> load_type: file_path: lines=[usage_line_numbers]")
+        # Legend explaining the format (with levels when available)
+        if _HAS_GET_CODEBLOCK:
+            print("# Format: Symbol -> load_type: file_path: lines=[usage_line_numbers] levels=[block_depths]")
+        else:
+            print("# Format: Symbol -> load_type: file_path: lines=[usage_line_numbers]")
         print()
 
         for sym in sorted(symbol_usages.keys()):
@@ -400,10 +410,22 @@ def main():
             for (fpath, kind), all_lines in sorted(file_kind_lines.items()):
                 prefix = kind + ": "
                 unique_lines = sorted(set(all_lines))
+                
+                # Try to get levels for these lines using batch lookup
+                levels_str = ""
+                if _HAS_GET_CODEBLOCK and len(unique_lines) > 0:
+                    try:
+                        abs_fpath = os.path.abspath(os.path.join(project_root, fpath))
+                        levels_map = get_line_levels(abs_fpath, unique_lines)
+                        levels = [levels_map.get(ln) or 0 for ln in unique_lines]
+                        levels_str = f" levels={levels}"
+                    except Exception:
+                        pass
+                
                 if len(unique_lines) == 1:
-                    parts.append(f"{prefix}{fpath}: lines=[{unique_lines[0]}]")
+                    parts.append(f"{prefix}{fpath}: lines=[{unique_lines[0]}]{levels_str}")
                 else:
-                    parts.append(f"{prefix}{fpath}: lines={unique_lines}")
+                    parts.append(f"{prefix}{fpath}: lines={unique_lines}{levels_str}")
             
             print(f"{sym}:")
             for part in parts:
