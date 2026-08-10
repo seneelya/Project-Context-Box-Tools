@@ -160,6 +160,11 @@ def resolve(blocks, level):
         return blocks[min(idx, len(blocks) - 1)]
 
 
+def make_comment_prefix(language):
+    """Return comment prefix for the given language."""
+    return {"python": "#", "typescript": "//", "csharp": "//"}.get(language, "#")
+
+
 def main():
     args, config = parse_args()
 
@@ -201,13 +206,28 @@ def main():
     start = block["start"]
     end = block["end"]  # end is inclusive in new handler
 
+    # Build metadata header line (valid comment for the language)
+    prefix = make_comment_prefix(language)
+    meta_line = f"{prefix}Block level: {block['level']} from: {start} to: {end} lines"
+
     if args['query']:
-        # Output text byte-for-byte from file
+        # Output metadata header as first line, then text byte-for-byte from file
+        yellow = "\033[93m"  # ANSI yellow
+        reset = "\033[0m"   # Reset color
+        if not sys.stdout.isatty():
+            print(meta_line)
+        else:
+            print(f"{yellow}{meta_line}{reset}")
         for i in range(start - 1, min(end, len(lines))):
             sys.stdout.write(lines[i])
     else:
-        # Metadata output
-        print(f"Block level: {block['level']} from: {start} to: {end} lines")
+        # Metadata-only output with yellow color on TTY
+        yellow = "\033[93m"  # ANSI yellow
+        reset = "\033[0m"   # Reset color
+        if not sys.stdout.isatty():
+            print(meta_line)
+        else:
+            print(f"{yellow}{meta_line}{reset}")
 
 
 if __name__ == "__main__":
