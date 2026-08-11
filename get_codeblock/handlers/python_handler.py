@@ -285,6 +285,36 @@ class PythonHandler:
     def __init__(self):
         pass
 
+    def outline(self, lines, max_level=None):
+        """Named-definition skeleton: def/class only (control blocks excluded),
+        hierarchical (class=1, its methods=2, ...). Label = the header line.
+
+        Section end = line before the next definition at the same-or-shallower indent
+        (like Markdown headings) — deliberately NOT find_body_end, which mis-ranges
+        multi-line signatures. For a TOC this is accurate; precise extraction uses --query.
+        """
+        defs = []  # (idx, indent, label)
+        for i, line in enumerate(lines):
+            if is_block_header(line) and get_keyword(line) in ('def', 'class', 'async_def'):
+                defs.append((i, get_indent(line)[0], line.strip()))
+
+        out = []
+        stack = []  # indents of enclosing definitions
+        for k, (i, indent, label) in enumerate(defs):
+            while stack and stack[-1] >= indent:
+                stack.pop()
+            level = len(stack) + 1
+            stack.append(indent)
+            if max_level and level > max_level:
+                continue
+            end = len(lines)
+            for j_idx, j_indent, _l in defs[k + 1:]:
+                if j_indent <= indent:
+                    end = j_idx  # 1-based line before the next same/shallower def
+                    break
+            out.append({'level': level, 'text': label, 'start': i + 1, 'end': end})
+        return out
+
     def line_level(self, lines, idx):
         """Logical nesting level of ONE line (0-based idx), 1-based.
 
