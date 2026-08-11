@@ -1,0 +1,5 @@
+### test_simple.txt — basic file for simple replacement tests
+
+This line contains OLD_TEXT and another OLD_TEXT here.
+This line has NO_MATCH so it stays the same.
+OLD_TEXT appears multiple times OLD_TEXT in one line.

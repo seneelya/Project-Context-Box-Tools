@@ -1,0 +1,11 @@
+### test_match.txt — file for match-based replacement tests
+
+###### Dependencies internal
+| Imports | Из файла | Объекты | Зачем |
+| `config` | `config.py` | `get_config()` | Получение конфига |
+
+###### External dependencies
+Some external note about STATE_DB_REF connection.
+
+Line with STATE_DB_REF and also mentions of STATE_DB_REF here.
+Another line without that word.
