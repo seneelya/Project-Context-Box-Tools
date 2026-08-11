@@ -61,6 +61,22 @@ unambiguously. `--level` chooses which block from the ladder (default `0` = inne
 
 The filename is intentionally NOT printed (the caller already knows the file).
 
+### `--outline` — structural table of contents (no `--line` needed)
+
+Prints the file's **named** blocks only — headings for Markdown; `def`/`class`/methods for
+code (control blocks like `if`/`for` are excluded) — hierarchical, with ranges and a label.
+`--level K` caps depth. This is how an agent discovers WHICH line to go to, then pulls the
+section with `--line N --query`. Works for `.md` and Python now (TS/C# pending).
+
+```
+#Block level: 1 range: 1-381 — codebase_import_search — поиск публичного API
+#Block level: 2 range: 25-54 — Пример работы
+#Block level: 3 range: 57-70 — Параметры CLI
+```
+
+Section end = the line before the next block at the same-or-shallower level (accurate for a
+TOC; for exact block boundaries use `--query`).
+
 ## Arguments and Flags
 
 | Flag | Type | Description |
@@ -96,6 +112,7 @@ When `--line` falls between blocks at file-level scope (no containing block foun
 | Python | `.py` | Indentation-based (no AST) | Handles multiline function signatures, compound blocks (`try/except`, `if/elif`), docstrings attached above functions. Comments are semantically assigned to the block they precede. |
 | TypeScript / JavaScript | `.ts`, `.js` | Brace matching `{...}` | Ignores braces inside strings, template literals `${...}`, single-line comments `//`, and multi-line comments `/* ... */`. Arrow functions, classes, interfaces all treated uniformly as blocks by their brace pair. |
 | C# | `.cs` | Brace matching `{...}` | Handles verbatim strings `@"..."`, single-line comments `//`. Namespace → class → method → control-flow hierarchy tracked via brace depth. |
+| Markdown | `.md`, `.markdown` | Heading hierarchy | Sections by ATX headings (`#`..`######`); level = heading depth (no +1). Fenced code (` ``` `/`~~~`) skipped so `#` inside code isn't a heading. Best paired with `--outline`. |
 
 Language detection happens automatically from the file extension — no need to specify it explicitly.
 
@@ -210,8 +227,12 @@ get_codeblock/
     ├── __init__.py      # Language registry (get_handler(language) factory)
     ├── python_handler.py    # Indentation-based block detection (no AST)
     ├── typescript_handler.py # Brace matching with string/template literal awareness
-    └── csharp_handler.py    # Brace matching with verbatim string support
+    ├── csharp_handler.py    # Brace matching with verbatim string support
+    └── markdown_handler.py  # Heading-hierarchy sections (line_level + get_blocks + outline)
 ```
+
+Each handler exposes `line_level` (per-line depth) and `get_blocks` (enclosing blocks for a
+line); `outline` (structural TOC) is implemented by markdown and python so far.
 
 Each handler implements `get_blocks(file_path, line_num) -> list[dict]` returning blocks sorted outermost-first. Each block dict has:
 - `level`: int — nesting depth from file root (1-based).
