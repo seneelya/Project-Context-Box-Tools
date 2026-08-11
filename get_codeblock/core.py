@@ -299,36 +299,32 @@ def main():
         print("Error: No blocks found", file=sys.stderr)
         sys.exit(1)
 
-    block = resolve(blocks, args['level'])
-    if not block:
-        print("Error: Level out of range", file=sys.stderr)
-        sys.exit(1)
-
-    start = block["start"]
-    end = block["end"]  # end is inclusive in new handler
-
-    # Build metadata header line (valid comment for the language)
     prefix = make_comment_prefix(language)
-    meta_line = f"{prefix}Block level: {block['level']} range: {start}-{end}"
+    is_tty = sys.stdout.isatty()
+
+    def emit(s):
+        print(f"\033[93m{s}\033[0m" if is_tty else s)
 
     if args['query']:
-        # Output metadata header as first line, then text byte-for-byte from file
-        yellow = "\033[93m"  # ANSI yellow
-        reset = "\033[0m"   # Reset color
-        if not sys.stdout.isatty():
-            print(meta_line)
-        else:
-            print(f"{yellow}{meta_line}{reset}")
-        for i in range(start - 1, min(end, len(lines))):
+        # Extract ONE block (chosen by --level; default 0 = innermost), framed by
+        # anchor comments so several outputs can be concatenated without merging.
+        block = resolve(blocks, args['level'])
+        if not block:
+            print("Error: Level out of range", file=sys.stderr)
+            sys.exit(1)
+        start, end = block["start"], block["end"]  # inclusive
+        emit(f"{prefix}Block level: {block['level']} range: {start}-{end}")
+        last = min(end, len(lines))
+        for i in range(start - 1, last):
             sys.stdout.write(lines[i])
+        if last >= 1 and not lines[last - 1].endswith("\n"):
+            sys.stdout.write("\n")  # ensure the footer starts on its own line at EOF
+        emit(f"{prefix}Block end: {end}")
     else:
-        # Metadata-only output with yellow color on TTY
-        yellow = "\033[93m"  # ANSI yellow
-        reset = "\033[0m"   # Reset color
-        if not sys.stdout.isatty():
-            print(meta_line)
-        else:
-            print(f"{yellow}{meta_line}{reset}")
+        # Metadata = the LADDER: every enclosing block, innermost -> outermost, so one
+        # call shows all zoom options (pick a level, then --query it).
+        for blk in reversed(blocks):
+            emit(f"{prefix}Block level: {blk['level']} range: {blk['start']}-{blk['end']}")
 
 
 if __name__ == "__main__":
