@@ -30,10 +30,62 @@ def get_indent(line):
     return len(indent_str.replace('\t', '    '))
 
 
+_BRACELESS_KW = ('if', 'else', 'for', 'while', 'do', 'foreach')
+
+
+def _is_braceless_control(stripped):
+    """A control header whose body is the next statement (no '{' on this line)."""
+    if '{' in stripped or stripped.endswith(';') or stripped.endswith(','):
+        return False
+    for kw in _BRACELESS_KW:
+        if stripped == kw or stripped.startswith(kw + ' ') or stripped.startswith(kw + '('):
+            return True
+    return False
+
+
 class TypeScriptHandler:
 
     def __init__(self):
         pass
+
+    def line_level(self, lines, idx):
+        """Logical nesting level of ONE line (0-based idx), 1-based.
+
+        level = 1 + enclosing block BODIES. For brace languages a body is the region
+        inside a matching {...}; the header (up to and including '{') sits at the
+        parent's level, so a leading '}' counts against the parent too. Brace-less
+        control bodies (if/for/while/else with no '{') are recovered via indentation.
+        Root = 1 (0 is reserved for --level addressing, never a real depth).
+        """
+        if idx < 0 or idx >= len(lines):
+            return 1
+        stack = []
+        for i in range(idx):
+            self._scan_line_for_braces(lines[i], stack, i)
+        depth = len(stack)
+        content = lines[idx].lstrip()
+        if content.startswith('}'):
+            depth = max(depth - 1, 0)  # a closing brace belongs to the parent level
+        return depth + 1 + self._braceless_bonus(lines, idx)
+
+    def _braceless_bonus(self, lines, idx):
+        """Extra levels from brace-less control headers governing this line by indent."""
+        bonus = 0
+        cur_indent = get_indent(lines[idx])
+        j = idx - 1
+        while j >= 0:
+            s = lines[j].strip()
+            if not s or s.startswith('//') or s.startswith('*') or s.startswith('/*'):
+                j -= 1
+                continue
+            ind = get_indent(lines[j])
+            if ind < cur_indent and _is_braceless_control(s):
+                bonus += 1
+                cur_indent = ind
+                j -= 1
+                continue
+            break
+        return bonus
 
     def get_all_blocks(self, file_path):
         """Parse entire file once and return ALL blocks with levels.

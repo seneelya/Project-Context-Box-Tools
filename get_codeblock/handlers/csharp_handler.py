@@ -340,9 +340,95 @@ def find_containing_braces(lines, target_idx):
     return containing
 
 
+_BRACELESS_KW = ('if', 'else', 'for', 'foreach', 'while', 'do')
+
+
+def _is_braceless_control(stripped):
+    """A control header whose body is the next statement (no '{' on this line)."""
+    if '{' in stripped or stripped.endswith(';') or stripped.endswith(','):
+        return False
+    for kw in _BRACELESS_KW:
+        if stripped == kw or stripped.startswith(kw + ' ') or stripped.startswith(kw + '('):
+            return True
+    return False
+
+
+def _scan_line_braces(line, stack, line_idx):
+    """Update `stack` (list of open-brace line indices) for one C# line.
+
+    Ignores braces inside strings, char/verbatim literals and comments.
+    """
+    j = 0
+    n = len(line)
+    while j < n:
+        ch = line[j]
+        if ch in ('"', "'"):
+            quote = ch
+            j += 1
+            while j < n and line[j] != quote:
+                j += 2 if line[j] == '\\' else 1
+            j += 1
+            continue
+        if j + 1 < n and ch == '/' and line[j + 1] == '/':
+            break
+        if j + 1 < n and ch == '/' and line[j + 1] == '*':
+            j += 2
+            while j < n - 1:
+                if line[j] == '*' and line[j + 1] == '/':
+                    j += 2
+                    break
+                j += 1
+            else:
+                j = n
+            continue
+        if ch == '{':
+            stack.append(line_idx)
+        elif ch == '}':
+            if stack:
+                stack.pop()
+        j += 1
+
+
 class CSharpHandler:
     """Handles C# code block detection using brace matching."""
 
+    def line_level(self, lines, idx):
+        """Logical nesting level of ONE line (0-based idx), 1-based.
+
+        level = 1 + enclosing block BODIES (region inside matching {...}); the header
+        up to '{' sits at the parent level, so a leading '}' counts against the parent.
+        Brace-less control bodies (if/for/while/else with no '{') recovered via indent.
+        Root = 1 (0 is reserved for --level addressing, never a real depth).
+        """
+        if idx < 0 or idx >= len(lines):
+            return 1
+        stack = []
+        for i in range(idx):
+            _scan_line_braces(lines[i], stack, i)
+        depth = len(stack)
+        content = lines[idx].lstrip()
+        if content.startswith('}'):
+            depth = max(depth - 1, 0)
+        return depth + 1 + self._braceless_bonus(lines, idx)
+
+    def _braceless_bonus(self, lines, idx):
+        """Extra levels from brace-less control headers governing this line by indent."""
+        bonus = 0
+        cur_indent = get_indent(lines[idx])[0]
+        j = idx - 1
+        while j >= 0:
+            s = lines[j].strip()
+            if not s or s.startswith('//') or s.startswith('*') or s.startswith('/*'):
+                j -= 1
+                continue
+            ind = get_indent(lines[j])[0]
+            if ind < cur_indent and _is_braceless_control(s):
+                bonus += 1
+                cur_indent = ind
+                j -= 1
+                continue
+            break
+        return bonus
 
     def get_all_blocks(self, file_path):
         """Parse entire C# file once and return ALL blocks with levels.
