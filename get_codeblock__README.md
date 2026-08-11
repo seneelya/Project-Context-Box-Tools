@@ -33,6 +33,14 @@ Prints a single line with language-specific comment prefix:
 - `level` — real nesting depth of the returned block (counted from file root)
 - `range: X-Y` — start and end line numbers (1-based, inclusive)
 
+**Level semantics** (`level` = `1 + number of enclosing block BODIES`):
+- File root = **1** (the file itself is unnumbered). A block header (`if`/`for`/`def`,
+  including a wrapped multi-line signature) sits at its parent's level; the body is one
+  deeper. Real depths are `1,2,3,…` — **`0` is never a real depth**; it is reserved for
+  `--level` addressing (see below), meaning "the block containing the line, wherever it is".
+- Two axes, don't conflate: this DEPTH is what `get_line_levels` reports (and what
+  `codebase_import_search` prints as `levels=`); the `--level` argument below is NAVIGATION.
+
 ### Text mode (with `--query`)
 
 Prints metadata header as a valid comment for the language, followed by the block text byte-for-byte from the source file:
