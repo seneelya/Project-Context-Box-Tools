@@ -103,17 +103,25 @@ def _resolve_sibling_signature(target_abs, module, level, name):
 
 # --- formatting --------------------------------------------------------------
 
-def _consumed_note(sym, consumers):
+# The LLM fills prose; the stamp separates the machine FACT line from the agent DIRECTIVE
+# line so line-based patch edits never collide (fact editable too — it's just a line).
+DIRECTIVE_DESC = "<Agent: replace with a one-line description, or delete this line>"
+DIRECTIVE_SUMMARY = "<Agent: replace with a one-line summary of what this file does>"
+
+
+def _consumers_fact(sym, consumers):
+    """A plain, generated fact line: who really imports `sym`."""
     c = consumers.get(sym)
     if not c:
-        return "NOT consumed anywhere (dead surface? — verify)"
-    files = ", ".join(f for f, _k, _ln in c)
-    return f"consumed by {len(c)}: {files}"
+        return "known consumers 0"
+    return f"known consumers {len(c)}: " + ", ".join(f for f, _k, _ln in c)
 
 
-def _api_entry(name, signature, note):
-    label = signature if signature else name
-    return [f"#### `{label}`", f"<!-- LLM: одна строка. FACT: {note} -->"]
+def _emit_entry(lines, label, fact):
+    """One API entry: signature heading, then the fact line, then the agent directive."""
+    lines.append(f"#### `{label}`")
+    lines.append(fact)
+    lines.append(DIRECTIVE_DESC)
 
 
 def build_card(project_root, file):
@@ -135,9 +143,12 @@ def build_card(project_root, file):
 
     placed = set()
     lines = [f"# {fname}", ""]
+    # Summary slot: the directive is the parsed summary (first non-empty line after H1);
+    # the docstring fact sits below it as generated context the agent can adapt or delete.
+    lines.append(DIRECTIVE_SUMMARY)
     ds = declared.get("docstring_first")
-    lines.append(f"<!-- LLM: одна строка-сводка — что делает модуль/пакет."
-                 + (f' docstring 1-я строка: \"{ds}\"' if ds else "") + " -->")
+    if ds:
+        lines.append(f"docstring 1st line: {ds}")
     lines.append("")
 
     # ---- Package layout (package/facade only) ----
@@ -146,8 +157,9 @@ def build_card(project_root, file):
                        for imp in declared.get("import_froms", []) if imp["level"] >= 1})
         lines.append("## Package layout")
         lines.append("")
-        detected = ", ".join(rels) if rels else "(none detected)"
-        lines.append(f"<!-- LLM: подмодули + одна строка на каждый. Найдены относительные импорты: {detected} -->")
+        if rels:
+            lines.append("known submodules (relative imports): " + ", ".join(rels))
+        lines.append("<Agent: one line per submodule — what it holds>")
         lines.append("")
 
     # ---- Public API ----
@@ -157,16 +169,16 @@ def build_card(project_root, file):
     if declared.get("functions"):
         lines.append("### Functions")
         for f in declared["functions"]:
-            lines += _api_entry(f["name"], f["signature"], _consumed_note(f["name"], consumers))
+            _emit_entry(lines, f["signature"], _consumers_fact(f["name"], consumers))
             placed.add(f["name"])
         lines.append("")
 
     if declared.get("classes"):
         lines.append("### Classes")
         for c in declared["classes"]:
-            note = _consumed_note(c["name"], consumers)
             lines.append(f"#### `{c['name']}`")
-            lines.append(f"<!-- LLM: одна строка. FACT: {note} -->")
+            lines.append(_consumers_fact(c["name"], consumers))
+            lines.append(DIRECTIVE_DESC)
             for m in c["methods"]:
                 lines.append(f"    - `{m['signature']}`")
             placed.add(c["name"])
@@ -185,10 +197,10 @@ def build_card(project_root, file):
         for nm, mod, lvl in reexports:
             sig = _resolve_sibling_signature(
                 os.path.join(project_root, file) if not os.path.isabs(file) else file, mod, lvl, nm)
-            note = _consumed_note(nm, consumers)
             label = sig if sig else nm
-            lines.append(f"#### `{label}`  ← .{mod}")
-            lines.append(f"<!-- LLM: одна строка если неочевидно. FACT: {note} -->")
+            lines.append(f"#### `{label}`")
+            lines.append(f"from .{mod} · {_consumers_fact(nm, consumers)}")
+            lines.append(DIRECTIVE_DESC)
             placed.add(nm)
         lines.append("")
 
@@ -201,9 +213,7 @@ def build_card(project_root, file):
         lines.append(f"### {cf.CONSUMED_SUBSECTION}")
         for sym in leftover:
             sig = declared.get("all_defs", {}).get(sym)
-            label = sig if sig else sym
-            lines.append(f"#### `{label}`")
-            lines.append(f"<!-- LLM: одна строка. FACT: {_consumed_note(sym, consumers)} -->")
+            _emit_entry(lines, sig if sig else sym, _consumers_fact(sym, consumers))
         lines.append("")
 
     if not (declared.get("functions") or declared.get("classes") or reexports or leftover):
@@ -219,7 +229,7 @@ def build_card(project_root, file):
         for r in resolved:
             syms = ", ".join(f"`{s}`" for s in r["symbols"]) if r["symbols"] else ""
             imp = "`" + os.path.basename(r["file"]).rsplit(".", 1)[0] + "`"
-            lines.append(f"| {imp} | `{r['file']}` | {syms} | <!--why--> | normal |")
+            lines.append(f"| {imp} | `{r['file']}` | {syms} | <Agent: why?> | normal |")
     else:
         lines.append(cf.EMPTY)
     lines.append("")
@@ -228,9 +238,10 @@ def build_card(project_root, file):
     lines.append("## Dependencies External")
     lines.append("")
     ext_detected = sorted({e for e in externals})
-    if ext_detected or declared.get("external_imports"):
-        det = ", ".join(ext_detected) if ext_detected else ", ".join(sorted(set(declared["external_imports"])))
-        lines.append(f"<!-- LLM: сторонние/stdlib, которые читателю неочевидны; иначе (none). Найдено: {det} -->")
+    det = ext_detected or sorted(set(declared.get("external_imports", [])))
+    if det:
+        lines.append("known external imports: " + ", ".join(det))
+        lines.append("<Agent: keep only libs the reader may not know; else write (none)>")
     else:
         lines.append(cf.EMPTY)
     lines.append("")
@@ -238,7 +249,7 @@ def build_card(project_root, file):
     # ---- prose-only sections ----
     lines.append("## How it works")
     lines.append("")
-    lines.append("<!-- LLM: механизм — как это работает, прочитав исходник. -->")
+    lines.append("<Agent: describe the mechanism after reading the source>")
     lines.append("")
     lines.append("## Doc links")
     lines.append("")
@@ -246,7 +257,7 @@ def build_card(project_root, file):
     lines.append("")
     lines.append("## Discrepancies")
     lines.append("")
-    lines.append("<!-- LLM: docstring ↔ код противоречия; иначе (none). -->")
+    lines.append("<Agent: docstring vs code contradictions; else write (none)>")
 
     return "\n".join(lines) + "\n"
 
