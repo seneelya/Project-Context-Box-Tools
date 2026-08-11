@@ -14,6 +14,8 @@ def get_handler(language: str):
         "js": _make_ts_handler,
         "csharp": _make_csharp_handler,
         "cs": _make_csharp_handler,
+        "markdown": _make_markdown_handler,
+        "md": _make_markdown_handler,
     }
 
     factory = handlers.get(language.lower())
@@ -39,3 +41,8 @@ def _make_ts_handler():
 def _make_csharp_handler():
     from .csharp_handler import CSharpHandler
     return CSharpHandler()
+
+
+def _make_markdown_handler():
+    from .markdown_handler import MarkdownHandler
+    return MarkdownHandler()

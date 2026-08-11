@@ -40,6 +40,7 @@ def parse_args():
     line_num = None
     level = 0  # default: current block
     query = False  # flag, no value needed
+    outline = False  # flag: print the file's structural outline (no --line needed)
     project_root = default_root
 
     i = 0
@@ -65,6 +66,9 @@ def parse_args():
             i += 2
         elif token == '--query':
             query = True
+            i += 1
+        elif token == '--outline':
+            outline = True
             i += 1
         elif token in ('--project-root', '--project_root') and i + 1 < len(tokens):
             value = tokens[i + 1]
@@ -110,8 +114,10 @@ def parse_args():
             print(f"PROJECT_ROOT={default_root}")
         sys.exit(0)
 
-    if not file_path or line_num is None:
-        print("Error: the following arguments are required: --file, --line", file=sys.stderr)
+    # --outline needs only --file; every other mode needs --file and --line
+    if not file_path or (line_num is None and not outline):
+        need = "--file" if outline else "--file, --line"
+        print(f"Error: the following arguments are required: {need}", file=sys.stderr)
         sys.exit(1)
 
     return {
@@ -119,6 +125,7 @@ def parse_args():
         'line': line_num,
         'level': level,
         'query': query,
+        'outline': outline,
         'project_root': project_root
     }, config
 
@@ -193,7 +200,8 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
 
     # Detect language by extension
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp',
+                '.md': 'markdown', '.markdown': 'markdown'}
     language = lang_map.get(ext, 'python')
 
     # Get blocks via handler
@@ -253,7 +261,8 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
 
     # Detect language by extension
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp',
+                '.md': 'markdown', '.markdown': 'markdown'}
     language = lang_map.get(ext, 'python')
 
     # Per-line logical level: level = 1 + enclosing block BODIES (a block header sits
@@ -282,28 +291,44 @@ def main():
         print(f"Error: File not found: {file_path}", file=sys.stderr)
         sys.exit(1)
 
-    line_num = args['line']
-    if line_num < 1 or line_num > len(lines):
-        print(f"Error: Line {line_num} out of range (1-{len(lines)})", file=sys.stderr)
-        sys.exit(1)
-
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp',
+                '.md': 'markdown', '.markdown': 'markdown'}
     language = lang_map.get(ext, 'python')
 
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
-    blocks = handler.get_blocks(file_path, line_num)
-
-    if not blocks:
-        print("Error: No blocks found", file=sys.stderr)
-        sys.exit(1)
-
     prefix = make_comment_prefix(language)
     is_tty = sys.stdout.isatty()
 
     def emit(s):
         print(f"\033[93m{s}\033[0m" if is_tty else s)
+
+    # --outline: the file's structural table of contents (named blocks only). --level
+    # caps depth. No --line needed. Handlers expose outline() when they support it.
+    if args.get('outline'):
+        if not hasattr(handler, 'outline'):
+            print(f"Error: outline not supported for {language} yet", file=sys.stderr)
+            sys.exit(1)
+        max_level = args['level'] if args['level'] and args['level'] > 0 else None
+        rows = handler.outline(lines, max_level=max_level)
+        if not rows:
+            emit(f"{prefix}(no structure found)")
+            return
+        for r in rows:
+            emit(f"{prefix}Block level: {r['level']} range: {r['start']}-{r['end']} — {r['text']}")
+        return
+
+    line_num = args['line']
+    if line_num < 1 or line_num > len(lines):
+        print(f"Error: Line {line_num} out of range (1-{len(lines)})", file=sys.stderr)
+        sys.exit(1)
+
+    blocks = handler.get_blocks(file_path, line_num)
+
+    if not blocks:
+        print("Error: No blocks found", file=sys.stderr)
+        sys.exit(1)
 
     if args['query']:
         # Extract ONE block (chosen by --level; default 0 = innermost), framed by
