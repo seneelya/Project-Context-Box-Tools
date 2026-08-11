@@ -256,52 +256,14 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp'}
     language = lang_map.get(ext, 'python')
 
+    # Per-line logical level: level = 1 + enclosing block BODIES (a block header sits
+    # at its parent's level). Every handler implements line_level.
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
-
-    # Preferred path: per-line logical level (level = 1 + enclosing block BODIES;
-    # a block header sits at its parent's level). Handlers expose line_level when
-    # they implement this rule; others fall back to the block-span method below.
-    if hasattr(handler, "line_level"):
-        result = {}
-        for ln in line_nums:
-            result[ln] = handler.line_level(lines, ln - 1) if 1 <= ln <= len(lines) else 1
-        return result
-
-    # Fallback (block-span): deepest block whose span contains the line.
-    all_blocks = handler.get_all_blocks(file_path)
-    if not all_blocks:
-        # No blocks at all → every line sits at the file root = level 1.
-        return {ln: 1 for ln in line_nums}
-
-    result = {}
-    for ln in line_nums:
-        level = _find_level_for_line(all_blocks, ln)
-        result[ln] = level
-
-    return result
-
-
-def _find_level_for_line(all_blocks: list, target_line: int) -> int:
-    """Find the deepest block (highest level) containing target_line.
-
-    all_blocks is sorted by position; each has {'level': N, 'start': X, 'end': Y}.
-    Returns the level of the innermost containing block. A line inside no block sits
-    at the file ROOT, which is level 1 (the file itself is unnumbered; real levels are
-    1,2,3,...; 0 is reserved for --level addressing, never a real depth).
-    """
-    best_level = None
-
-    for blk in all_blocks:
-        start = blk['start']
-        end = blk['end']
-
-        if start <= target_line <= end:
-            lvl = blk['level']
-            if best_level is None or lvl > best_level:
-                best_level = lvl
-
-    return best_level if best_level is not None else 1
+    return {
+        ln: (handler.line_level(lines, ln - 1) if 1 <= ln <= len(lines) else 1)
+        for ln in line_nums
+    }
 
 
 def main():
