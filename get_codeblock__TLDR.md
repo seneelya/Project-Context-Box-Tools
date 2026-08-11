@@ -6,9 +6,11 @@ Returns a self-contained code block containing the specified line in a source fi
 
 ## Modes
 
-* **Default** — What block contains this line? Returns metadata only: level (nesting depth) and range (start–end lines). Use when you need block boundaries without consuming tokens on text content yet.
-* **`--query`** — Give me the actual code. Returns byte-for-byte block text . 
-* **`--level -N`** — Go up the hierarchy. Parent (`-1`), grandparent (`-2`) blocks. Use when you need broader context than the immediate block.
-* **`--level +N`** — Navigate from top of nesting. `+1` = outermost container, `+2` = progressively deeper levels. You will get wider look.
+* **Default (no `--query`)** — the nesting LADDER: every enclosing block innermost→outermost
+  (`#Block level: N range: X-Y` per line). One cheap call shows all zoom options; no text yet.
+* **`--query`** — the actual code, byte-for-byte, framed by anchor comments (header
+  `#Block level: N range: X-Y`, footer `#Block end: E`) so concatenated blocks don't merge.
+* **`--level K`** — which block from the ladder to `--query`. `0` (default) = innermost;
+  `-N` = up to parents; `+N` = from the top (`+1` = outermost). Only affects `--query`.
 
 

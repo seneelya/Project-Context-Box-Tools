@@ -20,17 +20,19 @@ python get_codeblock.py --file path/to/file.py --line 100 --level -2 --query
 
 ## Output Format
 
-### Metadata only (default, without `--query`)
+### Metadata only (default, without `--query`) — the nesting LADDER
 
-Prints a single line with language-specific comment prefix:
+Prints EVERY enclosing block, innermost → outermost, one per line (comment prefix per
+language). One call shows all zoom options; then pick a `--level` and `--query` it.
 
 ```
-#Block level: 3 range: 71-87      # Python
-//Block level: 1 range: 5-12      # TypeScript/C#
+#Block level: 3 range: 139-145
+#Block level: 2 range: 137-161
+#Block level: 1 range: 94-172
 ```
 
 **Fields:**
-- `level` — real nesting depth of the returned block (counted from file root)
+- `level` — nesting depth of that block (file root = 1)
 - `range: X-Y` — start and end line numbers (1-based, inclusive)
 
 **Level semantics** (`level` = `1 + number of enclosing block BODIES`):
@@ -41,19 +43,23 @@ Prints a single line with language-specific comment prefix:
 - Two axes, don't conflate: this DEPTH is what `get_line_levels` reports (and what
   `codebase_import_search` prints as `levels=`); the `--level` argument below is NAVIGATION.
 
-### Text mode (with `--query`)
+### Text mode (with `--query`) — block framed by anchor comments
 
-Prints metadata header as a valid comment for the language, followed by the block text byte-for-byte from the source file:
+Header + block text byte-for-byte + a footer anchor. The frame lets several extractions
+be concatenated (into a file or context) without merging, and marks the patch region
+unambiguously. `--level` chooses which block from the ladder (default `0` = innermost).
 
 ```python
-#Block level: 3 range: 71-87
+#Block level: 3 range: 71-77
         try:
             result = do_something()
             return result
         except ValueError as e:
             logger.error(e)
-            raise
+#Block end: 77
 ```
+
+The filename is intentionally NOT printed (the caller already knows the file).
 
 ## Arguments and Flags
 
