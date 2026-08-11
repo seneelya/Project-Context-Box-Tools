@@ -2,8 +2,8 @@
 """Валидатор карточек по контракту `card_format.py`. Скупой вывод — коучит создателя.
 
 Проверяет на карточку:
-- H1 = имя файла (легаси `# name — summary` помечается как «перенеси сводку на строку 2»);
-- сводка (строка 2) не пуста;
+- H1 = имя файла (легаси `# name — summary` помечается как «перенеси сводку на отд. строку»);
+- сводка (первая непустая строка после H1) не пуста (пустая строка после заголовка — ок);
 - присутствуют ВСЕ секции из SECTIONS (не-канонические/иноязычные заголовки помечаются как
   «мигрировать» через canon());
 - `Dependencies Internal` = `(none)` или таблица с колонками DEPS_COLUMNS; каждый `File Path`
@@ -62,7 +62,7 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
         if name != fname:
             issues.append(f"H1 name '{name}' != file '{fname}'")
         if legacy:
-            issues.append("legacy H1: move summary to line 2")
+            issues.append("legacy H1: move summary onto its own line below H1")
         summary = _DASH.split(h1, 1)[1].strip() if legacy else ""
         if not summary:
             for line in lines[idx + 1:]:
@@ -74,7 +74,7 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
                 summary = t
                 break
         if not summary:
-            issues.append("empty summary (line 2)")
+            issues.append("empty summary (first non-empty line after H1)")
 
     # секции
     secs = _sections(lines)
@@ -119,7 +119,7 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
                     cur_h3, has_h3 = cf.canon(s[4:].strip()), True
                 elif s.startswith("#### "):
                     nm = _entry_name(line)
-                    if nm.startswith("_") and cur_h3 != cf.REEXPORT_SUBSECTION:
+                    if nm.startswith("_") and cur_h3 not in cf.PRIVATE_OK_SUBSECTIONS:
                         issues.append(f"review: private '{nm}' in Public API (keep only if consumed elsewhere)")
             if not has_h3:
                 issues.append("Public API: neither (none) nor an H3 subsection")

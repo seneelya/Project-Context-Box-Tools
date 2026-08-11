@@ -84,73 +84,111 @@ def _looks_internal(module: str | None, level: int) -> bool:
     return False
 
 
-def analyze(path: Path) -> str:
+def collect(path: Path) -> dict:
+    """Структурный разбор одного .py через ast — ЕДИНЫЙ источник для текстового
+    вывода (`analyze`) и для штемпеля карточки (`card_api`).
+
+    Возвращает dict:
+      ok, error, docstring_first,
+      functions        [{name, signature}]           — публичные top-level функции,
+      classes          [{name, methods:[{name,signature}]}] — публичные классы + публ. методы,
+      all_defs         {name: signature}             — ВСЕ top-level def/class (вкл. `_`), для
+                                                        поиска сигнатуры потреблённого приватного,
+      import_froms     [{module, level, names}]      — from-импорты (для резолва ре-экспортов),
+      internal_imports [str], external_imports [str] — как в текстовом выводе.
+    """
     src = path.read_text(encoding="utf-8", errors="replace")
     try:
         tree = ast.parse(src)
     except SyntaxError as exc:
-        return f"[py_api] не удалось распарсить {path.name}: {exc}"
-
-    out: list[str] = []
-    out.append(f"# Подсказка py_api для: {path.name}")
-    out.append("# (опциональная сводка из ast; сверяйся с кодом, это не спека)")
-    out.append("")
+        return {"ok": False, "error": str(exc), "docstring_first": None,
+                "functions": [], "classes": [], "all_defs": {},
+                "import_froms": [], "internal_imports": [], "external_imports": []}
 
     doc = ast.get_docstring(tree)
-    if doc:
-        first = doc.strip().splitlines()[0].strip()
-        out.append(f"Модульный docstring (1-я строка): {first}")
-        out.append("")
+    docstring_first = doc.strip().splitlines()[0].strip() if doc else None
 
-    functions: list[str] = []
-    classes: list[tuple[str, list[str]]] = []
+    functions: list[dict] = []
+    classes: list[dict] = []
+    all_defs: dict[str, str] = {}
+    module_globals: list[str] = []           # top-level assigned names (logger, CONSTS, …)
 
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            sig = _fmt_signature(node)
+            all_defs[node.name] = sig
             if _is_public(node.name):
-                functions.append(_fmt_signature(node))
+                functions.append({"name": node.name, "signature": sig})
         elif isinstance(node, ast.ClassDef):
+            all_defs[node.name] = node.name
             if not _is_public(node.name):
                 continue
-            methods: list[str] = []
-            for item in node.body:
-                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    if _is_public(item.name):
-                        methods.append(_fmt_signature(item))
-            classes.append((node.name, methods))
+            methods = [{"name": it.name, "signature": _fmt_signature(it)}
+                       for it in node.body
+                       if isinstance(it, (ast.FunctionDef, ast.AsyncFunctionDef)) and _is_public(it.name)]
+            classes.append({"name": node.name, "methods": methods})
+        elif isinstance(node, ast.Assign):
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name):
+                    module_globals.append(tgt.id)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            module_globals.append(node.target.id)
+
+    # Re-exports live in TOP-LEVEL relative imports only — a `from .. import x` nested
+    # inside a function is a lazy dependency, NOT a re-export, so scan tree.body (not walk).
+    import_froms: list[dict] = []
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            import_froms.append({"module": node.module or "", "level": node.level or 0,
+                                 "names": [a.name for a in node.names]})
 
     internal_imports: list[str] = []
     external_imports: list[str] = []
-
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 external_imports.append(alias.name)
         elif isinstance(node, ast.ImportFrom):
             mod = node.module or ""
-            names = ", ".join(a.name for a in node.names)
-            dots = "." * (node.level or 0)
-            label = f"from {dots}{mod} import {names}"
-            if _looks_internal(node.module, node.level or 0):
-                internal_imports.append(label)
-            else:
-                external_imports.append(label)
+            level = node.level or 0
+            label = f"from {'.' * level}{mod} import {', '.join(a.name for a in node.names)}"
+            (internal_imports if _looks_internal(mod, level) else external_imports).append(label)
+
+    return {"ok": True, "error": None, "docstring_first": docstring_first,
+            "functions": functions, "classes": classes, "all_defs": all_defs,
+            "module_globals": module_globals, "import_froms": import_froms,
+            "internal_imports": internal_imports, "external_imports": external_imports}
+
+
+def analyze(path: Path) -> str:
+    data = collect(path)
+    if not data["ok"]:
+        return f"[py_api] не удалось распарсить {path.name}: {data['error']}"
+
+    out: list[str] = []
+    out.append(f"# Подсказка py_api для: {path.name}")
+    out.append("# (опциональная сводка из ast; сверяйся с кодом, это не спека)")
+    out.append("")
+
+    if data["docstring_first"]:
+        out.append(f"Модульный docstring (1-я строка): {data['docstring_first']}")
+        out.append("")
 
     out.append("## Публичные функции")
-    if functions:
-        for f in functions:
-            out.append(f"  - {f}")
+    if data["functions"]:
+        for f in data["functions"]:
+            out.append(f"  - {f['signature']}")
     else:
         out.append("  (нет)")
     out.append("")
 
     out.append("## Публичные классы")
-    if classes:
-        for name, methods in classes:
-            out.append(f"  - {name}")
-            if methods:
-                for m in methods:
-                    out.append(f"      . {m}")
+    if data["classes"]:
+        for c in data["classes"]:
+            out.append(f"  - {c['name']}")
+            if c["methods"]:
+                for m in c["methods"]:
+                    out.append(f"      . {m['signature']}")
             else:
                 out.append("      (нет публичных методов)")
     else:
@@ -158,16 +196,16 @@ def analyze(path: Path) -> str:
     out.append("")
 
     out.append("## Импорты — похоже на внутренние (относительные)")
-    if internal_imports:
-        for imp in internal_imports:
+    if data["internal_imports"]:
+        for imp in data["internal_imports"]:
             out.append(f"  - {imp}")
     else:
         out.append("  (нет)")
     out.append("")
 
     out.append("## Импорты — внешние / stdlib")
-    if external_imports:
-        for imp in sorted(set(external_imports)):
+    if data["external_imports"]:
+        for imp in sorted(set(data["external_imports"])):
             out.append(f"  - {imp}")
     else:
         out.append("  (нет)")
