@@ -1,5 +1,50 @@
 # How to Test codebase_import_search
 
+## Golden test commands (fixtures in `test/`)
+
+Run from `tools/`. Inputs = frozen fixtures (`test/README.md`). Record each output as a
+golden file, then hand-verify counts (oracle = finger, not the code). Set golden BEFORE
+changing detection logic.
+
+### Python — `test/pythonSRC/backends/`
+```bash
+# downstream: who consumes _http.py's symbols (expect __init__, chat, embed_driver, rerank_driver)
+py codebase_import_search.py --file backends/_http.py --project-root test/pythonSRC
+py codebase_import_search.py --file backends/_http.py --project-root test/pythonSRC --verbose
+# incoming: what __init__ pulls (expect _http/resolve/chat/embed_driver/rerank_driver + external)
+py codebase_import_search.py --incoming --file backends/__init__.py --project-root test/pythonSRC
+py codebase_import_search.py --incoming --file backends/__init__.py --project-root test/pythonSRC --verbose
+# --symbol filter (only BackendError across the fixture)
+py codebase_import_search.py --file backends/_http.py --project-root test/pythonSRC --symbol BackendError
+```
+
+### TypeScript — `test/tsSRC/`
+```bash
+# downstream of analyzer.ts (expect runner.ts uses 'analyze')
+py codebase_import_search.py --file src/analyzer.ts --project-root test/tsSRC
+py codebase_import_search.py --file src/analyzer.ts --project-root test/tsSRC --verbose
+# incoming of analyzer.ts (expect 6 resolved: configurator/constants/util·3/utils/common)
+py codebase_import_search.py --incoming --file src/analyzer.ts --project-root test/tsSRC --verbose
+```
+
+### C# — `test/csharpSRC/`
+```bash
+# downstream of the interface (expect GlobalStopWatchInstance uses IGlobalStopWatch)
+py codebase_import_search.py --file IGlobalStopWatch.cs --project-root test/csharpSRC
+# incoming of the impl (expect IGlobalStopWatch resolved + System.* external)
+py codebase_import_search.py --incoming --file GlobalStopWatchInstance.cs --project-root test/csharpSRC
+```
+
+### Hand-verify (oracle)
+- summary count `# N files, M unique symbols` matches a real count in the fixture;
+- `--verbose` line numbers + `levels=` match (levels: `1 + enclosing bodies`, root = 1);
+- **dangling imports** section = imported-but-unused; **external** section = out-of-project;
+- all paths printed with `/`; `--symbol` narrows and recounts.
+
+---
+
+## (legacy, docker paths — superseded by the fixtures above)
+
 ## Quick sanity check (all languages in one run)
 
 ```bash
