@@ -16,6 +16,7 @@ have no TLDR. The folder is self-contained and travels with a project by copying
 - **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_cards_freshness`  (Python AST peek: `py_api`)
 - **Read the card map** (topology, gather context) → `graph_from_cards`, `collect_card_bundle`
 - **Answer a fact about source** (who imports it · a code block · a file's API) → `find_code_usage`, `get_codeblock`, `py_api`
+- **Surgical context, not whole files** — `find_code_usage --verbose` (where a symbol is used + block **depth**) → `get_codeblock --level` (pull just that block). Coarse-locate with `grep` first; these two make it precise.
 - **Mass-edit across files** (migrate / rename) → `replace_in_files`
 - **Change the card format itself** → `CARD_FORMAT` (the contract)
 

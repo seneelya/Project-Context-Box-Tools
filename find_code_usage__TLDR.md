@@ -26,6 +26,23 @@ FACT of the real interface, not a guess.
   every mode (it filters the produced data, not the logic). Use when you care about a
   single symbol's fan-in/fan-out.
 
+## Compose — locate coarse, then pull the exact block (not only for cards)
+
+The fast way to get **level-aware facts** about a file: what symbols it exposes, who uses them,
+and — with `--verbose` — the exact usage `lines` plus their block **`levels`** (how deep each
+call sits). `grep` gives you a line; the depth lets you decide how big a block to pull with
+`get_codeblock`, instead of dumping the whole file. Symbol-search is deliberately NOT baked in
+(that would just re-be `grep`) — compose instead:
+```
+grep -rn "BackendError" .                                     # coarse: where it lives
+find_code_usage --file backends/_http.py --symbol BackendError --verbose
+   #  backends/chat.py: lines=[81,…] levels=[3,…]             # precise: where + how deep
+get_codeblock --file backends/chat.py --line 81 --level 0     # surgical: just that block
+```
+Note: `--verbose` `levels` are informational **depth** (how nested the call is) — use them to
+*decide* the zoom, then address it with `get_codeblock --level` (relative: `0` innermost,
+`-N` up to enclosing parents). The number is not passed through verbatim.
+
 ## Configuration notes
 
 Language priority: CLI `--language` → file extension → config → `python`.
