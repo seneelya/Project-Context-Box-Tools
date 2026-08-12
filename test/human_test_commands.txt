@@ -159,8 +159,21 @@ py graph_from_cards.py --cards-dir "Y:/Hermess/body/sandboxes/docker/default/wor
 # expect: chains like "_core/__init__.py -> _core/registry.py -> _core/legacy.py -> _core/__init__.py"
 py graph_from_cards.py --cards-dir "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood/__map" --cycles
 
-# --- graph_from_cards: --help shows the new flags ---
-# expect: --zone, --depth, --cycles documented
+# --- graph_from_cards: structured VIEWS (packages default / layers / flat) ---
+# (--project-root now derives <root>/__map, so --cards-dir is optional)
+# expect: packages -> "## _engine/ (N)" package headings, rel paths in-pkg, ⟲ on cycle nodes
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+# expect: layers -> "## layer 0" (leaves) ... up toward entry points
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --view layers
+# expect: flat -> legacy "## modules" plain list
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --view flat
+# expect: only "-> uses" lines, no "<- used-by(N)"
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --edges out
+# expect: full paths everywhere (no package-relative shortening)
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --paths full
+
+# --- graph_from_cards: --help shows the flags ---
+# expect: --view, --edges, --paths, --zone, --depth, --cycles documented; NO "-h, --help" line
 py graph_from_cards.py --help
 
 # --- check_cards_freshness: git-based staleness (no change this session, sanity check) ---
