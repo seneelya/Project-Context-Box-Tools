@@ -37,7 +37,7 @@ LEVELS = {
         (45, 2, 'return ['),
         (58, 2, 'const clause = node.getImportClause();'),
     ],
-    'csharpSRC/GlobalStopWatchInstance.cs': [
+    'csharpSRC/Core/GlobalStopWatchInstance.cs': [
         # line  lvl  source
         ( 1, 1, '\ufeffusing AndreasReitberger.Core.Interfaces;'),
         ( 8, 2, 'public class GlobalStopWatchInstance : IGlobalStopWatch'),
@@ -102,7 +102,7 @@ OUTLINE = {
 LADDER = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 161), (1, 94, 172)]},
     {"file": 'mdSRC/capture.py.md', "line": 12, "expect": [(4, 12, 15), (3, 10, 27), (2, 4, 27), (1, 1, 56)]},
-    {"file": 'csharpSRC/GlobalStopWatchInstance.cs', "line": 12, "expect": [(3, 10, 17), (2, 8, 26), (1, 6, 27)]},
+    {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(3, 10, 17), (2, 8, 26), (1, 6, 27)]},
 ]
 
 QUERY = [
@@ -150,15 +150,15 @@ IMPORTS = {
         },
     },
     'cs downstream interface': {
-        "mode": 'downstream', "root": 'csharpSRC', "file": 'IGlobalStopWatch.cs',
+        "mode": 'downstream', "root": 'csharpSRC', "file": 'Core/IGlobalStopWatch.cs',
         "expect": {
-            'GlobalStopWatchInstance.cs': ['IGlobalStopWatch'],
+            'Core/GlobalStopWatchInstance.cs': ['IGlobalStopWatch'],
         },
     },
     'cs incoming impl': {
-        "mode": 'incoming', "root": 'csharpSRC', "file": 'GlobalStopWatchInstance.cs',
+        "mode": 'incoming', "root": 'csharpSRC', "file": 'Core/GlobalStopWatchInstance.cs',
         "expect": {
-            'IGlobalStopWatch.cs': ['IGlobalStopWatch'],
+            'Core/IGlobalStopWatch.cs': ['IGlobalStopWatch'],
         },
     },
     # C# same-namespace: consumers use the type with NO `using` (own namespace) — locks that fix.
@@ -250,15 +250,15 @@ INCOMING_DETAIL = {
         ],
     },
     'cs impl': {
-        "root": 'csharpSRC', "file": 'GlobalStopWatchInstance.cs',
+        "root": 'csharpSRC', "file": 'Core/GlobalStopWatchInstance.cs',
         "resolved": {
-            'IGlobalStopWatch.cs': ['IGlobalStopWatch'],
+            'Core/IGlobalStopWatch.cs': ['IGlobalStopWatch'],
         },
         "external": ['using System.Diagnostics;', 'using System.Threading.Tasks;', 'using System;'],
         "dangling": [],
         # (source_file, symbol, [lines in target], [levels])
         "usages": [
-            ('IGlobalStopWatch.cs', 'IGlobalStopWatch', [8], [2]),
+            ('Core/IGlobalStopWatch.cs', 'IGlobalStopWatch', [8], [2]),
         ],
     },
 }

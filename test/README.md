@@ -23,8 +23,8 @@ Run with `--project-root test/<set>`.
   `export * from "./x.js"` re-exports). Realistic TS fixture: `util.ts` consumed by 8
   siblings. Exercises `.js`-specifier resolution and (future) TS outline / facade re-exports.
 
-- **csharpSRC/** — `CoreSharp` pair (flat; C# resolves by namespace, not path).
-  Link: `GlobalStopWatchInstance.cs` uses the `IGlobalStopWatch` interface.
+- **csharpSRC/Core/** — `CoreSharp` pair (two namespaces under `AndreasReitberger.Core.*`;
+  C# resolves by namespace, not path). Link: `GlobalStopWatchInstance.cs` uses `IGlobalStopWatch`.
 
 - **csharpSRC2/Core/** — the `Core/` cluster of **SwarmUI** (7 files, one `namespace
   SwarmUI.Core`; `ExtensionsManager` uses the `Extension` type, etc.). Realistic C#:
