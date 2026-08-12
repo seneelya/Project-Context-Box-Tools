@@ -44,6 +44,7 @@ def _entry_name(h4_line):
 
 def validate_card(path, cards_dir, unresolved_raw, project_root):
     issues = []
+    pending = []   # File Path -> исходник есть, карточки пока нет (норм при поштучной сборке)
     lines = path.read_text(encoding="utf-8").splitlines()
     fname = path.name[:-3]  # 'db.py'
 
@@ -106,7 +107,13 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
                 issues.append(f"deps columns {hdr} != {cf.DEPS_COLUMNS}")
 
     for raw in unresolved_raw:
-        issues.append(f'File Path does not resolve to a card: "{raw}"')
+        # Исходник существует, а карточки-цели ещё нет -> «в очереди», НЕ ошибка:
+        # при поштучной сборке зависимость на не-скарженный сосед — норма, не повод
+        # выкидывать реальную строку deps. Настоящая ошибка — когда и исходника нет.
+        if project_root is not None and (project_root / raw).exists():
+            pending.append(raw)
+        else:
+            issues.append(f'File Path resolves to neither a card nor a source file: "{raw}"')
 
     # Public API — приватные вне Re-exports
     if "Public API" in present:
@@ -130,7 +137,7 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
         if not (project_root / node_id).exists():
             issues.append("orphan: source file missing")
 
-    return issues
+    return issues, pending
 
 
 def main():
@@ -158,18 +165,31 @@ def main():
     total = len(cards)
     bad = 0
     report = []
+    pending_all = {}
     for p in cards:
         nid = p.relative_to(cards_dir).as_posix()[:-3]
-        issues = validate_card(p, cards_dir, unresolved_by_card.get(nid, []), project_root)
+        issues, pending = validate_card(p, cards_dir, unresolved_by_card.get(nid, []), project_root)
         if issues:
             bad += 1
             report.append((nid, issues))
+        if pending:
+            pending_all[nid] = pending
 
     for nid, issues in sorted(report):
         print(f"{nid}:")
         for iss in issues:
             print(f"  - {iss}")
-    print(f"\nchecked {total} cards, {bad} with issues, {total - bad} clean")
+
+    # «В очереди» — НЕ ошибка: зависимость на существующий исходник, чья карточка ещё не
+    # создана. Печатаем как справку (не роняем exit), чтобы агент НЕ выкидывал реальные deps.
+    if pending_all:
+        n = sum(len(v) for v in pending_all.values())
+        print(f"\npending ({n}) — deps на исходники без карточек (норм при сборке; не ошибка):")
+        for nid, raws in sorted(pending_all.items()):
+            print(f"  {nid}: {', '.join(raws)}")
+
+    print(f"\nchecked {total} cards, {bad} with issues, {total - bad} clean"
+          + (f", {len(pending_all)} with pending deps" if pending_all else ""))
     sys.exit(1 if bad else 0)
 
 

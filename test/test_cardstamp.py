@@ -20,8 +20,12 @@ for p in (_TOOLS, _HERE):
         sys.path.insert(0, p)
 sys.stdout.reconfigure(encoding="utf-8")
 
+import tempfile
+from pathlib import Path
+
 import CARD_FORMAT as cf
 import make_interface_card as mic
+import validate_cards as vc
 
 _PR = os.path.join(_HERE, "pythonSRC")
 _FILE = "backends/chat.py"
@@ -117,8 +121,61 @@ def test_fresh_has_no_salvage_and_placeholders():
     check("fresh has no salvage", "## Salvage" not in fresh)
 
 
+# --- validate_cards: File Path на исходник-без-карточки = pending, не ошибка ------
+
+_CARD_TMPL = """# foo.py
+
+summary.
+
+## Public API
+
+(none)
+
+## Dependencies Internal
+
+| Import | File Path | Symbols | Why | Kind |
+|---|---|---|---|---|
+| `config` | `config.py` | `y` | pending | normal |
+| `ghost` | `ghost.py` | `z` | broken | normal |
+
+## Dependencies External
+
+(none)
+
+## How it works
+
+x
+
+## Doc links
+
+(none)
+
+## Discrepancies
+
+(none)
+"""
+
+
+def test_validate_pending_vs_broken():
+    """config.py — исходник есть, карточки нет -> pending; ghost.py — нет исходника -> ошибка."""
+    root = Path(tempfile.mkdtemp(prefix="vc_"))
+    (root / "foo.py").write_text("x=1\n", encoding="utf-8")
+    (root / "config.py").write_text("y=2\n", encoding="utf-8")  # исходник есть, карточки нет
+    cards = root / "__map"
+    cards.mkdir()
+    card = cards / "foo.py.md"
+    card.write_text(_CARD_TMPL, encoding="utf-8")
+    # unresolved_raw передаём напрямую (в бою его даёт build_graph)
+    issues, pending = vc.validate_card(card, cards, ["config.py", "ghost.py"], root)
+    check("pending has source-without-card", "config.py" in pending)
+    check("pending excludes broken ref", "ghost.py" not in pending)
+    check("broken ref is an issue", any("ghost.py" in i for i in issues))
+    check("source-without-card is NOT an issue", not any("config.py" in i for i in issues))
+
+
 def main():
     test_is_empty()
+    test_validate_pending_vs_broken()
     test_merge_preserves_prose()
     test_merge_signature_refresh()
     test_merge_salvage()
