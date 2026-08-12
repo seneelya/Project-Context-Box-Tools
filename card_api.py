@@ -46,7 +46,8 @@ DIRECTIVE_SUMMARY = "<Agent: replace with a concise one-line summary — what th
 # H4 declaration kind -> H3 subsection label (order below drives emission order).
 _KIND_H3 = {"function": "Functions", "class": "Classes", "interface": "Interfaces",
             "enum": "Enums", "type": "Types", "namespace": "Namespaces",
-            "const": "Constants", "let": "Constants", "var": "Constants"}
+            "const": "Constants", "let": "Constants", "var": "Constants",
+            "struct": "Classes", "record": "Classes"}
 _H3_ORDER = ["Functions", "Classes", "Interfaces", "Enums", "Types", "Constants", "Namespaces"]
 
 
@@ -185,7 +186,21 @@ def _declared(project_root, file, lang):
                                 "signature": d["signature"], "methods": []})
         return {"docstring_first": None, "exports": exports, "all_defs": all_defs, "reexports": reexports}
 
-    return empty  # csharp / unknown — declared surface TBD; facts still come from import_search
+    if lang == "csharp":
+        from get_codeblock.handlers import get_handler
+        try:
+            lines = open(target_abs, encoding="utf-8", errors="replace").readlines()
+        except OSError:
+            return empty
+        exports, all_defs = [], {}
+        for d in get_handler("csharp").declarations(lines):
+            all_defs[d["name"]] = d["signature"]
+            if d["exported"]:
+                exports.append({"name": d["name"], "kind": d["kind"],
+                                "signature": d["signature"], "methods": d.get("methods", [])})
+        return {"docstring_first": None, "exports": exports, "all_defs": all_defs, "reexports": []}
+
+    return empty  # unknown language — declared surface TBD; facts still come from import_search
 
 
 # --- formatting --------------------------------------------------------------

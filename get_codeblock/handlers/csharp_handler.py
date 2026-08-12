@@ -1,5 +1,41 @@
 """C# language handler for get_codeblock."""
 
+import re
+
+_MODS = r"(?:public|internal|protected|private|abstract|sealed|static|partial|readonly|virtual|override|async|new|extern|unsafe|const)"
+
+# A type declaration at line start (after attributes/modifiers); `record class`/`record struct` handled.
+_TYPE_RE = re.compile(
+    r"^[ \t]*(?:\[[^\]]*\][ \t]*)*"
+    r"(?P<mods>(?:" + _MODS + r"[ \t]+)*)"
+    r"(?P<kind>class|struct|interface|enum|record)(?:[ \t]+(?:class|struct))?[ \t]+(?P<name>\w+)"
+)
+
+
+def _csharp_member(line):
+    """A public type member on this line -> (name, signature, kind) or None.
+
+    Heuristic: needs modifiers incl. `public`; a `(` before the body means a method
+    (name is the token before `(`), else a property/field (name is the last identifier
+    before `{`/`=`/`;`). Nested type declarations are handled separately, not here.
+    """
+    s = line.strip()
+    m = re.match(r"^(?:\[[^\]]*\][ \t]*)*(?P<mods>(?:" + _MODS + r"[ \t]+)+)", s)
+    if not m or "public" not in m.group("mods"):
+        return None
+    if re.match(r"^(?:" + _MODS + r"[ \t]+)*(?:class|struct|interface|enum|record)\b", s):
+        return None  # nested type — declarations() records it on its own
+    head = re.split(r"\{|=>|;", s, 1)[0].strip()
+    nostr = re.sub(r'"[^"]*"|\'[^\']*\'', '', head)   # ignore parens inside string literals
+    if "(" in nostr:
+        name = nostr.split("(")[0].strip().split()[-1]
+        return name, head, "method"
+    head = re.split(r"=(?!=)", head, 1)[0].strip()   # drop field initializer
+    toks = re.findall(r"\w+", head)
+    if not toks:
+        return None
+    return toks[-1], head, "member"
+
 
 def is_block_header(line):
     """Check if line starts a named block (class/method/namespace/etc)."""
@@ -391,6 +427,39 @@ def _scan_line_braces(line, stack, line_idx):
 
 class CSharpHandler:
     """Handles C# code block detection using brace matching."""
+
+    def declarations(self, lines):
+        """Declared surface (regex heuristic): public types + their public members.
+
+        Returns dicts {name, kind, exported, reexport_from, signature, methods, start, end}.
+        kind ∈ class|struct|interface|enum|record. exported = has `public` (C# defaults to
+        internal). `methods` = public methods/properties/fields inside the type body.
+        C# has no re-exports (namespace, not path) → reexport_from always None.
+        """
+        out = []
+        for i, line in enumerate(lines):
+            tm = _TYPE_RE.match(line)
+            if not tm:
+                continue
+            end = find_body_end(lines, i)
+            methods = []
+            seen = set()
+            for j in range(i + 1, min(end + 1, len(lines))):
+                mem = _csharp_member(lines[j])
+                if mem and mem[0] not in seen:
+                    seen.add(mem[0])
+                    methods.append({"name": mem[0], "signature": mem[1]})
+            out.append({
+                "name": tm.group("name"),
+                "kind": tm.group("kind"),
+                "exported": "public" in tm.group("mods"),
+                "reexport_from": None,
+                "signature": re.split(r"\{", line.strip(), 1)[0].strip(),
+                "methods": methods,
+                "start": i + 1,
+                "end": end + 1,
+            })
+        return out
 
     def line_level(self, lines, idx):
         """Logical nesting level of ONE line (0-based idx), 1-based.
