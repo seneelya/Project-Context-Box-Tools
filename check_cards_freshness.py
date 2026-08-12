@@ -12,7 +12,7 @@
 исходник после карточки — агент сразу видит, что смотреть.
 
 Использование:
-    python check_freshness.py [--cards-dir PATH] [--project-root PATH]
+    python check_cards_freshness.py [--cards-dir PATH] [--project-root PATH]
 По умолчанию карточки в <project>/__map/, корень — родитель __map/
 (скрипт лежит в __HQ/tools/).
 """

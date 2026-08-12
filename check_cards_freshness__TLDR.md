@@ -1,13 +1,13 @@
-# check_freshness
+# check_cards_freshness
 
 Which `__map/` cards are **stale** versus their source, and which are **orphans**. Lean,
 LLM-readable output (no frames/emoji); exit 1 if anything is stale or orphaned.
 
-**Target:** `check_freshness.py [--cards-dir P] [--project-root P]` — defaults: cards = `<project>/__map/`.
+**Target:** `check_cards_freshness.py [--cards-dir P] [--project-root P]` — defaults: cards = `<project>/__map/`.
 
 ## Quick use
 ```
-check_freshness.py --project-root .    # list stale + orphan cards (git mode)
+check_cards_freshness.py --project-root .    # list stale + orphan cards (git mode)
 ```
 
 ## Modes
