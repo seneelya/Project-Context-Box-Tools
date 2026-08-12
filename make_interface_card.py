@@ -28,6 +28,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import CARD_FORMAT as cf
+from graph_from_cards import _cells, _is_sep
 
 
 _LANG = {".py": "python", ".ts": "typescript", ".tsx": "typescript",
@@ -237,7 +238,117 @@ def _consumers_fact(sym, consumers):
     return f"consumers {len(c)}: " + ", ".join(f for f, _k, _ln in c)
 
 
-def build_card(project_root, file):
+# --- merge: сохранить прозу человека, освежить факты -------------------------
+# Проза висит на КЛЮЧЕ-имени (символа/секции), не на позиции и не на сигнатуре —
+# поэтому переезд заголовков и смена сигнатуры прозу не роняют. Незаполненный слот =
+# строка-директива `<Agent: …>`; её мы прозой не считаем.
+
+def _is_ph(line):
+    """True, если строка — незаполненная директива агенту (`<Agent: …>`)."""
+    return line.strip().startswith("<Agent:")
+
+
+def _entry_key(h4_line):
+    """'#### `foo(x) -> y`  ← .bar' -> 'foo' (имя записи — ключ merge)."""
+    e = h4_line.strip()[4:].strip().strip("`").strip()
+    e = e.lstrip("\\").lstrip("*").lstrip("\\").strip()
+    return e.split("(")[0].split("=")[0].split(" ")[0].strip()
+
+
+def _parse_entries(body, P):
+    """H4-записи Public API -> P['entries'][name] = {'desc':[..], 'block':[全 строки]}."""
+    entries, cur = [], None
+    for ln in body:
+        s = ln.strip()
+        if s.startswith("### "):
+            cur = None
+        elif s.startswith("#### "):
+            cur = [_entry_key(ln), [ln]]
+            entries.append(cur)
+        elif cur is not None:
+            cur[1].append(ln)
+    for name, block in entries:
+        desc = [ln for ln in block[1:]
+                if ln.strip() and not _is_ph(ln)
+                and not ln.strip().startswith("consumers ")
+                and not ln.lstrip().startswith("- ")]  # `- ` = метод (факт), не проза
+        if name:
+            P["entries"][name] = {"desc": desc, "block": block}
+
+
+def _parse_why(body, P):
+    """Колонка `Why` таблицы Dependencies Internal -> P['why'][import] = текст."""
+    data = [r for r in body if r.strip().startswith("|") and not _is_sep(_cells(r))]
+    if len(data) < 2:
+        return
+    header = [cf.canon(c) for c in _cells(data[0])]
+    if "Import" not in header or "Why" not in header:
+        return
+    imp_i, why_i = header.index("Import"), header.index("Why")
+    for r in data[1:]:
+        cells = _cells(r)
+        if max(imp_i, why_i) >= len(cells):
+            continue
+        imp = cells[imp_i].strip().strip("`").strip()
+        why = cells[why_i].strip()
+        if imp and why and not _is_ph(why) and why != cf.EMPTY:
+            P["why"][imp] = why
+
+
+def _parse_old_prose(text):
+    """Проза человека из существующей карточки, по ключу-имени. -> dict слотов."""
+    lines = text.splitlines()
+    P = {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {}}
+
+    h1 = next((i for i, ln in enumerate(lines)
+               if ln.strip().startswith("# ") and not ln.strip().startswith("## ")), None)
+    if h1 is not None:
+        for ln in lines[h1 + 1:]:
+            s = ln.strip()
+            if s.startswith("## "):
+                break
+            if not s or s.startswith("docstring 1st line:") or _is_ph(ln):
+                continue
+            P["summary"] = s
+            break
+
+    secs, cur = [], None
+    for ln in lines:
+        if ln.strip().startswith("## "):
+            cur = [ln.strip()[3:].strip(), []]
+            secs.append(cur)
+        elif cur is not None:
+            cur[1].append(ln)
+
+    for raw, body in secs:
+        name = cf.canon(raw)
+        if name == "Public API":
+            _parse_entries(body, P)
+        elif name == "Dependencies Internal":
+            _parse_why(body, P)
+        elif name == "Dependencies External":
+            note = [ln for ln in body if ln.strip() and not _is_ph(ln)
+                    and ln.strip() not in (cf.EMPTY, "external imports:")
+                    and not ln.strip().startswith(("import ", "from "))]
+            if note:
+                P["ext_note"] = note
+        elif name.startswith("Salvage"):
+            keep = [ln for ln in body if ln.strip()]
+            if keep:
+                P["sections"]["Salvage"] = keep
+        elif name in ("How it works", "Doc links", "Discrepancies", "Package layout"):
+            keep = [ln for ln in body if ln.strip() and not _is_ph(ln)
+                    and ln.strip() != cf.EMPTY
+                    and not ln.strip().startswith("known submodules (re-exported from):")]
+            if keep:
+                P["sections"][name] = keep
+    return P
+
+
+_SALVAGE_H2 = "Salvage (снято при re-stamp — перенеси нужное выше или удали)"
+
+
+def build_card(project_root, file, old_prose=None, report=None):
     lang = _lang(file)
     fname = os.path.basename(file)
     is_pkg = cf.is_package(fname)
@@ -248,10 +359,45 @@ def build_card(project_root, file):
     target_abs = file if os.path.isabs(file) else os.path.join(project_root, file)
 
     placed = set()
+    emitted = set()   # все имена записей, вписанных в НОВУЮ карточку (для Salvage)
+    op = old_prose or {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {}}
+    if report is None:
+        report = {}
+    for k in ("preserved_entries", "new_entries", "salvaged", "kept_sections"):
+        report.setdefault(k, [])
+    report.setdefault("merged", old_prose is not None)
+
     lines = [f"# {fname}", ""]
-    # Summary slot: the directive is the parsed summary (first non-empty line after H1);
-    # the docstring fact sits below as generated context the agent may adapt or delete.
-    lines.append(DIRECTIVE_SUMMARY)
+
+    def emit_desc(name):
+        """Однострочник записи: старая проза по имени, иначе директива (+учёт для отчёта)."""
+        emitted.add(name)
+        ent = op["entries"].get(name)
+        if ent and ent["desc"]:
+            lines.extend(ent["desc"])
+            report["preserved_entries"].append(name)
+        else:
+            lines.append(DIRECTIVE_DESC)
+            if old_prose is not None:
+                report["new_entries"].append(name)
+
+    def prose_section(title, default):
+        """Секция-проза целиком: старое тело по ключу-секции, иначе плейсхолдер."""
+        lines.append(f"## {title}")
+        lines.append("")
+        kept = op["sections"].get(title)
+        if kept:
+            lines.extend(kept)
+            report["kept_sections"].append(title)
+        else:
+            lines.append(default)
+
+    # Summary: проза (первая непустая строка после H1) — сохраняем; docstring-подсказка — факт.
+    if op["summary"]:
+        lines.append(op["summary"])
+        report["kept_sections"].append("summary")
+    else:
+        lines.append(DIRECTIVE_SUMMARY)
     if declared["docstring_first"]:
         lines.append(f"docstring 1st line: {declared['docstring_first']}")
     lines.append("")
@@ -263,7 +409,12 @@ def build_card(project_root, file):
         lines.append("")
         if srcs:
             lines.append("known submodules (re-exported from): " + ", ".join(srcs))
-        lines.append("<Agent: one line per submodule — what it holds>")
+        pl = op["sections"].get("Package layout")
+        if pl:
+            lines.extend(pl)
+            report["kept_sections"].append("Package layout")
+        else:
+            lines.append("<Agent: one line per submodule — what it holds>")
         lines.append("")
 
     # ---- Public API ----
@@ -282,7 +433,7 @@ def build_card(project_root, file):
         for e in group:
             lines.append(f"#### `{e['signature']}`")
             lines.append(_consumers_fact(e["name"], consumers))
-            lines.append(DIRECTIVE_DESC)
+            emit_desc(e["name"])
             for m in e.get("methods", []):
                 lines.append(f"    - `{m['signature']}`")
             placed.add(e["name"])
@@ -297,7 +448,7 @@ def build_card(project_root, file):
                 sig = _resolve_sibling_signature(target_abs, r["module"], r["level"], r["name"])
             lines.append(f"#### `{sig if sig else r['name']}`  ← {r['source']}")
             lines.append(_consumers_fact(r["name"], consumers))
-            lines.append(DIRECTIVE_DESC)
+            emit_desc(r["name"])
             placed.add(r["name"])
         lines.append("")
 
@@ -312,7 +463,7 @@ def build_card(project_root, file):
             sig = declared["all_defs"].get(sym)
             lines.append(f"#### `{sig if sig else sym}`")
             lines.append(_consumers_fact(sym, consumers))
-            lines.append(DIRECTIVE_DESC)
+            emit_desc(sym)
         lines.append("")
 
     if not (any(by_h3.values()) or (is_pkg and declared["reexports"]) or leftover):
@@ -327,8 +478,9 @@ def build_card(project_root, file):
         lines.append("|---|---|---|---|---|")
         for r in resolved:
             syms = ", ".join(f"`{s}`" for s in r["symbols"]) if r["symbols"] else ""
-            imp = "`" + os.path.basename(r["file"]).rsplit(".", 1)[0] + "`"
-            lines.append(f"| {imp} | `{r['file']}` | {syms} | <Agent: why?> | normal |")
+            key = os.path.basename(r["file"]).rsplit(".", 1)[0]
+            why = op["why"].get(key, "<Agent: why?>")
+            lines.append(f"| `{key}` | `{r['file']}` | {syms} | {why} | normal |")
     else:
         lines.append(cf.EMPTY)
     lines.append("")
@@ -340,23 +492,34 @@ def build_card(project_root, file):
     if det:
         lines.append("external imports:")
         lines.extend(det)
-        lines.append("<Agent: keep only libs the reader may not know; else write (none)>")
+        if op["ext_note"]:
+            lines.extend(op["ext_note"])
+            report["kept_sections"].append("Dependencies External")
+        else:
+            lines.append("<Agent: keep only libs the reader may not know; else write (none)>")
     else:
         lines.append(cf.EMPTY)
     lines.append("")
 
     # ---- prose-only sections ----
-    lines.append("## How it works")
+    prose_section("How it works", "<Agent: describe the mechanism after reading the source>")
     lines.append("")
-    lines.append("<Agent: describe the mechanism after reading the source>")
+    prose_section("Doc links", cf.EMPTY)
     lines.append("")
-    lines.append("## Doc links")
-    lines.append("")
-    lines.append(cf.EMPTY)
-    lines.append("")
-    lines.append("## Discrepancies")
-    lines.append("")
-    lines.append("<Agent: docstring vs code contradictions; else write (none)>")
+    prose_section("Discrepancies", "<Agent: docstring vs code contradictions; else write (none)>")
+
+    # ---- Salvage: проза записей, которых в коде больше нет (не теряем молча) ----
+    old_salv = op["sections"].get("Salvage", [])
+    orphans = [nm for nm, e in op["entries"].items() if nm not in emitted and e["desc"]]
+    if old_salv or orphans:
+        lines.append("")
+        lines.append(f"## {_SALVAGE_H2}")
+        lines.append("")
+        if old_salv:
+            lines.extend(old_salv)
+        for nm in orphans:
+            lines.extend(op["entries"][nm]["block"])
+            report["salvaged"].append(nm)
 
     return "\n".join(lines) + "\n"
 
@@ -372,30 +535,51 @@ def main():
     ap.add_argument("--out", type=str, default=None,
                     help="write the card to this file (default: print to stdout)")
     ap.add_argument("--force", action="store_true",
-                    help="with --out: overwrite the file if it already exists")
+                    help="with --out: discard the existing card and write a FRESH stamp "
+                         "(default on an existing card is MERGE — refresh facts, keep prose)")
     args = ap.parse_args()
 
-    card = build_card(os.path.abspath(args.project_root), args.file)
+    out = args.out
+    # На существующей карточке дефолт — MERGE: перечитываем её прозу и вплетаем в свежие факты.
+    # --force отменяет merge (чистый штемпель). Без --out — просто печать штемпеля.
+    old_prose = None
+    existed = bool(out) and os.path.exists(out)
+    if existed and not args.force:
+        try:
+            old_prose = _parse_old_prose(open(out, encoding="utf-8").read())
+        except OSError:
+            old_prose = None
 
-    if not args.out:
+    report = {}
+    card = build_card(os.path.abspath(args.project_root), args.file, old_prose, report)
+
+    if not out:
         print(card)
         return 0
 
-    # --out: write to a file, but never silently clobber an existing card (it may already
-    # hold hand-written prose). Refuse unless --force; the caller then merges/updates by hand.
-    if os.path.exists(args.out) and not args.force:
-        sys.stderr.write(
-            f"[make_interface_card] card already exists: {args.out} - NOT overwriting.\n"
-            f"  It may contain filled descriptions. Either update it by hand, or re-run with "
-            f"--force to replace, or omit --out to print to stdout and merge manually.\n"
-        )
-        return 2
-    out_dir = os.path.dirname(os.path.abspath(args.out))
+    out_dir = os.path.dirname(os.path.abspath(out))
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
-    with open(args.out, "w", encoding="utf-8") as fh:
+    with open(out, "w", encoding="utf-8") as fh:
         fh.write(card)
-    sys.stderr.write(f"[make_interface_card] wrote {args.out}\n")
+
+    if old_prose is not None:
+        # MERGE: показываем агенту ТОЛЬКО дельту — что дописать и что разобрать.
+        ne, sv, pe, ks = (report["new_entries"], report["salvaged"],
+                          report["preserved_entries"], report["kept_sections"])
+        sys.stderr.write(f"[make_interface_card] merged {out}\n")
+        sys.stderr.write(f"  prose kept: {len(pe)} entries"
+                         + (f" + {', '.join(ks)}" if ks else "") + "\n")
+        if ne:
+            sys.stderr.write(f"  NEW — fill prose: {', '.join(ne)}\n")
+        if sv:
+            sys.stderr.write(f"  SALVAGED — removed from code, moved to '## Salvage': {', '.join(sv)}\n")
+        if not ne and not sv:
+            sys.stderr.write("  facts refreshed; no new or removed entries\n")
+    elif existed:
+        sys.stderr.write(f"[make_interface_card] wrote {out} (--force: fresh stamp, prior prose discarded)\n")
+    else:
+        sys.stderr.write(f"[make_interface_card] wrote {out}\n")
     return 0
 
 
