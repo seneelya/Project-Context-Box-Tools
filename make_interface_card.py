@@ -525,59 +525,124 @@ def build_card(project_root, file, old_prose=None, report=None):
     return "\n".join(lines) + "\n"
 
 
+def _card_path(project_root_abs, file_rel):
+    """__map/<path>.md для файла (root-relative), с сохранением расширения исходника."""
+    return os.path.join(project_root_abs, "__map", file_rel + ".md")
+
+
+def _stamp_to_file(project_root_abs, file_rel, out_path, force):
+    """Штемпелит один файл В out_path. На существующей карточке — MERGE (если не --force).
+    Возвращает (status, report): status ∈ {'new','merged','forced'}."""
+    old_prose = None
+    existed = os.path.exists(out_path)
+    if existed and not force:
+        try:
+            old_prose = _parse_old_prose(open(out_path, encoding="utf-8").read())
+        except OSError:
+            old_prose = None
+    report = {}
+    card = build_card(project_root_abs, file_rel, old_prose, report)
+    out_dir = os.path.dirname(os.path.abspath(out_path))
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as fh:
+        fh.write(card)
+    return ("merged" if old_prose is not None else ("forced" if existed else "new")), report
+
+
+def _print_merge_delta(out, report):
+    """stderr-дельта merge: что сохранено / что дописать / что разобрать."""
+    ne, sv, pe, ks = (report["new_entries"], report["salvaged"],
+                      report["preserved_entries"], report["kept_sections"])
+    sys.stderr.write(f"[make_interface_card] merged {out}\n")
+    sys.stderr.write(f"  prose kept: {len(pe)} entries" + (f" + {', '.join(ks)}" if ks else "") + "\n")
+    if ne:
+        sys.stderr.write(f"  NEW — fill prose: {', '.join(ne)}\n")
+    if sv:
+        sys.stderr.write(f"  SALVAGED — removed from code, moved to '## Salvage': {', '.join(sv)}\n")
+    if not ne and not sv:
+        sys.stderr.write("  facts refreshed; no new or removed entries\n")
+
+
+def _config_lang_testdirs():
+    lang, test_dirs = "python", []
+    try:
+        import CONFIG__TOOLS
+        lang = getattr(CONFIG__TOOLS, "LANGUAGE", "python") or "python"
+        test_dirs = list(getattr(CONFIG__TOOLS, "TEST_DIRS", []) or [])
+    except Exception:
+        pass
+    return lang, test_dirs
+
+
+def _lang_extensions(lang):
+    exts = {e for e, l in _LANG.items() if l == lang}
+    return exts or set(_LANG)   # неизвестный язык -> все известные расширения
+
+
+def _stamp_all(project_root_abs, force):
+    """BULK: штемпелит ВСЕ исходники под project-root (по расширениям LANGUAGE) в __map/."""
+    from find_code_usage.core import collect_files, rel_path
+    lang, test_dirs = _config_lang_testdirs()
+    exts = _lang_extensions(lang)
+    files = collect_files(project_root_abs, exts, test_dirs=test_dirs, tests_only=False)
+    if not files:
+        sys.stderr.write(f"[make_interface_card] --all: no {sorted(exts)} files under {project_root_abs}\n")
+        return 0
+    counts = {"new": 0, "merged": 0, "forced": 0, "error": 0}
+    for abs_path in files:
+        rel = rel_path(abs_path, project_root_abs)
+        try:
+            status, _ = _stamp_to_file(project_root_abs, rel, _card_path(project_root_abs, rel), force)
+            counts[status] += 1
+        except Exception as e:  # один битый файл не должен валить весь проход
+            counts["error"] += 1
+            sys.stderr.write(f"  ERROR {rel}: {e}\n")
+    sys.stderr.write(
+        f"[make_interface_card] --all: {len(files)} files -> {counts['new']} new, "
+        f"{counts['merged']} merged, {counts['forced']} forced, {counts['error']} errors\n")
+    return 1 if counts["error"] else 0
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
     ap = argparse.ArgumentParser(description="Card stamp: fact-filled card skeleton for a file")
-    ap.add_argument("file", help="target source file (root-relative or absolute)")
+    ap.add_argument("file", nargs="?", help="target source file (root-relative or absolute); omit with --all")
     ap.add_argument("--project-root", type=str, default=".", help="project root for the reverse index")
     ap.add_argument("--out", type=str, default=None,
                     help="write the card to this file (default: print to stdout)")
     ap.add_argument("--force", action="store_true",
-                    help="with --out: discard the existing card and write a FRESH stamp "
+                    help="discard the existing card and write a FRESH stamp "
                          "(default on an existing card is MERGE — refresh facts, keep prose)")
+    ap.add_argument("--all", action="store_true",
+                    help="BULK maintainer pre-stamp: stamp EVERY source file under --project-root "
+                         "(by CONFIG__TOOLS.LANGUAGE extensions) each to __map/<path>.md. Skips "
+                         ".git/__pycache__/__map/__HQ/.venv/node_modules/... and CONFIG__TOOLS.TEST_DIRS. "
+                         "Existing cards MERGE (facts refreshed, prose kept); add --force to reset them. "
+                         "Ignores <file> and --out. One-shot way to seed/refresh a whole tree's card skeletons.")
     args = ap.parse_args()
 
+    project_root_abs = os.path.abspath(args.project_root)
+
+    if args.all:
+        return _stamp_all(project_root_abs, args.force)
+
+    if not args.file:
+        ap.error("either a <file> argument or --all is required")
+
     out = args.out
-    # На существующей карточке дефолт — MERGE: перечитываем её прозу и вплетаем в свежие факты.
-    # --force отменяет merge (чистый штемпель). Без --out — просто печать штемпеля.
-    old_prose = None
-    existed = bool(out) and os.path.exists(out)
-    if existed and not args.force:
-        try:
-            old_prose = _parse_old_prose(open(out, encoding="utf-8").read())
-        except OSError:
-            old_prose = None
-
-    report = {}
-    card = build_card(os.path.abspath(args.project_root), args.file, old_prose, report)
-
     if not out:
-        print(card)
+        # Без --out — просто печать штемпеля в stdout (без merge: файла-цели нет).
+        print(build_card(project_root_abs, args.file, None, {}))
         return 0
 
-    out_dir = os.path.dirname(os.path.abspath(out))
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    with open(out, "w", encoding="utf-8") as fh:
-        fh.write(card)
-
-    if old_prose is not None:
-        # MERGE: показываем агенту ТОЛЬКО дельту — что дописать и что разобрать.
-        ne, sv, pe, ks = (report["new_entries"], report["salvaged"],
-                          report["preserved_entries"], report["kept_sections"])
-        sys.stderr.write(f"[make_interface_card] merged {out}\n")
-        sys.stderr.write(f"  prose kept: {len(pe)} entries"
-                         + (f" + {', '.join(ks)}" if ks else "") + "\n")
-        if ne:
-            sys.stderr.write(f"  NEW — fill prose: {', '.join(ne)}\n")
-        if sv:
-            sys.stderr.write(f"  SALVAGED — removed from code, moved to '## Salvage': {', '.join(sv)}\n")
-        if not ne and not sv:
-            sys.stderr.write("  facts refreshed; no new or removed entries\n")
-    elif existed:
+    status, report = _stamp_to_file(project_root_abs, args.file, out, args.force)
+    if status == "merged":
+        _print_merge_delta(out, report)
+    elif status == "forced":
         sys.stderr.write(f"[make_interface_card] wrote {out} (--force: fresh stamp, prior prose discarded)\n")
     else:
         sys.stderr.write(f"[make_interface_card] wrote {out}\n")

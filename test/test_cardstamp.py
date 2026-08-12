@@ -211,10 +211,34 @@ def test_resolver_submodule_and_docstring():
     check("docstring text not leaked as import", "fakeimport" not in joined and "bogus" not in joined)
 
 
+def test_stamp_all_recursive():
+    """--all: карточки для всего дерева под root, рекурсивно; повторный проход — merge."""
+    root = Path(tempfile.mkdtemp(prefix="all_"))
+    (root / "pkg" / "sub").mkdir(parents=True)
+    (root / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "pkg" / "a.py").write_text('"""A."""\ndef f():\n    return 1\n', encoding="utf-8")
+    (root / "pkg" / "b.py").write_text("from . import a\n", encoding="utf-8")
+    (root / "pkg" / "sub" / "deep.py").write_text("x = 1\n", encoding="utf-8")
+
+    check("stamp_all exit 0", mic._stamp_all(str(root), force=False) == 0)
+    made = sorted(str(p.relative_to(root / "__map")).replace("\\", "/")
+                  for p in (root / "__map").rglob("*.md"))
+    check("stamp_all mirrors the tree",
+          made == ["pkg/__init__.py.md", "pkg/a.py.md", "pkg/b.py.md", "pkg/sub/deep.py.md"])
+    # проза сохраняется, а __map сам себя не штемпелит (EXCLUDED_DIRS)
+    card = root / "__map" / "pkg" / "a.py.md"
+    card.write_text(card.read_text(encoding="utf-8").replace(mic.DIRECTIVE_SUMMARY, "KEPT"), encoding="utf-8")
+    check("stamp_all rerun exit 0", mic._stamp_all(str(root), force=False) == 0)
+    check("stamp_all rerun keeps prose", "KEPT" in card.read_text(encoding="utf-8"))
+    check("stamp_all does not card the __map dir",
+          not (root / "__map" / "__map").exists())
+
+
 def main():
     test_is_empty()
     test_validate_pending_vs_broken()
     test_resolver_submodule_and_docstring()
+    test_stamp_all_recursive()
     test_merge_preserves_prose()
     test_merge_signature_refresh()
     test_merge_salvage()
