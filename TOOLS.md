@@ -4,6 +4,12 @@ Dev "hands" for the ProjectStarter scheme — small, universal CLIs that compose
 philosophy), not one monster. Each tool has a `<name>__TLDR.md` (one-screen) and a
 `<name>__README.md` / `--help` (full contract). Grouped by the three layers.
 
+> **Where this lives & how to run.** These tools ship inside `__HQ/tools/`. Invoke them from the
+> **project root** as `python __HQ/tools/<name>.py …` (paths like `--project-root .` and the
+> `__map/` cards dir are resolved relative to that root). The folder is self-contained and travels
+> with a project by copying — **except `__delme/`**, which holds dev-only notes (tracker/decisions/
+> restore for building the tools) and is safe to delete in a deployed copy.
+
 ## 1. Source analysis — fact-fetchers over raw code
 
 Answer factual questions about source directly (language-agnostic heuristics: `.py` `.ts`/`.js` `.cs`,
