@@ -13,9 +13,9 @@ have no TLDR. The folder is self-contained and travels with a project by copying
 (dev-only notes, safe to delete when deployed).
 
 ## Pick by task
-- **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_cards_freshness`  (Python AST peek: `py_api`)
+- **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_cards_freshness`  (Python AST peek: `show_pyfile_api`)
 - **Read the card map** (topology, gather context) → `graph_from_cards`, `collect_card_bundle`
-- **Answer a fact about source** (who imports it · a code block · a file's API) → `find_code_usage`, `get_codeblock`, `py_api`
+- **Answer a fact about source** (who imports it · a code block · a file's API) → `find_code_usage`, `get_codeblock`, `show_pyfile_api`
 - **Surgical context, not whole files** — `find_code_usage --verbose` (where a symbol is used + block **depth**) → `get_codeblock --level` (pull just that block). Coarse-locate with `grep` first; these two make it precise.
 - **Mass-edit across files** (migrate / rename) → `replace_in_files`
 - **Change the card format itself** → `CARD_FORMAT` (the contract)
@@ -33,7 +33,7 @@ Factual questions about source directly (heuristics for `.py` `.ts`/`.js` `.cs`,
 - **`get_codeblock.py --file PATH [--line N]`** — the self-contained structural block around a line.
   No `--line` + `--outline` = the file's table of contents; `--query` = the exact framed text;
   `--level N` picks which block (`0` = the line, `-N` = enclosing parents, `+N` = from the top).
-- **`py_api.py <file.py>`** — Python-only AST hint: public functions/classes/methods with signatures +
+- **`show_pyfile_api.py <file.py>`** — Python-only AST hint: public functions/classes/methods with signatures +
   imports (internal/external) + first docstring line. Reads only, never a gate.
 
 ## 2. Card map — the "second compilation" over `__map/` cards

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""py_api.py — опциональная подсказка для агента-документатора (Pass 1/Pass 2).
+"""show_pyfile_api.py — опциональная подсказка для агента-документатора (Pass 1/Pass 2).
 
 Это ВСПОМОГАТЕЛЬНАЯ подсказка, а НЕ гейт и не замена анализу кода. Скрипт парсит
 один .py файл через stdlib-модуль `ast` и печатает в stdout компактную сводку:
@@ -9,7 +9,7 @@
 валидном Python.
 
 Использование:
-    python py_api.py <путь/к/файлу.py>
+    python show_pyfile_api.py <путь/к/файлу.py>
 """
 
 import ast
@@ -165,10 +165,10 @@ def collect(path: Path) -> dict:
 def analyze(path: Path) -> str:
     data = collect(path)
     if not data["ok"]:
-        return f"[py_api] не удалось распарсить {path.name}: {data['error']}"
+        return f"[show_pyfile_api] не удалось распарсить {path.name}: {data['error']}"
 
     out: list[str] = []
-    out.append(f"# Подсказка py_api для: {path.name}")
+    out.append(f"# Подсказка show_pyfile_api для: {path.name}")
     out.append("# (опциональная сводка из ast; сверяйся с кодом, это не спека)")
     out.append("")
 
@@ -221,11 +221,11 @@ def main() -> int:
         print(__doc__.strip())
         return 0
     if len(args) != 1:
-        print("Использование: python py_api.py <путь/к/файлу.py>  (--help для справки)", file=sys.stderr)
+        print("Использование: python show_pyfile_api.py <путь/к/файлу.py>  (--help для справки)", file=sys.stderr)
         return 2
     path = Path(args[0])
     if not path.exists():
-        print(f"[py_api] файл не найден: {path}", file=sys.stderr)
+        print(f"[show_pyfile_api] файл не найден: {path}", file=sys.stderr)
         return 2
     print(analyze(path))
     return 0

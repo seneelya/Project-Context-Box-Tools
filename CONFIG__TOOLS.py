@@ -58,7 +58,7 @@ TEST_DIRS = [
 #   "auto"       -> tree-sitter if installed, else the built-in regex heuristic
 #   "treesitter" -> force tree-sitter (falls back to regex + a stderr note if missing)
 #   "regex"      -> force the built-in zero-dependency regex fallback
-# Python always uses stdlib `ast` (py_api), regardless of this setting.
+# Python always uses stdlib `ast` (show_pyfile_api), regardless of this setting.
 # tree-sitter is an OPTIONAL dependency: `pip install tree-sitter tree-sitter-typescript`.
 # ---------------------------------------------------------------------------
 DECL_BACKEND = "auto"

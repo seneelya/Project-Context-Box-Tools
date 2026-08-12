@@ -5,7 +5,7 @@
 
 Ничего нового не анализирует — ОРКЕСТРИРУЕТ три факта:
   - объявленная поверхность + сигнатуры   <- единый источник:
-        Python  → py_api.collect (ast — точные типы параметров),
+        Python  → show_pyfile_api.collect (ast — точные типы параметров),
         TS/JS   → get_codeblock declarations (структурные заголовки блоков),
         (C# — позже; сейчас только факты потребления/зависимостей).
   - потреблённая поверхность               <- find_code_usage downstream
@@ -109,8 +109,8 @@ def _resolve_sibling_signature(target_abs, module, level, name):
     for p in (cand.with_suffix(".py"), cand / "__init__.py"):
         if p.is_file():
             try:
-                import py_api
-                return py_api.collect(p).get("all_defs", {}).get(name)
+                import show_pyfile_api
+                return show_pyfile_api.collect(p).get("all_defs", {}).get(name)
             except Exception:
                 return None
     return None
@@ -173,14 +173,14 @@ def _declared(project_root, file, lang):
     """Language-agnostic declared surface. Returns:
       {docstring_first, exports:[{name,kind,signature,methods}], all_defs:{name:sig},
        reexports:[{name,source[,module,level]}]}
-    Python via py_api(ast) — precise param types; TS/JS via get_codeblock declarations.
+    Python via show_pyfile_api(ast) — precise param types; TS/JS via get_codeblock declarations.
     """
     empty = {"docstring_first": None, "exports": [], "all_defs": {}, "reexports": []}
     target_abs = file if os.path.isabs(file) else os.path.join(project_root, file)
 
     if lang == "python":
-        import py_api
-        c = py_api.collect(Path(target_abs))
+        import show_pyfile_api
+        c = show_pyfile_api.collect(Path(target_abs))
         exports = [{"name": f["name"], "kind": "function", "signature": f["signature"], "methods": []}
                    for f in c["functions"]]
         exports += [{"name": cl["name"], "kind": "class", "signature": cl["name"], "methods": cl["methods"]}

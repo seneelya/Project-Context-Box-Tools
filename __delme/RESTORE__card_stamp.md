@@ -22,7 +22,7 @@
 детерминированно (объявленный API+сигнатуры × кто реально потребляет × зависимости),
 проза — строки-директивы `<Agent: …>`, которые ЛЛМ дописывает по исходнику.
 
-Три факта, три источника: **declared** (Python→`py_api` ast; TS/C#→`get_codeblock declarations`,
+Три факта, три источника: **declared** (Python→`show_pyfile_api` ast; TS/C#→`get_codeblock declarations`,
 опц. tree-sitter), **consumed surface** (`find_code_usage` downstream), **deps**
 (`--incoming`). Формат — из `CARD_FORMAT.py`. Public API = что выходит наружу
 (свои публичные / протёкшие `_`-приватные-consumed / чужие ре-экспорты); Dependencies = что входит.
@@ -40,7 +40,7 @@
 
 - `py test/check.py --fails` — регрессия (сейчас **49/0**). Оракул — глаза человека; golden можно править/дополнять после ручной сверки.
 - Фикстуры: memohood(py) · zod v4/core(ts) · SwarmUI Core + Unity Services(cs, вкл. 79KB генерённый). Образцы карточек — `test/__map/**` (не закоммичены, для просмотра).
-- **Не гонять golden после каждой правки** (он покрывает get_codeblock+import_search, НЕ make_interface_card/format/py_api).
+- **Не гонять golden после каждой правки** (он покрывает get_codeblock+import_search, НЕ make_interface_card/format/show_pyfile_api).
 
 ## Открытые задачи (остаток)
 
