@@ -117,6 +117,32 @@ def _resolve_sibling_signature(target_abs, module, level, name):
 
 # --- declared surface (single source, per language) --------------------------
 
+def _decl_backend():
+    """DECL_BACKEND from tools_config: 'auto' | 'treesitter' | 'regex' (default 'auto')."""
+    try:
+        import tools_config
+        return getattr(tools_config, "DECL_BACKEND", "auto")
+    except Exception:
+        return "auto"
+
+
+def _ts_declarations(src):
+    """TS/JS declared surface via the configured backend (tree-sitter or regex fallback)."""
+    backend = _decl_backend()
+    if backend in ("treesitter", "auto"):
+        try:
+            from get_codeblock.handlers import ts_treesitter
+            if ts_treesitter.available():
+                return ts_treesitter.declarations(src)
+            if backend == "treesitter":
+                sys.stderr.write("card_api: DECL_BACKEND=treesitter but tree-sitter not installed; using regex\n")
+        except Exception as e:
+            if backend == "treesitter":
+                sys.stderr.write(f"card_api: tree-sitter backend failed ({e}); using regex\n")
+    from get_codeblock.handlers import get_handler
+    return get_handler("typescript").declarations(src.splitlines(keepends=True))
+
+
 def _declared(project_root, file, lang):
     """Language-agnostic declared surface. Returns:
       {docstring_first, exports:[{name,kind,signature,methods}], all_defs:{name:sig},
@@ -143,12 +169,11 @@ def _declared(project_root, file, lang):
                 "all_defs": all_defs, "reexports": reexports}
 
     if lang == "typescript":
-        from get_codeblock.handlers import get_handler
         try:
-            lines = open(target_abs, encoding="utf-8", errors="replace").readlines()
+            src = open(target_abs, encoding="utf-8", errors="replace").read()
         except OSError:
             return empty
-        decls = get_handler("typescript").declarations(lines)
+        decls = _ts_declarations(src)
         exports, all_defs, reexports = [], {}, []
         for d in decls:
             if d["kind"] == "reexport":

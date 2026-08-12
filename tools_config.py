@@ -51,3 +51,14 @@ LANGUAGE = "python"
 TEST_DIRS = [
     # Add your project's test directories here (relative to PROJECT_ROOT)
 ]
+
+# ---------------------------------------------------------------------------
+# DECL_BACKEND: which engine extracts the DECLARED surface (signatures / block
+# boundaries) for the card stamp (card_api.py) on brace-languages (TS/JS).
+#   "auto"       -> tree-sitter if installed, else the built-in regex heuristic
+#   "treesitter" -> force tree-sitter (falls back to regex + a stderr note if missing)
+#   "regex"      -> force the built-in zero-dependency regex fallback
+# Python always uses stdlib `ast` (py_api), regardless of this setting.
+# tree-sitter is an OPTIONAL dependency: `pip install tree-sitter tree-sitter-typescript`.
+# ---------------------------------------------------------------------------
+DECL_BACKEND = "auto"
