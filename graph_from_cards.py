@@ -11,9 +11,16 @@
 рус. "Из файла"), так что тул работает и на старых карточках. Ссылки, которые не
 удалось сопоставить карточке, честно выводятся в конце (сигнал к нормализации).
 
+Виды карты (--view): packages (по пакетам, ДЕФОЛТ) | layers (0=листья→точки входа) | flat
+(плоско, легаси). Оси: --edges both|out (показывать ли '← used-by'), --paths rel|full
+(пути относительно пакета или полные). Фокус: --zone FILE [--depth N]; health: --cycles.
+
 Использование:
-    python graph_from_cards.py [--cards-dir PATH] [--json]
-По умолчанию карточки в <project>/__map/ (скрипт в __HQ/tools/).
+    python graph_from_cards.py [--project-root PATH] [--view packages|layers|flat]
+                               [--edges both|out] [--paths rel|full]
+    python graph_from_cards.py --zone <file> [--depth N]      # фокус-срез вокруг модуля
+    python graph_from_cards.py --cycles                       # циклы A → B → C → A
+Карточки по умолчанию в <project-root>/__map/ (корень: флаг > CONFIG__TOOLS > cwd).
 """
 
 import argparse
@@ -259,6 +266,127 @@ def format_cycles(nodes, cycles):
     return "\n".join(out)
 
 
+# --- structured views: packages / layers (flat = format_text below) ---------
+
+def _top_pkg(nid):
+    """Верхний пакет узла: '_engine/...' -> '_engine/', корневой файл -> '(root)'."""
+    return nid.split("/", 1)[0] + "/" if "/" in nid else "(root)"
+
+
+def _rel_to(dep, pkg, paths):
+    """Путь зависимости: относительно пакета (тише) либо полный."""
+    if paths == "full" or pkg == "(root)":
+        return dep
+    return dep[len(pkg):] if dep.startswith(pkg) else dep
+
+
+def _cycle_nodes(nodes):
+    s = set()
+    for cyc in find_cycles(nodes):
+        s.update(cyc)
+    return s
+
+
+def _summ(nodes, i):
+    s = nodes[i]["summary"]
+    return f" — {s}" if s and not s.startswith("<Agent:") else ""
+
+
+def _edge_bits(i, nodes, rdeps, pkg, edges, paths):
+    """Строка рёбер узла: '→ …' и (если both) '← ×N …'."""
+    bits = []
+    if nodes[i]["deps"]:
+        bits.append("→ " + " · ".join(_rel_to(d, pkg, paths) for d in nodes[i]["deps"]))
+    if edges == "both" and rdeps[i]:
+        bits.append(f"← ×{len(rdeps[i])} " + " · ".join(_rel_to(d, pkg, paths) for d in rdeps[i]))
+    return "   ".join(bits)
+
+
+def _compute_layers(nodes):
+    """Слой узла: 0 = лист (нет внутр. deps), выше = ближе к точкам входа.
+    Обратные рёбра циклов игнорируются (иначе слои не определены)."""
+    deps = {i: nodes[i]["deps"] for i in nodes}
+    memo, stack = {}, set()
+
+    def lvl(n):
+        if n in memo:
+            return memo[n]
+        stack.add(n)
+        best = 0
+        for d in deps.get(n, []):
+            if d in stack or d not in deps:   # back-edge цикла / чужой id — пропустить
+                continue
+            best = max(best, lvl(d) + 1)
+        stack.discard(n)
+        memo[n] = best
+        return best
+
+    for n in nodes:
+        lvl(n)
+    layers = {}
+    for n, l in memo.items():
+        layers.setdefault(l, []).append(n)
+    return layers
+
+
+def _slices(graph, disp_label):
+    """Общий хвост всех видов: hotspots + cycles + unresolved."""
+    nodes, indeg = graph["nodes"], graph["indeg"]
+    out = ["", "## hotspots"]
+    ep = [f"{i} ×{indeg[i]}" for i in sorted(nodes, key=lambda i: (-indeg[i], i)) if indeg[i] > 0][:8]
+    out.append("- most depended-on: " + (" · ".join(ep) if ep else "(none)"))
+    leaves = sorted(i for i, n in nodes.items() if not n["deps"])
+    out.append("- leaves (no deps): " + (" · ".join(leaves) if leaves else "(none)"))
+
+    cycles = find_cycles(nodes)
+    out += ["", f"## cycles ({len(cycles)})"]
+    out += (["- " + " → ".join(c) for c in sorted(cycles, key=lambda c: (len(c), c))]
+            if cycles else ["(none — acyclic)"])
+
+    if graph["unresolved"]:
+        out += ["", "## unresolved from-file refs (normalize to a card path)"]
+        out += [f'- "{raw}" (in {nid})' for nid, raw in sorted(set(graph["unresolved"]))]
+    return out
+
+
+_LEGEND = "> → uses · ← used-by(N) · ⟲ in a cycle"
+
+
+def format_packages(graph, disp, edges, paths):
+    nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
+    out = [f"# map — {len(nodes)} modules · packages (dir={disp})", _LEGEND, ""]
+    pkgs = {}
+    for i in nodes:
+        pkgs.setdefault(_top_pkg(i), []).append(i)
+    for pkg in sorted(pkgs):
+        members = sorted(pkgs[pkg])
+        out.append(f"## {pkg} ({len(members)})")
+        for i in members:
+            label = _rel_to(i, pkg, paths)
+            out.append(f"- **{label}**{' ⟲' if i in cyc else ''}{_summ(nodes, i)}")
+            eb = _edge_bits(i, nodes, rdeps, pkg, edges, paths)
+            if eb:
+                out.append(f"  {eb}")
+        out.append("")
+    return "\n".join(out + _slices(graph, disp))
+
+
+def format_layers(graph, disp, edges, paths):
+    nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
+    layers = _compute_layers(nodes)
+    out = [f"# map — {len(nodes)} modules · layers 0=leaves (dir={disp})", _LEGEND, ""]
+    for l in sorted(layers):
+        members = sorted(layers[l])
+        out.append(f"## layer {l} ({len(members)})")
+        for i in members:
+            out.append(f"- **{i}**{' ⟲' if i in cyc else ''}{_summ(nodes, i)}")
+            eb = _edge_bits(i, nodes, rdeps, "(root)", edges, paths)  # слои cross-cutting -> пути как заданы
+            if eb:
+                out.append(f"  {eb}")
+        out.append("")
+    return "\n".join(out + _slices(graph, disp))
+
+
 def format_text(graph, cards_dir_display):
     nodes, indeg, unresolved = graph["nodes"], graph["indeg"], graph["unresolved"]
     out = [f"# map: {len(nodes)} modules (dir={cards_dir_display})", "", "## modules"]
@@ -296,6 +424,12 @@ def main():
     ap.add_argument("--depth", type=int, default=1, help="глубина зоны в рёбрах (по умолч. 1)")
     ap.add_argument("--cycles", action="store_true",
                     help="детекция циклических зависимостей, вывод цепочками A → B → C → A")
+    ap.add_argument("--view", choices=["packages", "layers", "flat"], default="packages",
+                    help="структура карты: packages (по пакетам, дефолт) | layers (0=листья) | flat (плоско)")
+    ap.add_argument("--edges", choices=["both", "out"], default="both",
+                    help="both — показывать и '← used-by' (дефолт); out — только '→ uses'")
+    ap.add_argument("--paths", choices=["rel", "full"], default="rel",
+                    help="rel — пути относительно пакета (тише, дефолт); full — всегда полные")
     args = ap.parse_args()
 
     cards_dir = args.cards_dir.resolve() if args.cards_dir else (resolve_project_root(args.project_root) / "__map")
@@ -330,11 +464,17 @@ def main():
     if args.json:
         print(json.dumps({"nodes": graph["nodes"], "unresolved": graph["unresolved"]},
                          ensure_ascii=False, indent=2))
+        return
+
+    try:
+        disp = cards_dir.relative_to(cards_dir.parent).as_posix()
+    except ValueError:
+        disp = str(cards_dir)
+    if args.view == "packages":
+        print(format_packages(graph, disp, args.edges, args.paths))
+    elif args.view == "layers":
+        print(format_layers(graph, disp, args.edges, args.paths))
     else:
-        try:
-            disp = cards_dir.relative_to(cards_dir.parent).as_posix()
-        except ValueError:
-            disp = str(cards_dir)
         print(format_text(graph, disp))
 
 

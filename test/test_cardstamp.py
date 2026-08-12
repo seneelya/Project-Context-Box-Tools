@@ -267,12 +267,51 @@ def test_graph_zone_and_cycles():
     check("zone upstream = {c,d}", z["up"] == {"c.py", "d.py"})
 
 
+def test_graph_views():
+    """packages группирует по пакетам с rel-путями; layers даёт слой 0=листья; flat — легаси."""
+    from graph_from_cards import build_graph, format_packages, format_layers, format_text
+
+    root = Path(tempfile.mkdtemp(prefix="gview_"))
+    cards = root / "__map"
+    (cards / "pkg").mkdir(parents=True)
+
+    def card(path, deps):
+        if deps:
+            rows = "\n".join(f"| `x` | `{d}` |  | why | normal |" for d in deps)
+            tbl = "| Import | File Path | Symbols | Why | Kind |\n|---|---|---|---|---|\n" + rows
+        else:
+            tbl = "(none)"
+        f = cards / (path + ".md")
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(f"# {path.split('/')[-1]}\n\ns.\n\n## Dependencies Internal\n\n{tbl}\n", encoding="utf-8")
+
+    card("pkg/a.py", ["pkg/b.py"])
+    card("pkg/b.py", [])
+    card("root.py", ["pkg/a.py"])
+    g = build_graph(cards)
+
+    pk = format_packages(g, "__map", "both", "rel")
+    check("packages groups by pkg", "## pkg/ (2)" in pk)
+    check("packages has (root)", "## (root) (1)" in pk)
+    check("packages uses rel path in-pkg", "→ b.py" in pk)          # pkg/a.py -> pkg/b.py shown as b.py
+    pk_full = format_packages(g, "__map", "both", "full")
+    check("paths=full keeps full path", "→ pkg/b.py" in pk_full)
+    pk_out = format_packages(g, "__map", "out", "rel")
+    check("edges=out hides used-by", "← ×" not in pk_out)   # легенда содержит '←', строки-рёбра — '← ×N'
+
+    ly = format_layers(g, "__map", "both", "rel")
+    check("layers has layer 0", "## layer 0" in ly)
+
+    check("flat view has ## modules", "## modules" in format_text(g, "__map"))
+
+
 def main():
     test_is_empty()
     test_validate_pending_vs_broken()
     test_resolver_submodule_and_docstring()
     test_stamp_all_recursive()
     test_graph_zone_and_cycles()
+    test_graph_views()
     test_merge_preserves_prose()
     test_merge_signature_refresh()
     test_merge_salvage()
