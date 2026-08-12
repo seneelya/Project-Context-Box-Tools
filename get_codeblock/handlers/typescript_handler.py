@@ -404,29 +404,65 @@ class TypeScriptHandler:
         m = re.match(r'(function|class|interface|enum|namespace|module|type|const|let|var)\b\s*\*?\s*([A-Za-z_$][\w$]*)', core)
         if not m:
             return None
-        sig, end = self._decl_signature(lines, i)
+        sig, end = self._decl_signature(lines, i, m.group(1))
         return {'name': m.group(2), 'kind': m.group(1), 'exported': exported,
                 'reexport_from': None, 'signature': sig, 'start': i + 1, 'end': end}
 
-    def _decl_signature(self, lines, i):
-        """Join a (possibly multi-line) header into one signature, cut at the block `{`
-        or terminating `;`. Returns (signature, end_line_1indexed) — end = matching brace
-        when the decl opens a block, else the header's last line."""
-        parts, brace_line, j = [], None, i
-        while j < len(lines) and j < i + 15:
-            ln = lines[j]
-            parts.append(ln.strip())
-            if '{' in ln:
-                brace_line = j
-                break
-            if ln.strip().endswith(';') or '=>' in ln:
-                break
+    # kinds whose first depth-0 `{` opens a BODY (cut the signature there);
+    # the rest (type/const/let/var) keep braces as part of the value/type up to `;`.
+    _BLOCK_BODIED = {'function', 'class', 'interface', 'enum', 'namespace', 'module'}
+
+    def _decl_signature(self, lines, i, kind):
+        """Signature of a declaration starting at line i, scanning char-by-char across
+        lines with bracket-depth + string/comment awareness. Returns (signature, end_line).
+
+        - block-bodied kinds → stop at the first depth-0 `{` (the body opener);
+        - value/type kinds    → run to the depth-0 `;` (type/object braces are part of the
+          signature and are NOT cut); an arrow body `=> {` still stops the scan.
+        """
+        block = kind in self._BLOCK_BODIED
+        out, depth, j = [], 0, i
+        stop = False
+        while j < len(lines) and j < i + 40 and not stop:
+            line = lines[j]
+            k, n = 0, len(line)
+            while k < n:
+                ch = line[k]
+                if ch in ('"', "'", '`'):                       # string / template literal
+                    q = ch; out.append(ch); k += 1
+                    while k < n and line[k] != q:
+                        out.append(line[k]); k += 2 if line[k] == '\\' else 1
+                    if k < n:
+                        out.append(line[k]); k += 1
+                    continue
+                if ch == '/' and k + 1 < n and line[k + 1] == '/':   # line comment
+                    break
+                if ch == '/' and k + 1 < n and line[k + 1] == '*':   # block comment
+                    k += 2
+                    while k < n - 1 and not (line[k] == '*' and line[k + 1] == '/'):
+                        k += 1
+                    k += 2
+                    continue
+                if ch in '([':
+                    depth += 1
+                elif ch in ')]':
+                    depth -= 1
+                elif ch == '{':
+                    if depth == 0:
+                        tail = ''.join(out).rstrip()
+                        if block or tail.endswith('=>'):        # body opener → stop
+                            stop = True
+                            break
+                    depth += 1                                   # type/object literal brace
+                elif ch == '}':
+                    depth -= 1
+                elif ch == ';' and depth == 0:
+                    stop = True
+                    break
+                out.append(ch)
+                k += 1
+            out.append(' ')
             j += 1
-        sig = ' '.join(p for p in parts if p).split('{')[0].strip().rstrip(';').strip()
-        if brace_line is not None:
-            mb = self._find_matching_brace(lines, brace_line)
-            end = (mb + 1) if mb != -1 else (j + 1)
-        else:
-            end = j + 1
-        return sig, end
+        sig = ' '.join(''.join(out).split()).rstrip(';').strip()
+        return sig, j
 
