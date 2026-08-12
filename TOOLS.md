@@ -52,10 +52,11 @@ project topology lives — kept OUT of the source-analysis tools on purpose. Def
 
 ## 3. Maintenance / migration
 
-- **`mask_replace.py <folder> <mask> [-r FIND WITH | -m EXPR FIND WITH] [-R]`** — batch find-and-replace
-  over files by mask. `-r` = plain substring; `-m EXPR FIND WITH` = replace only on lines where the
-  Python `EXPR` (with `line`, `re`) is true (a guard against prose); `-R` = recurse. Escapes `\n \t \r \\`
-  are decoded in `FIND`/`WITH`.
+- **`replace_in_files.py <folder> <mask> [-r FIND WITH | -m EXPR FIND WITH] [-R] [-n]`** — batch
+  find-and-replace over files by mask. `-r` = plain substring; `-m EXPR FIND WITH` = replace only on
+  lines where the Python `EXPR` (with `line`, `re`) is true (a guard against prose); `-R` = recurse;
+  **`-n`/`--dry-run` = count replacements per file + total, write nothing (preview).** Escapes
+  `\n \t \r \\` are decoded in `FIND`/`WITH`.
 
 ---
 

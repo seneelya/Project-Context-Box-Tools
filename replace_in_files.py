@@ -5,6 +5,8 @@ import re
 import sys
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding="utf-8")
+
 # Minimal safe builtins for -m expressions (no __import__, no open, no exec).
 # Only string ops, numeric helpers, and type checks.
 _SAFE_BUILTINS = {
@@ -29,16 +31,20 @@ def _decode_escapes(s):
     return re.sub(r"\\(.)", lambda m: _ESCAPES.get(m.group(1), m.group(0)), s)
 
 
-def process_file(filepath, replacements, warned_expressions):
+def process_file(filepath, replacements, warned_expressions, dry_run=False):
+    """Apply replacements to one file. Returns the number of replacements made
+    (would-be-made in dry_run). In dry_run the file is NOT written."""
     with open(filepath, "r", encoding="utf-8", newline="") as f:
         lines = f.readlines()
 
+    count = 0
     new_lines = []
     for line in lines:
         current_line = line
         for repl in replacements:
             if repl["type"] == "simple":
                 if repl["find"] in current_line:
+                    count += current_line.count(repl["find"])
                     current_line = current_line.replace(repl["find"], repl["with"])
             elif repl["type"] == "matched":
                 _eval_env = {
@@ -56,12 +62,15 @@ def process_file(filepath, replacements, warned_expressions):
                     continue
 
                 if match_result and repl["find"] in current_line:
+                    count += current_line.count(repl["find"])
                     current_line = current_line.replace(repl["find"], repl["with"])
 
         new_lines.append(current_line)
 
-    with open(filepath, "w", encoding="utf-8", newline="") as f:
-        f.writelines(new_lines)
+    if not dry_run:
+        with open(filepath, "w", encoding="utf-8", newline="") as f:
+            f.writelines(new_lines)
+    return count
 
 
 def main():
@@ -90,6 +99,7 @@ Notes:
   - The expression is evaluated as Python with two builtins available: `line` (current string) and `re` module.
   - Multiple -r or -m can be specified; rules are applied in the exact order they appear on the command line.
   - In find/with, backslash escapes \\n \\t \\r \\\\ are decoded (insert newlines/tabs); the -m expression is left raw.
+  - -n / --dry-run: report the number of replacements per file and a total; write NOTHING.
 """,
     )
 
@@ -115,6 +125,7 @@ Notes:
     # Build replacement list preserving command-line order
     replacements = []
     recursive = False
+    dry_run = False
 
     # Scan remaining argv for -r/-m in command-line order
     i = 0
@@ -157,6 +168,9 @@ Notes:
         elif tok in ("-R", "--recursive"):
             recursive = True
             i += 1
+        elif tok in ("-n", "--dry-run"):
+            dry_run = True
+            i += 1
         elif tok == "-h" or tok == "--help":
             parser.print_help()
             sys.exit(0)
@@ -178,11 +192,20 @@ Notes:
         print(f"No files matched: {pattern}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Processing {len(files)} file(s):")
+    print(f"DRY-RUN — nothing will be written. Scanning {len(files)} file(s):"
+          if dry_run else f"Processing {len(files)} file(s):")
     warned_expressions = set()
+    total = 0
+    changed_files = 0
     for fpath in files:
-        process_file(fpath, replacements, warned_expressions)
-        print(f"  {fpath}")
+        n = process_file(fpath, replacements, warned_expressions, dry_run)
+        total += n
+        if n:
+            changed_files += 1
+            print(f"  {n:>5}  {fpath}")
+    verb = "would change" if dry_run else "changed"
+    print(f"{verb}: {total} replacement(s) in {changed_files} file(s)"
+          + (" — dry-run, nothing written" if dry_run else ""))
 
 
 if __name__ == "__main__":
