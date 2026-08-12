@@ -19,7 +19,9 @@ replace_in_files.py __map "*.md" -R -m 'line.strip()=="## X"' "X" "Y"
 
 ## Rules
 
-* **`-n` / `--dry-run`** — report replacement count per file + a total; write nothing. Preview before applying.
+* **`-n` / `--dry-run`** — write nothing; per file print the replacement count + the **line numbers**
+  where it fired (`[lines: 9, 17]`) + a total. The line list shows how a `-m` guard actually landed
+  (verify it hit headings, not prose) before you apply.
 * **`-r FIND WITH`** — plain substring replace.
 * **`-m EXPR FIND WITH`** — replace only on lines where the Python **`EXPR`** is true (env: `line`,
   `re`) — a guard against touching prose. Safe eval: string/number/type builtins only.

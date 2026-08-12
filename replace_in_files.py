@@ -32,19 +32,22 @@ def _decode_escapes(s):
 
 
 def process_file(filepath, replacements, warned_expressions, dry_run=False):
-    """Apply replacements to one file. Returns the number of replacements made
-    (would-be-made in dry_run). In dry_run the file is NOT written."""
+    """Apply replacements to one file. Returns (count, hit_linenos): the total
+    replacements made (would-be-made in dry_run) and the 1-based line numbers
+    where at least one fired. In dry_run the file is NOT written."""
     with open(filepath, "r", encoding="utf-8", newline="") as f:
         lines = f.readlines()
 
     count = 0
+    hits = []
     new_lines = []
-    for line in lines:
+    for lineno, line in enumerate(lines, 1):
         current_line = line
+        line_hits = 0
         for repl in replacements:
             if repl["type"] == "simple":
                 if repl["find"] in current_line:
-                    count += current_line.count(repl["find"])
+                    line_hits += current_line.count(repl["find"])
                     current_line = current_line.replace(repl["find"], repl["with"])
             elif repl["type"] == "matched":
                 _eval_env = {
@@ -62,15 +65,18 @@ def process_file(filepath, replacements, warned_expressions, dry_run=False):
                     continue
 
                 if match_result and repl["find"] in current_line:
-                    count += current_line.count(repl["find"])
+                    line_hits += current_line.count(repl["find"])
                     current_line = current_line.replace(repl["find"], repl["with"])
 
+        if line_hits:
+            count += line_hits
+            hits.append(lineno)
         new_lines.append(current_line)
 
     if not dry_run:
         with open(filepath, "w", encoding="utf-8", newline="") as f:
             f.writelines(new_lines)
-    return count
+    return count, hits
 
 
 def main():
@@ -198,11 +204,17 @@ Notes:
     total = 0
     changed_files = 0
     for fpath in files:
-        n = process_file(fpath, replacements, warned_expressions, dry_run)
+        n, hits = process_file(fpath, replacements, warned_expressions, dry_run)
         total += n
         if n:
             changed_files += 1
-            print(f"  {n:>5}  {fpath}")
+            row = f"  {n:>5}  {fpath}"
+            if dry_run:
+                shown = ", ".join(str(x) for x in hits[:25])
+                if len(hits) > 25:
+                    shown += f", …(+{len(hits) - 25} more)"
+                row += f"   [lines: {shown}]"
+            print(row)
     verb = "would change" if dry_run else "changed"
     print(f"{verb}: {total} replacement(s) in {changed_files} file(s)"
           + (" — dry-run, nothing written" if dry_run else ""))
