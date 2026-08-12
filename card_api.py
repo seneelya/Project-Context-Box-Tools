@@ -119,10 +119,10 @@ def _resolve_sibling_signature(target_abs, module, level, name):
 # --- declared surface (single source, per language) --------------------------
 
 def _decl_backend():
-    """DECL_BACKEND from tools_config: 'auto' | 'treesitter' | 'regex' (default 'auto')."""
+    """DECL_BACKEND from CONFIG__TOOLS: 'auto' | 'treesitter' | 'regex' (default 'auto')."""
     try:
-        import tools_config
-        return getattr(tools_config, "DECL_BACKEND", "auto")
+        import CONFIG__TOOLS
+        return getattr(CONFIG__TOOLS, "DECL_BACKEND", "auto")
     except Exception:
         return "auto"
 
@@ -144,7 +144,7 @@ def _warn_fallback(lang, pkg, forced):
     sys.stderr.write(
         f"[card_api] WARNING: {how} for {lang} - running in the REGEX FALLBACK "
         f"(lower-fidelity signatures). For a full parse install:  "
-        f"pip install tree-sitter {pkg}   (or set tools_config.DECL_BACKEND='regex' to silence)\n"
+        f"pip install tree-sitter {pkg}   (or set CONFIG__TOOLS.DECL_BACKEND='regex' to silence)\n"
     )
 
 

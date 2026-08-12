@@ -64,7 +64,7 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 | `--language LNG` | Язык обработчика/резолвера (поддерживает Python, TypeScript/JS, C#). По умолчанию автодетект по расширению файла или python | `python`, `typescript`, `csharp` |
 | `--incoming` | Показать upstream зависимости (откуда целевой файл импортирует символы) вместо downstream consumers | (без значения) |
 | `--verbose` | Группировать вывод по символам с номерами строк, типами загрузки и уровнями блоков (работает только в default mode); добавляет легенду формата | (без значения) |
-| `--project-root PATH` | Root directory to scan for imports (default from tools_config.py or current dir) | `/workspace/SRC/memohood`, `.` |
+| `--project-root PATH` | Root directory to scan for imports (default from CONFIG__TOOLS.py or current dir) | `/workspace/SRC/memohood`, `.` |
 | `--tests-only` | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
 | `--symbol N1,N2,...` | Post-filter output to these symbol name(s). Works in every mode (filters the produced data, not the logic) | `resolve_chain`, `chat,embed` |
 
@@ -351,9 +351,9 @@ Regex-based подход не идеален — он видит текст, а 
 
 ---
 
-## Default values from tools_config.py
+## Default values from CONFIG__TOOLS.py
 
-If `./tools_config.py` exists and defines valid paths/languages, the tool reads defaults automatically:
+If `./CONFIG__TOOLS.py` exists and defines valid paths/languages, the tool reads defaults automatically:
 
 | Config constant | Used as default for | Cascade priority |
 |-----------------|---------------------|------------------|
@@ -362,7 +362,7 @@ If `./tools_config.py` exists and defines valid paths/languages, the tool reads 
 | `TEST_DIRS` | Test directories to exclude/include | Config value > empty list (no exclusions) |
 
 **How it works:**
-1. Tool loads `tools_config.py` at startup (optional — if missing, prints warning and uses hardcoded defaults)
+1. Tool loads `CONFIG__TOOLS.py` at startup (optional — if missing, prints warning and uses hardcoded defaults)
 2. `PROJECT_ROOT` is computed by `_resolve_root([...])` which returns the first existing path from a list of candidates (works across Docker/Windows/Linux without environment detection)
 3. When config is present, agent only needs to specify `--file PATH` or `--module NAME`; project root and language are taken from config automatically
 

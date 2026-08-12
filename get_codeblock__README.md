@@ -85,7 +85,7 @@ TOC; for exact block boundaries use `--query`).
 | `--line N` | required | Target line number (1-based), where we search for the block |
 | `--level L` | optional | Block address level. Default: `0`. See details below. |
 | `--query` | flag | Return actual text of block instead of metadata only. No digits needed — it's a boolean flag. |
-| `--project-root PATH` | optional | Root directory for resolving relative file paths. CLI value overrides the config file setting (`tools_config.py`). |
+| `--project-root PATH` | optional | Root directory for resolving relative file paths. CLI value overrides the config file setting (`CONFIG__TOOLS.py`). |
 
 ### Level Addressing
 
@@ -157,7 +157,7 @@ Run `help(get_codeblock)` in Python for full docstring reference.
 
 ## Configuration
 
-When `tools_config.py` exists in the project root:
+When `CONFIG__TOOLS.py` exists in the project root:
 - `PROJECT_ROOT` — base directory used for resolving relative file paths (overridden by CLI `--project-root`).
 - Other settings are tool-specific and not required for basic usage.
 

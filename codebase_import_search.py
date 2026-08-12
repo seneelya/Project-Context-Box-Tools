@@ -17,20 +17,20 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 # ---------------------------------------------------------------------------
-# Load shared config (optional) — cascade: CLI > tools_config > hardcoded defaults
+# Load shared config (optional) — cascade: CLI > CONFIG__TOOLS > hardcoded defaults
 # ---------------------------------------------------------------------------
 _TOOLS_DIR = Path(__file__).resolve().parent
 if str(_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_TOOLS_DIR))
 
 try:
-    import tools_config
+    import CONFIG__TOOLS
 
-    CFG_PROJECT_ROOT = getattr(tools_config, "PROJECT_ROOT", None)
-    CFG_LANGUAGE = getattr(tools_config, "LANGUAGE", "python")
-    CFG_TEST_DIRS = getattr(tools_config, "TEST_DIRS", [])
+    CFG_PROJECT_ROOT = getattr(CONFIG__TOOLS, "PROJECT_ROOT", None)
+    CFG_LANGUAGE = getattr(CONFIG__TOOLS, "LANGUAGE", "python")
+    CFG_TEST_DIRS = getattr(CONFIG__TOOLS, "TEST_DIRS", [])
 except ImportError:
-    print("Warning: tools_config.py missing — using defaults.", file=sys.stderr)
+    print("Warning: CONFIG__TOOLS.py missing — using defaults.", file=sys.stderr)
     CFG_PROJECT_ROOT = None
     CFG_LANGUAGE = "python"
     CFG_TEST_DIRS = []
@@ -73,12 +73,12 @@ def main():
     parser.add_argument(
         "--project-root",
         default=cfg_root,
-        help=f"Root directory to scan. Defaults from tools_config.py PROJECT_ROOT or '.' (current: {cfg_root})"
+        help=f"Root directory to scan. Defaults from CONFIG__TOOLS.py PROJECT_ROOT or '.' (current: {cfg_root})"
     )
     parser.add_argument(
         "--tests-only",
         action="store_true",
-        help="Show usages only from files under TEST_DIRS (configured in tools_config.py)"
+        help="Show usages only from files under TEST_DIRS (configured in CONFIG__TOOLS.py)"
     )
     parser.add_argument(
         "--incoming",

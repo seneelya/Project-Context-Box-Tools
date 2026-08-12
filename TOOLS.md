@@ -61,14 +61,14 @@ project topology lives — kept OUT of the source-analysis tools on purpose. Def
 
 ## Configuration notes
 
-- When `tools_config.py` exists, `PROJECT_ROOT`, `LANGUAGE`, `TEST_DIRS` are used as defaults for the
+- When `CONFIG__TOOLS.py` exists, `PROJECT_ROOT`, `LANGUAGE`, `TEST_DIRS` are used as defaults for the
   source-analysis tools (overridden by CLI `--project-root`, …).
 - Source language is auto-detected from extension: `.py`, `.ts`/`.js`, `.cs`. Python is
   indentation-based; TS/JS brace matching with string/template-literal awareness; C# brace matching
   with verbatim strings.
 - All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
 - Tests: `py test/check.py` (full golden report) · `py test/check.py --fails` (regressions only).
-- **Declared-surface backend** (`card_api` on TS/JS and C#): `tools_config.DECL_BACKEND` —
+- **Declared-surface backend** (`card_api` on TS/JS and C#): `CONFIG__TOOLS.DECL_BACKEND` —
   `auto` (tree-sitter if installed, else regex), `treesitter` (force), or `regex` (force the
   zero-dependency fallback). Python always uses stdlib `ast`. Tree-sitter is an OPTIONAL,
   self-contained dependency (no numpy/torch cascade):

@@ -23,7 +23,7 @@ Format: `- <decision> — <one-line why>`
 ## Card stamp (card_api)
 
 - Declared surface has ONE source per language: Python → stdlib `ast` (py_api); TS/JS → get_codeblock `declarations` — избегаем регекс-эвристики там, где можно разобрать по-настоящему.
-- tree-sitter — ОПЦИОНАЛЬНЫЙ бэкенд объявлений, переключается `tools_config.DECL_BACKEND` (auto|treesitter|regex); regex остаётся zero-dep фолбэком — тул копируется куда угодно и работает без установки.
+- tree-sitter — ОПЦИОНАЛЬНЫЙ бэкенд объявлений, переключается `CONFIG__TOOLS.DECL_BACKEND` (auto|treesitter|regex); regex остаётся zero-dep фолбэком — тул копируется куда угодно и работает без установки.
 - Резолюция модулей (`.js`→`.ts`, index-файлы, namespace) — всегда НАША: это build-семантика, парсер её не даёт.
 - Public API карточки = что выходит наружу (свои публичные / протёкшие `_`-приватные consumed / чужие ре-экспортнутые); Dependencies = что входит для работы. Барел-индекс (`index.*`/`__init__`/`mod.rs`) = фасад.
 

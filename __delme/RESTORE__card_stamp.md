@@ -13,7 +13,7 @@
 5. **`test/README.md`** — фикстуры и оракул (кратко).
 
 Глубже — только если правишь конкретный слой:
-- declared surface (declarations): regex — `get_codeblock/handlers/{typescript,csharp}_handler.py::declarations`; опц. tree-sitter — `get_codeblock/handlers/{ts,cs}_treesitter.py`; переключатель — `tools_config.DECL_BACKEND` (auto|treesitter|regex).
+- declared surface (declarations): regex — `get_codeblock/handlers/{typescript,csharp}_handler.py::declarations`; опц. tree-sitter — `get_codeblock/handlers/{ts,cs}_treesitter.py`; переключатель — `CONFIG__TOOLS.DECL_BACKEND` (auto|treesitter|regex).
 - reverse index / consumed surface: `codebase_import_search/handlers/*`, `resolvers/*`.
 
 ## Суть (одной сутью)

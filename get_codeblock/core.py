@@ -21,9 +21,9 @@ def is_absolute_path(p):
 
 
 def load_config():
-    """Load tools_config.py if available."""
+    """Load CONFIG__TOOLS.py if available."""
     try:
-        from tools_config import PROJECT_ROOT
+        from CONFIG__TOOLS import PROJECT_ROOT
         return {'PROJECT_ROOT': PROJECT_ROOT}
     except ImportError:
         return None

@@ -1,6 +1,6 @@
 """Tree-sitter backend for the C# declared surface (OPTIONAL, high-fidelity).
 
-Same role/shape as ts_treesitter: used by card_api when tools_config.DECL_BACKEND selects
+Same role/shape as ts_treesitter: used by card_api when CONFIG__TOOLS.DECL_BACKEND selects
 it, else the regex heuristic in csharp_handler.declarations() is the zero-dependency
 fallback. Returns {name, kind, exported, reexport_from, signature, methods, start, end}.
 
