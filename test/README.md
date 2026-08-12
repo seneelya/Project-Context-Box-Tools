@@ -30,7 +30,13 @@ Run with `--project-root test/<set>`.
   SwarmUI.Core`; `ExtensionsManager` uses the `Extension` type, etc.). Realistic C#:
   public types with members and modifiers, and same-namespace type usage that has NO
   `using` line — the case that makes C# "who uses this" a type-name question, not an
-  import one. Exercises C# declared surface + the consumed-surface gap.
+  import one. Big multi-type file: `Settings.cs` (34 types → nested-member attribution).
+
+- **unitySRC/Services/Analytics/** — a **Unity** DI/adapter cluster (7 files): interface
+  `IAnalyticsAdapter` implemented by 3 adapters in a CHILD namespace
+  (`Code.Services.Analytics.Adapters`) that see the parent type with no `using`, plus
+  `AnalyticsService : IAnalyticsService`. Exercises the third C# visibility case —
+  descendant-namespace sees ancestor types (interface→implementations = 4 consumers).
 
 - **mdSRC/** — memohood cards (`capture.py.md`, `cli.py.md`). No import links (Markdown);
   for `get_codeblock` heading sections / `--outline` (the canonical "pull `## Public API`" case).
@@ -53,4 +59,4 @@ py test/check.py --fails    # only mismatches + summary (quick regression run)
   really uses 4 symbols of `_http`", "line 140 really sits 4 levels deep").
 
 ## Provenance
-Copied from memohood (own), ts-prune (MIT), zod (MIT), CoreSharp, SwarmUI (MIT) — for local test fixtures only.
+Copied from memohood (own), ts-prune (MIT), zod (MIT), CoreSharp, SwarmUI (MIT), a Unity project — for local test fixtures only.

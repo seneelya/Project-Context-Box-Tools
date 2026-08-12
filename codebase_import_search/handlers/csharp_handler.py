@@ -17,6 +17,8 @@ class CSharpHandler(LanguageHandler):
         self._attr_pattern_cache = {}
         # Cache for namespace→types mapping (computed once per project)
         self._namespace_types_cache: Dict[str, Set[str]] = {}
+        # Cache: target file path → its declared namespace (avoid re-reading per consumer)
+        self._target_ns_cache: Dict[str, str | None] = {}
         
         # Block patterns for import kind detection (using context)
         self.BLOCK_PATTERNS: Dict[str, re.Pattern] = {
@@ -76,6 +78,14 @@ class CSharpHandler(LanguageHandler):
             pass
 
         return types_found
+
+    def _target_namespace(self, target_file_path: str | None) -> str | None:
+        """Cached declared namespace of the target file (or None if unknown)."""
+        if not target_file_path:
+            return None
+        if target_file_path not in self._target_ns_cache:
+            self._target_ns_cache[target_file_path] = self._extract_namespace(target_file_path)
+        return self._target_ns_cache[target_file_path]
 
     def _extract_namespace(self, filepath: str) -> str | None:
         """Extract namespace declaration from a C# file."""
@@ -245,9 +255,10 @@ class CSharpHandler(LanguageHandler):
                     used_symbols[attr_path] = kind
                     symbol_lines.setdefault(attr_path, []).append(idx + 1)
 
-        # Same-namespace usage: types in the target's namespace are visible WITHOUT a
-        # `using` (you don't import your own namespace). If this file shares the target's
-        # namespace, treat it as an implicit import so the type-usage scan below runs —
+        # Implicit visibility: C# types in the target's namespace are visible WITHOUT a
+        # `using` from the SAME namespace and from any DESCENDANT namespace (an inner
+        # namespace sees its ancestors). If this file's namespace is the target's namespace
+        # or a descendant of it, treat it as an implicit import so the type-usage scan runs —
         # this is how C# "who uses this file" works (type references, not import lines).
         if not imported_target_ns:
             consumer_ns = None
@@ -259,7 +270,14 @@ class CSharpHandler(LanguageHandler):
                 if m:
                     consumer_ns = m.group(1)
                     break
-            if consumer_ns and consumer_ns in target_names:
+            target_ns = self._target_namespace(target_file_path)
+            visible = False
+            if consumer_ns:
+                if target_ns and (consumer_ns == target_ns or consumer_ns.startswith(target_ns + ".")):
+                    visible = True
+                elif consumer_ns in target_names:   # --module mode fallback (no target file)
+                    visible = True
+            if visible:
                 imported_target_ns.append((consumer_ns, "top-level"))
 
         # Third pass: if target namespace is imported via using directive,
