@@ -22,14 +22,14 @@ from ..core import ImportInfo, ImportResolver
 class TypeScriptResolver(ImportResolver):
     """Resolve TS/JS imports in a target file to source files within project_root."""
 
-    # ES named imports: import { foo } from '...' or "..."
-    ES_NAMED_RE = re.compile(r'^\s*import\s*\{([^}]+)\}\s+from\s+[\'"]([^\'"]+)[\'"]')
+    # ES named imports: import { foo } from '...'   (also `import type { … }`)
+    ES_NAMED_RE = re.compile(r'^\s*import\s*(?:type\s+)?\{([^}]+)\}\s+from\s+[\'"]([^\'"]+)[\'"]')
 
-    # ES default import: import Foo from '...'
-    ES_DEFAULT_RE = re.compile(r'^\s*import\s+(\w+)\s+from\s+[\'"]([^\'"]+)[\'"]')
+    # ES default import: import Foo from '...'       (also `import type Foo`)
+    ES_DEFAULT_RE = re.compile(r'^\s*import\s+(?:type\s+)?(\w+)\s+from\s+[\'"]([^\'"]+)[\'"]')
 
-    # ES namespace import: import * as ns from '...'
-    ES_NAMESPACE_RE = re.compile(r'^\s*import\s+\*\s+as\s+(\w+)\s+from\s+[\'"]([^\'"]+)[\'"]')
+    # ES namespace import: import * as ns from '...'  (also `import type * as ns`)
+    ES_NAMESPACE_RE = re.compile(r'^\s*import\s+(?:type\s+)?\*\s+as\s+(\w+)\s+from\s+[\'"]([^\'"]+)[\'"]')
 
     # CJS: const x = require('...')
     CJS_REQUIRE_RE = re.compile(
@@ -67,7 +67,7 @@ class TypeScriptResolver(ImportResolver):
             raw_line = stripped.split("//")[0].strip()
 
             # ES named imports: import { foo } from '...' (with multiline support)
-            import_start_match = re.match(r'^\s*import\s*\{', stripped)
+            import_start_match = re.match(r'^\s*import\s*(?:type\s+)?\{', stripped)
             if import_start_match:
                 full_text = stripped.split("//")[0].strip()
                 
@@ -89,7 +89,7 @@ class TypeScriptResolver(ImportResolver):
                         if re.search(r'\}\s*from\s+', full_text):
                             break
                 
-                m = re.match(r'^import\s*\{([^}]+)\}\s+from\s+[\'"]([^\'"]+)[\'"]', full_text)
+                m = re.match(r'^import\s*(?:type\s+)?\{([^}]+)\}\s+from\s+[\'"]([^\'"]+)[\'"]', full_text)
                 if not m:
                     continue
                     

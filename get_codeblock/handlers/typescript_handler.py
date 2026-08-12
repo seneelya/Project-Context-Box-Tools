@@ -421,7 +421,9 @@ class TypeScriptHandler:
           signature and are NOT cut); an arrow body `=> {` still stops the scan.
         """
         block = kind in self._BLOCK_BODIED
+        value_binding = kind in ('const', 'let', 'var')
         out, depth, j = [], 0, i
+        seen_colon = False   # a depth-0 `:` = a type annotation on a value binding
         stop = False
         while j < len(lines) and j < i + 40 and not stop:
             line = lines[j]
@@ -459,6 +461,16 @@ class TypeScriptHandler:
                 elif ch == ';' and depth == 0:
                     stop = True
                     break
+                elif ch == ':' and depth == 0 and value_binding:
+                    seen_colon = True                            # entering the type annotation
+                elif ch == '=' and depth == 0 and value_binding and seen_colon:
+                    # A typed binding `const x: T = impl` — the declared TYPE is the signature;
+                    # drop the `= impl` initializer. Skip `=>`, `==`, `>=`, `<=`, `!=`.
+                    nxt = line[k + 1] if k + 1 < n else ''
+                    prev = out[-1] if out else ''
+                    if nxt not in ('>', '=') and prev not in ('=', '<', '>', '!'):
+                        stop = True
+                        break
                 out.append(ch)
                 k += 1
             out.append(' ')
