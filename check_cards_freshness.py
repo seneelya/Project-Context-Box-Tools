@@ -158,7 +158,8 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")  # пути/сабджекты коммитов бывают с юникодом
     except Exception:
         pass
-    ap = argparse.ArgumentParser(description="Freshness of .py.md cards (LLM-lean output)")
+    ap = argparse.ArgumentParser(description="Freshness of .py.md cards (LLM-lean output)", add_help=False)
+    ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <project>/__map/)")
     ap.add_argument("--project-root", type=Path, default=None, help="корень проекта (по умолч. родитель __map/)")
     args = ap.parse_args()

@@ -81,6 +81,7 @@ def process_file(filepath, replacements, warned_expressions, dry_run=False):
 
 def main():
     parser = argparse.ArgumentParser(
+        add_help=False,
         description="Batch find-and-replace in files matching a mask.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\

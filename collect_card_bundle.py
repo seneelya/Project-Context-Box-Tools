@@ -61,7 +61,8 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    ap = argparse.ArgumentParser(description="Bundle a file's card + its deps' Public API")
+    ap = argparse.ArgumentParser(description="Bundle a file's card + its deps' Public API", add_help=False)
+    ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     ap.add_argument("target", help="файл (root-relative), напр. capture.py или _engine/embed.py")
     ap.add_argument("--cards-dir", type=Path, default=None)
     ap.add_argument("--depth", type=int, default=1, help="глубина транзитивных зависимостей (по умолч. 1)")

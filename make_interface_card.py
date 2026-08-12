@@ -609,7 +609,8 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    ap = argparse.ArgumentParser(description="Card stamp: fact-filled card skeleton for a file")
+    ap = argparse.ArgumentParser(description="Card stamp: fact-filled card skeleton for a file", add_help=False)
+    ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     ap.add_argument("file", nargs="?", help="target source file (root-relative or absolute); omit with --all")
     ap.add_argument("--project-root", type=str, default=".", help="project root for the reverse index")
     ap.add_argument("--out", type=str, default=None,

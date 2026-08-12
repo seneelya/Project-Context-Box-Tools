@@ -53,9 +53,11 @@ def main():
         auto_lang = LANG_MAP.get(ext)
 
     parser = argparse.ArgumentParser(
+        add_help=False,
         description="Find where symbols from a target module are imported or used across the project.",
         usage="%(prog)s --file PATH [--module-names N1,N2,...] [--language LNG] [--project-root ROOT] [--incoming] [--verbose] [--tests-only] [--symbol NAME]"
     )
+    parser.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     parser.add_argument("--file", help="Path to target file (relative or absolute)")
     parser.add_argument("--module", help="Module name instead of file path")
     parser.add_argument(

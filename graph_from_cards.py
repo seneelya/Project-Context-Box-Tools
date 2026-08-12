@@ -285,7 +285,8 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")  # карт-сводки бывают с юникодом (→, кириллица)
     except Exception:
         pass
-    ap = argparse.ArgumentParser(description="Flat project topology from __map/ cards")
+    ap = argparse.ArgumentParser(description="Flat project topology from __map/ cards", add_help=False)
+    ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <project-root>/__map)")
     ap.add_argument("--project-root", type=Path, default=None,
                     help="корень проекта для <root>/__map. Приоритет: флаг > CONFIG__TOOLS.PROJECT_ROOT > cwd")
