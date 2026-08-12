@@ -56,8 +56,12 @@ project topology lives — kept OUT of the source-analysis tools on purpose. Def
   with verbatim strings.
 - All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
 - Tests: `py test/check.py` (full golden report) · `py test/check.py --fails` (regressions only).
-- **Declared-surface backend** (`card_api` on TS/JS): `tools_config.DECL_BACKEND` — `auto`
-  (tree-sitter if installed, else regex), `treesitter` (force), or `regex` (force the
+- **Declared-surface backend** (`card_api` on TS/JS and C#): `tools_config.DECL_BACKEND` —
+  `auto` (tree-sitter if installed, else regex), `treesitter` (force), or `regex` (force the
   zero-dependency fallback). Python always uses stdlib `ast`. Tree-sitter is an OPTIONAL,
-  self-contained dependency (no numpy/torch cascade): `pip install tree-sitter tree-sitter-typescript`.
-  A real parse removes the regex signature/brace edge-cases; module resolution stays ours.
+  self-contained dependency (no numpy/torch cascade):
+  `pip install tree-sitter tree-sitter-typescript tree-sitter-c-sharp`.
+  A real parse removes the regex signature/brace edge-cases; module resolution and the
+  reverse index stay ours. In `auto`/`treesitter` mode, if a grammar is missing the tool
+  prints a one-time **stderr WARNING** naming the pip package and that it is running in the
+  regex fallback — so an agent knows the results are lower-fidelity (silence with `regex`).

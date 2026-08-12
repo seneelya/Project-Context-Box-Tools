@@ -127,21 +127,46 @@ def _decl_backend():
         return "auto"
 
 
-def _ts_declarations(src):
-    """TS/JS declared surface via the configured backend (tree-sitter or regex fallback)."""
+# Per-language tree-sitter backend module + the pip package that supplies its grammar.
+_TS_BACKEND = {
+    "typescript": ("get_codeblock.handlers.ts_treesitter", "tree-sitter-typescript"),
+    "csharp": ("get_codeblock.handlers.cs_treesitter", "tree-sitter-c-sharp"),
+}
+_WARNED = set()   # warn once per (language) per process
+
+
+def _warn_fallback(lang, pkg, forced):
+    if lang in _WARNED:
+        return
+    _WARNED.add(lang)
+    how = "DECL_BACKEND=treesitter but its grammar is missing" if forced else \
+          "high-fidelity tree-sitter backend not installed"
+    sys.stderr.write(
+        f"[card_api] WARNING: {how} for {lang} - running in the REGEX FALLBACK "
+        f"(lower-fidelity signatures). For a full parse install:  "
+        f"pip install tree-sitter {pkg}   (or set tools_config.DECL_BACKEND='regex' to silence)\n"
+    )
+
+
+def _declarations(lang, src):
+    """Declared surface for a brace language via DECL_BACKEND (tree-sitter or regex).
+
+    Emits a one-time stderr WARNING when `auto`/`treesitter` wanted tree-sitter but the
+    grammar isn't installed, so an agent knows results are the lower-fidelity fallback.
+    """
     backend = _decl_backend()
+    mod_name, pkg = _TS_BACKEND[lang]
     if backend in ("treesitter", "auto"):
         try:
-            from get_codeblock.handlers import ts_treesitter
-            if ts_treesitter.available():
-                return ts_treesitter.declarations(src)
-            if backend == "treesitter":
-                sys.stderr.write("card_api: DECL_BACKEND=treesitter but tree-sitter not installed; using regex\n")
+            import importlib
+            ts = importlib.import_module(mod_name)
+            if ts.available():
+                return ts.declarations(src)
+            _warn_fallback(lang, pkg, forced=(backend == "treesitter"))
         except Exception as e:
-            if backend == "treesitter":
-                sys.stderr.write(f"card_api: tree-sitter backend failed ({e}); using regex\n")
+            sys.stderr.write(f"[card_api] WARNING: tree-sitter backend for {lang} failed ({e}); using regex.\n")
     from get_codeblock.handlers import get_handler
-    return get_handler("typescript").declarations(src.splitlines(keepends=True))
+    return get_handler(lang).declarations(src.splitlines(keepends=True))
 
 
 def _declared(project_root, file, lang):
@@ -174,7 +199,7 @@ def _declared(project_root, file, lang):
             src = open(target_abs, encoding="utf-8", errors="replace").read()
         except OSError:
             return empty
-        decls = _ts_declarations(src)
+        decls = _declarations("typescript", src)
         exports, all_defs, reexports = [], {}, []
         for d in decls:
             if d["kind"] == "reexport":
@@ -187,13 +212,12 @@ def _declared(project_root, file, lang):
         return {"docstring_first": None, "exports": exports, "all_defs": all_defs, "reexports": reexports}
 
     if lang == "csharp":
-        from get_codeblock.handlers import get_handler
         try:
-            lines = open(target_abs, encoding="utf-8", errors="replace").readlines()
+            src = open(target_abs, encoding="utf-8", errors="replace").read()
         except OSError:
             return empty
         exports, all_defs = [], {}
-        for d in get_handler("csharp").declarations(lines):
+        for d in _declarations("csharp", src):
             all_defs[d["name"]] = d["signature"]
             if d["exported"]:
                 exports.append({"name": d["name"], "kind": d["kind"],
