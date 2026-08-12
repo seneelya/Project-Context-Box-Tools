@@ -22,7 +22,7 @@ import re
 import sys
 from pathlib import Path
 
-import card_format as cf
+import CARD_FORMAT as cf
 
 _DASH = re.compile(r"\s+[—–-]\s+")   # legacy "# name — summary" separator
 

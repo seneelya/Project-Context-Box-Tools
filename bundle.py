@@ -19,7 +19,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import card_format as cf
+import CARD_FORMAT as cf
 from rebuild_graph import build_graph  # соседний модуль в __HQ/tools/
 
 

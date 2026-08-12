@@ -29,4 +29,4 @@ make_interface_card.py <f>.py --project-root . --out <card> --force    # overwri
 * Declared-surface backend = `CONFIG__TOOLS.DECL_BACKEND` (`auto|treesitter|regex`); on a
   missing tree-sitter grammar prints a one-time stderr WARNING and falls back to regex.
 
-Contract of the format it writes = `card_format.py`. Authoring recipe = `__HQ/guides/Guide__MakeCard.md`.
+Contract of the format it writes = `CARD_FORMAT.py`. Authoring recipe = `__HQ/guides/Guide__MakeCard.md`.

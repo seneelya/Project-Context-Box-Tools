@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Валидатор карточек по контракту `card_format.py`. Скупой вывод — коучит создателя.
+"""Валидатор карточек по контракту `CARD_FORMAT.py`. Скупой вывод — коучит создателя.
 
 Проверяет на карточку:
 - H1 = имя файла (легаси `# name — summary` помечается как «перенеси сводку на отд. строку»);
@@ -19,7 +19,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import card_format as cf
+import CARD_FORMAT as cf
 from rebuild_graph import build_graph, _cells, _is_sep, _DASH
 
 
@@ -138,7 +138,7 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    ap = argparse.ArgumentParser(description="Validate cards against card_format.py")
+    ap = argparse.ArgumentParser(description="Validate cards against CARD_FORMAT.py")
     ap.add_argument("--cards-dir", type=Path, default=None)
     ap.add_argument("--project-root", type=Path, default=None, help="для проверки сирот")
     args = ap.parse_args()

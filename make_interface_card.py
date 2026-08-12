@@ -12,7 +12,7 @@
     (кто РЕАЛЬНО импортит символы цели; вскрывает leaked-private и dead surface).
   - зависимости самой цели                 <- codebase_import_search --incoming (резолв в файлы).
 
-Формат — из card_format.py (единый контракт). Мультиязычно: объявления берутся из
+Формат — из CARD_FORMAT.py (единый контракт). Мультиязычно: объявления берутся из
 языко-агностичного `declarations`, факты потребления/зависимостей уже мультиязычны.
 
 Использование:
@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import card_format as cf
+import CARD_FORMAT as cf
 
 
 _LANG = {".py": "python", ".ts": "typescript", ".tsx": "typescript",

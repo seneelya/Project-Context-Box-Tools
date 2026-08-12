@@ -9,7 +9,7 @@
 1. **`__HQ/DECISIONS.md`** — закрытые решения (card stamp, tree-sitter опционален, границы). Не релитигировать.
 2. **Хвост `__HQ/TRACKER.md`** — лог прогресса (строки `✅`), последние = где мы.
 3. **`make_interface_card.py`** — сам штемпель; докстринг вверху объясняет замысел и три факта.
-4. **`card_format.py`** — контракт формата; докстринг = точный скелет карточки (H1→summary→`## H2_SECTIONS`→`### H3_API_SUBSECTIONS`→`#### запись: строка-факт + строка-директива`).
+4. **`CARD_FORMAT.py`** — контракт формата; докстринг = точный скелет карточки (H1→summary→`## H2_SECTIONS`→`### H3_API_SUBSECTIONS`→`#### запись: строка-факт + строка-директива`).
 5. **`test/README.md`** — фикстуры и оракул (кратко).
 
 Глубже — только если правишь конкретный слой:
@@ -24,7 +24,7 @@
 
 Три факта, три источника: **declared** (Python→`py_api` ast; TS/C#→`get_codeblock declarations`,
 опц. tree-sitter), **consumed surface** (`codebase_import_search` downstream), **deps**
-(`--incoming`). Формат — из `card_format.py`. Public API = что выходит наружу
+(`--incoming`). Формат — из `CARD_FORMAT.py`. Public API = что выходит наружу
 (свои публичные / протёкшие `_`-приватные-consumed / чужие ре-экспорты); Dependencies = что входит.
 
 ## Ключевые контракты (детали — в DECISIONS)

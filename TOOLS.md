@@ -4,18 +4,20 @@ Dev "hands" for the ProjectStarter scheme — small, universal CLIs that compose
 philosophy), not one monster. **This file is the ROUTER**: pick a tool by task, read the one-line
 description + main flags; open the tool's `<name>__TLDR.md` only when you need copy-paste examples.
 
-**Conventions.** Every tool has a one-screen `<name>__TLDR.md` (glance-and-apply examples) and a full
-`--help`. Run tools from the **project root**: `python __HQ/tools/<name>.py …` (`--project-root .`
-and the `__map/` cards dir resolve from there). The folder is self-contained and travels with a
-project by copying — except `__delme/` (dev-only notes, safe to delete when deployed) and
-`CONFIG__TOOLS.py` (per-project config).
+**Conventions.** Every **utility** (lowercase name) has a one-screen `<name>__TLDR.md` (glance-and-apply
+examples) and a full `--help`; run them from the **project root**: `python __HQ/tools/<name>.py …`
+(`--project-root .` and the `__map/` cards dir resolve from there). The two **UPPERCASE files are not
+utilities** — `CONFIG__TOOLS.py` (per-project config) and `CARD_FORMAT.py` (the format contract): you
+read/edit them, not run them; their own docstring is the doc (and the guides link to them), so they
+have no TLDR. The folder is self-contained and travels with a project by copying — except `__delme/`
+(dev-only notes, safe to delete when deployed).
 
 ## Pick by task
 - **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_freshness`  (Python AST peek: `py_api`)
 - **Read the card map** (topology, gather context) → `rebuild_graph`, `bundle`
 - **Answer a fact about source** (who imports it · a code block · a file's API) → `codebase_import_search`, `get_codeblock`, `py_api`
 - **Mass-edit across files** (migrate / rename) → `replace_in_files`
-- **Change the card format itself** → `card_format` (the contract)
+- **Change the card format itself** → `CARD_FORMAT` (the contract)
 
 ---
 
@@ -38,7 +40,7 @@ Factual questions about source directly (heuristics for `.py` `.ts`/`.js` `.cs`,
 Build and consume the per-file `.py.md` card layer (this is where project topology lives — kept OUT of
 layer 1 on purpose). Default cards dir `./__map`; override with `--cards-dir` / `--project-root`.
 
-- **`card_format.py`** — (not a CLI) the format contract: section/subsection names, deps columns, the
+- **`CARD_FORMAT.py`** — (not a CLI) the format contract: section/subsection names, deps columns, the
   `File Path` graph edge, aliases, helpers. Edit the card shape HERE; the tools import it. Running it
   prints the skeleton.
 - **`make_interface_card.py <file> --project-root R [--out PATH] [--force]`** — the card STAMP: one
