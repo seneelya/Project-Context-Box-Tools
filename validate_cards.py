@@ -4,7 +4,7 @@
 Проверяет на карточку:
 - H1 = имя файла (легаси `# name — summary` помечается как «перенеси сводку на отд. строку»);
 - сводка (первая непустая строка после H1) не пуста (пустая строка после заголовка — ок);
-- присутствуют ВСЕ секции из SECTIONS (не-канонические/иноязычные заголовки помечаются как
+- присутствуют ВСЕ секции из H2_SECTIONS (не-канонические/иноязычные заголовки помечаются как
   «мигрировать» через canon());
 - `Dependencies Internal` = `(none)` или таблица с колонками DEPS_COLUMNS; каждый `File Path`
   резолвится в существующую карточку (иначе — ошибка);
@@ -82,7 +82,7 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
     for raw, body in secs:
         c = cf.canon(raw)
         present.setdefault(c, (raw, body))
-        if c in cf.SECTIONS and raw != c:
+        if c in cf.H2_SECTIONS_PACKAGE and raw != c:
             issues.append(f"non-canonical header '{raw}' -> '{c}'")
     for sec in cf.sections_for(fname):
         if sec not in present:

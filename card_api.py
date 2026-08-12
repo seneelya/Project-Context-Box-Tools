@@ -105,16 +105,16 @@ def _resolve_sibling_signature(target_abs, module, level, name):
 
 # The LLM fills prose; the stamp separates the machine FACT line from the agent DIRECTIVE
 # line so line-based patch edits never collide (fact editable too — it's just a line).
-DIRECTIVE_DESC = "<Agent: replace with a one-line description, or delete this line>"
-DIRECTIVE_SUMMARY = "<Agent: replace with a one-line summary of what this file does>"
+DIRECTIVE_DESC = "<Agent: replace with a concise, sufficient one-liner — what it does and its role; or delete if trivial>"
+DIRECTIVE_SUMMARY = "<Agent: replace with a concise one-line summary — what this file is and does>"
 
 
 def _consumers_fact(sym, consumers):
     """A plain, generated fact line: who really imports `sym`."""
     c = consumers.get(sym)
     if not c:
-        return "known consumers 0"
-    return f"known consumers {len(c)}: " + ", ".join(f for f, _k, _ln in c)
+        return "consumers 0"
+    return f"consumers {len(c)}: " + ", ".join(f for f, _k, _ln in c)
 
 
 def _emit_entry(lines, label, fact):
@@ -198,8 +198,8 @@ def build_card(project_root, file):
             sig = _resolve_sibling_signature(
                 os.path.join(project_root, file) if not os.path.isabs(file) else file, mod, lvl, nm)
             label = sig if sig else nm
-            lines.append(f"#### `{label}`")
-            lines.append(f"from .{mod} · {_consumers_fact(nm, consumers)}")
+            lines.append(f"#### `{label}`  ← .{mod}")
+            lines.append(_consumers_fact(nm, consumers))
             lines.append(DIRECTIVE_DESC)
             placed.add(nm)
         lines.append("")
@@ -237,10 +237,11 @@ def build_card(project_root, file):
     # ---- Dependencies External ----
     lines.append("## Dependencies External")
     lines.append("")
-    ext_detected = sorted({e for e in externals})
-    det = ext_detected or sorted(set(declared.get("external_imports", [])))
+    det = sorted({e for e in externals}) or sorted(set(declared.get("external_imports", [])))
+    det = [d for d in det if "__future__" not in d]   # drop Python's `from __future__ import …` noise
     if det:
-        lines.append("known external imports: " + ", ".join(det))
+        lines.append("external imports:")
+        lines.extend(det)
         lines.append("<Agent: keep only libs the reader may not know; else write (none)>")
     else:
         lines.append(cf.EMPTY)
