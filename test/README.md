@@ -18,6 +18,11 @@ Run with `--project-root test/<set>`.
   Links: `runner.ts` imports `analyze` from `analyzer.ts`; `analyzer.ts` imports from
   `configurator.ts`, `constants.ts`, `util/*.ts`, `utils/common.ts`.
 
+- **tsSRC2/core/** — the `v4/core` package of **zod** (dense internal graph; ESM/NodeNext
+  `import … from "./x.js"` specifiers that resolve to `.ts` files; barrel `index.ts` with
+  `export * from "./x.js"` re-exports). Realistic TS fixture: `util.ts` consumed by 8
+  siblings. Exercises `.js`-specifier resolution and (future) TS outline / facade re-exports.
+
 - **csharpSRC/** — `CoreSharp` pair (flat; C# resolves by namespace, not path).
   Link: `GlobalStopWatchInstance.cs` uses the `IGlobalStopWatch` interface.
 
@@ -42,4 +47,4 @@ py test/check.py --fails    # only mismatches + summary (quick regression run)
   really uses 4 symbols of `_http`", "line 140 really sits 4 levels deep").
 
 ## Provenance
-Copied from memohood (own), ts-prune (MIT), CoreSharp — for local test fixtures only.
+Copied from memohood (own), ts-prune (MIT), zod (MIT), CoreSharp — for local test fixtures only.

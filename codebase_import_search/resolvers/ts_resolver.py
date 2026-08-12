@@ -278,17 +278,23 @@ class TypeScriptResolver(ImportResolver):
 
         base_candidate = os.path.normpath(os.path.join(importing_dir, specifier))
 
-        # Try exact file with various extensions
-        for ext in [".ts", ".tsx", ".js", ".jsx"]:
-            candidate = base_candidate + ext
+        candidates = [base_candidate]  # 1. exact (specifier already carries a real extension)
+
+        # 2. ESM/NodeNext: specifier ends in .js/.mjs/... but the file on disk is .ts/.tsx —
+        #    strip the extension and retry the TS/JS set on the stem.
+        stem, ext = os.path.splitext(base_candidate)
+        if ext.lower() in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
+            candidates += [stem + e for e in (".ts", ".tsx", ".js", ".jsx")]
+
+        # 3. specifier had no extension — append the TS/JS set.
+        candidates += [base_candidate + e for e in (".ts", ".tsx", ".js", ".jsx")]
+
+        # 4. directory with an index file.
+        candidates += [os.path.join(base_candidate, "index" + e) for e in (".ts", ".tsx", ".js", ".jsx")]
+
+        for candidate in candidates:
             if os.path.isfile(candidate) and self._is_inside_project(candidate, project_root):
                 return candidate
-
-        # Try as directory with index files
-        for ext in [".ts", ".tsx", ".js", ".jsx"]:
-            index_path = os.path.join(base_candidate, "index" + ext)
-            if os.path.isfile(index_path) and self._is_inside_project(index_path, project_root):
-                return index_path
 
         # Not found inside project_root
         return None

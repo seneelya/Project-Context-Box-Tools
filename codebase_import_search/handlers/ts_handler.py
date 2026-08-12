@@ -3,10 +3,15 @@
 Supports ES module imports and CommonJS require() patterns via regex heuristics.
 """
 
+import os
 import re
 from typing import Dict, List, Set, Tuple
 
 from ..core import LanguageHandler
+
+# ESM/NodeNext: an import path may carry a .js extension while the file on disk is .ts
+# (`import x from "./util.js"` → util.ts). Strip these before matching/resolving.
+_MODULE_EXTS = {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
 
 
 class TypeScriptHandler(LanguageHandler):
@@ -83,25 +88,26 @@ class TypeScriptHandler(LanguageHandler):
         """
         if not imported_specifier:
             return False
-        # Exact match
-        if imported_specifier in target_names:
-            return True
-        # Normalize slashes for comparison
-        normalized = imported_specifier.replace("\\", "/")
-        if normalized in target_names:
-            return True
-        # Sub-module check (e.g., 'foo/bar' when target is 'foo')
-        for tn in target_names:
-            tnorm = tn.replace("\\", "/").rstrip("/")
-            if normalized == tnorm:
+        # Candidate spellings of the specifier: as-is, slash-normalized, and with a trailing
+        # module extension stripped (`./util.js` → `./util`, to match extensionless target names).
+        specs = {imported_specifier, imported_specifier.replace("\\", "/")}
+        for s in list(specs):
+            root, ext = os.path.splitext(s)
+            if ext.lower() in _MODULE_EXTS:
+                specs.add(root)
+        for normalized in specs:
+            if normalized in target_names:
                 return True
-            if normalized.startswith(tnorm + "/"):
-                return True
-        # Also try dotted form (for package-style names like "pkg.module")
-        dotted = normalized.replace("/", ".")
-        for tn in target_names:
-            if dotted == tn or dotted.startswith(tn + "."):
-                return True
+            # Sub-module check (e.g., 'foo/bar' when target is 'foo')
+            for tn in target_names:
+                tnorm = tn.replace("\\", "/").rstrip("/")
+                if normalized == tnorm or normalized.startswith(tnorm + "/"):
+                    return True
+            # Also try dotted form (for package-style names like "pkg.module")
+            dotted = normalized.replace("/", ".")
+            for tn in target_names:
+                if dotted == tn or dotted.startswith(tn + "."):
+                    return True
         return False
 
     def _build_attr_pattern(self, aliases: Set[str]) -> re.Pattern | None:
