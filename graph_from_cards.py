@@ -27,6 +27,21 @@ import CARD_FORMAT as cf
 _DASH = re.compile(r"\s+[—–-]\s+")   # legacy "# name — summary" separator
 
 
+def resolve_project_root(cli_value):
+    """Корень проекта. Приоритет: CLI-флаг > CONFIG__TOOLS.PROJECT_ROOT > cwd.
+    Руками заданный путь всегда ГЛАВНЕЕ конфига. (Общий резолвер для тулов.)"""
+    if cli_value is not None:
+        return Path(cli_value).resolve()
+    try:
+        import CONFIG__TOOLS
+        pr = getattr(CONFIG__TOOLS, "PROJECT_ROOT", None)
+        if pr and pr != ".":
+            return Path(pr).resolve()
+    except Exception:
+        pass
+    return Path.cwd()
+
+
 def _cells(row):
     """'| a | b | c |' -> ['a','b','c'] (снятые бэктики/пробелы)."""
     return [c.strip().strip("`").strip() for c in row.strip().strip("|").split("|")]
@@ -271,7 +286,9 @@ def main():
     except Exception:
         pass
     ap = argparse.ArgumentParser(description="Flat project topology from __map/ cards")
-    ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <project>/__map/)")
+    ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <project-root>/__map)")
+    ap.add_argument("--project-root", type=Path, default=None,
+                    help="корень проекта для <root>/__map. Приоритет: флаг > CONFIG__TOOLS.PROJECT_ROOT > cwd")
     ap.add_argument("--json", action="store_true", help="выдать граф как JSON вместо плоского текста")
     ap.add_argument("--zone", metavar="FILE", default=None,
                     help="фокус-срез вокруг модуля: что он тянет (downstream) + кто тянет его (upstream)")
@@ -280,7 +297,7 @@ def main():
                     help="детекция циклических зависимостей, вывод цепочками A → B → C → A")
     args = ap.parse_args()
 
-    cards_dir = args.cards_dir.resolve() if args.cards_dir else (Path.cwd() / "__map")
+    cards_dir = args.cards_dir.resolve() if args.cards_dir else (resolve_project_root(args.project_root) / "__map")
     if not cards_dir.exists():
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)

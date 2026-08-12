@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 import CARD_FORMAT as cf
-from graph_from_cards import build_graph, _cells, _is_sep, _DASH
+from graph_from_cards import build_graph, resolve_project_root, _cells, _is_sep, _DASH
 
 
 def _sections(lines):
@@ -146,15 +146,20 @@ def main():
     except Exception:
         pass
     ap = argparse.ArgumentParser(description="Validate cards against CARD_FORMAT.py")
-    ap.add_argument("--cards-dir", type=Path, default=None)
-    ap.add_argument("--project-root", type=Path, default=None, help="для проверки сирот")
+    ap.add_argument("--cards-dir", type=Path, default=None,
+                    help="карточки (по умолч. <project-root>/__map)")
+    ap.add_argument("--project-root", type=Path, default=None,
+                    help="корень проекта (для сирот/pending и для <root>/__map). "
+                         "Приоритет: этот флаг > CONFIG__TOOLS.PROJECT_ROOT > cwd")
     args = ap.parse_args()
 
-    cards_dir = args.cards_dir.resolve() if args.cards_dir else (Path.cwd() / "__map")
+    # Корень: заданный руками флаг ГЛАВНЕЕ конфига; иначе CONFIG__TOOLS.PROJECT_ROOT; иначе cwd.
+    project_root = resolve_project_root(args.project_root)
+    # cards_dir выводится из корня, если не задан явно (иначе игнорировали --project-root -> баг).
+    cards_dir = args.cards_dir.resolve() if args.cards_dir else (project_root / "__map")
     if not cards_dir.exists():
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)
-    project_root = args.project_root.resolve() if args.project_root else None
 
     # рёбра/резолв берём из графа один раз
     unresolved_by_card = {}
