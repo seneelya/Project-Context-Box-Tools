@@ -38,8 +38,10 @@ H2_SECTIONS = [
 # (подмодули со ссылками на их карточки); Public API там = диспетчеры + Re-exports.
 H2_SECTIONS_PACKAGE = ["Package layout"] + H2_SECTIONS
 
-# Файлы-«пакеты» (индекс пакета). Другие языки добавляют свои: mod.rs, index.ts, mod.ts, ...
-PACKAGE_BASENAMES = ["__init__.py"]
+# Файлы-«индексы пакета» (фасады): по ним карточка считается ПАКЕТНОЙ (Package layout +
+# импорты трактуются как Re-exports). У каждого языка свой: Python __init__.py, TS/JS barrel
+# index.*, Rust mod.rs.
+PACKAGE_BASENAMES = ["__init__.py", "index.ts", "index.js", "index.tsx", "index.jsx", "mod.rs"]
 
 # Рекомендуемые  ### (H3)  под Public API — НЕ закрытый список: группируй экспорт по виду
 # и добавляй уместные для языка (Enums, Interfaces, Macros, ...). Порядок — важное первым.

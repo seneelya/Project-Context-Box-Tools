@@ -1,5 +1,7 @@
 """TypeScript/JavaScript language handler for get_codeblock."""
 
+import re
+
 
 def is_block_header(line):
     """Check if line starts a named block (function/class/interface/etc)."""
@@ -364,4 +366,67 @@ class TypeScriptHandler:
                 break
 
         return start
+
+    # -- declared surface (for card_api) --------------------------------------
+
+    def declarations(self, lines):
+        """Top-level declarations (structural TS/JS heuristics) — the declared surface.
+
+        Returns a list of dicts, in file order:
+          {name, kind, exported, reexport_from, signature, start, end}
+        kind ∈ function|class|interface|enum|type|const|let|var|namespace|reexport.
+        `exported` = the line carries `export`. `reexport_from` set for
+        `export … from "x"` (barrel). `signature` = the header, multi-line joined and
+        cut at `{`/`;`. start/end are 1-indexed. Depth-0 only (nested members excluded).
+        """
+        out = []
+        stack = []
+        for i in range(len(lines)):
+            depth_before = len(stack)
+            s = lines[i].strip()
+            if depth_before == 0 and s and not s.startswith(('//', '*', '/*')):
+                d = self._parse_decl(lines, i)
+                if d:
+                    out.append(d)
+            self._scan_line_for_braces(lines[i], stack, i)
+        return out
+
+    def _parse_decl(self, lines, i):
+        s = lines[i].strip()
+        # re-export: `export {a, b} from '...'`  |  `export * (as X)? from '...'`
+        m = re.match(r'export\s+(?:type\s+)?(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s*from\s*["\']([^"\']+)["\']', s)
+        if m:
+            return {'name': m.group(1).strip(), 'kind': 'reexport', 'exported': True,
+                    'reexport_from': m.group(2), 'signature': s.rstrip(';'),
+                    'start': i + 1, 'end': i + 1}
+        exported = bool(re.match(r'export\b', s))
+        core = re.sub(r'^(?:export\s+|default\s+|declare\s+|abstract\s+|async\s+)+', '', s)
+        m = re.match(r'(function|class|interface|enum|namespace|module|type|const|let|var)\b\s*\*?\s*([A-Za-z_$][\w$]*)', core)
+        if not m:
+            return None
+        sig, end = self._decl_signature(lines, i)
+        return {'name': m.group(2), 'kind': m.group(1), 'exported': exported,
+                'reexport_from': None, 'signature': sig, 'start': i + 1, 'end': end}
+
+    def _decl_signature(self, lines, i):
+        """Join a (possibly multi-line) header into one signature, cut at the block `{`
+        or terminating `;`. Returns (signature, end_line_1indexed) — end = matching brace
+        when the decl opens a block, else the header's last line."""
+        parts, brace_line, j = [], None, i
+        while j < len(lines) and j < i + 15:
+            ln = lines[j]
+            parts.append(ln.strip())
+            if '{' in ln:
+                brace_line = j
+                break
+            if ln.strip().endswith(';') or '=>' in ln:
+                break
+            j += 1
+        sig = ' '.join(p for p in parts if p).split('{')[0].strip().rstrip(';').strip()
+        if brace_line is not None:
+            mb = self._find_matching_brace(lines, brace_line)
+            end = (mb + 1) if mb != -1 else (j + 1)
+        else:
+            end = j + 1
+        return sig, end
 

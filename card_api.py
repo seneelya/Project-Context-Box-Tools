@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """card_api.py — штемпель карточки: ОДНА команда -> готовый .md-скелет карточки, где
-ФАКТИЧЕСКИЕ секции заполнены детерминированно, а прозаические — заглушки `<!-- LLM: … -->`,
-которые ЛЛМ дописывает, прочитав исходник.
+ФАКТИЧЕСКИЕ секции заполнены детерминированно, а прозаические — строки-ДИРЕКТИВЫ
+`<Agent: …>`, которые ЛЛМ дописывает, прочитав исходник.
 
 Ничего нового не анализирует — ОРКЕСТРИРУЕТ три факта:
-  - объявленный API + сигнатуры        <- py_api.collect (ast; только Python)
-  - потреблённая поверхность            <- codebase_import_search downstream
-    (кто РЕАЛЬНО импортит символы цели, откуда; вскрывает leaked-private и dead-public)
-  - зависимости самой цели              <- codebase_import_search --incoming (резолв в файлы)
+  - объявленная поверхность + сигнатуры   <- единый источник:
+        Python  → py_api.collect (ast — точные типы параметров),
+        TS/JS   → get_codeblock declarations (структурные заголовки блоков),
+        (C# — позже; сейчас только факты потребления/зависимостей).
+  - потреблённая поверхность               <- codebase_import_search downstream
+    (кто РЕАЛЬНО импортит символы цели; вскрывает leaked-private и dead surface).
+  - зависимости самой цели                 <- codebase_import_search --incoming (резолв в файлы).
 
-Формат — из card_format.py (единый контракт), поэтому структура карточки валидна для
-validate_cards (рёбра File Path резолвятся, когда появятся карточки соседей).
-Python-first: для .py — полные сигнатуры; для остальных языков секции те же, сигнатуры пустые.
+Формат — из card_format.py (единый контракт). Мультиязычно: объявления берутся из
+языко-агностичного `declarations`, факты потребления/зависимостей уже мультиязычны.
 
 Использование:
     python card_api.py <file> --project-root PATH
@@ -28,11 +30,24 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import card_format as cf
 
 
-_LANG = {".py": "python", ".ts": "typescript", ".js": "typescript", ".cs": "csharp"}
+_LANG = {".py": "python", ".ts": "typescript", ".tsx": "typescript",
+         ".js": "typescript", ".jsx": "typescript", ".cs": "csharp"}
 
 
 def _lang(file):
     return _LANG.get(os.path.splitext(file)[1].lower(), "python")
+
+
+# The LLM fills prose; the stamp keeps the machine FACT line and the agent DIRECTIVE line
+# separate so line-based patch edits never collide (the fact is editable too — just a line).
+DIRECTIVE_DESC = "<Agent: replace with a concise, sufficient one-liner — what it does and its role; or delete this line if trivial>"
+DIRECTIVE_SUMMARY = "<Agent: replace with a concise one-line summary — what this file is and does>"
+
+# H4 declaration kind -> H3 subsection label (order below drives emission order).
+_KIND_H3 = {"function": "Functions", "class": "Classes", "interface": "Interfaces",
+            "enum": "Enums", "type": "Types", "namespace": "Namespaces",
+            "const": "Constants", "let": "Constants", "var": "Constants"}
+_H3_ORDER = ["Functions", "Classes", "Interfaces", "Enums", "Types", "Constants", "Namespaces"]
 
 
 # --- fact producers ----------------------------------------------------------
@@ -82,7 +97,7 @@ def deps_of(project_root, file):
 
 def _resolve_sibling_signature(target_abs, module, level, name):
     """Best-effort signature of a re-exported `name` from a relative import
-    `from <dots><module> import name` — resolve to a sibling .py and read its ast."""
+    `from <dots><module> import name` — resolve to a sibling .py and read its ast (Python)."""
     if level <= 0:
         return None
     base = Path(target_abs).parent
@@ -94,20 +109,61 @@ def _resolve_sibling_signature(target_abs, module, level, name):
         if p.is_file():
             try:
                 import py_api
-                defs = py_api.collect(p).get("all_defs", {})
-                return defs.get(name)
+                return py_api.collect(p).get("all_defs", {}).get(name)
             except Exception:
                 return None
     return None
 
 
+# --- declared surface (single source, per language) --------------------------
+
+def _declared(project_root, file, lang):
+    """Language-agnostic declared surface. Returns:
+      {docstring_first, exports:[{name,kind,signature,methods}], all_defs:{name:sig},
+       reexports:[{name,source[,module,level]}]}
+    Python via py_api(ast) — precise param types; TS/JS via get_codeblock declarations.
+    """
+    empty = {"docstring_first": None, "exports": [], "all_defs": {}, "reexports": []}
+    target_abs = file if os.path.isabs(file) else os.path.join(project_root, file)
+
+    if lang == "python":
+        import py_api
+        c = py_api.collect(Path(target_abs))
+        exports = [{"name": f["name"], "kind": "function", "signature": f["signature"], "methods": []}
+                   for f in c["functions"]]
+        exports += [{"name": cl["name"], "kind": "class", "signature": cl["name"], "methods": cl["methods"]}
+                    for cl in c["classes"]]
+        all_defs = dict(c["all_defs"])
+        for g in c["module_globals"]:
+            all_defs.setdefault(g, g)
+        reexports = [{"name": nm, "source": "." * imp["level"] + imp["module"],
+                      "module": imp["module"], "level": imp["level"]}
+                     for imp in c["import_froms"] if imp["level"] >= 1 for nm in imp["names"]]
+        return {"docstring_first": c["docstring_first"], "exports": exports,
+                "all_defs": all_defs, "reexports": reexports}
+
+    if lang == "typescript":
+        from get_codeblock.handlers import get_handler
+        try:
+            lines = open(target_abs, encoding="utf-8", errors="replace").readlines()
+        except OSError:
+            return empty
+        decls = get_handler("typescript").declarations(lines)
+        exports, all_defs, reexports = [], {}, []
+        for d in decls:
+            if d["kind"] == "reexport":
+                reexports.append({"name": d["name"], "source": d["reexport_from"]})
+                continue
+            all_defs[d["name"]] = d["signature"]
+            if d["exported"]:
+                exports.append({"name": d["name"], "kind": d["kind"],
+                                "signature": d["signature"], "methods": []})
+        return {"docstring_first": None, "exports": exports, "all_defs": all_defs, "reexports": reexports}
+
+    return empty  # csharp / unknown — declared surface TBD; facts still come from import_search
+
+
 # --- formatting --------------------------------------------------------------
-
-# The LLM fills prose; the stamp separates the machine FACT line from the agent DIRECTIVE
-# line so line-based patch edits never collide (fact editable too — it's just a line).
-DIRECTIVE_DESC = "<Agent: replace with a concise, sufficient one-liner — what it does and its role; or delete if trivial>"
-DIRECTIVE_SUMMARY = "<Agent: replace with a concise one-line summary — what this file is and does>"
-
 
 def _consumers_fact(sym, consumers):
     """A plain, generated fact line: who really imports `sym`."""
@@ -117,48 +173,32 @@ def _consumers_fact(sym, consumers):
     return f"consumers {len(c)}: " + ", ".join(f for f, _k, _ln in c)
 
 
-def _emit_entry(lines, label, fact):
-    """One API entry: signature heading, then the fact line, then the agent directive."""
-    lines.append(f"#### `{label}`")
-    lines.append(fact)
-    lines.append(DIRECTIVE_DESC)
-
-
 def build_card(project_root, file):
-    from codebase_import_search.core import rel_path  # noqa: F401 (parity import)
     lang = _lang(file)
     fname = os.path.basename(file)
     is_pkg = cf.is_package(fname)
 
     consumers = consumers_of(project_root, file)
     resolved, externals = deps_of(project_root, file)
-
-    declared = {"functions": [], "classes": [], "all_defs": {}, "module_globals": [],
-                "import_froms": [], "external_imports": [], "docstring_first": None,
-                "ok": lang == "python"}
-    if lang == "python":
-        import py_api
-        target_abs = os.path.join(project_root, file) if not os.path.isabs(file) else file
-        declared = py_api.collect(Path(target_abs))
+    declared = _declared(project_root, file, lang)
+    target_abs = file if os.path.isabs(file) else os.path.join(project_root, file)
 
     placed = set()
     lines = [f"# {fname}", ""]
     # Summary slot: the directive is the parsed summary (first non-empty line after H1);
-    # the docstring fact sits below it as generated context the agent can adapt or delete.
+    # the docstring fact sits below as generated context the agent may adapt or delete.
     lines.append(DIRECTIVE_SUMMARY)
-    ds = declared.get("docstring_first")
-    if ds:
-        lines.append(f"docstring 1st line: {ds}")
+    if declared["docstring_first"]:
+        lines.append(f"docstring 1st line: {declared['docstring_first']}")
     lines.append("")
 
     # ---- Package layout (package/facade only) ----
     if is_pkg:
-        rels = sorted({f".{'.' * (imp['level'] - 1)}{imp['module']}"
-                       for imp in declared.get("import_froms", []) if imp["level"] >= 1})
+        srcs = sorted({r["source"] for r in declared["reexports"]})
         lines.append("## Package layout")
         lines.append("")
-        if rels:
-            lines.append("known submodules (relative imports): " + ", ".join(rels))
+        if srcs:
+            lines.append("known submodules (re-exported from): " + ", ".join(srcs))
         lines.append("<Agent: one line per submodule — what it holds>")
         lines.append("")
 
@@ -166,57 +206,52 @@ def build_card(project_root, file):
     lines.append("## Public API")
     lines.append("")
 
-    if declared.get("functions"):
-        lines.append("### Functions")
-        for f in declared["functions"]:
-            _emit_entry(lines, f["signature"], _consumers_fact(f["name"], consumers))
-            placed.add(f["name"])
-        lines.append("")
-
-    if declared.get("classes"):
-        lines.append("### Classes")
-        for c in declared["classes"]:
-            lines.append(f"#### `{c['name']}`")
-            lines.append(_consumers_fact(c["name"], consumers))
+    # exported declarations, grouped by kind -> H3
+    by_h3 = defaultdict(list)
+    for e in declared["exports"]:
+        by_h3[_KIND_H3.get(e["kind"], "Objects")].append(e)
+    for h3 in _H3_ORDER + ["Objects"]:
+        group = by_h3.get(h3)
+        if not group:
+            continue
+        lines.append(f"### {h3}")
+        for e in group:
+            lines.append(f"#### `{e['signature']}`")
+            lines.append(_consumers_fact(e["name"], consumers))
             lines.append(DIRECTIVE_DESC)
-            for m in c["methods"]:
+            for m in e.get("methods", []):
                 lines.append(f"    - `{m['signature']}`")
-            placed.add(c["name"])
+            placed.add(e["name"])
         lines.append("")
 
-    # Re-exports: ONLY for a package/facade — top-level relative imports it exposes.
-    # A leaf module's relative imports are dependencies (Dependencies Internal), not re-exports.
-    reexports = []
-    if is_pkg:
-        for imp in declared.get("import_froms", []):
-            if imp["level"] >= 1:
-                for nm in imp["names"]:
-                    reexports.append((nm, imp["module"], imp["level"]))
-    if reexports:
+    # Re-exports (facade only): names surfaced onward from sibling modules.
+    if is_pkg and declared["reexports"]:
         lines.append("### Re-exports")
-        for nm, mod, lvl in reexports:
-            sig = _resolve_sibling_signature(
-                os.path.join(project_root, file) if not os.path.isabs(file) else file, mod, lvl, nm)
-            label = sig if sig else nm
-            lines.append(f"#### `{label}`  ← .{mod}")
-            lines.append(_consumers_fact(nm, consumers))
+        for r in declared["reexports"]:
+            sig = None
+            if lang == "python" and "module" in r:
+                sig = _resolve_sibling_signature(target_abs, r["module"], r["level"], r["name"])
+            lines.append(f"#### `{sig if sig else r['name']}`  ← {r['source']}")
+            lines.append(_consumers_fact(r["name"], consumers))
             lines.append(DIRECTIVE_DESC)
-            placed.add(nm)
+            placed.add(r["name"])
         lines.append("")
 
-    # Consumed internals: symbols DEFINED here (def/class/module-global) that other files
-    # really import, minus what's already placed — the leaked `_`-private interface + globals.
-    # Intersecting with "defined here" drops reverse-index false-positives for leaf modules.
-    defined_here = set(declared.get("all_defs", {})) | set(declared.get("module_globals", []))
+    # Consumed internals: symbols DEFINED here that other files really import but that are
+    # not part of the declared/exported surface — the leaked interface. Intersecting with
+    # "defined here" drops reverse-index false-positives.
+    defined_here = set(declared["all_defs"])
     leftover = sorted(s for s in consumers if s not in placed and s in defined_here)
     if leftover:
         lines.append(f"### {cf.CONSUMED_SUBSECTION}")
         for sym in leftover:
-            sig = declared.get("all_defs", {}).get(sym)
-            _emit_entry(lines, sig if sig else sym, _consumers_fact(sym, consumers))
+            sig = declared["all_defs"].get(sym)
+            lines.append(f"#### `{sig if sig else sym}`")
+            lines.append(_consumers_fact(sym, consumers))
+            lines.append(DIRECTIVE_DESC)
         lines.append("")
 
-    if not (declared.get("functions") or declared.get("classes") or reexports or leftover):
+    if not (any(by_h3.values()) or (is_pkg and declared["reexports"]) or leftover):
         lines.append("(none)")
         lines.append("")
 
@@ -237,8 +272,7 @@ def build_card(project_root, file):
     # ---- Dependencies External ----
     lines.append("## Dependencies External")
     lines.append("")
-    det = sorted({e for e in externals}) or sorted(set(declared.get("external_imports", [])))
-    det = [d for d in det if "__future__" not in d]   # drop Python's `from __future__ import …` noise
+    det = [d for d in sorted(set(externals)) if "__future__" not in d]  # drop `from __future__ …` noise
     if det:
         lines.append("external imports:")
         lines.extend(det)
@@ -273,8 +307,7 @@ def main():
     ap.add_argument("--project-root", type=str, default=".", help="project root for the reverse index")
     args = ap.parse_args()
 
-    project_root = os.path.abspath(args.project_root)
-    print(build_card(project_root, args.file))
+    print(build_card(os.path.abspath(args.project_root), args.file))
     return 0
 
 
