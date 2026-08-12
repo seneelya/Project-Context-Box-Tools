@@ -32,11 +32,15 @@ Run with `--project-root test/<set>`.
   `using` line — the case that makes C# "who uses this" a type-name question, not an
   import one. Big multi-type file: `Settings.cs` (34 types → nested-member attribution).
 
-- **unitySRC/Services/Analytics/** — a **Unity** DI/adapter cluster (7 files): interface
-  `IAnalyticsAdapter` implemented by 3 adapters in a CHILD namespace
-  (`Code.Services.Analytics.Adapters`) that see the parent type with no `using`, plus
-  `AnalyticsService : IAnalyticsService`. Exercises the third C# visibility case —
-  descendant-namespace sees ancestor types (interface→implementations = 4 consumers).
+- **unitySRC/Services/** — **Unity** clusters:
+  - `Analytics/` (7 files) — DI/adapter: interface `IAnalyticsAdapter` implemented by 3
+    adapters in a CHILD namespace (`…Analytics.Adapters`) that see the parent type with no
+    `using`, plus `AnalyticsService : IAnalyticsService`. Third C# visibility case —
+    descendant-namespace sees ancestor types (interface→implementations = 4 consumers).
+  - `Input/InputContext.cs` (**79KB**, generated Input System) — deeply nested `@`-verbatim
+    partial class + nested structs/interfaces. Big-file stress: regex vs tree-sitter diverge
+    on member count (regex under-reports on generated nesting) — the concrete case for the
+    optional tree-sitter backend. `Map/` (MapService 19KB + `IMapService`).
 
 - **mdSRC/** — memohood cards (`capture.py.md`, `cli.py.md`). No import links (Markdown);
   for `get_codeblock` heading sections / `--outline` (the canonical "pull `## Public API`" case).

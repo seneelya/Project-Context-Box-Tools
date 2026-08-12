@@ -8,7 +8,7 @@ _MODS = r"(?:public|internal|protected|private|abstract|sealed|static|partial|re
 _TYPE_RE = re.compile(
     r"^[ \t]*(?:\[[^\]]*\][ \t]*)*"
     r"(?P<mods>(?:" + _MODS + r"[ \t]+)*)"
-    r"(?P<kind>class|struct|interface|enum|record)(?:[ \t]+(?:class|struct))?[ \t]+(?P<name>\w+)"
+    r"(?P<kind>class|struct|interface|enum|record)(?:[ \t]+(?:class|struct))?[ \t]+(?P<name>@?\w+)"
 )
 
 
