@@ -12,12 +12,31 @@ _TYPE_RE = re.compile(
 )
 
 
+def _split_top_assign(head):
+    """Return `head` truncated at the first top-level assignment `=` (paren/bracket depth 0,
+    not `==`/`=>`/`>=`/`<=`/`!=`) — drops an initializer like `= new()` / `= "(x)"` so it
+    isn't mistaken for a method's parameter list."""
+    depth = 0
+    for idx, ch in enumerate(head):
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == "=" and depth == 0:
+            nxt = head[idx + 1] if idx + 1 < len(head) else ""
+            prv = head[idx - 1] if idx else ""
+            if nxt not in (">", "=") and prv not in ("=", "<", ">", "!"):
+                return head[:idx].strip()
+    return head
+
+
 def _csharp_member(line):
     """A public type member on this line -> (name, signature, kind) or None.
 
-    Heuristic: needs modifiers incl. `public`; a `(` before the body means a method
-    (name is the token before `(`), else a property/field (name is the last identifier
-    before `{`/`=`/`;`). Nested type declarations are handled separately, not here.
+    Needs modifiers incl. `public`. The initializer is dropped first (so `= new()` /
+    `= "(x)"` don't read as a param list); then a `(` on the declaration side means a
+    method (name = token before `(`), else a property/field (name = last identifier).
+    Nested type declarations are handled separately, not here.
     """
     s = line.strip()
     m = re.match(r"^(?:\[[^\]]*\][ \t]*)*(?P<mods>(?:" + _MODS + r"[ \t]+)+)", s)
@@ -26,15 +45,14 @@ def _csharp_member(line):
     if re.match(r"^(?:" + _MODS + r"[ \t]+)*(?:class|struct|interface|enum|record)\b", s):
         return None  # nested type — declarations() records it on its own
     head = re.split(r"\{|=>|;", s, 1)[0].strip()
-    nostr = re.sub(r'"[^"]*"|\'[^\']*\'', '', head)   # ignore parens inside string literals
-    if "(" in nostr:
-        name = nostr.split("(")[0].strip().split()[-1]
+    lhs = _split_top_assign(head).strip()
+    if "(" in lhs:
+        name = lhs.split("(")[0].strip().split()[-1]
         return name, head, "method"
-    head = re.split(r"=(?!=)", head, 1)[0].strip()   # drop field initializer
-    toks = re.findall(r"\w+", head)
+    toks = re.findall(r"\w+", lhs)
     if not toks:
         return None
-    return toks[-1], head, "member"
+    return toks[-1], lhs, "member"
 
 
 def is_block_header(line):
@@ -436,30 +454,37 @@ class CSharpHandler:
         internal). `methods` = public methods/properties/fields inside the type body.
         C# has no re-exports (namespace, not path) → reexport_from always None.
         """
-        out = []
+        # 1. all type declarations + their body ranges.
+        types = []
         for i, line in enumerate(lines):
             tm = _TYPE_RE.match(line)
             if not tm:
                 continue
-            end = find_body_end(lines, i)
-            methods = []
-            seen = set()
-            for j in range(i + 1, min(end + 1, len(lines))):
-                mem = _csharp_member(lines[j])
-                if mem and mem[0] not in seen:
-                    seen.add(mem[0])
-                    methods.append({"name": mem[0], "signature": mem[1]})
-            out.append({
-                "name": tm.group("name"),
-                "kind": tm.group("kind"),
+            types.append({
+                "i": i, "end": find_body_end(lines, i),
+                "name": tm.group("name"), "kind": tm.group("kind"),
                 "exported": "public" in tm.group("mods"),
-                "reexport_from": None,
                 "signature": re.split(r"\{", line.strip(), 1)[0].strip(),
-                "methods": methods,
-                "start": i + 1,
-                "end": end + 1,
+                "methods": [], "seen": set(),
             })
-        return out
+        # 2. attribute each public member to its INNERMOST enclosing type (so a nested
+        #    type's members are not double-counted onto the parent).
+        for j, line in enumerate(lines):
+            mem = _csharp_member(line)
+            if not mem:
+                continue
+            best = None
+            for t in types:
+                if t["i"] < j <= t["end"] and (best is None or t["i"] > best["i"]):
+                    best = t
+            if best is not None and mem[0] not in best["seen"]:
+                best["seen"].add(mem[0])
+                best["methods"].append({"name": mem[0], "signature": mem[1]})
+        # 3. emit
+        return [{"name": t["name"], "kind": t["kind"], "exported": t["exported"],
+                 "reexport_from": None, "signature": t["signature"],
+                 "methods": t["methods"], "start": t["i"] + 1, "end": t["end"] + 1}
+                for t in types]
 
     def line_level(self, lines, idx):
         """Logical nesting level of ONE line (0-based idx), 1-based.
