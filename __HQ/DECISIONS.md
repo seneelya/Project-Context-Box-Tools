@@ -20,6 +20,13 @@ Format: `- <decision> — <one-line why>`
 - `get_codeblock` levels: `level = 1 + enclosing block bodies`, file root = 1; **`0` is never a real depth** — it is reserved for `--level` addressing (the code line itself). Full ideology in `Vision01__get_codeblock.md`.
 - Card tools default their cards dir to `./__map` (CWD-relative) — a hand finds the map in whatever project it is run in, independent of where the script lives.
 
+## Card stamp (card_api)
+
+- Declared surface has ONE source per language: Python → stdlib `ast` (py_api); TS/JS → get_codeblock `declarations` — избегаем регекс-эвристики там, где можно разобрать по-настоящему.
+- tree-sitter — ОПЦИОНАЛЬНЫЙ бэкенд объявлений, переключается `tools_config.DECL_BACKEND` (auto|treesitter|regex); regex остаётся zero-dep фолбэком — тул копируется куда угодно и работает без установки.
+- Резолюция модулей (`.js`→`.ts`, index-файлы, namespace) — всегда НАША: это build-семантика, парсер её не даёт.
+- Public API карточки = что выходит наружу (свои публичные / протёкшие `_`-приватные consumed / чужие ре-экспортнутые); Dependencies = что входит для работы. Барел-индекс (`index.*`/`__init__`/`mod.rs`) = фасад.
+
 ## Tests
 
 - Golden oracle = **human hand-count** (independent of the code's author); lock/verify at semantic-change moments. Run `py test/check.py` green through every change; a FAIL names the exact file/line/case.
