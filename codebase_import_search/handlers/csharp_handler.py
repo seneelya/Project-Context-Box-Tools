@@ -60,13 +60,17 @@ class CSharpHandler(LanguageHandler):
             with open(filepath, "r", encoding="utf-8-sig") as f:
                 content = f.read()
 
-            # Match public class/struct/enums/interface definitions
+            # Match type definitions ONLY at line start (after attributes/modifiers), so
+            # prose like "// a class that does X" does not yield a phantom type "that".
+            # `record class`/`record struct` (C# 10) → take the name after the optional combo.
             type_pattern = re.compile(
-                r"(?:public\s+)?(?:static\s+)?(?:partial\s+)*(class|struct|enum|interface)\s+(\w+)",
+                r"^[ \t]*(?:\[[^\]]*\][ \t]*)*"
+                r"(?:(?:public|internal|protected|private|abstract|sealed|static|partial|readonly)[ \t]+)*"
+                r"(?:class|struct|enum|interface|record)(?:[ \t]+(?:class|struct))?[ \t]+(\w+)",
                 re.MULTILINE,
             )
             for m in type_pattern.finditer(content):
-                types_found.add(m.group(2))
+                types_found.add(m.group(1))
 
         except (OSError, UnicodeDecodeError):
             pass
@@ -240,6 +244,23 @@ class CSharpHandler(LanguageHandler):
                     _, kind = import_aliases[alias]
                     used_symbols[attr_path] = kind
                     symbol_lines.setdefault(attr_path, []).append(idx + 1)
+
+        # Same-namespace usage: types in the target's namespace are visible WITHOUT a
+        # `using` (you don't import your own namespace). If this file shares the target's
+        # namespace, treat it as an implicit import so the type-usage scan below runs —
+        # this is how C# "who uses this file" works (type references, not import lines).
+        if not imported_target_ns:
+            consumer_ns = None
+            for line in content_lines:
+                s = line.strip()
+                if s.startswith('﻿'):
+                    s = s[1:].strip()
+                m = re.match(r"namespace\s+([\w.]+)", s)
+                if m:
+                    consumer_ns = m.group(1)
+                    break
+            if consumer_ns and consumer_ns in target_names:
+                imported_target_ns.append((consumer_ns, "top-level"))
 
         # Third pass: if target namespace is imported via using directive,
         # check for usage of types from that namespace — track line numbers
