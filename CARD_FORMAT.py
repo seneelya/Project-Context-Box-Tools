@@ -102,8 +102,25 @@ def canon(token):
 
 
 def is_empty(text):
-    """True, если тело секции/ячейка — маркер пустоты (с бэктиками или без)."""
-    return text.strip().strip("`").strip() == EMPTY
+    """True, если тело секции/ячейка — маркер пустоты (с бэктиками или без).
+
+    Терпимо к пояснению после маркера на ТОЙ ЖЕ строке: `(none) — почему`
+    (естественный инстинкт LLM — аннотировать; формат адаптируется к нему).
+    Многострочное тело со структурой ниже (H3/таблица) пустым НЕ считается —
+    иначе реальные подсекции молча потерялись бы. Защита от `(nonexistent)` и т.п.:
+    сразу за маркером должен идти не буквенно-цифровой символ (пробел, тире, пунктуация).
+    """
+    s = text.strip().strip("`").strip()
+    if s == EMPTY:
+        return True
+    lines = [ln for ln in s.splitlines() if ln.strip()]
+    if len(lines) != 1:
+        return False
+    first = lines[0].strip().strip("`").strip()
+    if first == EMPTY:
+        return True
+    tail = first[len(EMPTY):]
+    return first.startswith(EMPTY) and not tail.lstrip()[:1].isalnum()
 
 
 def is_package(filename):
