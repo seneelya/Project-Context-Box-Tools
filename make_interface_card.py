@@ -496,7 +496,7 @@ def build_card(project_root, file, old_prose=None, report=None):
             lines.extend(op["ext_note"])
             report["kept_sections"].append("Dependencies External")
         else:
-            lines.append("<Agent: keep only libs the reader may not know; else write (none)>")
+            lines.append("<Agent: optional — one line ONLY if a lib above is non-obvious; else DELETE this line (do NOT edit the import list)>")
     else:
         lines.append(cf.EMPTY)
     lines.append("")
