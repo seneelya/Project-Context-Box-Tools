@@ -28,6 +28,12 @@ project topology lives — kept OUT of the source-analysis tools on purpose. Def
 
 - **`card_format.py`** — (not a CLI) single source of truth for the card format: section contracts,
   `File Path` edge column, aliases, `canon()`/`is_package()` helpers. Imported by the tools below.
+- **`card_api.py <file> --project-root R [--out PATH] [--force]`** — the card STAMP: one command emits
+  a fact-filled card skeleton (declared API + real signatures × consumed surface `consumers N` ×
+  dependencies), prose left as `<Agent: …>` directives for the LLM. Orchestrates py_api/get_codeblock/
+  import_search under the `card_format` contract; multilingual (py/ts/cs). `--out` writes the file
+  (won't overwrite without `--force`). Declared-surface backend via `DECL_BACKEND`. Authoring recipe:
+  `__HQ/guides/Guide__MakeCard.md`.
 - **`validate_cards.py [--cards-dir P] [--project-root P]`** — validate cards against the format
   contract (H1 = filename, required sections, deps resolve, orphans). Coaches the author; exit 1 on problems.
 - **`check_freshness.py [--cards-dir P] [--project-root P]`** — which cards are stale vs their source

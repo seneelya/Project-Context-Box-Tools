@@ -369,9 +369,33 @@ def main():
     ap = argparse.ArgumentParser(description="Card stamp: fact-filled card skeleton for a file")
     ap.add_argument("file", help="target source file (root-relative or absolute)")
     ap.add_argument("--project-root", type=str, default=".", help="project root for the reverse index")
+    ap.add_argument("--out", type=str, default=None,
+                    help="write the card to this file (default: print to stdout)")
+    ap.add_argument("--force", action="store_true",
+                    help="with --out: overwrite the file if it already exists")
     args = ap.parse_args()
 
-    print(build_card(os.path.abspath(args.project_root), args.file))
+    card = build_card(os.path.abspath(args.project_root), args.file)
+
+    if not args.out:
+        print(card)
+        return 0
+
+    # --out: write to a file, but never silently clobber an existing card (it may already
+    # hold hand-written prose). Refuse unless --force; the caller then merges/updates by hand.
+    if os.path.exists(args.out) and not args.force:
+        sys.stderr.write(
+            f"[card_api] card already exists: {args.out} - NOT overwriting.\n"
+            f"  It may contain filled descriptions. Either update it by hand, or re-run with "
+            f"--force to replace, or omit --out to print to stdout and merge manually.\n"
+        )
+        return 2
+    out_dir = os.path.dirname(os.path.abspath(args.out))
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(args.out, "w", encoding="utf-8") as fh:
+        fh.write(card)
+    sys.stderr.write(f"[card_api] wrote {args.out}\n")
     return 0
 
 

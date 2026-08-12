@@ -17,16 +17,27 @@ Example: source `_engine/db.py` → card `<PROJECT_ROOT>/__map/_engine/db.py.md`
 
 ## Part 1 — STAMP-FIRST  (use this)
 
-### Step 1 — generate the skeleton
-Run (write stdout to the card path above):
+### Step 1 — generate the skeleton (write it to the card file)
 ```
-py <TOOLS>/card_api.py <source-file> --project-root <PROJECT_ROOT>
+py <TOOLS>/card_api.py <source-file> --project-root <PROJECT_ROOT> --out <card-path>
 ```
-It prints a ready `.md` card where the **FACT** sections are already filled:
+`--out` writes the card file directly (creating folders). Without `--out` it PRINTS to
+stdout instead — then YOU must redirect it yourself (`… > <card-path>`). Prefer `--out`.
+
+The card is a ready `.md` where the **FACT** sections are already filled:
 - `## Public API` — real signatures grouped by kind (`### Functions/Classes/…`), and under each
   entry a fact line `consumers N: file1, file2` (who really imports it; `consumers 0` = nobody).
 - `## Dependencies Internal/External`, `## Package layout` (for a package/index file).
 - Prose slots are **directives**: `<Agent: …>` lines — that is YOUR job in Step 3.
+
+### Step 1b — if the card ALREADY exists
+`card_api --out` refuses to overwrite (exit 2, `card already exists`). Decide:
+- the existing card is only an **unfilled stamp** (still full of `<Agent: …>` lines, no real
+  descriptions) → re-run with **`--force`** to replace it;
+- the existing card has **real prose** → do NOT `--force` (you would delete the descriptions).
+  Instead run WITHOUT `--out` (to stdout) to get the fresh FACTS, and update only the changed
+  fact sections (Public API signatures, `consumers N`, dependencies) into the existing card by
+  hand, keeping the prose. (Use `check_freshness.py` to see which cards are stale.)
 
 ### Step 2 — check the stderr note
 If stderr shows `WARNING: … REGEX FALLBACK … pip install tree-sitter …`:
