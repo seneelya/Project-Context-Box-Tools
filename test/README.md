@@ -26,6 +26,12 @@ Run with `--project-root test/<set>`.
 - **csharpSRC/** — `CoreSharp` pair (flat; C# resolves by namespace, not path).
   Link: `GlobalStopWatchInstance.cs` uses the `IGlobalStopWatch` interface.
 
+- **csharpSRC2/Core/** — the `Core/` cluster of **SwarmUI** (7 files, one `namespace
+  SwarmUI.Core`; `ExtensionsManager` uses the `Extension` type, etc.). Realistic C#:
+  public types with members and modifiers, and same-namespace type usage that has NO
+  `using` line — the case that makes C# "who uses this" a type-name question, not an
+  import one. Exercises C# declared surface + the consumed-surface gap.
+
 - **mdSRC/** — memohood cards (`capture.py.md`, `cli.py.md`). No import links (Markdown);
   for `get_codeblock` heading sections / `--outline` (the canonical "pull `## Public API`" case).
 
@@ -47,4 +53,4 @@ py test/check.py --fails    # only mismatches + summary (quick regression run)
   really uses 4 symbols of `_http`", "line 140 really sits 4 levels deep").
 
 ## Provenance
-Copied from memohood (own), ts-prune (MIT), zod (MIT), CoreSharp — for local test fixtures only.
+Copied from memohood (own), ts-prune (MIT), zod (MIT), CoreSharp, SwarmUI (MIT) — for local test fixtures only.
