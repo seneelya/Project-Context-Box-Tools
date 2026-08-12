@@ -119,6 +119,131 @@ def build_graph(cards_dir):
     return {"nodes": nodes, "indeg": indeg, "unresolved": unresolved}
 
 
+def _reverse(nodes):
+    """id -> отсортированный список тех, кто ЗАВИСИТ от него (обратные рёбра)."""
+    rdeps = {i: [] for i in nodes}
+    for i, n in nodes.items():
+        for d in n["deps"]:
+            if d in rdeps:
+                rdeps[d].append(i)
+    return {i: sorted(v) for i, v in rdeps.items()}
+
+
+def _resolve_id(nodes, want):
+    """Точный id, иначе уникальный базовый путь (как в build_graph). None если не нашли/неоднозначно."""
+    want = want.strip().lstrip("./")
+    if want in nodes:
+        return want
+    cand = [i for i in nodes if i.split("/")[-1] == want.split("/")[-1]]
+    return cand[0] if len(cand) == 1 else None
+
+
+def _bfs(start, edges, depth):
+    """Множество узлов в пределах `depth` рёбер от start по edges (не включая сам start)."""
+    seen, frontier = set(), {start}
+    for _ in range(depth):
+        nxt = set()
+        for u in frontier:
+            for v in edges.get(u, []):
+                if v not in seen and v != start:
+                    seen.add(v)
+                    nxt.add(v)
+        frontier = nxt
+        if not frontier:
+            break
+    return seen
+
+
+def zone(graph, center, depth):
+    """Фокус-срез вокруг center: downstream (что тянет) + upstream (кто тянет), <= depth."""
+    nodes = graph["nodes"]
+    rdeps = _reverse(nodes)
+    deps = {i: n["deps"] for i, n in nodes.items()}
+    down = _bfs(center, deps, depth)
+    up = _bfs(center, rdeps, depth)
+    return {"center": center, "depth": depth, "down": down, "up": up, "rdeps": rdeps}
+
+
+def format_zone(graph, z):
+    nodes, rdeps = graph["nodes"], z["rdeps"]
+    c = z["center"]
+
+    def line(i):
+        s = nodes[i]["summary"]
+        return f"{i} — {s}" if s and not s.startswith("<Agent:") else i
+
+    out = [f"# zone: {c}  (depth {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)", ""]
+    out += ["## center", line(c),
+            f"  uses -> {', '.join(nodes[c]['deps']) or '(none)'}",
+            f"  used-by <- {', '.join(rdeps[c]) or '(none)'}", ""]
+
+    out.append(f"## downstream (what {c} transitively depends on, <={z['depth']})")
+    for i in sorted(z["down"]):
+        out.append(line(i))
+        if nodes[i]["deps"]:
+            out.append(f"    -> {', '.join(nodes[i]['deps'])}")
+    if not z["down"]:
+        out.append("(none)")
+
+    out += ["", f"## upstream (what transitively depends on {c}, <={z['depth']})"]
+    for i in sorted(z["up"]):
+        out.append(line(i))
+        if rdeps[i]:
+            out.append(f"    <- {', '.join(rdeps[i])}")
+    if not z["up"]:
+        out.append("(none)")
+    return "\n".join(out)
+
+
+def find_cycles(nodes):
+    """Элементарные циклы в графе зависимостей. -> [[a,b,c,a], ...] (дедуп по ротации)."""
+    deps = {i: n["deps"] for i, n in nodes.items()}
+    cycles, seen = [], set()
+
+    def canon(cyc):  # cyc без замыкающего повтора; каноним ротацией от мин-элемента
+        core = cyc[:-1]
+        k = core.index(min(core))
+        rot = tuple(core[k:] + core[:k])
+        return rot
+
+    stack, onstack = [], set()
+
+    def dfs(u):
+        stack.append(u)
+        onstack.add(u)
+        for v in deps.get(u, []):
+            if v == u:
+                continue
+            if v in onstack:                       # нашли обратное ребро -> цикл
+                cyc = stack[stack.index(v):] + [v]
+                key = canon(cyc)
+                if key not in seen:
+                    seen.add(key)
+                    cycles.append(list(key) + [key[0]])
+            elif v not in visited:
+                dfs(v)
+        stack.pop()
+        onstack.discard(u)
+        visited.add(u)
+
+    visited = set()
+    for start in sorted(nodes):
+        if start not in visited:
+            dfs(start)
+    return cycles
+
+
+def format_cycles(nodes, cycles):
+    out = ["# cycles (circular internal dependencies)"]
+    if not cycles:
+        return out[0] + "\n\n(none — graph is acyclic)"
+    out.append("")
+    for cyc in sorted(cycles, key=lambda c: (len(c), c)):
+        out.append(" → ".join(cyc))
+    out += ["", f"total: {len(cycles)} cycle(s)"]
+    return "\n".join(out)
+
+
 def format_text(graph, cards_dir_display):
     nodes, indeg, unresolved = graph["nodes"], graph["indeg"], graph["unresolved"]
     out = [f"# map: {len(nodes)} modules (dir={cards_dir_display})", "", "## modules"]
@@ -148,6 +273,11 @@ def main():
     ap = argparse.ArgumentParser(description="Flat project topology from __map/ cards")
     ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <project>/__map/)")
     ap.add_argument("--json", action="store_true", help="выдать граф как JSON вместо плоского текста")
+    ap.add_argument("--zone", metavar="FILE", default=None,
+                    help="фокус-срез вокруг модуля: что он тянет (downstream) + кто тянет его (upstream)")
+    ap.add_argument("--depth", type=int, default=1, help="глубина зоны в рёбрах (по умолч. 1)")
+    ap.add_argument("--cycles", action="store_true",
+                    help="детекция циклических зависимостей, вывод цепочками A → B → C → A")
     args = ap.parse_args()
 
     cards_dir = args.cards_dir.resolve() if args.cards_dir else (Path.cwd() / "__map")
@@ -159,6 +289,25 @@ def main():
     if not graph["nodes"]:
         print(f"no cards in {cards_dir}")
         sys.exit(0)
+
+    if args.cycles:
+        print(format_cycles(graph["nodes"], find_cycles(graph["nodes"])))
+        return
+
+    if args.zone:
+        center = _resolve_id(graph["nodes"], args.zone)
+        if not center:
+            print(f"zone: '{args.zone}' — no such card (need a root-relative path or a unique basename)",
+                  file=sys.stderr)
+            sys.exit(1)
+        z = zone(graph, center, max(1, args.depth))
+        if args.json:
+            print(json.dumps({"center": center, "depth": z["depth"],
+                              "downstream": sorted(z["down"]), "upstream": sorted(z["up"])},
+                             ensure_ascii=False, indent=2))
+        else:
+            print(format_zone(graph, z))
+        return
 
     if args.json:
         print(json.dumps({"nodes": graph["nodes"], "unresolved": graph["unresolved"]},

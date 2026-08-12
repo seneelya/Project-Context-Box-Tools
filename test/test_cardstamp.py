@@ -234,11 +234,45 @@ def test_stamp_all_recursive():
           not (root / "__map" / "__map").exists())
 
 
+def test_graph_zone_and_cycles():
+    """graph_from_cards: цикл A→B→C→A детектится; зона = downstream + upstream вокруг узла."""
+    from graph_from_cards import build_graph, find_cycles, zone
+
+    root = Path(tempfile.mkdtemp(prefix="graph_"))
+    cards = root / "__map"
+    cards.mkdir()
+
+    def card(name, deps):
+        if deps:
+            rows = "\n".join(f"| `{d[:-3]}` | `{d}` |  | why | normal |" for d in deps)
+            tbl = "| Import | File Path | Symbols | Why | Kind |\n|---|---|---|---|---|\n" + rows
+        else:
+            tbl = "(none)"
+        (cards / (name + ".md")).write_text(
+            f"# {name}\n\nsummary.\n\n## Dependencies Internal\n\n{tbl}\n", encoding="utf-8")
+
+    card("a.py", ["b.py"])
+    card("b.py", ["c.py"])
+    card("c.py", ["a.py"])   # cycle a -> b -> c -> a
+    card("d.py", ["a.py"])   # d depends on a (upstream of a)
+    g = build_graph(cards)
+
+    cycles = find_cycles(g["nodes"])
+    check("one elementary cycle", len(cycles) == 1)
+    check("cycle members a/b/c closed",
+          cycles and set(cycles[0][:-1]) == {"a.py", "b.py", "c.py"} and cycles[0][0] == cycles[0][-1])
+
+    z = zone(g, "a.py", 1)
+    check("zone downstream = {b}", z["down"] == {"b.py"})
+    check("zone upstream = {c,d}", z["up"] == {"c.py", "d.py"})
+
+
 def main():
     test_is_empty()
     test_validate_pending_vs_broken()
     test_resolver_submodule_and_docstring()
     test_stamp_all_recursive()
+    test_graph_zone_and_cycles()
     test_merge_preserves_prose()
     test_merge_signature_refresh()
     test_merge_salvage()
