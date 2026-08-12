@@ -43,6 +43,7 @@ def _lang(file):
 # separate so line-based patch edits never collide (the fact is editable too — just a line).
 DIRECTIVE_DESC = "<Agent: replace with a concise, sufficient one-liner — what it does and its role; or delete this line if trivial>"
 DIRECTIVE_SUMMARY = "<Agent: replace with a concise one-line summary — what this file is and does>"
+DIRECTIVE_HOWITWORKS = "<Agent: describe the actual mechanism/flow after reading the source; keep it precise — do NOT generalize a per-case detail to \"each/every\" unless it holds for all>"
 
 # H4 declaration kind -> H3 subsection label (order below drives emission order).
 _KIND_H3 = {"function": "Functions", "class": "Classes", "interface": "Interfaces",
@@ -502,7 +503,7 @@ def build_card(project_root, file, old_prose=None, report=None):
     lines.append("")
 
     # ---- prose-only sections ----
-    prose_section("How it works", "<Agent: describe the mechanism after reading the source>")
+    prose_section("How it works", DIRECTIVE_HOWITWORKS)
     lines.append("")
     prose_section("Doc links", cf.EMPTY)
     lines.append("")

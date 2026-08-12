@@ -51,7 +51,7 @@ def _fill(text):
     text = text.replace(mic.DIRECTIVE_SUMMARY, "SUMMARY_MARK")
     text = text.replace(mic.DIRECTIVE_DESC, "DESC_MARK", 1)
     text = text.replace("<Agent: why?>", "WHY_MARK", 1)
-    text = text.replace("<Agent: describe the mechanism after reading the source>", "HOWITWORKS_MARK")
+    text = text.replace(mic.DIRECTIVE_HOWITWORKS, "HOWITWORKS_MARK")
     return text
 
 
