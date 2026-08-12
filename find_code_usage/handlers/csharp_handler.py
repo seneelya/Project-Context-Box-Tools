@@ -1,4 +1,4 @@
-"""C# language handler for codebase_import_search.
+"""C# language handler for find_code_usage.
 
 Supports using directives, namespace aliases, and type-level usage detection via regex heuristics.
 """

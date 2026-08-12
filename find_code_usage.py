@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-codebase_import_search — find what symbols from a target module are actually used outside it.
+find_code_usage — find what symbols from a target module are actually used outside it.
 
 Usage:
-    codebase_import_search --file "_core/auth.py" [--module-names "alt1,alt2"] [--project-root "."] [--language python|typescript]
+    find_code_usage --file "_core/auth.py" [--module-names "alt1,alt2"] [--project-root "."] [--language python|typescript]
 
 Output (plain text):
     src/api/client.py: [CONSTANT, db_connect] [lazy: foo.function] [fallback: bar]
@@ -107,16 +107,16 @@ def main():
 
     if not args.file and not args.module:
         print("Find where symbols from a target module are imported or used across the project.")
-        print("Usage: codebase_import_search.py --file PATH [--module-names N1,N2,...] [--language LNG] [--incoming|--verbose|--tests-only] [--symbol NAME]")
+        print("Usage: find_code_usage.py --file PATH [--module-names N1,N2,...] [--language LNG] [--incoming|--verbose|--tests-only] [--symbol NAME]")
         print(f"Current PROJECT_ROOT=\"{cfg_root}\"")
         print()
         print("Full help with --help")
         sys.exit(1)
 
     sys.path.insert(0, str(_TOOLS_DIR))
-    from codebase_import_search.core import resolve_target_names, scan_downstream, scan_incoming
-    from codebase_import_search.handlers import get_handler
-    from codebase_import_search import report
+    from find_code_usage.core import resolve_target_names, scan_downstream, scan_incoming
+    from find_code_usage.handlers import get_handler
+    from find_code_usage import report
 
     try:
         target_path, target_names = resolve_target_names(args.file, args.module, args.module_names, project_root)
@@ -138,7 +138,7 @@ def main():
 
     # ----- Incoming mode: what the target imports (upstream) -----
     if args.incoming:
-        from codebase_import_search.resolvers import get_resolver
+        from find_code_usage.resolvers import get_resolver
         try:
             resolver = get_resolver(args.language)
         except ValueError as e:

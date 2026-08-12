@@ -1,4 +1,4 @@
-"""Shared utilities and base classes for codebase_import_search."""
+"""Shared utilities and base classes for find_code_usage."""
 
 import os
 import re

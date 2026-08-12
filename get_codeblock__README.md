@@ -41,7 +41,7 @@ language). One call shows all zoom options; then pick a `--level` and `--query` 
   deeper. Real depths are `1,2,3,…` — **`0` is never a real depth**; it is reserved for
   `--level` addressing (see below), meaning "the block containing the line, wherever it is".
 - Two axes, don't conflate: this DEPTH is what `get_line_levels` reports (and what
-  `codebase_import_search` prints as `levels=`); the `--level` argument below is NAVIGATION.
+  `find_code_usage` prints as `levels=`); the `--level` argument below is NAVIGATION.
 
 ### Text mode (with `--query`) — block framed by anchor comments
 
@@ -69,7 +69,7 @@ code (control blocks like `if`/`for` are excluded) — hierarchical, with ranges
 section with `--line N --query`. Works for `.md` and Python now (TS/C# pending).
 
 ```
-#Block level: 1 range: 1-381 — codebase_import_search — поиск публичного API
+#Block level: 1 range: 1-381 — find_code_usage — поиск публичного API
 #Block level: 2 range: 25-54 — Пример работы
 #Block level: 3 range: 57-70 — Параметры CLI
 ```

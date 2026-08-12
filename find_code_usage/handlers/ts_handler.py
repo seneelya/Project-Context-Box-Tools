@@ -1,4 +1,4 @@
-"""TypeScript/JavaScript language handler for codebase_import_search.
+"""TypeScript/JavaScript language handler for find_code_usage.
 
 Supports ES module imports and CommonJS require() patterns via regex heuristics.
 """

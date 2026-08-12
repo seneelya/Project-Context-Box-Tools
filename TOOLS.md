@@ -15,7 +15,7 @@ have no TLDR. The folder is self-contained and travels with a project by copying
 ## Pick by task
 - **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_cards_freshness`  (Python AST peek: `py_api`)
 - **Read the card map** (topology, gather context) → `graph_from_cards`, `collect_card_bundle`
-- **Answer a fact about source** (who imports it · a code block · a file's API) → `codebase_import_search`, `get_codeblock`, `py_api`
+- **Answer a fact about source** (who imports it · a code block · a file's API) → `find_code_usage`, `get_codeblock`, `py_api`
 - **Mass-edit across files** (migrate / rename) → `replace_in_files`
 - **Change the card format itself** → `CARD_FORMAT` (the contract)
 
@@ -26,7 +26,7 @@ have no TLDR. The folder is self-contained and travels with a project by copying
 Factual questions about source directly (heuristics for `.py` `.ts`/`.js` `.cs`, plus Markdown for
 `get_codeblock`). They fetch facts; they do NOT build the project graph.
 
-- **`codebase_import_search.py --file PATH`** — reverse import index: who *really* imports the target
+- **`find_code_usage.py --file PATH`** — reverse import index: who *really* imports the target
   and which symbols they consume (the "consumed surface" = real external interface). Flags: `--incoming`
   (upstream deps), `--verbose` (per source file), `--tests-only`, `--symbol NAME`, `--language`.
 - **`get_codeblock.py --file PATH [--line N]`** — the self-contained structural block around a line.

@@ -1,4 +1,4 @@
-"""Python import resolver for codebase_import_search (--incoming mode).
+"""Python import resolver for find_code_usage (--incoming mode).
 
 Given a target .py file, resolves its imports to source files within project_root.
 Only returns imports that resolve to files inside the project (ignores stdlib/third-party).

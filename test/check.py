@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden checker for codebase_import_search + get_codeblock.
+"""Golden checker for find_code_usage + get_codeblock.
 
 Compares live tool output on the `test/` fixtures against the oracle in `test/expected.py`
 (values a human verified by hand). Run:
@@ -64,11 +64,11 @@ def query_bounds(fixture, line, level):
     return (b["level"], b["start"], b["end"]) if b else None
 
 
-# --- codebase_import_search runners -----------------------------------------
+# --- find_code_usage runners -----------------------------------------
 
 def _cis_setup(root, file):
-    from codebase_import_search.core import resolve_target_names
-    from codebase_import_search.handlers import get_handler
+    from find_code_usage.core import resolve_target_names
+    from find_code_usage.handlers import get_handler
     project_root = os.path.join(_HERE, root)
     _t, target_names = resolve_target_names(file, None, "", project_root)
     file_arg = file if os.path.isabs(file) else os.path.join(project_root, file)
@@ -87,7 +87,7 @@ def _cis_setup(root, file):
 
 def downstream(root, file):
     """{consumer_file: [symbols]} — full."""
-    from codebase_import_search.core import scan_downstream
+    from find_code_usage.core import scan_downstream
     project_root, target_names, target_abs, lang, handler = _cis_setup(root, file)
     data, _dyn = scan_downstream(project_root, handler, target_names, target_abs, lang, True, [], False)
     return {f: sorted(syms.keys()) for f, syms in data.items()}
@@ -95,7 +95,7 @@ def downstream(root, file):
 
 def symbol_filter(root, file, symbols):
     """downstream filtered to symbols (exact / first / last token) — {file: [syms]}."""
-    from codebase_import_search.report import _match
+    from find_code_usage.report import _match
     want = set(symbols)
     out = {}
     for f, syms in downstream(root, file).items():
@@ -107,8 +107,8 @@ def symbol_filter(root, file, symbols):
 
 def incoming_detail(root, file):
     """Full incoming: resolved sources, externals, dangling, and per-source usage lines+levels in target."""
-    from codebase_import_search.core import scan_incoming
-    from codebase_import_search.resolvers import get_resolver
+    from find_code_usage.core import scan_incoming
+    from find_code_usage.resolvers import get_resolver
     project_root, target_names, target_abs, lang, handler = _cis_setup(root, file)
     resolver = get_resolver(lang)
     resolved, externals, usages, _stats = scan_incoming(resolver, target_abs, project_root, handler=handler, verbose=True)

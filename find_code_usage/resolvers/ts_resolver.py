@@ -1,4 +1,4 @@
-"""TypeScript/JavaScript import resolver for codebase_import_search (--incoming mode).
+"""TypeScript/JavaScript import resolver for find_code_usage (--incoming mode).
 
 Given a target .ts/.tsx/.js/.jsx file, resolves its imports to source files within project_root.
 Only returns imports that resolve to files inside the project (ignores node_modules/external packages).

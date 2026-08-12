@@ -1,4 +1,4 @@
-"""Python language handler for codebase_import_search."""
+"""Python language handler for find_code_usage."""
 
 import io
 import re

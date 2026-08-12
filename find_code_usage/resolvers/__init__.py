@@ -1,4 +1,4 @@
-"""Import resolvers registry for codebase_import_search (--incoming mode)."""
+"""Import resolvers registry for find_code_usage (--incoming mode)."""
 
 from ..core import ImportResolver
 

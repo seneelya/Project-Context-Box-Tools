@@ -17,9 +17,9 @@ make_interface_card.py <f>.py --project-root . --out <card> --force    # overwri
 
 * **Declared surface + signatures** — Python → `py_api.collect` (ast, exact param types);
   TS/JS/C# → `get_codeblock` declarations (structural block headers).
-* **Consumed surface** — `codebase_import_search` downstream: who REALLY imports each symbol
+* **Consumed surface** — `find_code_usage` downstream: who REALLY imports each symbol
   (`consumers N: file…`); exposes leaked-private and dead surface.
-* **Dependencies** — `codebase_import_search --incoming`, resolved to files.
+* **Dependencies** — `find_code_usage --incoming`, resolved to files.
 
 ## Flags & output
 

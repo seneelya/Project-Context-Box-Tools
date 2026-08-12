@@ -1,4 +1,4 @@
-"""Formatters for codebase_import_search — turn producer data into text output.
+"""Formatters for find_code_usage — turn producer data into text output.
 
 Kept separate from the data producers (core.scan_*) so output can change without
 touching detection logic, and so `--symbol` is a pure post-filter over the data.

@@ -8,9 +8,9 @@
         Python  → py_api.collect (ast — точные типы параметров),
         TS/JS   → get_codeblock declarations (структурные заголовки блоков),
         (C# — позже; сейчас только факты потребления/зависимостей).
-  - потреблённая поверхность               <- codebase_import_search downstream
+  - потреблённая поверхность               <- find_code_usage downstream
     (кто РЕАЛЬНО импортит символы цели; вскрывает leaked-private и dead surface).
-  - зависимости самой цели                 <- codebase_import_search --incoming (резолв в файлы).
+  - зависимости самой цели                 <- find_code_usage --incoming (резолв в файлы).
 
 Формат — из CARD_FORMAT.py (единый контракт). Мультиязычно: объявления берутся из
 языко-агностичного `declarations`, факты потребления/зависимостей уже мультиязычны.
@@ -55,8 +55,8 @@ _H3_ORDER = ["Functions", "Classes", "Interfaces", "Enums", "Types", "Constants"
 
 def _cis_setup(project_root, file):
     """Mirror of test/check.py: resolve target names + handler for import_search."""
-    from codebase_import_search.core import resolve_target_names
-    from codebase_import_search.handlers import get_handler
+    from find_code_usage.core import resolve_target_names
+    from find_code_usage.handlers import get_handler
     _t, target_names = resolve_target_names(file, None, "", project_root)
     file_arg = file if os.path.isabs(file) else os.path.join(project_root, file)
     target_abs = os.path.abspath(file_arg)
@@ -74,7 +74,7 @@ def _cis_setup(project_root, file):
 
 def consumers_of(project_root, file):
     """{symbol: [(consumer_rel, kind, [lines])]} — who really imports the target's symbols."""
-    from codebase_import_search.core import scan_downstream
+    from find_code_usage.core import scan_downstream
     pr, target_names, target_abs, lang, handler = _cis_setup(project_root, file)
     data, _dyn = scan_downstream(pr, handler, target_names, target_abs, lang, True, [], False)
     out = defaultdict(list)
@@ -88,8 +88,8 @@ def consumers_of(project_root, file):
 
 def deps_of(project_root, file):
     """(resolved, externals): the target's own upstream imports resolved to files."""
-    from codebase_import_search.core import scan_incoming
-    from codebase_import_search.resolvers import get_resolver
+    from find_code_usage.core import scan_incoming
+    from find_code_usage.resolvers import get_resolver
     pr, target_names, target_abs, lang, handler = _cis_setup(project_root, file)
     resolver = get_resolver(lang)
     resolved, externals, _usages, _stats = scan_incoming(resolver, target_abs, pr, handler=handler, verbose=False)

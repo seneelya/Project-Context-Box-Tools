@@ -14,7 +14,7 @@ Format: `- <decision> — <one-line why>`
 
 ## Tools contract
 
-- Boundary: source-analysis tools (`codebase_import_search`, `get_codeblock`, `py_api`) are **fact-fetchers**; "who-calls-whom" / project map is the **card layer** (`graph_from_cards` over cards). Do NOT grow the fetchers into a graph system — anti-monster, fight for every flag.
+- Boundary: source-analysis tools (`find_code_usage`, `get_codeblock`, `py_api`) are **fact-fetchers**; "who-calls-whom" / project map is the **card layer** (`graph_from_cards` over cards). Do NOT grow the fetchers into a graph system — anti-monster, fight for every flag.
 - Paths in tool output are always `/` (POSIX), regardless of OS — stable, greppable output.
 - All CLI tools force UTF-8 stdout — cards/commits are often Cyrillic; a cp1251 Windows console would crash otherwise.
 - `get_codeblock` levels: `level = 1 + enclosing block bodies`, file root = 1; **`0` is never a real depth** — it is reserved for `--level` addressing (the code line itself). Full ideology in `Vision01__get_codeblock.md`.

@@ -1,4 +1,4 @@
-# codebase_import_search
+# find_code_usage
 
 Find where a target module's symbols are imported or used across the project — the
 FACT of the real interface, not a guess.

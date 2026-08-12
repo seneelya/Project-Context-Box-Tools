@@ -1,10 +1,10 @@
-# codebase_import_search — поиск реального публичного API модуля
+# find_code_usage — поиск реального публичного API модуля
 
 ## Цель инструмента
 
 Два режима работы:
 
-- **Default mode (downstream consumers)** — агент исследует файл → пишет карточку документации описывающую внешний интерфейс модуля → запускает утилиту `codebase_import_search` → видит что из этого файла реально импортируется и используется в других файлах проекта → корректирует описание публичного API.
+- **Default mode (downstream consumers)** — агент исследует файл → пишет карточку документации описывающую внешний интерфейс модуля → запускает утилиту `find_code_usage` → видит что из этого файла реально импортируется и используется в других файлах проекта → корректирует описание публичного API.
   - **Ключевой вопрос:** ЧТО из исследуемого модуля является внешним интерфейсом (реально используется вовне)?
 
 - **`--incoming` mode (upstream dependencies)** — показывает откуда целевой файл берёт свои зависимости: каждый исходный файл внутри project-root перечислен с символами, которые из него импортируются. Внешние пакеты/stdlib сгруппированы внизу как `[external]: <import_line>`.
@@ -27,7 +27,7 @@
 Запрос:
 ```bash
 cd /workspace/SRC/memohood
-python3 codebase_import_search.py --file "_engine/backends/__init__.py" --module-names "backends"
+python3 find_code_usage.py --file "_engine/backends/__init__.py" --module-names "backends"
 ```
 
 Вывод:
@@ -140,18 +140,18 @@ backends:
 **Базовый случай:** исследуем файл внутри текущего проекта:
 ```bash
 cd /workspace/SRC/memohood
-python3 codebase_import_search.py --file "db.py"
+python3 find_code_usage.py --file "db.py"
 ```
 
 **С дополнительными именами модуля:** если модуль импортируют под разными именами:
 ```bash
-python3 codebase_import_search.py --file "_core/secret.py" --module-names "_secret_module,auth_core"
+python3 find_code_usage.py --file "_core/secret.py" --module-names "_secret_module,auth_core"
 ```
 
 **Явный project-root:**
 ```bash
 cd /workspace/SRC/memohood
-python3 codebase_import_search.py --file "_engine/backends/__init__.py" --project-root "."
+python3 find_code_usage.py --file "_engine/backends/__init__.py" --project-root "."
 ```
 
 ### Примеры запуска `--incoming` mode (upstream dependencies)
@@ -159,7 +159,7 @@ python3 codebase_import_search.py --file "_engine/backends/__init__.py" --projec
 **Python:** показать зависимости файла `_engine/embed.py`:
 ```bash
 cd /workspace/SRC/memohood
-python3 codebase_import_search.py --incoming --file "_engine/embed.py"
+python3 find_code_usage.py --incoming --file "_engine/embed.py"
 # Вывод:
 # # 12 imports in target, 3 resolved to 2 unique sources
 # _engine/__init__.py: [backends, db]
@@ -170,7 +170,7 @@ python3 codebase_import_search.py --incoming --file "_engine/embed.py"
 **TypeScript:** показать зависимости файла `src/analyzer.ts`:
 ```bash
 cd /workspace/SRC/ts-prune
-python3 codebase_import_search.py --incoming --file "src/analyzer.ts"
+python3 find_code_usage.py --incoming --file "src/analyzer.ts"
 # Вывод:
 # # 8 imports in target, 6 resolved to 6 unique sources
 # src/configurator.ts: [IConfigInterface]
@@ -181,7 +181,7 @@ python3 codebase_import_search.py --incoming --file "src/analyzer.ts"
 **C#:** показать зависимости файла `GlobalStopWatchInstance.cs`:
 ```bash
 cd /workspace/SRC/CoreSharp
-python3 codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/GlobalStopWatchInstance.cs"
+python3 find_code_usage.py --incoming --file "source/CoreSharp/Utilities/GlobalStopWatchInstance.cs"
 # Вывод:
 # # 4 imports in target, 1 resolved to 1 unique source
 # source/CoreSharp/Interfaces/IGlobalStopWatch.cs: [IGlobalStopWatch]
@@ -190,13 +190,13 @@ python3 codebase_import_search.py --incoming --file "source/CoreSharp/Utilities/
 
 **Автодетект языка:** достаточно указать `--file` — язык определяется по расширению:
 ```bash
-python3 codebase_import_search.py --incoming --file "src/state.ts" --project-root "/workspace/SRC/ts-prune"
+python3 find_code_usage.py --incoming --file "src/state.ts" --project-root "/workspace/SRC/ts-prune"
 ```
 
 **C# на больших проектах:** SWARM_SRC и Unity (автодетект по .cs):
 ```bash
-python3 codebase_import_search.py --incoming --file "Backends/BackendHandler.cs" --project-root "/workspace/SRC/test_SWARM_SRC"
-python3 codebase_import_search.py --incoming --file "Code/Core/Common/Commands/HttpCmd.cs" --project-root "/workspace/SRC/test_Unity"
+python3 find_code_usage.py --incoming --file "Backends/BackendHandler.cs" --project-root "/workspace/SRC/test_SWARM_SRC"
+python3 find_code_usage.py --incoming --file "Code/Core/Common/Commands/HttpCmd.cs" --project-root "/workspace/SRC/test_Unity"
 ```
 
 ### Формат вывода default mode (downstream consumers)
@@ -340,7 +340,7 @@ Regex-based подход не идеален — он видит текст, а 
 
 Инструмент спроектирован модульно с самого начала:
 
-- `LanguageHandler(ABC)` — абстрактный класс обработчика языка в `codebase_import_search/core.py`
+- `LanguageHandler(ABC)` — абстрактный класс обработчика языка в `find_code_usage/core.py`
 - Реализации по языкам в отдельных файлах:
   - `handlers/python_handler.py` — PythonHandler (static imports, dynamic detection, import kinds)
   - `handlers/ts_handler.py` — TypeScriptHandler (ES modules, CommonJS require, namespace imports)

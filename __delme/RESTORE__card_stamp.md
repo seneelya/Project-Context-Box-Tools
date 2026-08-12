@@ -14,7 +14,7 @@
 
 Глубже — только если правишь конкретный слой:
 - declared surface (declarations): regex — `get_codeblock/handlers/{typescript,csharp}_handler.py::declarations`; опц. tree-sitter — `get_codeblock/handlers/{ts,cs}_treesitter.py`; переключатель — `CONFIG__TOOLS.DECL_BACKEND` (auto|treesitter|regex).
-- reverse index / consumed surface: `codebase_import_search/handlers/*`, `resolvers/*`.
+- reverse index / consumed surface: `find_code_usage/handlers/*`, `resolvers/*`.
 
 ## Суть (одной сутью)
 
@@ -23,7 +23,7 @@
 проза — строки-директивы `<Agent: …>`, которые ЛЛМ дописывает по исходнику.
 
 Три факта, три источника: **declared** (Python→`py_api` ast; TS/C#→`get_codeblock declarations`,
-опц. tree-sitter), **consumed surface** (`codebase_import_search` downstream), **deps**
+опц. tree-sitter), **consumed surface** (`find_code_usage` downstream), **deps**
 (`--incoming`). Формат — из `CARD_FORMAT.py`. Public API = что выходит наружу
 (свои публичные / протёкшие `_`-приватные-consumed / чужие ре-экспорты); Dependencies = что входит.
 

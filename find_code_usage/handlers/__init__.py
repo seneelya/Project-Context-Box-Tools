@@ -1,4 +1,4 @@
-"""Language handlers registry for codebase_import_search."""
+"""Language handlers registry for find_code_usage."""
 
 from ..core import LanguageHandler
 

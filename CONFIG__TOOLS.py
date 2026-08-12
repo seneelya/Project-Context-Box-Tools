@@ -35,7 +35,7 @@ PROJECT_ROOT = _resolve_root([
 # ---------------------------------------------------------------------------
 # LANGUAGE: default language handler to use
 # Change this according to your project's primary language.
-# Supported values depend on each tool — codebase_import_search supports:
+# Supported values depend on each tool — find_code_usage supports:
 #   python, typescript (ts), js, csharp (cs)
 # ---------------------------------------------------------------------------
 LANGUAGE = "python"

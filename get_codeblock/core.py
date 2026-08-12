@@ -235,7 +235,7 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
 def get_line_levels(file_path: str, line_nums: list) -> dict:
     """Efficiently get block levels for multiple lines in ONE file parse.
 
-    Designed for callers like codebase_import_search that need levels for many
+    Designed for callers like find_code_usage that need levels for many
     usage lines in the same file — avoids re-parsing file N times.
 
     Args:

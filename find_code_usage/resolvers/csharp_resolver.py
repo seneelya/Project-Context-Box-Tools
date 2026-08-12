@@ -1,4 +1,4 @@
-"""C# import resolver for codebase_import_search (--incoming mode).
+"""C# import resolver for find_code_usage (--incoming mode).
 
 Given a target .cs file, resolves its using directives to source files within project_root.
 Only returns imports that resolve to files inside project-root (filters out System.*, NuGet packages, etc.).

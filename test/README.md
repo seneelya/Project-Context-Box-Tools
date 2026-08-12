@@ -1,6 +1,6 @@
 # test fixtures — golden-test inputs
 
-Real (copied) files for golden tests of `codebase_import_search` and `get_codeblock`.
+Real (copied) files for golden tests of `find_code_usage` and `get_codeblock`.
 Each language set is a **connected chain**: at least one real cross-file link, so the
 scanners have something to resolve. Expected outputs get recorded as golden files and the
 counts are hand-verified (oracle = human finger-count, not the code's author).
