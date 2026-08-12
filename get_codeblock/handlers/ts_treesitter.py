@@ -1,6 +1,6 @@
 """Tree-sitter backend for the TS/JS declared surface (OPTIONAL, high-fidelity).
 
-Used by card_api when CONFIG__TOOLS.DECL_BACKEND selects it; otherwise the zero-dependency
+Used by make_interface_card when CONFIG__TOOLS.DECL_BACKEND selects it; otherwise the zero-dependency
 regex heuristic in typescript_handler.declarations() is used. Returns the SAME dict shape:
   {name, kind, exported, reexport_from, signature, start, end}
 

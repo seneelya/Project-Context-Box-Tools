@@ -1,9 +1,15 @@
 # validate_cards
 
 Validates cards against the `card_format.py` contract. Lean output that **coaches the author**;
-exit 1 on any problem (so it gates in a loop). Independent of `card_api.py`.
+exit 1 on any problem (so it gates in a loop). Independent of `make_interface_card.py`.
 
 **Target:** `validate_cards.py [--cards-dir P] [--project-root P]` — defaults: cards = `<project>/__map/`.
+
+## Quick use
+```
+validate_cards.py --project-root .                         # validate ./__map
+validate_cards.py --cards-dir path/__map --project-root .  # custom cards dir
+```
 
 ## Checks (per card)
 

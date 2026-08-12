@@ -5,6 +5,11 @@ LLM-readable output (no frames/emoji); exit 1 if anything is stale or orphaned.
 
 **Target:** `check_freshness.py [--cards-dir P] [--project-root P]` — defaults: cards = `<project>/__map/`.
 
+## Quick use
+```
+check_freshness.py --project-root .    # list stale + orphan cards (git mode)
+```
+
 ## Modes
 
 * **git** (default) — a card is stale if the source was touched without updating the card:
@@ -13,4 +18,4 @@ LLM-readable output (no frames/emoji); exit 1 if anything is stale or orphaned.
   source after the card — the agent sees immediately what to look at.
 * **mtime** (fallback) — compares card vs source mtime when git isn't available.
 
-Use it to decide WHICH cards to re-stamp (`card_api --force`) after code changes.
+Use it to decide WHICH cards to re-stamp (`make_interface_card --force`) after code changes.

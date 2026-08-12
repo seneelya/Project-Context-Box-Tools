@@ -1,6 +1,6 @@
 """Контракт формата карточки — ЕДИНЫЙ источник истины.
 
-Правь ФОРМАТ здесь; `validate_cards.py` / `rebuild_graph.py` / `bundle.py` / `card_api.py`
+Правь ФОРМАТ здесь; `validate_cards.py` / `rebuild_graph.py` / `bundle.py` / `make_interface_card.py`
 импортят эти переменные — код тулов не трогаем.
 
 СКЕЛЕТ КАРТОЧКИ (точная форма с вложенностью; ЛЛМ дописывает прозу, прочитав исходник):
@@ -55,7 +55,7 @@ REEXPORT_SUBSECTION = "Re-exports"
 
 # "Consumed internals": `_`-приватные имена, которые ФАКТИЧЕСКИ импортируются другими
 # файлами (обратный индекс) — де-факто интерфейс, хотя названы приватно. Здесь `_`-имена
-# тоже ДОПУСТИМЫ. Заполняется штемпелем `card_api.py` из consumed surface.
+# тоже ДОПУСТИМЫ. Заполняется штемпелем `make_interface_card.py` из consumed surface.
 CONSUMED_SUBSECTION = "Consumed internals"
 
 # Подсекции Public API, где приватные `_`-имена легальны (не флагаются валидатором).

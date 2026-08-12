@@ -54,7 +54,7 @@ TEST_DIRS = [
 
 # ---------------------------------------------------------------------------
 # DECL_BACKEND: which engine extracts the DECLARED surface (signatures / block
-# boundaries) for the card stamp (card_api.py) on brace-languages (TS/JS).
+# boundaries) for the card stamp (make_interface_card.py) on brace-languages (TS/JS).
 #   "auto"       -> tree-sitter if installed, else the built-in regex heuristic
 #   "treesitter" -> force tree-sitter (falls back to regex + a stderr note if missing)
 #   "regex"      -> force the built-in zero-dependency regex fallback

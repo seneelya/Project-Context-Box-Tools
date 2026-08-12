@@ -367,7 +367,7 @@ class TypeScriptHandler:
 
         return start
 
-    # -- declared surface (for card_api) --------------------------------------
+    # -- declared surface (for make_interface_card) --------------------------------------
 
     def declarations(self, lines):
         """Top-level declarations (structural TS/JS heuristics) — the declared surface.

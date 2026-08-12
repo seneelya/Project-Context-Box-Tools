@@ -1,10 +1,17 @@
-# card_api
+# make_interface_card
 
 The card **STAMP**: ONE command → a ready `.md` card skeleton where the FACT sections are
 filled deterministically and the prose is left as `<Agent: …>` directive lines for the LLM to
 complete after reading the source. It analyzes nothing new — it ORCHESTRATES three facts.
 
-**Target:** `card_api.py <file> --project-root R [--out PATH] [--force]` — multilingual (py/ts/cs).
+**Target:** `make_interface_card.py <file> --project-root R [--out PATH] [--force]` — multilingual (py/ts/cs).
+
+## Quick use  (copy, tweak, run)
+```
+make_interface_card.py <f>.py --project-root . --out __map/<f>.py.md   # stamp → write the card
+make_interface_card.py <f>.py --project-root .                         # preview to stdout (no write)
+make_interface_card.py <f>.py --project-root . --out <card> --force    # overwrite an UNFILLED stamp
+```
 
 ## The three facts it fills
 

@@ -88,7 +88,7 @@ def _looks_internal(module: str | None, level: int) -> bool:
 
 def collect(path: Path) -> dict:
     """Структурный разбор одного .py через ast — ЕДИНЫЙ источник для текстового
-    вывода (`analyze`) и для штемпеля карточки (`card_api`).
+    вывода (`analyze`) и для штемпеля карточки (`make_interface_card`).
 
     Возвращает dict:
       ok, error, docstring_first,

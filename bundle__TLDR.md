@@ -6,6 +6,12 @@ one block. Instead of N card reads, the agent makes one call and gets the contex
 **Target:** `bundle.py <file> [--cards-dir P] [--depth N]` — `<file>` is root-relative
 (e.g. `capture.py`, `_engine/embed.py`).
 
+## Quick use
+```
+bundle.py <file>              # target card + its deps' Public API
+bundle.py <file> --depth 2    # expand deps transitively
+```
+
 ## Behaviour
 
 * pulls the target's whole card, then from each dependency slices out **only `## Public API`**;

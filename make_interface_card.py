@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""card_api.py — штемпель карточки: ОДНА команда -> готовый .md-скелет карточки, где
+"""make_interface_card.py — штемпель карточки: ОДНА команда -> готовый .md-скелет карточки, где
 ФАКТИЧЕСКИЕ секции заполнены детерминированно, а прозаические — строки-ДИРЕКТИВЫ
 `<Agent: …>`, которые ЛЛМ дописывает, прочитав исходник.
 
@@ -16,7 +16,7 @@
 языко-агностичного `declarations`, факты потребления/зависимостей уже мультиязычны.
 
 Использование:
-    python card_api.py <file> --project-root PATH
+    python make_interface_card.py <file> --project-root PATH
 """
 
 import argparse
@@ -142,7 +142,7 @@ def _warn_fallback(lang, pkg, forced):
     how = "DECL_BACKEND=treesitter but its grammar is missing" if forced else \
           "high-fidelity tree-sitter backend not installed"
     sys.stderr.write(
-        f"[card_api] WARNING: {how} for {lang} - running in the REGEX FALLBACK "
+        f"[make_interface_card] WARNING: {how} for {lang} - running in the REGEX FALLBACK "
         f"(lower-fidelity signatures). For a full parse install:  "
         f"pip install tree-sitter {pkg}   (or set CONFIG__TOOLS.DECL_BACKEND='regex' to silence)\n"
     )
@@ -164,7 +164,7 @@ def _declarations(lang, src):
                 return ts.declarations(src)
             _warn_fallback(lang, pkg, forced=(backend == "treesitter"))
         except Exception as e:
-            sys.stderr.write(f"[card_api] WARNING: tree-sitter backend for {lang} failed ({e}); using regex.\n")
+            sys.stderr.write(f"[make_interface_card] WARNING: tree-sitter backend for {lang} failed ({e}); using regex.\n")
     from get_codeblock.handlers import get_handler
     return get_handler(lang).declarations(src.splitlines(keepends=True))
 
@@ -385,7 +385,7 @@ def main():
     # hold hand-written prose). Refuse unless --force; the caller then merges/updates by hand.
     if os.path.exists(args.out) and not args.force:
         sys.stderr.write(
-            f"[card_api] card already exists: {args.out} - NOT overwriting.\n"
+            f"[make_interface_card] card already exists: {args.out} - NOT overwriting.\n"
             f"  It may contain filled descriptions. Either update it by hand, or re-run with "
             f"--force to replace, or omit --out to print to stdout and merge manually.\n"
         )
@@ -395,7 +395,7 @@ def main():
         os.makedirs(out_dir, exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as fh:
         fh.write(card)
-    sys.stderr.write(f"[card_api] wrote {args.out}\n")
+    sys.stderr.write(f"[make_interface_card] wrote {args.out}\n")
     return 0
 
 

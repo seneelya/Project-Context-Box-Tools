@@ -4,7 +4,12 @@
 docstring IS the card skeleton. Edit the format HERE; the tools import these names, so their
 code is never touched.
 
-**Imported by:** `validate_cards.py`, `rebuild_graph.py`, `bundle.py`, `card_api.py`.
+**Imported by:** `validate_cards.py`, `rebuild_graph.py`, `bundle.py`, `make_interface_card.py`.
+
+## Quick use
+```
+card_format.py                 # print the format contract (the card skeleton)
+```
 
 ## What it defines
 

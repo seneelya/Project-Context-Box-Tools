@@ -5,6 +5,12 @@ then reason in your head (impact / chain / layers); no need to re-read cards.
 
 **Target:** `rebuild_graph.py [--cards-dir P] [--json]` — default cards = `<project>/__map/`.
 
+## Quick use
+```
+rebuild_graph.py                           # flat topology (text) from ./__map
+rebuild_graph.py --cards-dir __map --json  # JSON draft for a visualizer
+```
+
 ## Emits (lean text)
 
 * every module: id (root-relative source path) + one-line summary + `depends_on`;
