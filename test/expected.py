@@ -7,6 +7,9 @@
   IMPORTS {файл: [символы]}            downstream=потребитель берёт у цели / incoming=цель берёт у источника
   SYMBOL  {файл: [символы]}            тот же граф, отфильтрованный по символу
   INCOMING_DETAIL  resolved/external/dangling(импортнут-не-использован)/usages(источник,символ,строки,levels в цели)
+  CONSUMERS        [файлы]  кто импортит цель — только набор файлов (для крупных фикстур)
+  INCOMING_SOURCES [файлы]  импорты цели, резолвнутые в файлы (лочит ESM .js -> .ts)
+  DECLARATIONS     (name, kind, exported, n_members)  объявленная поверхность, REGEX-бэкенд (детерминизм)
 """
 
 LEVELS = {
@@ -158,6 +161,15 @@ IMPORTS = {
             'IGlobalStopWatch.cs': ['IGlobalStopWatch'],
         },
     },
+    # C# same-namespace: consumers use the type with NO `using` (own namespace) — locks that fix.
+    'cs downstream same-namespace Extension': {
+        "mode": 'downstream', "root": 'csharpSRC2', "file": 'Core/Extension.cs',
+        "expect": {
+            'Core/ExtensionsManager.cs': ['Extension'],
+            'Core/Program.cs':           ['Extension'],
+            'Core/WebServer.cs':         ['Extension'],
+        },
+    },
 }
 
 SYMBOL = {
@@ -248,5 +260,53 @@ INCOMING_DETAIL = {
         "usages": [
             ('IGlobalStopWatch.cs', 'IGlobalStopWatch', [8], [2]),
         ],
+    },
+}
+
+# --- multilingual fixtures: cross-file resolution / visibility / declared surface ---------
+
+# CONSUMERS: who imports the target — FILE SET only (symbol lists omitted for big fixtures).
+CONSUMERS = {
+    # TS ESM/NodeNext: consumers write `from "./util.js"` — resolves to util.ts (the .js fix).
+    'ts .js->.ts consumers (zod util)': {
+        "root": 'tsSRC2', "file": 'core/util.ts',
+        "expect": ['core/api.ts', 'core/checks.ts', 'core/errors.ts', 'core/json-schema-processors.ts',
+                   'core/parse.ts', 'core/regexes.ts', 'core/schemas.ts', 'core/to-json-schema.ts'],
+    },
+    # C# descendant namespace: 3 adapters in .Adapters see the parent-namespace interface w/o `using`.
+    'cs descendant-namespace (unity IAnalyticsAdapter)': {
+        "root": 'unitySRC', "file": 'Services/Analytics/IAnalyticsAdapter.cs',
+        "expect": ['Services/Analytics/Adapters/CompositeAnalyticsAdapter.cs',
+                   'Services/Analytics/Adapters/FirebaseAnalyticsAdapter.cs',
+                   'Services/Analytics/Adapters/NullAnalyticsAdapter.cs',
+                   'Services/Analytics/AnalyticsService.cs'],
+    },
+}
+
+# INCOMING_SOURCES: the target's own imports resolved to sibling files (locks ESM .js -> .ts).
+INCOMING_SOURCES = {
+    'ts .js->.ts incoming (zod schemas)': {
+        "root": 'tsSRC2', "file": 'core/schemas.ts',
+        "expect": ['core/api.ts', 'core/checks.ts', 'core/core.ts', 'core/doc.ts', 'core/errors.ts',
+                   'core/json-schema.ts', 'core/parse.ts', 'core/regexes.ts', 'core/standard-schema.ts',
+                   'core/to-json-schema.ts', 'core/util.ts', 'core/versions.ts'],
+    },
+}
+
+# DECLARATIONS: declared surface via the REGEX backend (deterministic, tree-sitter-independent).
+# (name, kind, exported, n_members)
+DECLARATIONS = {
+    'cs class (Extension)': {
+        "root": 'csharpSRC2', "file": 'Core/Extension.cs',
+        "expect": [('Extension', 'class', True, 20)],
+    },
+    # interface members carry no `public` modifier → the regex reports 0 members (tree-sitter finds them).
+    'cs interface (IAnalyticsAdapter)': {
+        "root": 'unitySRC', "file": 'Services/Analytics/IAnalyticsAdapter.cs',
+        "expect": [('IAnalyticsAdapter', 'interface', True, 0)],
+    },
+    'ts const (zod versions)': {
+        "root": 'tsSRC2', "file": 'core/versions.ts',
+        "expect": [('version', 'const', True, 0)],
     },
 }

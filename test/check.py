@@ -130,6 +130,25 @@ def incoming_detail(root, file):
     }
 
 
+def consumer_files(root, file):
+    """Who imports the target — sorted file set only (symbols omitted; for big fixtures)."""
+    return sorted(downstream(root, file).keys())
+
+
+def incoming_sources(root, file):
+    """The target's own imports resolved to sibling files — sorted file set."""
+    return sorted(incoming_detail(root, file)["resolved"].keys())
+
+
+def declarations_regex(root, file):
+    """Declared surface via the REGEX handler (deterministic, tree-sitter-independent):
+    (name, kind, exported, n_members) per top-level declaration."""
+    from get_codeblock.handlers import get_handler
+    lines = _read(os.path.join(root, file))
+    return [(d["name"], d["kind"], d["exported"], len(d.get("methods", [])))
+            for d in get_handler(_lang(file)).declarations(lines)]
+
+
 # --- comparison --------------------------------------------------------------
 
 def main():
@@ -195,6 +214,24 @@ def main():
         check("external", list(spec["external"]), got["external"])
         check("dangling", list(spec["dangling"]), got["dangling"])
         check("usages", [tuple(t) for t in spec["usages"]], got["usages"])
+
+    line("\n== CONSUMERS (who imports the target — file set) ==")
+    for name, spec in getattr(exp, "CONSUMERS", {}).items():
+        got = consumer_files(spec["root"], spec["file"])
+        line(f"\n[{name}]  {spec['file']}")
+        check("consumer files", list(spec["expect"]), got)
+
+    line("\n== INCOMING_SOURCES (target's deps resolved to files) ==")
+    for name, spec in getattr(exp, "INCOMING_SOURCES", {}).items():
+        got = incoming_sources(spec["root"], spec["file"])
+        line(f"\n[{name}]  {spec['file']}")
+        check("sources", list(spec["expect"]), got)
+
+    line("\n== DECLARATIONS (regex: name, kind, exported, n_members) ==")
+    for name, spec in getattr(exp, "DECLARATIONS", {}).items():
+        got = declarations_regex(spec["root"], spec["file"])
+        line(f"\n[{name}]  {spec['file']}")
+        check("declarations", [tuple(t) for t in spec["expect"]], got)
 
     print(f"\n{'-'*50}\n{passed} passed, {failed} failed")
     sys.exit(1 if failed else 0)
