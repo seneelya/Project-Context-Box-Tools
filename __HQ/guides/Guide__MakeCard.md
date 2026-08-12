@@ -50,10 +50,13 @@ The card comes with the **FACT** sections already filled:
   WITHOUT `--out` (to stdout), and update only the changed FACT sections into the existing card by hand,
   keeping the prose. (`check_freshness.py` shows which cards are stale.)
 
-### Step 2 — check the stderr note
+### Step 2 — if stderr shows the tree-sitter WARNING → REPORT UP
 `WARNING: … REGEX FALLBACK … pip install tree-sitter …` means the high-fidelity parser is not
-installed; the card is **still usable** (lower-fidelity signatures) — NOT a failure. You MAY tell the
-caller they can `pip install tree-sitter tree-sitter-<lang>` for sharper signatures.
+installed; the card is **still usable** (lower-fidelity signatures) — NOT a failure, do not stop.
+But do **NOT** decide alone and do **NOT** self-install. **Report it to your caller (boss):** the
+parser is missing, the card is on the regex fallback, and pass the exact command upward —
+`pip install tree-sitter tree-sitter-<lang>`. The boss escalates to the user (install or not).
+Meanwhile continue on the fallback unless told otherwise.
 
 ### Step 3 — fill the prose (read the source ONCE)
 Replace every `<Agent: …>` line, following the **RULES** below:
