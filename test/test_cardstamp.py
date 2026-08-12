@@ -173,9 +173,48 @@ def test_validate_pending_vs_broken():
     check("source-without-card is NOT an issue", not any("config.py" in i for i in issues))
 
 
+# --- resolver (find_code_usage): AST-based imports + submodule resolution --------
+
+def test_resolver_submodule_and_docstring():
+    """#3: `from . import sub` -> submodule FILE (symbols []); #2: docstring text is not an import."""
+    from find_code_usage.resolvers import get_resolver
+    from find_code_usage.core import scan_incoming
+    from find_code_usage.handlers import get_handler
+
+    root = Path(tempfile.mkdtemp(prefix="res_"))
+    pkg = root / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "sub.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    (pkg / "helper.py").write_text("X = 1\n", encoding="utf-8")
+    (pkg / "main.py").write_text(
+        '"""Title.\n\n'
+        'Note: import fakeimport for it. and from bogus import stuff.\n'
+        '"""\n'
+        'from . import sub\n'        # bare submodule -> pkg/sub.py, no symbols
+        'from .helper import X\n'    # real symbol from a module
+        'import os\n',
+        encoding="utf-8")
+
+    resolver = get_resolver("python")
+    handler = get_handler("python")
+    resolved, externals, _u, _s = scan_incoming(
+        resolver, str(pkg / "main.py"), str(root), handler=handler, verbose=False)
+    rmap = {r["file"]: r["symbols"] for r in resolved}
+
+    sub_key = next((f for f in rmap if f.endswith("sub.py")), None)
+    check("submodule resolves to file", sub_key is not None)
+    check("submodule has empty symbols", rmap.get(sub_key) == [])
+    h_key = next((f for f in rmap if f.endswith("helper.py")), None)
+    check("symbol import keeps its symbol", h_key is not None and "X" in rmap.get(h_key, []))
+    joined = " ".join(externals)
+    check("docstring text not leaked as import", "fakeimport" not in joined and "bogus" not in joined)
+
+
 def main():
     test_is_empty()
     test_validate_pending_vs_broken()
+    test_resolver_submodule_and_docstring()
     test_merge_preserves_prose()
     test_merge_signature_refresh()
     test_merge_salvage()

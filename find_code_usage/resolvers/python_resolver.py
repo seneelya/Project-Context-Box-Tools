@@ -4,6 +4,7 @@ Given a target .py file, resolves its imports to source files within project_roo
 Only returns imports that resolve to files inside the project (ignores stdlib/third-party).
 """
 
+import ast
 import os
 import re
 from pathlib import Path
@@ -22,14 +23,93 @@ class PythonResolver(ImportResolver):
         return {".py"}
 
     def resolve_imports(self, target_file: str, project_root: str) -> List[ImportInfo]:
-        """Resolve imports from target_file to files inside project_root."""
+        """Resolve imports from target_file to files inside project_root.
+
+        AST-based: only real `import` / `from … import` STATEMENTS are seen — text inside
+        docstrings/comments can never masquerade as an import (was: regex over raw lines, which
+        leaked docstring prose like `import weight for it.` into the external-imports list).
+        Falls back to the legacy line-regex only when the source does not parse (SyntaxError).
+
+        Submodule rule: `from PKG import name` where `name` is a real submodule of PKG
+        (`PKG/name.py` or `PKG/name/__init__.py`) resolves to that submodule FILE — not to
+        `PKG/__init__.py` with `name` mislabelled as a symbol.
+        """
         target_file = os.path.abspath(target_file)
         project_root = os.path.abspath(project_root)
         importing_dir = os.path.dirname(target_file)
 
         with open(target_file, "r", encoding="utf-8-sig") as f:
-            content_lines = f.readlines()
+            src = f.read()
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            return self._resolve_imports_regex(src.splitlines(keepends=True), importing_dir, project_root)
 
+        results: List[ImportInfo] = []
+        seen: Set[str] = set()
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                raw = "import " + ", ".join(self._alias_disp(a) for a in node.names)
+                if raw in seen:
+                    continue
+                seen.add(raw)
+                for a in node.names:
+                    abs_path = self._module_to_file(a.name, importing_dir, project_root)
+                    results.append(ImportInfo(raw_line=raw, module_name=a.name,
+                                              symbol_names=[], resolved_path=abs_path))
+
+            elif isinstance(node, ast.ImportFrom):
+                level = node.level
+                module = node.module or ""
+                aliases = [a for a in node.names if a.name != "*"]
+                raw = ("from " + "." * level + module + " import "
+                       + (", ".join(self._alias_disp(a) for a in aliases) if aliases else "*"))
+                if raw in seen:
+                    continue
+                seen.add(raw)
+
+                # Resolve M itself to a file (package __init__ or a plain module) + its package dir.
+                resolved_module = (self._resolve_relative_import(importing_dir, module, level, project_root)
+                                   if level > 0 else module)
+                m_file = self._module_to_file(resolved_module, importing_dir, project_root)
+                pkg_dir = (os.path.dirname(m_file)
+                           if m_file and os.path.basename(m_file) == "__init__.py" else None)
+
+                leftover: List[str] = []
+                for a in aliases:
+                    sub = self._submodule_file(pkg_dir, a.name, project_root) if pkg_dir else None
+                    if sub:
+                        sub_mod = (resolved_module + "." + a.name) if resolved_module else a.name
+                        results.append(ImportInfo(
+                            raw_line="from " + "." * level + module + " import " + self._alias_disp(a),
+                            module_name=sub_mod, symbol_names=[], resolved_path=sub))
+                    else:
+                        leftover.append(a.name)
+
+                # Emit the M row only if it carries real symbols, or if M is external (-> externals).
+                if leftover or m_file is None:
+                    results.append(ImportInfo(
+                        raw_line=raw,
+                        module_name=resolved_module or ("." * level + module),
+                        symbol_names=leftover,
+                        resolved_path=m_file))
+        return results
+
+    @staticmethod
+    def _alias_disp(a: "ast.alias") -> str:
+        return a.name + (f" as {a.asname}" if a.asname else "")
+
+    def _submodule_file(self, pkg_dir: str, name: str, project_root: str):
+        """Abs path if `name` is a real submodule of pkg_dir (X.py or X/__init__.py), else None."""
+        for suffix in (name + ".py", os.path.join(name, "__init__.py")):
+            cand = os.path.join(pkg_dir, suffix)
+            if os.path.isfile(cand) and self._is_inside_project(cand, project_root):
+                return os.path.abspath(cand)
+        return None
+
+    def _resolve_imports_regex(self, content_lines, importing_dir, project_root) -> List[ImportInfo]:
+        """Legacy line-regex resolver — fallback for sources that do not parse (SyntaxError)."""
         results: List[ImportInfo] = []
         seen_raw_lines: Set[str] = set()  # Deduplicate identical imports
 
