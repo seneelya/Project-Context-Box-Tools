@@ -109,7 +109,7 @@ Notes:
 """,
     )
 
-    if len(sys.argv) == 1:
+    if len(sys.argv) == 1 or "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
         parser.print_help()
         sys.exit(0)
 

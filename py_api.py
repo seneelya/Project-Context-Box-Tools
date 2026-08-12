@@ -16,6 +16,8 @@ import ast
 import sys
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding="utf-8")
+
 
 def _fmt_arg(arg: ast.arg) -> str:
     if arg.annotation is not None:
@@ -214,10 +216,14 @@ def analyze(path: Path) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("Использование: python py_api.py <путь/к/файлу.py>", file=sys.stderr)
+    args = sys.argv[1:]
+    if args and args[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0
+    if len(args) != 1:
+        print("Использование: python py_api.py <путь/к/файлу.py>  (--help для справки)", file=sys.stderr)
         return 2
-    path = Path(sys.argv[1])
+    path = Path(args[0])
     if not path.exists():
         print(f"[py_api] файл не найден: {path}", file=sys.stderr)
         return 2

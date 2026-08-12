@@ -114,3 +114,11 @@ def is_package(filename):
 def sections_for(filename):
     """Обязательные секции для карточки данного файла (пакет vs модуль)."""
     return H2_SECTIONS_PACKAGE if is_package(filename) else H2_SECTIONS
+
+
+if __name__ == "__main__":
+    # Not a CLI — it's the format contract. Running it (or --help) prints the
+    # skeleton (this module's docstring) so you can read the contract directly.
+    import sys
+    sys.stdout.reconfigure(encoding="utf-8")
+    print(__doc__)
