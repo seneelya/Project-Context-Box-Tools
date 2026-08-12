@@ -1,6 +1,6 @@
 """Контракт формата карточки — ЕДИНЫЙ источник истины.
 
-Правь ФОРМАТ здесь; `validate_cards.py` / `rebuild_graph.py` / `bundle.py` / `make_interface_card.py`
+Правь ФОРМАТ здесь; `validate_cards.py` / `graph_from_cards.py` / `collect_card_bundle.py` / `make_interface_card.py`
 импортят эти переменные — код тулов не трогаем.
 
 СКЕЛЕТ КАРТОЧКИ (точная форма с вложенностью; ЛЛМ дописывает прозу, прочитав исходник):

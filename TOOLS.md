@@ -14,7 +14,7 @@ have no TLDR. The folder is self-contained and travels with a project by copying
 
 ## Pick by task
 - **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_cards_freshness`  (Python AST peek: `py_api`)
-- **Read the card map** (topology, gather context) → `rebuild_graph`, `bundle`
+- **Read the card map** (topology, gather context) → `graph_from_cards`, `collect_card_bundle`
 - **Answer a fact about source** (who imports it · a code block · a file's API) → `codebase_import_search`, `get_codeblock`, `py_api`
 - **Mass-edit across files** (migrate / rename) → `replace_in_files`
 - **Change the card format itself** → `CARD_FORMAT` (the contract)
@@ -51,9 +51,9 @@ layer 1 on purpose). Default cards dir `./__map`; override with `--cards-dir` / 
   sections, deps resolve, orphans). Coaches the author; exit 1 on problems.
 - **`check_cards_freshness.py [--cards-dir P] [--project-root P]`** — which cards are stale vs source
   (git mode / mtime fallback) and which are orphans. Exit 1 if any.
-- **`rebuild_graph.py [--cards-dir P] [--json]`** — flat topology from cards: modules + summaries +
+- **`graph_from_cards.py [--cards-dir P] [--json]`** — flat topology from cards: modules + summaries +
   `depends_on`, entry points, leaves, unresolved refs. `--json` = draft feed for a visualizer.
-- **`bundle.py <file> [--cards-dir P] [--depth N]`** — call-saver: target card + only its deps'
+- **`collect_card_bundle.py <file> [--cards-dir P] [--depth N]`** — call-saver: target card + only its deps'
   Public API in one block. `--depth` expands transitively (default 1).
 
 ## 3. Maintenance / migration

@@ -12,7 +12,7 @@
 удалось сопоставить карточке, честно выводятся в конце (сигнал к нормализации).
 
 Использование:
-    python rebuild_graph.py [--cards-dir PATH] [--json]
+    python graph_from_cards.py [--cards-dir PATH] [--json]
 По умолчанию карточки в <project>/__map/ (скрипт в __HQ/tools/).
 """
 

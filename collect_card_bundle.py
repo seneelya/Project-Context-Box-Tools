@@ -4,14 +4,14 @@
 Экономит ВЫЗОВЫ (action economy): вместо N чтений карточек агент делает один
 вызов, а тул сам стягивает нужные карточки, режет из зависимостей только Public
 API и склеивает. Толстый слой (API) тянется по требованию; тонкую топологию даёт
-`rebuild_graph`.
+`graph_from_cards`.
 
-Зависимости берутся из графа (`rebuild_graph.build_graph`) — колонка "From file".
+Зависимости берутся из графа (`graph_from_cards.build_graph`) — колонка "From file".
 `--depth N` разворачивает транзитивно (по умолчанию 1 — прямые зависимости).
 
 Использование:
-    python bundle.py <file> [--cards-dir PATH] [--depth N]
-Пример: python bundle.py capture.py
+    python collect_card_bundle.py <file> [--cards-dir PATH] [--depth N]
+Пример: python collect_card_bundle.py capture.py
 По умолчанию карточки в <project>/__map/ (скрипт в __HQ/tools/).
 """
 
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 import CARD_FORMAT as cf
-from rebuild_graph import build_graph  # соседний модуль в __HQ/tools/
+from graph_from_cards import build_graph  # соседний модуль в __HQ/tools/
 
 
 def _find_card(cards_dir, target):
@@ -95,7 +95,7 @@ def main():
         if not frontier:
             break
 
-    print(f"# bundle: {tid}  (depth={args.depth}, {len(order)} deps)")
+    print(f"# collect_card_bundle: {tid}  (depth={args.depth}, {len(order)} deps)")
     print()
     print(f"===== TARGET: {tid} =====")
     print(tpath.read_text(encoding="utf-8").strip())

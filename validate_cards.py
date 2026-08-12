@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 import CARD_FORMAT as cf
-from rebuild_graph import build_graph, _cells, _is_sep, _DASH
+from graph_from_cards import build_graph, _cells, _is_sep, _DASH
 
 
 def _sections(lines):
