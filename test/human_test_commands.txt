@@ -165,7 +165,7 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --cycles
 
 # graph_from_cards: VIEW = layers.
-# expect: layers -> "## layer 0" (leaves) ... up toward entry points
+# expect: layers -> "## depth layer 0" (leaves) ... up toward entry points
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --view layers
 

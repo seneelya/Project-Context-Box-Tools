@@ -334,7 +334,7 @@ def test_graph_views():
     check("edges=in hides uses", "→ b.py" not in body_in)
 
     ly = format_layers(g, "__map", "inout")
-    check("layers has layer 0", "## layer 0" in ly)
+    check("layers has depth layer 0", "## depth layer 0" in ly)
 
     # --verbose 0 прячет описания (строку « — summary»), но модули/связи остаются
     v1 = body(format_packages(g, "__map", "inout", 1))

@@ -19,7 +19,7 @@
 Использование:
     python graph_from_cards.py [--project-root PATH] [--view packages|layers]
                                [--edges out|in|inout] [--verbose 0|1]
-    python graph_from_cards.py --file <path> [--depth N]      # фокус-срез вокруг модуля
+    python graph_from_cards.py [--file <path> [--depth N]]    # фокус-срез (глубина только с --file)
     python graph_from_cards.py --cycles                       # циклы A → B → C → A
     python graph_from_cards.py --discrepancies [--group-by kind|package|card]
                                                               # свод «карта vs реальность»
@@ -374,32 +374,45 @@ def _entry_line(verbose):
             else "> entry:  - <module>   (summaries hidden at --verbose 0; --verbose 1 to show)")
 
 
+# ярлыки режимов для строки «other views» (исключаем текущий, чтобы не путать)
+_VIEW_OPTS = [
+    ("layers", "--view layers (by dependency depth)"),
+    ("packages", "--view packages (group by directory tree)"),
+    ("file", "--file PATH (focus one module)"),
+    ("cycles", "--cycles (circular deps)"),
+    ("discrepancies", "--discrepancies (map vs source)"),
+]
+
+
+def _other_views(current):
+    return "> other views:  " + " · ".join(lbl for key, lbl in _VIEW_OPTS if key != current)
+
+
 def _orient_packages(verbose):
-    return (_entry_line(verbose) + "\n" + _EDGES + "\n"
-            "> more:   grouped by top-level dir · --view layers · "
-            "--file PATH (focus one module) · --cycles · --discrepancies")
+    return _entry_line(verbose) + "\n" + _EDGES + "\n" + _other_views("packages")
 
 
 def _orient_layers(verbose):
-    return ("> layers = dependency depth: layer 0 = leaves (import nothing internal), "
-            "higher = closer to entry points\n"
-            + _entry_line(verbose) + "\n" + _EDGES
-            + "\n> more:   --file PATH (focus one module) · --view packages")
+    return ("> depth layer: 0 = leaves (import nothing internal), higher = closer to entry points\n"
+            + _entry_line(verbose) + "\n" + _EDGES + "\n" + _other_views("layers"))
 
 
 def _orient_file(verbose):
     return ("> read: focus around one file — downstream (what it needs) + upstream (who needs it), "
-            "within --depth\n" + _entry_line(verbose))
+            "within --depth\n" + _entry_line(verbose) + "\n" + _other_views("file"))
 
 
-_ORIENT_CYCLES = "> read: each line is a circular import chain A → B → C → A; break one edge to break the cycle"
+_ORIENT_CYCLES = ("> read: each line is a circular import chain A → B → C → A; break one edge to break the cycle\n"
+                  + _other_views("cycles"))
 _ORIENT_DISCR = ("> read: card↔source gaps — orphan (card, no source) · pending (source, no card) · "
-                 "unresolved (dep points nowhere)\n> regroup: --group-by kind|package|card")
+                 "unresolved (dep points nowhere)\n> regroup: --group-by kind|package|card\n"
+                 + _other_views("discrepancies"))
 
 
 def format_packages(graph, disp, edges, verbose=1):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
-    out = [f"# map — {len(nodes)} modules · packages (dir={disp})", _orient_packages(verbose), ""]
+    out = [f"# map — {len(nodes)} modules · packages · auto-gathered from {disp}",
+           _orient_packages(verbose), ""]
     pkgs = {}
     for i in nodes:
         pkgs.setdefault(_top_pkg(i), []).append(i)
@@ -419,10 +432,11 @@ def format_packages(graph, disp, edges, verbose=1):
 def format_layers(graph, disp, edges, verbose=1):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
     layers = _compute_layers(nodes)
-    out = [f"# map — {len(nodes)} modules · layers 0=leaves (dir={disp})", _orient_layers(verbose), ""]
+    out = [f"# map — {len(nodes)} modules · depth layers (0=leaves) · auto-gathered from {disp}",
+           _orient_layers(verbose), ""]
     for l in sorted(layers):
         members = sorted(layers[l])
-        out.append(f"## layer {l} ({len(members)})")
+        out.append(f"## depth layer {l} ({len(members)})")
         for i in members:
             out.append(f"- **{i}**{' ⟲' if i in cyc else ''}{_summ(nodes, i, verbose)}")
             eb = _edge_bits(i, nodes, rdeps, "(root)", edges)  # слои cross-cutting -> пути полные
@@ -577,10 +591,7 @@ def main():
                          ensure_ascii=False, indent=2))
         return
 
-    try:
-        disp = cards_dir.relative_to(cards_dir.parent).as_posix()
-    except ValueError:
-        disp = str(cards_dir)
+    disp = cards_dir.as_posix()   # полный путь к папке карточек (видно, откуда собрана карта)
     if args.view == "layers":
         print(termstyle.md(format_layers(graph, disp, args.edges, args.verbose)))
     else:

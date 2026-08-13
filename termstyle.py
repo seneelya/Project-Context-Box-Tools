@@ -70,6 +70,7 @@ _C_USES = "32"     # → uses (исходящие) — зелёный
 _C_USEDBY = "35"   # ← used-by (входящие) — магента (другой смысл -> другой цвет)
 _C_COUNT = "33"    # ×N (сколько зависит) — жёлтый
 _C_CYCLE = "91"    # ⟲ участник цикла — ярко-красный (это предупреждение)
+_C_META = "32"     # мета-строки шапки «как читать» ('> …') — зелёные (помощь, видна)
 
 _NAME_RE = re.compile(r"\*\*(.+?)\*\*")
 _SUMM_RE = re.compile(r"(—[^—]*)$")      # от длинного тире до конца строки (второе тире маловероятно)
@@ -80,8 +81,8 @@ def _paint_line(ln):
     s = ln.lstrip()
     if s.startswith("#"):                                    # заголовок целиком
         return f"\x1b[{_C_HEAD}m{ln}\x1b[0m"
-    if s.startswith(">"):                                    # мета/ориентир («как читать») — серым, весь
-        return f"\x1b[{_C_SUMM}m{ln}\x1b[0m"
+    if s.startswith(">"):                                    # мета/ориентир («как читать») — зелёным, весь
+        return f"\x1b[{_C_META}m{ln}\x1b[0m"
     ln = _NAME_RE.sub(lambda m: f"\x1b[{_C_NAME}m{m.group(1)}\x1b[0m", ln)   # **имя** -> цвет, без **
     ln = _SUMM_RE.sub(lambda m: f"\x1b[{_C_SUMM}m{m.group(1)}\x1b[0m", ln)   # « — сводка» -> приглушённо
     ln = _COUNT_RE.sub(lambda m: f"\x1b[{_C_COUNT}m{m.group(1)}\x1b[0m", ln)  # ×N -> жёлтый
