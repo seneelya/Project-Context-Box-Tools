@@ -137,7 +137,7 @@ def _check_file_safety(filepath, blacklist_dirs):
 # ---------------------------------------------------------------------------
 
 def process_file(filepath, repl_rule, warned_expressions, dry_run=False):
-    """Apply a single replacement rule to one file. Returns (count, hit_linenos)."""
+    """Apply replacement rule to one file. Returns (count, hit_linenos)."""
     with open(filepath, "r", encoding="utf-8", newline="") as f:
         lines = f.readlines()
 
@@ -145,33 +145,38 @@ def process_file(filepath, repl_rule, warned_expressions, dry_run=False):
     hits = []
     new_lines = []
 
+    find_text = repl_rule["find"]
+    with_text = repl_rule["with"]
+    match_expr = repl_rule.get("match_expr")  # optional guard
+
     for lineno, line in enumerate(lines, 1):
         current_line = line
         line_hits = 0
 
-        if repl_rule["type"] == "simple":
-            if repl_rule["find"] in current_line:
-                line_hits += current_line.count(repl_rule["find"])
-                current_line = current_line.replace(repl_rule["find"], repl_rule["with"])
-
-        elif repl_rule["type"] == "match":
+        if match_expr is not None:
+            # Evaluate the guard expression — only replace if it returns True
             _eval_env = {
                 "__builtins__": _SAFE_BUILTINS,
                 "line": current_line,
                 "re": re,
             }
             try:
-                match_result = eval(repl_rule["expr"], _eval_env)
+                match_result = eval(match_expr, _eval_env)
             except Exception as e:
-                expr = repl_rule["expr"]
-                if expr not in warned_expressions:
-                    print(f"Warning: expression error '{expr}' ({e}) — skipping this rule.", file=sys.stderr)
-                    warned_expressions.add(expr)
+                if match_expr not in warned_expressions:
+                    print(f"Warning: expression error '{match_expr}' ({e}) — skipping this rule.", file=sys.stderr)
+                    warned_expressions.add(match_expr)
                 continue
 
-            if match_result and repl_rule["find"] in current_line:
-                line_hits += current_line.count(repl_rule["find"])
-                current_line = current_line.replace(repl_rule["find"], repl_rule["with"])
+            # Only perform replacement on lines where guard is True AND find_text exists
+            if match_result and find_text in current_line:
+                line_hits += current_line.count(find_text)
+                current_line = current_line.replace(find_text, with_text)
+        else:
+            # Simple replace — no guard
+            if find_text in current_line:
+                line_hits += current_line.count(find_text)
+                current_line = current_line.replace(find_text, with_text)
 
         if line_hits:
             count += line_hits
@@ -210,10 +215,9 @@ Arguments:
 Options:
   --find X             text/substring to find in matching files (exactly one per invocation)
   --with Y             replacement text for the preceding --find argument
-  --match EXPR FIND WITH
-                       guarded replace: only on lines where Python expression EXPR is true.
+  --match EXPR         guarded replace: only on lines where Python expression EXPR is true.
                        Available in EXPR: `line` (current line string), `re` module, basic builtins.
-                       Example: --match 'line.startswith("##")' "old" "new"
+                       Example: --match 'line.startswith("##")' with --find "old" --with "new"
   --recurse            recurse into subdirectories when scanning for files
   --dry-run            show preview of changes without writing to any file (DEFAULT)
   --apply              actually apply and write changes to files on disk.
@@ -238,10 +242,10 @@ Examples:
     {prog} project_root "*.py" --recurse --find "foo()" --with "bar()" --apply
 
   Guarded replace — only in lines starting with ## (Markdown headings):
-    {prog} docs "*.md" --match 'line.startswith("##")' "Dependencies" "DEPS" --apply
+    {prog} docs "*.md" --find "Dependencies" --with "DEPS" --match 'line.startswith("##")' --apply
 
   Replace when line contains X but NOT Y:
-    {prog} src "*.ts" --match '"foo" in line and "bar" not in line' "foo" "baz" --dry-run
+    {prog} src "*.ts" --find "foo" --with "baz" --match '"foo" in line and "bar" not in line' --dry-run
 
 Notes:
   - Only ONE replacement rule per invocation. For multiple replacements, run the tool multiple times
@@ -298,9 +302,7 @@ def main():
     # Parse remaining flags (long-only; only ONE replacement rule per invocation)
     find_text = None       # single --find value
     with_text = None       # single --with value
-    match_expr = None      # optional --match expression
-    match_find = None      # if using --match, the FIND part for that rule
-    match_with = None      # if using --match, the WITH part for that rule
+    match_expr = None      # optional --match guard expression
 
     recurse = False
     dry_run_flag_given = False
@@ -335,12 +337,10 @@ def main():
             if match_expr is not None:
                 print(f"Error: only one --match allowed per invocation", file=sys.stderr)
                 sys.exit(2)
-            if i + 3 >= len(rest_args):
-                print(f"Error: --match requires EXPR FIND WITH (3 arguments)", file=sys.stderr)
+            if i + 1 >= len(rest_args):
+                print(f"Error: --match requires EXPR argument", file=sys.stderr)
                 sys.exit(1)
             match_expr = rest_args[i + 1]
-            match_find = rest_args[i + 2]
-            match_with = rest_args[i + 3]
 
             # Validate expression upfront
             eval_env = {"__builtins__": _SAFE_BUILTINS, "line": "", "re": re}
@@ -350,7 +350,7 @@ def main():
                 print(f"Error: invalid Python expression in --match '{match_expr}': {e}", file=sys.stderr)
                 sys.exit(1)
 
-            i += 4
+            i += 2
 
         elif tok in ("--recurse", "-r"):
             recurse = True
@@ -373,20 +373,17 @@ def main():
             sys.exit(2)
 
     # Validate that we have exactly one replacement rule to perform
-    if match_expr is not None and (find_text is not None or with_text is not None):
-        print("Error: cannot mix --match with --find/--with. Use either --match EXPR FIND WITH OR --find F --with W", file=sys.stderr)
+    if find_text is None or with_text is None:
+        print("Error: --find 'F' and --with 'W' are required. Use --match EXPR as an optional guard.", file=sys.stderr)
         sys.exit(2)
 
-    if match_expr is not None:
-        repl_rule = {"type": "match", "expr": match_expr, "find": _decode_escapes(match_find), "with": _decode_escapes(match_with)}
-    elif find_text is not None and with_text is not None:
-        repl_rule = {"type": "simple", "find": _decode_escapes(find_text), "with": _decode_escapes(with_text)}
-    elif find_text is not None:
-        print(f"Error: --find '{find_text}' without matching --with", file=sys.stderr)
-        sys.exit(2)
-    else:
-        print("Error: no replacement specified. Use --find 'F' --with 'W' or --match EXPR FIND WITH")
-        sys.exit(2)
+    # Build single replacement rule (optional match guard on top of find/with)
+    repl_rule = {
+        "type": "simple",
+        "find": _decode_escapes(find_text),
+        "with": _decode_escapes(with_text),
+        "match_expr": match_expr,  # optional guard — if set, only replace when expr is true
+    }
 
     # Determine effective mode: default is dry-run; --apply enables writes; --dry-run overrides --apply
     dangerous_mask = mask in _DANGEROUS_MASKS

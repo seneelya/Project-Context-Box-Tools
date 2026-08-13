@@ -149,7 +149,8 @@ def test_match_guard():
 
     run_tool(
         FIXTURES_DIR, "*.txt",
-        "--match", 'line.startswith("---")', "---", "===",
+        "--find", "---", "--with", "===",
+        "--match", 'line.startswith("---")',
         "--apply"
     )
 
