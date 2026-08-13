@@ -61,4 +61,23 @@ TEST_DIRS = [
 # Python always uses stdlib `ast` (show_pyfile_api), regardless of this setting.
 # tree-sitter is an OPTIONAL dependency: `pip install tree-sitter tree-sitter-typescript`.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# BLACKLIST_DIRS: directories to skip during file scanning (relative paths).
+# These are excluded from search results to avoid modifying internal/system files.
+# Example usage in tools: check if any component of the resolved path matches these.
+# ---------------------------------------------------------------------------
+BLACKLIST_DIRS = [
+    ".git",
+    "__pycache__",
+]
+
+# ---------------------------------------------------------------------------
+# DIR_WHITELIST: allowed directories for file operations (absolute paths).
+# If a tool resolves a file path that is NOT under any of these dirs, it will be blocked.
+# Use ["*"] as default to allow all paths (no restriction).
+# Example restrictive config:
+#   DIR_WHITELIST = ["/workspace/SRC/memohood", "/project/tools/test"]
+# ---------------------------------------------------------------------------
+DIR_WHITELIST = ["*"]
+
 DECL_BACKEND = "auto"
