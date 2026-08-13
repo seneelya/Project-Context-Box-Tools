@@ -60,15 +60,39 @@ def magenta(s): return _sgr("35", s)
 def cyan(s):    return _sgr("36", s)
 
 
+# Палитра (только цвет, БЕЗ bold — в новых терминалах жирный шрифт тяжёлый и хуже читается).
+# Яркие коды 9x дают «светлый» оттенок вместо bold.
+_C_HEAD = "96"     # заголовки # / ## — светлый циан
+_C_NAME = "97"     # **имя-модуля** — светло-белый (маркеры ** снимаем)
+_C_SUMM = "2"      # сводка после « — » до конца строки — приглушённая (вторична)
+_C_USES = "32"     # → uses (исходящие) — зелёный
+_C_USEDBY = "35"   # ← used-by (входящие) — магента (другой смысл -> другой цвет)
+_C_COUNT = "33"    # ×N (сколько зависит) — жёлтый
+_C_CYCLE = "91"    # ⟲ участник цикла — ярко-красный (это предупреждение)
+
+_NAME_RE = re.compile(r"\*\*(.+?)\*\*")
+_SUMM_RE = re.compile(r"(—[^—]*)$")      # от длинного тире до конца строки (второе тире маловероятно)
+_COUNT_RE = re.compile(r"(×\d+)")
+
+
+def _paint_line(ln):
+    s = ln.lstrip()
+    if s.startswith("#"):                                    # заголовок целиком
+        return f"\x1b[{_C_HEAD}m{ln}\x1b[0m"
+    ln = _NAME_RE.sub(lambda m: f"\x1b[{_C_NAME}m{m.group(1)}\x1b[0m", ln)   # **имя** -> цвет, без **
+    ln = _SUMM_RE.sub(lambda m: f"\x1b[{_C_SUMM}m{m.group(1)}\x1b[0m", ln)   # « — сводка» -> приглушённо
+    ln = _COUNT_RE.sub(lambda m: f"\x1b[{_C_COUNT}m{m.group(1)}\x1b[0m", ln)  # ×N -> жёлтый
+    ln = ln.replace("→", f"\x1b[{_C_USES}m→\x1b[0m").replace("←", f"\x1b[{_C_USEDBY}m←\x1b[0m")
+    ln = ln.replace("⟲", f"\x1b[{_C_CYCLE}m⟲\x1b[0m")
+    return ln
+
+
 def md(text):
-    """Подсветить markdown-вывод для терминала. Вне TTY возвращает text как есть."""
+    """Подсветить markdown-вывод для терминала. Вне TTY возвращает text как есть.
+
+    Красит структуру: заголовки, имена модулей, сводку после « — », рёбра →/←,
+    счётчики ×N, метку цикла ⟲. Построчно — чтобы « — » в заголовке не спуталось со сводкой.
+    """
     if not enabled():
         return text
-    # заголовки '# … / ## …' -> жирный циан (вся строка)
-    text = re.sub(r"^(#{1,6} .+)$", lambda m: f"\x1b[1;36m{m.group(1)}\x1b[0m", text, flags=re.M)
-    # **имя** -> жирным (маркеры оставляем — это всё ещё markdown)
-    text = re.sub(r"\*\*(.+?)\*\*", lambda m: f"\x1b[1m{m.group(0)}\x1b[0m", text)
-    # рёбра и метка цикла — акцентными цветами (в т.ч. в строке-легенде -> она же ключ цветов)
-    text = text.replace("→", "\x1b[32m→\x1b[0m").replace("←", "\x1b[35m←\x1b[0m")
-    text = text.replace("⟲", "\x1b[33m⟲\x1b[0m")
-    return text
+    return "\n".join(_paint_line(ln) for ln in text.split("\n"))
