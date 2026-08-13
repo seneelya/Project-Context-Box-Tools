@@ -14,7 +14,8 @@ have no TLDR. The folder is self-contained and travels with a project by copying
 
 ## Pick by task
 - **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_cards_freshness`  (Python AST peek: `show_pyfile_api`)
-- **Read the card map** (topology, gather context) → `graph_from_cards`, `collect_card_bundle`
+- **Orient in the project** (unfamiliar codebase, "what depends on what") → `graph_from_cards`. Load the whole map once (`--view packages` by dir, or `layers` 0=leaves→entry points), then narrow: `--zone FILE` = impact slice around one module, `--edges in` = blast radius, `--cycles` = circular-dep health, `--discrepancies` = map-vs-reality audit (orphan/pending/unresolved). Read it and reason in your head — don't re-read cards.
+- **Gather context to work on a file** (the target card + only its deps' Public API, in one block) → `collect_card_bundle`
 - **Answer a fact about source** (who imports it · a code block · a file's API) → `find_code_usage`, `get_codeblock`, `show_pyfile_api`
 - **Surgical context, not whole files** — `find_code_usage --verbose` (where a symbol is used + block **depth**) → `get_codeblock --level` (pull just that block). Coarse-locate with `grep` first; these two make it precise.
 - **Mass-edit across files** (migrate / rename) → `replace_in_files`
