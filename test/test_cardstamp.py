@@ -268,8 +268,8 @@ def test_graph_zone_and_cycles():
 
 
 def test_graph_views():
-    """packages группирует по пакетам с rel-путями; layers даёт слой 0=листья; flat — легаси."""
-    from graph_from_cards import build_graph, format_packages, format_layers, format_text
+    """packages группирует по пакетам с rel-путями; layers даёт слой 0=листья; --edges out/in/inout."""
+    from graph_from_cards import build_graph, format_packages, format_layers
 
     root = Path(tempfile.mkdtemp(prefix="gview_"))
     cards = root / "__map"
@@ -290,19 +290,19 @@ def test_graph_views():
     card("root.py", ["pkg/a.py"])
     g = build_graph(cards)
 
-    pk = format_packages(g, "__map", "both", "rel")
+    pk = format_packages(g, "__map", "inout")
     check("packages groups by pkg", "## pkg/ (2)" in pk)
     check("packages has (root)", "## (root) (1)" in pk)
     check("packages uses rel path in-pkg", "→ b.py" in pk)          # pkg/a.py -> pkg/b.py shown as b.py
-    pk_full = format_packages(g, "__map", "both", "full")
-    check("paths=full keeps full path", "→ pkg/b.py" in pk_full)
-    pk_out = format_packages(g, "__map", "out", "rel")
+    pk_out = format_packages(g, "__map", "out")
     check("edges=out hides used-by", "← ×" not in pk_out)   # легенда содержит '←', строки-рёбра — '← ×N'
+    check("edges=out keeps uses", "→ b.py" in pk_out)
+    pk_in = format_packages(g, "__map", "in")
+    check("edges=in shows used-by", "← ×" in pk_in)
+    check("edges=in hides uses", "→ b.py" not in pk_in)  # легенда содержит '→', но ребра '→ uses' нет
 
-    ly = format_layers(g, "__map", "both", "rel")
+    ly = format_layers(g, "__map", "inout")
     check("layers has layer 0", "## layer 0" in ly)
-
-    check("flat view has ## modules", "## modules" in format_text(g, "__map"))
 
 
 def main():

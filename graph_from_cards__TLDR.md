@@ -1,21 +1,28 @@
 # graph_from_cards
 
-The project's flat topology from `__map/` cards — the "second compilation". Load it ONCE and
+The project's topology from `__map/` cards — the "second compilation". Load it ONCE and
 then reason in your head (impact / chain / layers); no need to re-read cards.
 
-**Target:** `graph_from_cards.py [--cards-dir P] [--json]` — default cards = `<project>/__map/`.
+**Target:** `graph_from_cards.py [--project-root P] [--view packages|layers] [--edges out|in|inout]`
+— default cards = `<project>/__map/`.
 
 ## Quick use
 ```
-graph_from_cards.py                           # flat topology (text) from ./__map
-graph_from_cards.py --cards-dir __map --json  # JSON draft for a visualizer
+graph_from_cards.py                           # packages view (default), both edge directions
+graph_from_cards.py --view layers             # 0=leaves → up toward entry points
+graph_from_cards.py --edges out               # only "→ uses" (quieter; reading order)
+graph_from_cards.py --edges in                # only "← used-by" (blast radius of a change)
+graph_from_cards.py --zone _engine/embed.py   # focus slice around one module
+graph_from_cards.py --cycles                  # circular deps as A → B → C → A
+graph_from_cards.py --json                    # JSON draft for a visualizer
 ```
 
 ## Emits (lean text)
 
-* every module: id (root-relative source path) + one-line summary + `depends_on`;
-* derived slices: **entry points** (most depended-on), **leaves**;
-* **unresolved refs** at the end — links that matched no card (a signal to normalize).
+* **`--view packages`** (default): modules grouped by top dir, each with summary + edges, ⟲ on cycle nodes;
+* **`--view layers`**: same modules ordered by dependency depth (0 = leaves);
+* **`--edges`** out | in | inout — which edge directions to print (`→ uses` / `← used-by` / both);
+* tail slices in both views: **hotspots** (most depended-on + leaves), **cycles**, **unresolved refs**.
 
 Edges come from the `File Path` / "From file" column of each card's Internal-dependencies table
 (English or Russian heading — works on old cards too).
