@@ -249,7 +249,6 @@ def main():
         try:
             setup_fixtures()
             test()
-            print(f"PASS: {name}")
             passed += 1
         except Exception as e:
             print(f"FAIL: {name} — {e}")
