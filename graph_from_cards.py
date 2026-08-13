@@ -268,13 +268,18 @@ def find_cycles(nodes):
     return cycles
 
 
+def _fmt_cycle(cyc):
+    """Цепочка цикла с обрамляющими стрелками — показывает, что она замыкается: → A → B → A →."""
+    return "→ " + " → ".join(cyc) + " →"
+
+
 def format_cycles(nodes, cycles):
     out = ["# cycles (circular internal dependencies)", _ORIENT_CYCLES, ""]
     if not cycles:
         out.append("(none — graph is acyclic)")
         return "\n".join(out)
     for cyc in sorted(cycles, key=lambda c: (len(c), c)):
-        out.append(" → ".join(cyc))
+        out.append(_fmt_cycle(cyc))
     out += ["", f"total: {len(cycles)} cycle(s)"]
     return "\n".join(out)
 
@@ -311,9 +316,9 @@ def _edge_bits(i, nodes, rdeps, pkg, edges):
     """Строка рёбер узла: '→ uses' (out/inout) и/или '← ×N used-by' (in/inout)."""
     bits = []
     if edges in ("out", "inout") and nodes[i]["deps"]:
-        bits.append("→ " + " · ".join(_rel_to(d, pkg) for d in nodes[i]["deps"]))
+        bits.append("→ (" + " · ".join(_rel_to(d, pkg) for d in nodes[i]["deps"]) + ")")
     if edges in ("in", "inout") and rdeps[i]:
-        bits.append(f"← ×{len(rdeps[i])} " + " · ".join(_rel_to(d, pkg) for d in rdeps[i]))
+        bits.append(f"← ×{len(rdeps[i])} (" + " · ".join(_rel_to(d, pkg) for d in rdeps[i]) + ")")
     return "   ".join(bits)
 
 
@@ -348,14 +353,14 @@ def _slices(graph, disp_label):
     """Общий хвост всех видов: hotspots + cycles + unresolved."""
     nodes, indeg = graph["nodes"], graph["indeg"]
     out = ["", "## hotspots"]
-    ep = [f"{i} ×{indeg[i]}" for i in sorted(nodes, key=lambda i: (-indeg[i], i)) if indeg[i] > 0][:8]
+    ep = [f"{i} ← ×{indeg[i]}" for i in sorted(nodes, key=lambda i: (-indeg[i], i)) if indeg[i] > 0][:8]
     out.append("- most depended-on: " + (" · ".join(ep) if ep else "(none)"))
     leaves = sorted(i for i, n in nodes.items() if not n["deps"])
     out.append("- leaves (no deps): " + (" · ".join(leaves) if leaves else "(none)"))
 
     cycles = find_cycles(nodes)
     out += ["", f"## cycles ({len(cycles)})"]
-    out += (["- " + " → ".join(c) for c in sorted(cycles, key=lambda c: (len(c), c))]
+    out += (["- " + _fmt_cycle(c) for c in sorted(cycles, key=lambda c: (len(c), c))]
             if cycles else ["(none — acyclic)"])
 
     if graph["unresolved"]:
@@ -366,7 +371,8 @@ def _slices(graph, disp_label):
 
 # «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
 # Анатомия записи — единая, чтобы не расходилась между видами; строка entry зависит от --verbose.
-_EDGES = "> edges:  → uses (what it imports) · ← ×N used-by (N modules import it) · ⟲ = in a cycle"
+_EDGES = "> edges:  → (deps it imports) · ← ×N (the N modules that import it) · ⟲ = in a cycle"
+_SEP = "> ---"
 
 
 def _entry_line(verbose):
@@ -374,39 +380,52 @@ def _entry_line(verbose):
             else "> entry:  - <module>   (summaries hidden at --verbose 0; --verbose 1 to show)")
 
 
-# ярлыки режимов для строки «other views» (исключаем текущий, чтобы не путать)
+# «other views» — ТОЛЬКО альтернативные режимы карты (исключаем текущий). --edges/--verbose/--file
+# это ФИЛЬТРЫ вывода, а не режимы — они идут отдельной строкой «filters».
 _VIEW_OPTS = [
     ("layers", "--view layers (by dependency depth)"),
     ("packages", "--view packages (group by directory tree)"),
-    ("file", "--file PATH (focus one module)"),
     ("cycles", "--cycles (circular deps)"),
     ("discrepancies", "--discrepancies (map vs source)"),
 ]
+_FILTERS_MAP = ("> filters:      --edges out|in|inout (which links) · --verbose 0|1 (hide/show summaries) · "
+                "--file PATH (focus one module)")
 
 
 def _other_views(current):
     return "> other views:  " + " · ".join(lbl for key, lbl in _VIEW_OPTS if key != current)
 
 
+def _nav(current, filters=_FILTERS_MAP):
+    """Нижний блок шапки: разделитель + (опц.) фильтры + другие режимы.
+    '> ---' отделяет «как читать структуру» от «чем управлять выводом»."""
+    parts = [_SEP]
+    if filters:
+        parts.append(filters)
+    parts.append(_other_views(current))
+    return "\n".join(parts)
+
+
 def _orient_packages(verbose):
-    return _entry_line(verbose) + "\n" + _EDGES + "\n" + _other_views("packages")
+    return _entry_line(verbose) + "\n" + _EDGES + "\n" + _nav("packages")
 
 
 def _orient_layers(verbose):
     return ("> depth layer: 0 = leaves (import nothing internal), higher = closer to entry points\n"
-            + _entry_line(verbose) + "\n" + _EDGES + "\n" + _other_views("layers"))
+            + _entry_line(verbose) + "\n" + _EDGES + "\n" + _nav("layers"))
 
 
 def _orient_file(verbose):
-    return ("> read: focus around one file — downstream (what it needs) + upstream (who needs it), "
-            "within --depth\n" + _entry_line(verbose) + "\n" + _other_views("file"))
+    return ("> read: focus around one file — downstream (what it needs) + upstream (who needs it), within --depth\n"
+            + _entry_line(verbose) + "\n"
+            + _nav("file", "> filters:      --depth N (hops from the file) · --verbose 0|1 (hide/show summaries)"))
 
 
-_ORIENT_CYCLES = ("> read: each line is a circular import chain A → B → C → A; break one edge to break the cycle\n"
-                  + _other_views("cycles"))
+_ORIENT_CYCLES = ("> read: each line is a circular import chain — arrows wrap front & back to show it loops\n"
+                  + _nav("cycles", None))
 _ORIENT_DISCR = ("> read: card↔source gaps — orphan (card, no source) · pending (source, no card) · "
-                 "unresolved (dep points nowhere)\n> regroup: --group-by kind|package|card\n"
-                 + _other_views("discrepancies"))
+                 "unresolved (dep points nowhere)\n"
+                 + _nav("discrepancies", "> filters:      --group-by kind|package|card"))
 
 
 def format_packages(graph, disp, edges, verbose=1):

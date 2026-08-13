@@ -325,13 +325,14 @@ def test_graph_views():
     pk = format_packages(g, "__map", "inout")
     check("packages groups by pkg", "## pkg/ (2)" in pk)
     check("packages has (root)", "## (root) (1)" in pk)
-    check("packages uses rel path in-pkg", "→ b.py" in body(pk))     # pkg/a.py -> pkg/b.py shown as b.py
-    body_out = body(format_packages(g, "__map", "out"))
-    check("edges=out hides used-by", "← ×" not in body_out)
-    check("edges=out keeps uses", "→ b.py" in body_out)
-    body_in = body(format_packages(g, "__map", "in"))
-    check("edges=in shows used-by", "← ×" in body_in)
-    check("edges=in hides uses", "→ b.py" not in body_in)
+    check("packages uses rel path in-pkg", "→ (b.py)" in body(pk))   # pkg/a.py -> pkg/b.py shown as b.py
+    # ассерты по ЛИСТИНГУ модулей (до '## hotspots' — тот легально содержит '← ×N')
+    mods_out = body(format_packages(g, "__map", "out")).split("## hotspots")[0]
+    check("edges=out hides used-by", "← ×" not in mods_out)
+    check("edges=out keeps uses", "→ (b.py)" in mods_out)
+    mods_in = body(format_packages(g, "__map", "in")).split("## hotspots")[0]
+    check("edges=in shows used-by", "← ×" in mods_in)
+    check("edges=in hides uses", "→ (b.py)" not in mods_in)
 
     ly = format_layers(g, "__map", "inout")
     check("layers has depth layer 0", "## depth layer 0" in ly)
@@ -341,7 +342,7 @@ def test_graph_views():
     v0 = body(format_packages(g, "__map", "inout", 0))
     check("verbose 1 keeps summary", "— s." in v1)
     check("verbose 0 hides summary", "— s." not in v0)
-    check("verbose 0 keeps module+edges", "**b.py**" in v0 and "→ b.py" in v0)
+    check("verbose 0 keeps module+edges", "**b.py**" in v0 and "→ (b.py)" in v0)
 
 
 def test_discrepancies():
