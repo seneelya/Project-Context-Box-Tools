@@ -262,9 +262,9 @@ def test_stamp_all_recursive():
           not (root / "__map" / "__map").exists())
 
 
-def test_graph_zone_and_cycles():
+def test_graph_file_zone_and_cycles():
     """graph_from_cards: цикл A→B→C→A детектится; зона = downstream + upstream вокруг узла."""
-    from graph_from_cards import build_graph, find_cycles, zone
+    from graph_from_cards import build_graph, find_cycles, file_zone
 
     root = Path(tempfile.mkdtemp(prefix="graph_"))
     cards = root / "__map"
@@ -290,9 +290,9 @@ def test_graph_zone_and_cycles():
     check("cycle members a/b/c closed",
           cycles and set(cycles[0][:-1]) == {"a.py", "b.py", "c.py"} and cycles[0][0] == cycles[0][-1])
 
-    z = zone(g, "a.py", 1)
-    check("zone downstream = {b}", z["down"] == {"b.py"})
-    check("zone upstream = {c,d}", z["up"] == {"c.py", "d.py"})
+    z = file_zone(g, "a.py", 1)
+    check("file_zone downstream = {b}", z["down"] == {"b.py"})
+    check("file_zone upstream = {c,d}", z["up"] == {"c.py", "d.py"})
 
 
 def test_graph_views():
@@ -397,7 +397,7 @@ def main():
     test_validate_pending_vs_broken()
     test_resolver_submodule_and_docstring()
     test_stamp_all_recursive()
-    test_graph_zone_and_cycles()
+    test_graph_file_zone_and_cycles()
     test_graph_views()
     test_discrepancies()
     test_merge_preserves_prose()

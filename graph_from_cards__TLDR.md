@@ -12,7 +12,7 @@ graph_from_cards.py                           # packages view (default), both ed
 graph_from_cards.py --view layers             # 0=leaves → up toward entry points
 graph_from_cards.py --edges out               # only "→ uses" (quieter; reading order)
 graph_from_cards.py --edges in                # only "← used-by" (blast radius of a change)
-graph_from_cards.py --zone _engine/embed.py   # focus slice around one module
+graph_from_cards.py --file _engine/embed.py   # focus slice around one file
 graph_from_cards.py --cycles                  # circular deps as A → B → C → A
 graph_from_cards.py --discrepancies           # "map vs reality" digest (orphan/pending/unresolved)
 graph_from_cards.py --discrepancies --group-by package   # same findings, regrouped by package

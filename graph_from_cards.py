@@ -13,12 +13,12 @@
 
 Виды карты (--view): packages (по пакетам, ДЕФОЛТ) | layers (0=листья→точки входа).
 Ось --edges: out (только '→ uses') | in (только '← used-by') | inout (обе стороны, ДЕФОЛТ).
-Фокус: --zone FILE [--depth N]; health: --cycles; coverage: --discrepancies.
+Фокус: --file PATH [--depth N]; health: --cycles; coverage: --discrepancies.
 
 Использование:
     python graph_from_cards.py [--project-root PATH] [--view packages|layers]
                                [--edges out|in|inout]
-    python graph_from_cards.py --zone <file> [--depth N]      # фокус-срез вокруг модуля
+    python graph_from_cards.py --file <path> [--depth N]      # фокус-срез вокруг модуля
     python graph_from_cards.py --cycles                       # циклы A → B → C → A
     python graph_from_cards.py --discrepancies [--group-by kind|package|card]
                                                               # свод «карта vs реальность»
@@ -179,7 +179,7 @@ def _bfs(start, edges, depth):
     return seen
 
 
-def zone(graph, center, depth):
+def file_zone(graph, center, depth):
     """Фокус-срез вокруг center: downstream (что тянет) + upstream (кто тянет), <= depth."""
     nodes = graph["nodes"]
     rdeps = _reverse(nodes)
@@ -189,7 +189,7 @@ def zone(graph, center, depth):
     return {"center": center, "depth": depth, "down": down, "up": up, "rdeps": rdeps}
 
 
-def format_zone(graph, z):
+def format_file_zone(graph, z):
     nodes, rdeps = graph["nodes"], z["rdeps"]
     c = z["center"]
 
@@ -197,7 +197,7 @@ def format_zone(graph, z):
         s = nodes[i]["summary"]
         return f"{i} — {s}" if s and not cf.is_agent_directive(s) else i
 
-    out = [f"# zone: {c}  (depth {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)", ""]
+    out = [f"# file: {c}  (depth {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)", ""]
     out += ["## center", line(c),
             f"  uses -> {', '.join(nodes[c]['deps']) or '(none)'}",
             f"  used-by <- {', '.join(rdeps[c]) or '(none)'}", ""]
@@ -474,9 +474,9 @@ def main():
     ap.add_argument("--project-root", type=Path, default=None,
                     help="корень проекта для <root>/__map. Приоритет: флаг > CONFIG__TOOLS.PROJECT_ROOT > cwd")
     ap.add_argument("--json", action="store_true", help="выдать граф как JSON вместо плоского текста")
-    ap.add_argument("--zone", metavar="FILE", default=None,
-                    help="фокус-срез вокруг модуля: что он тянет (downstream) + кто тянет его (upstream)")
-    ap.add_argument("--depth", type=int, default=1, help="глубина зоны в рёбрах (по умолч. 1)")
+    ap.add_argument("--file", metavar="PATH", default=None,
+                    help="фокус-срез вокруг файла: что он тянет (downstream) + кто тянет его (upstream)")
+    ap.add_argument("--depth", type=int, default=1, help="глубина среза в рёбрах (по умолч. 1)")
     ap.add_argument("--cycles", action="store_true",
                     help="детекция циклических зависимостей, вывод цепочками A → B → C → A")
     ap.add_argument("--discrepancies", action="store_true",
@@ -513,19 +513,19 @@ def main():
             print(format_discrepancies(items, group=args.group_by))
         return
 
-    if args.zone:
-        center = _resolve_id(graph["nodes"], args.zone)
+    if args.file:
+        center = _resolve_id(graph["nodes"], args.file)
         if not center:
-            print(f"zone: '{args.zone}' — no such card (need a root-relative path or a unique basename)",
+            print(f"--file: '{args.file}' — no such card (need a root-relative path or a unique basename)",
                   file=sys.stderr)
             sys.exit(1)
-        z = zone(graph, center, max(1, args.depth))
+        z = file_zone(graph, center, max(1, args.depth))
         if args.json:
             print(json.dumps({"center": center, "depth": z["depth"],
                               "downstream": sorted(z["down"]), "upstream": sorted(z["up"])},
                              ensure_ascii=False, indent=2))
         else:
-            print(format_zone(graph, z))
+            print(format_file_zone(graph, z))
         return
 
     if args.json:

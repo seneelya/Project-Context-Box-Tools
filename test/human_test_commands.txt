@@ -152,12 +152,12 @@ py validate_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/wo
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
 
-# graph_from_cards: ZONE (focus slice for zoning).
+# graph_from_cards: FILE focus (slice around one file).
 # expect: center "uses -> ..." + "used-by <- ..."; downstream & upstream lists within --depth
 
-py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --zone _engine/embed.py --depth 1
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file _engine/embed.py --depth 1
 
-py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --zone cli.py --depth 2
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file cli.py --depth 2
 
 # graph_from_cards: CYCLES (circular deps as A -> B -> C -> A).
 # expect: chains like "_core/__init__.py -> _core/registry.py -> _core/legacy.py -> _core/__init__.py"
@@ -190,7 +190,7 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --discrepancies --group-by package
 
 # graph_from_cards: --help shows the flags (no project involved -> no --project-root).
-# expect: --view, --edges, --zone, --depth, --cycles, --discrepancies, --group-by documented;
+# expect: --view, --edges, --file, --depth, --cycles, --discrepancies, --group-by documented;
 #         NO "-h, --help" line; NO --paths/flat
 
 py graph_from_cards.py --help
