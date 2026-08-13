@@ -179,6 +179,11 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 
 # graph_from_cards: EDGES = inout is the default (both "→ uses" and "← ×N used-by") — no command needed.
 
+# graph_from_cards: VERBOSE 0 (modules + edges only; summaries hidden).
+# expect: entries as "- <module>" with edge lines, NO " — <summary>"; header notes summaries hidden
+
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --verbose 0
+
 # graph_from_cards: DISCREPANCIES (map vs reality digest).
 # expect (clean project): "# discrepancies — none (map matches reality)"
 
@@ -190,7 +195,7 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --discrepancies --group-by package
 
 # graph_from_cards: --help shows the flags (no project involved -> no --project-root).
-# expect: --view, --edges, --file, --depth, --cycles, --discrepancies, --group-by documented;
+# expect: --view, --edges, --verbose, --file, --depth, --cycles, --discrepancies, --group-by documented;
 #         NO "-h, --help" line; NO --paths/flat
 
 py graph_from_cards.py --help

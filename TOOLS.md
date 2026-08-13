@@ -53,9 +53,10 @@ layer 1 on purpose). Default cards dir `./__map`; override with `--cards-dir` / 
   sections, deps resolve, orphans). Coaches the author; exit 1 on problems.
 - **`check_cards_freshness.py [--cards-dir P] [--project-root P]`** — which cards are stale vs source
   (git mode / mtime fallback) and which are orphans. Exit 1 if any.
-- **`graph_from_cards.py [--project-root P] [--view packages|layers] [--edges out|in|inout]`** — project
-  topology from cards: modules + summaries + edges, hotspots, cycles, unresolved refs. `--view packages`
-  (default) groups by dir; `layers` orders 0=leaves→entry points. `--edges` = uses / used-by / both.
+- **`graph_from_cards.py [--project-root P] [--view packages|layers] [--edges out|in|inout] [--verbose 0|1]`**
+  — project topology from cards: modules + summaries + edges, hotspots, cycles, unresolved refs. `--view
+  packages` (default) groups by dir; `layers` orders 0=leaves→entry points. `--edges` = uses / used-by /
+  both. `--verbose 0` drops summary lines (modules + edges only).
   `--file PATH [--depth N]` focus slice; `--cycles` circular deps; `--discrepancies [--group-by
   kind|package|card]` map-vs-reality digest (orphan/pending/unresolved); `--json` draft for a visualizer.
 - **`collect_card_bundle.py <file> [--cards-dir P] [--depth N]`** — call-saver: target card + only its deps'

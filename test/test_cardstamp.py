@@ -336,6 +336,13 @@ def test_graph_views():
     ly = format_layers(g, "__map", "inout")
     check("layers has layer 0", "## layer 0" in ly)
 
+    # --verbose 0 прячет описания (строку « — summary»), но модули/связи остаются
+    v1 = body(format_packages(g, "__map", "inout", 1))
+    v0 = body(format_packages(g, "__map", "inout", 0))
+    check("verbose 1 keeps summary", "— s." in v1)
+    check("verbose 0 hides summary", "— s." not in v0)
+    check("verbose 0 keeps module+edges", "**b.py**" in v0 and "→ b.py" in v0)
+
 
 def test_discrepancies():
     """Свод «карта vs реальность»: orphan / pending / unresolved + переорганизация группировки."""

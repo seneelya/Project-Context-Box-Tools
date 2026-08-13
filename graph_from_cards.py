@@ -13,11 +13,12 @@
 
 Виды карты (--view): packages (по пакетам, ДЕФОЛТ) | layers (0=листья→точки входа).
 Ось --edges: out (только '→ uses') | in (только '← used-by') | inout (обе стороны, ДЕФОЛТ).
+Плотность --verbose: 0 (только модули+связи) | 1 (с описаниями, ДЕФОЛТ).
 Фокус: --file PATH [--depth N]; health: --cycles; coverage: --discrepancies.
 
 Использование:
     python graph_from_cards.py [--project-root PATH] [--view packages|layers]
-                               [--edges out|in|inout]
+                               [--edges out|in|inout] [--verbose 0|1]
     python graph_from_cards.py --file <path> [--depth N]      # фокус-срез вокруг модуля
     python graph_from_cards.py --cycles                       # циклы A → B → C → A
     python graph_from_cards.py --discrepancies [--group-by kind|package|card]
@@ -197,16 +198,16 @@ def file_zone(graph, center, depth):
     return {"center": center, "depth": depth, "down": down, "up": up, "rdeps": rdeps}
 
 
-def format_file_zone(graph, z):
+def format_file_zone(graph, z, verbose=1):
     nodes, rdeps = graph["nodes"], z["rdeps"]
     c = z["center"]
 
     def line(i):
         s = nodes[i]["summary"]
-        return f"{i} — {s}" if s and not cf.is_agent_directive(s) else i
+        return f"{i} — {s}" if verbose >= 1 and s and not cf.is_agent_directive(s) else i
 
     out = [f"# file: {c}  (depth {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)",
-           _ORIENT_FILE, ""]
+           _orient_file(verbose), ""]
     out += ["## center", line(c),
             f"  uses -> {', '.join(nodes[c]['deps']) or '(none)'}",
             f"  used-by <- {', '.join(rdeps[c]) or '(none)'}", ""]
@@ -299,7 +300,9 @@ def _cycle_nodes(nodes):
     return s
 
 
-def _summ(nodes, i):
+def _summ(nodes, i, verbose=1):
+    if verbose < 1:                        # --verbose 0: только модули+связи, без описаний
+        return ""
     s = nodes[i]["summary"]
     return f" — {s}" if s and not cf.is_agent_directive(s) else ""
 
@@ -362,25 +365,41 @@ def _slices(graph, disp_label):
 
 
 # «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
-# Анатомия записи — единая, чтобы не расходилась между видами:
-_ENTRY = "> entry:  - <module> — <one-line summary from the module's card>"
+# Анатомия записи — единая, чтобы не расходилась между видами; строка entry зависит от --verbose.
 _EDGES = "> edges:  → uses (what it imports) · ← ×N used-by (N modules import it) · ⟲ = in a cycle"
-_ORIENT_PACKAGES = (_ENTRY + "\n" + _EDGES + "\n"
-                    "> more:   grouped by top-level dir · --view layers · "
-                    "--file PATH (focus one module) · --cycles · --discrepancies")
-_ORIENT_LAYERS = ("> layers = dependency depth: layer 0 = leaves (import nothing internal), "
-                  "higher = closer to entry points\n"
-                  + _ENTRY + "\n" + _EDGES + "\n> more:   --file PATH (focus one module) · --view packages")
+
+
+def _entry_line(verbose):
+    return ("> entry:  - <module> — <one-line summary from the module's card>" if verbose >= 1
+            else "> entry:  - <module>   (summaries hidden at --verbose 0; --verbose 1 to show)")
+
+
+def _orient_packages(verbose):
+    return (_entry_line(verbose) + "\n" + _EDGES + "\n"
+            "> more:   grouped by top-level dir · --view layers · "
+            "--file PATH (focus one module) · --cycles · --discrepancies")
+
+
+def _orient_layers(verbose):
+    return ("> layers = dependency depth: layer 0 = leaves (import nothing internal), "
+            "higher = closer to entry points\n"
+            + _entry_line(verbose) + "\n" + _EDGES
+            + "\n> more:   --file PATH (focus one module) · --view packages")
+
+
+def _orient_file(verbose):
+    return ("> read: focus around one file — downstream (what it needs) + upstream (who needs it), "
+            "within --depth\n" + _entry_line(verbose))
+
+
 _ORIENT_CYCLES = "> read: each line is a circular import chain A → B → C → A; break one edge to break the cycle"
 _ORIENT_DISCR = ("> read: card↔source gaps — orphan (card, no source) · pending (source, no card) · "
                  "unresolved (dep points nowhere)\n> regroup: --group-by kind|package|card")
-_ORIENT_FILE = ("> read: focus around one file — downstream (what it needs) + upstream (who needs it), "
-                "within --depth\n" + _ENTRY)
 
 
-def format_packages(graph, disp, edges):
+def format_packages(graph, disp, edges, verbose=1):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
-    out = [f"# map — {len(nodes)} modules · packages (dir={disp})", _ORIENT_PACKAGES, ""]
+    out = [f"# map — {len(nodes)} modules · packages (dir={disp})", _orient_packages(verbose), ""]
     pkgs = {}
     for i in nodes:
         pkgs.setdefault(_top_pkg(i), []).append(i)
@@ -389,7 +408,7 @@ def format_packages(graph, disp, edges):
         out.append(f"## {pkg} ({len(members)})")
         for i in members:
             label = _rel_to(i, pkg)
-            out.append(f"- **{label}**{' ⟲' if i in cyc else ''}{_summ(nodes, i)}")
+            out.append(f"- **{label}**{' ⟲' if i in cyc else ''}{_summ(nodes, i, verbose)}")
             eb = _edge_bits(i, nodes, rdeps, pkg, edges)
             if eb:
                 out.append(f"  {eb}")
@@ -397,15 +416,15 @@ def format_packages(graph, disp, edges):
     return "\n".join(out + _slices(graph, disp))
 
 
-def format_layers(graph, disp, edges):
+def format_layers(graph, disp, edges, verbose=1):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
     layers = _compute_layers(nodes)
-    out = [f"# map — {len(nodes)} modules · layers 0=leaves (dir={disp})", _ORIENT_LAYERS, ""]
+    out = [f"# map — {len(nodes)} modules · layers 0=leaves (dir={disp})", _orient_layers(verbose), ""]
     for l in sorted(layers):
         members = sorted(layers[l])
         out.append(f"## layer {l} ({len(members)})")
         for i in members:
-            out.append(f"- **{i}**{' ⟲' if i in cyc else ''}{_summ(nodes, i)}")
+            out.append(f"- **{i}**{' ⟲' if i in cyc else ''}{_summ(nodes, i, verbose)}")
             eb = _edge_bits(i, nodes, rdeps, "(root)", edges)  # слои cross-cutting -> пути полные
             if eb:
                 out.append(f"  {eb}")
@@ -512,6 +531,8 @@ def main():
     ap.add_argument("--edges", choices=["out", "in", "inout"], default="inout",
                     help="какие рёбра печатать: out (только '→ uses') | in (только '← used-by') | "
                          "inout (обе стороны, дефолт)")
+    ap.add_argument("--verbose", type=int, default=1, metavar="N",
+                    help="0 = только модули и связи (описания скрыты) | 1 = с описаниями (дефолт)")
     args = ap.parse_args()
 
     cards_dir = args.cards_dir.resolve() if args.cards_dir else (resolve_project_root(args.project_root) / "__map")
@@ -548,7 +569,7 @@ def main():
                               "downstream": sorted(z["down"]), "upstream": sorted(z["up"])},
                              ensure_ascii=False, indent=2))
         else:
-            print(termstyle.md(format_file_zone(graph, z)))
+            print(termstyle.md(format_file_zone(graph, z, args.verbose)))
         return
 
     if args.json:
@@ -561,9 +582,9 @@ def main():
     except ValueError:
         disp = str(cards_dir)
     if args.view == "layers":
-        print(termstyle.md(format_layers(graph, disp, args.edges)))
+        print(termstyle.md(format_layers(graph, disp, args.edges, args.verbose)))
     else:
-        print(termstyle.md(format_packages(graph, disp, args.edges)))
+        print(termstyle.md(format_packages(graph, disp, args.edges, args.verbose)))
 
 
 if __name__ == "__main__":

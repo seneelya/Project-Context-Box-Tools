@@ -12,6 +12,7 @@ graph_from_cards.py                           # packages view (default), both ed
 graph_from_cards.py --view layers             # 0=leaves → up toward entry points
 graph_from_cards.py --edges out               # only "→ uses" (quieter; reading order)
 graph_from_cards.py --edges in                # only "← used-by" (blast radius of a change)
+graph_from_cards.py --verbose 0               # modules + edges only (hide summary lines)
 graph_from_cards.py --file _engine/embed.py   # focus slice around one file
 graph_from_cards.py --cycles                  # circular deps as A → B → C → A
 graph_from_cards.py --discrepancies           # "map vs reality" digest (orphan/pending/unresolved)
