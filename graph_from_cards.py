@@ -362,16 +362,20 @@ def _slices(graph, disp_label):
 
 
 # «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
-# Единый ключ глифов, чтобы не расходился между видами:
-_GLYPHS = "→ uses · ← used-by(N) · ⟲ in a cycle · gray = summary"
-_ORIENT_PACKAGES = ("> read: modules grouped by top-level dir; per module — " + _GLYPHS + ".\n"
-                    "> also: --view layers · --file PATH (zoom to one) · --cycles · --discrepancies")
-_ORIENT_LAYERS = ("> read: modules by dependency depth — layer 0 = leaves (no internal deps), up = toward entry points.\n"
-                  "> per module: " + _GLYPHS + " · zoom: --file PATH")
+# Анатомия записи — единая, чтобы не расходилась между видами:
+_ENTRY = "> entry:  - <module> — <one-line summary from the module's card>"
+_EDGES = "> edges:  → uses (what it imports) · ← ×N used-by (N modules import it) · ⟲ = in a cycle"
+_ORIENT_PACKAGES = (_ENTRY + "\n" + _EDGES + "\n"
+                    "> more:   grouped by top-level dir · --view layers · "
+                    "--file PATH (focus one module) · --cycles · --discrepancies")
+_ORIENT_LAYERS = ("> layers = dependency depth: layer 0 = leaves (import nothing internal), "
+                  "higher = closer to entry points\n"
+                  + _ENTRY + "\n" + _EDGES + "\n> more:   --file PATH (focus one module) · --view packages")
 _ORIENT_CYCLES = "> read: each line is a circular import chain A → B → C → A; break one edge to break the cycle"
 _ORIENT_DISCR = ("> read: card↔source gaps — orphan (card, no source) · pending (source, no card) · "
-                 "unresolved (dep points nowhere).\n> regroup: --group-by kind|package|card")
-_ORIENT_FILE = "> read: focus around one file — downstream (what it needs) + upstream (who needs it), within --depth"
+                 "unresolved (dep points nowhere)\n> regroup: --group-by kind|package|card")
+_ORIENT_FILE = ("> read: focus around one file — downstream (what it needs) + upstream (who needs it), "
+                "within --depth\n" + _ENTRY)
 
 
 def format_packages(graph, disp, edges):

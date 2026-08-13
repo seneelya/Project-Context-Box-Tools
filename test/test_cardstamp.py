@@ -318,16 +318,20 @@ def test_graph_views():
     card("root.py", ["pkg/a.py"])
     g = build_graph(cards)
 
+    # шапка-ориентир (строки '>') сама содержит '→'/'← ×N' как ключ — ассерты по ТЕЛУ (без '>')
+    def body(text):
+        return "\n".join(l for l in text.splitlines() if not l.lstrip().startswith(">"))
+
     pk = format_packages(g, "__map", "inout")
     check("packages groups by pkg", "## pkg/ (2)" in pk)
     check("packages has (root)", "## (root) (1)" in pk)
-    check("packages uses rel path in-pkg", "→ b.py" in pk)          # pkg/a.py -> pkg/b.py shown as b.py
-    pk_out = format_packages(g, "__map", "out")
-    check("edges=out hides used-by", "← ×" not in pk_out)   # легенда содержит '←', строки-рёбра — '← ×N'
-    check("edges=out keeps uses", "→ b.py" in pk_out)
-    pk_in = format_packages(g, "__map", "in")
-    check("edges=in shows used-by", "← ×" in pk_in)
-    check("edges=in hides uses", "→ b.py" not in pk_in)  # легенда содержит '→', но ребра '→ uses' нет
+    check("packages uses rel path in-pkg", "→ b.py" in body(pk))     # pkg/a.py -> pkg/b.py shown as b.py
+    body_out = body(format_packages(g, "__map", "out"))
+    check("edges=out hides used-by", "← ×" not in body_out)
+    check("edges=out keeps uses", "→ b.py" in body_out)
+    body_in = body(format_packages(g, "__map", "in"))
+    check("edges=in shows used-by", "← ×" in body_in)
+    check("edges=in hides uses", "→ b.py" not in body_in)
 
     ly = format_layers(g, "__map", "inout")
     check("layers has layer 0", "## layer 0" in ly)
