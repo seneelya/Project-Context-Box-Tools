@@ -11,15 +11,15 @@
 рус. "Из файла"), так что тул работает и на старых карточках. Ссылки, которые не
 удалось сопоставить карточке, честно выводятся в конце (сигнал к нормализации).
 
-Виды карты (--view): packages (по пакетам, ДЕФОЛТ) | layers (0=листья→точки входа).
-Ось --edges: out (только '→ uses') | in (только '← used-by') | inout (обе стороны, ДЕФОЛТ).
+Виды карты (--view): tree (по дереву каталогов, ДЕФОЛТ) | depth (0=листья→точки входа).
+Ось --edges: out (только '→') | in (только '←') | inout (обе стороны, ДЕФОЛТ).
 Плотность --verbose: 0 (только модули+связи) | 1 (с описаниями, ДЕФОЛТ).
-Фокус: --file PATH [--depth N]; health: --cycles; coverage: --discrepancies.
+Фокус: --file PATH [--hops N]; health: --cycles; coverage: --discrepancies.
 
 Использование:
-    python graph_from_cards.py [--project-root PATH] [--view packages|layers]
+    python graph_from_cards.py [--project-root PATH] [--view tree|depth]
                                [--edges out|in|inout] [--verbose 0|1]
-    python graph_from_cards.py [--file <path> [--depth N]]    # фокус-срез (глубина только с --file)
+    python graph_from_cards.py [--file <path> [--hops N]]     # фокус-срез (радиус только с --file)
     python graph_from_cards.py --cycles                       # циклы A → B → C → A
     python graph_from_cards.py --discrepancies [--group-by kind|package|card]
                                                               # свод «карта vs реальность»
@@ -206,7 +206,7 @@ def format_file_zone(graph, z, verbose=1):
         s = nodes[i]["summary"]
         return f"{i} — {s}" if verbose >= 1 and s and not cf.is_agent_directive(s) else i
 
-    out = [f"# file: {c}  (depth {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)",
+    out = [f"# file: {c}  (hops {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)",
            _orient_file(verbose), ""]
     out += ["## center", line(c),
             f"  uses -> {', '.join(nodes[c]['deps']) or '(none)'}",
@@ -312,13 +312,22 @@ def _summ(nodes, i, verbose=1):
     return f" — {s}" if s and not cf.is_agent_directive(s) else ""
 
 
+def _seg(arrow, ids, pkg):
+    """Одна сторона рёбер. 1 элемент -> '→ name' (без ×, без скобок);
+    ≥2 -> '→ ×N (a · b · c)' (× считает перечисленные в скобках). Симметрично для → и ←."""
+    names = [_rel_to(d, pkg) for d in ids]
+    if len(names) == 1:
+        return f"{arrow} {names[0]}"
+    return f"{arrow} ×{len(names)} (" + " · ".join(names) + ")"
+
+
 def _edge_bits(i, nodes, rdeps, pkg, edges):
-    """Строка рёбер узла: '→ uses' (out/inout) и/или '← ×N used-by' (in/inout)."""
+    """Строка рёбер узла: '→' (uses, out/inout) и/или '←' (used-by, in/inout)."""
     bits = []
     if edges in ("out", "inout") and nodes[i]["deps"]:
-        bits.append("→ (" + " · ".join(_rel_to(d, pkg) for d in nodes[i]["deps"]) + ")")
+        bits.append(_seg("→", nodes[i]["deps"], pkg))
     if edges in ("in", "inout") and rdeps[i]:
-        bits.append(f"← ×{len(rdeps[i])} (" + " · ".join(_rel_to(d, pkg) for d in rdeps[i]) + ")")
+        bits.append(_seg("←", rdeps[i], pkg))
     return "   ".join(bits)
 
 
@@ -371,7 +380,8 @@ def _slices(graph, disp_label):
 
 # «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
 # Анатомия записи — единая, чтобы не расходилась между видами; строка entry зависит от --verbose.
-_EDGES = "> edges:  → (deps it imports) · ← ×N (the N modules that import it) · ⟲ = in a cycle"
+_EDGES = ("> edges:  → what it imports · ← what imports it · ×N before (…) = list length "
+          "(shown only when >1) · ⟲ = in a cycle")
 _SEP = "> ---"
 
 
@@ -383,8 +393,8 @@ def _entry_line(verbose):
 # «other views» — ТОЛЬКО альтернативные режимы карты (исключаем текущий). --edges/--verbose/--file
 # это ФИЛЬТРЫ вывода, а не режимы — они идут отдельной строкой «filters».
 _VIEW_OPTS = [
-    ("layers", "--view layers (by dependency depth)"),
-    ("packages", "--view packages (group by directory tree)"),
+    ("depth", "--view depth (by dependency depth: 0=leaves)"),
+    ("tree", "--view tree (group by directory tree)"),
     ("cycles", "--cycles (circular deps)"),
     ("discrepancies", "--discrepancies (map vs source)"),
 ]
@@ -406,19 +416,19 @@ def _nav(current, filters=_FILTERS_MAP):
     return "\n".join(parts)
 
 
-def _orient_packages(verbose):
-    return _entry_line(verbose) + "\n" + _EDGES + "\n" + _nav("packages")
+def _orient_tree(verbose):
+    return _entry_line(verbose) + "\n" + _EDGES + "\n" + _nav("tree")
 
 
-def _orient_layers(verbose):
-    return ("> depth layer: 0 = leaves (import nothing internal), higher = closer to entry points\n"
-            + _entry_line(verbose) + "\n" + _EDGES + "\n" + _nav("layers"))
+def _orient_depth(verbose):
+    return ("> depth: 0 = leaves (import nothing internal), higher = closer to entry points\n"
+            + _entry_line(verbose) + "\n" + _EDGES + "\n" + _nav("depth"))
 
 
 def _orient_file(verbose):
-    return ("> read: focus around one file — downstream (what it needs) + upstream (who needs it), within --depth\n"
+    return ("> read: focus around one file — downstream (what it needs) + upstream (who needs it), within --hops\n"
             + _entry_line(verbose) + "\n"
-            + _nav("file", "> filters:      --depth N (hops from the file) · --verbose 0|1 (hide/show summaries)"))
+            + _nav("file", "> filters:      --hops N (hops from the file) · --verbose 0|1 (hide/show summaries)"))
 
 
 _ORIENT_CYCLES = ("> read: each line is a circular import chain — arrows wrap front & back to show it loops\n"
@@ -428,10 +438,10 @@ _ORIENT_DISCR = ("> read: card↔source gaps — orphan (card, no source) · pen
                  + _nav("discrepancies", "> filters:      --group-by kind|package|card"))
 
 
-def format_packages(graph, disp, edges, verbose=1):
+def format_tree(graph, disp, edges, verbose=1):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
-    out = [f"# map — {len(nodes)} modules · packages · auto-gathered from {disp}",
-           _orient_packages(verbose), ""]
+    out = [f"# map — {len(nodes)} modules · tree (by directory) · auto-gathered from {disp}",
+           _orient_tree(verbose), ""]
     pkgs = {}
     for i in nodes:
         pkgs.setdefault(_top_pkg(i), []).append(i)
@@ -448,14 +458,14 @@ def format_packages(graph, disp, edges, verbose=1):
     return "\n".join(out + _slices(graph, disp))
 
 
-def format_layers(graph, disp, edges, verbose=1):
+def format_depth(graph, disp, edges, verbose=1):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
     layers = _compute_layers(nodes)
-    out = [f"# map — {len(nodes)} modules · depth layers (0=leaves) · auto-gathered from {disp}",
-           _orient_layers(verbose), ""]
+    out = [f"# map — {len(nodes)} modules · depth (0=leaves) · auto-gathered from {disp}",
+           _orient_depth(verbose), ""]
     for l in sorted(layers):
         members = sorted(layers[l])
-        out.append(f"## depth layer {l} ({len(members)})")
+        out.append(f"## depth {l} ({len(members)})")
         for i in members:
             out.append(f"- **{i}**{' ⟲' if i in cyc else ''}{_summ(nodes, i, verbose)}")
             eb = _edge_bits(i, nodes, rdeps, "(root)", edges)  # слои cross-cutting -> пути полные
@@ -551,7 +561,8 @@ def main():
     ap.add_argument("--json", action="store_true", help="выдать граф как JSON вместо плоского текста")
     ap.add_argument("--file", metavar="PATH", default=None,
                     help="фокус-срез вокруг файла: что он тянет (downstream) + кто тянет его (upstream)")
-    ap.add_argument("--depth", type=int, default=1, help="глубина среза в рёбрах (по умолч. 1)")
+    ap.add_argument("--hops", type=int, default=1,
+                    help="радиус среза в рёбрах от --file (по умолч. 1; работает только с --file)")
     ap.add_argument("--cycles", action="store_true",
                     help="детекция циклических зависимостей, вывод цепочками A → B → C → A")
     ap.add_argument("--discrepancies", action="store_true",
@@ -559,10 +570,10 @@ def main():
                          "pending (исходник без карточки) + unresolved (ссылка в никуда)")
     ap.add_argument("--group-by", choices=["kind", "package", "card"], default="kind",
                     help="ось группировки свода --discrepancies (по умолч. kind)")
-    ap.add_argument("--view", choices=["packages", "layers"], default="packages",
-                    help="структура карты: packages (по пакетам, дефолт) | layers (0=листья→точки входа)")
+    ap.add_argument("--view", choices=["tree", "depth"], default="tree",
+                    help="структура карты: tree (по дереву каталогов, дефолт) | depth (0=листья→точки входа)")
     ap.add_argument("--edges", choices=["out", "in", "inout"], default="inout",
-                    help="какие рёбра печатать: out (только '→ uses') | in (только '← used-by') | "
+                    help="какие рёбра печатать: out (только '→') | in (только '←') | "
                          "inout (обе стороны, дефолт)")
     ap.add_argument("--verbose", type=int, default=1, metavar="N",
                     help="0 = только модули и связи (описания скрыты) | 1 = с описаниями (дефолт)")
@@ -596,7 +607,7 @@ def main():
             print(f"--file: '{args.file}' — no such card (need a root-relative path or a unique basename)",
                   file=sys.stderr)
             sys.exit(1)
-        z = file_zone(graph, center, max(1, args.depth))
+        z = file_zone(graph, center, max(1, args.hops))
         if args.json:
             print(json.dumps({"center": center, "depth": z["depth"],
                               "downstream": sorted(z["down"]), "upstream": sorted(z["up"])},
@@ -611,10 +622,10 @@ def main():
         return
 
     disp = cards_dir.as_posix()   # полный путь к папке карточек (видно, откуда собрана карта)
-    if args.view == "layers":
-        print(termstyle.md(format_layers(graph, disp, args.edges, args.verbose)))
+    if args.view == "depth":
+        print(termstyle.md(format_depth(graph, disp, args.edges, args.verbose)))
     else:
-        print(termstyle.md(format_packages(graph, disp, args.edges, args.verbose)))
+        print(termstyle.md(format_tree(graph, disp, args.edges, args.verbose)))
 
 
 if __name__ == "__main__":

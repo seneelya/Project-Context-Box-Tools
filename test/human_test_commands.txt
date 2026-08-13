@@ -147,27 +147,27 @@ py validate_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/wo
 # In any card, set a section body to e.g. "(none) - trivial, no consumers" and re-run validate:
 # expect: still clean (the annotated marker counts as empty; only "(nonexistent)"-like text does not).
 
-# graph_from_cards: default map (packages view).
-# expect: "# map — N modules · packages", "## _engine/ (N)" headings, hotspots/cycles slices, 0 unresolved
+# graph_from_cards: default map (tree view).
+# expect: "# map — N modules · tree", "## _engine/ (N)" headings, hotspots/cycles slices, 0 unresolved
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
 
 # graph_from_cards: FILE focus (slice around one file).
-# expect: center "uses -> ..." + "used-by <- ..."; downstream & upstream lists within --depth
+# expect: center "uses -> ..." + "used-by <- ..."; downstream & upstream lists within --hops
 
-py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file _engine/embed.py --depth 1
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file _engine/embed.py --hops 1
 
-py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file cli.py --depth 2
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file cli.py --hops 2
 
 # graph_from_cards: CYCLES (circular deps as A -> B -> C -> A).
 # expect: chains like "_core/__init__.py -> _core/registry.py -> _core/legacy.py -> _core/__init__.py"
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --cycles
 
-# graph_from_cards: VIEW = layers.
-# expect: layers -> "## depth layer 0" (leaves) ... up toward entry points
+# graph_from_cards: VIEW = depth.
+# expect: depth -> "## depth 0" (leaves) ... up toward entry points
 
-py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --view layers
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --view depth
 
 # graph_from_cards: EDGES = out (only "→ uses" edge lines, no "← ×N used-by").
 
@@ -195,7 +195,7 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --discrepancies --group-by package
 
 # graph_from_cards: --help shows the flags (no project involved -> no --project-root).
-# expect: --view, --edges, --verbose, --file, --depth, --cycles, --discrepancies, --group-by documented;
+# expect: --view, --edges, --verbose, --file, --hops, --cycles, --discrepancies, --group-by documented;
 #         NO "-h, --help" line; NO --paths/flat
 
 py graph_from_cards.py --help

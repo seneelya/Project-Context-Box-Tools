@@ -296,8 +296,8 @@ def test_graph_file_zone_and_cycles():
 
 
 def test_graph_views():
-    """packages группирует по пакетам с rel-путями; layers даёт слой 0=листья; --edges out/in/inout."""
-    from graph_from_cards import build_graph, format_packages, format_layers
+    """tree группирует по каталогам; depth даёт слой 0=листья; --edges out/in/inout; правило ×N."""
+    from graph_from_cards import build_graph, format_tree, format_depth
 
     root = Path(tempfile.mkdtemp(prefix="gview_"))
     cards = root / "__map"
@@ -315,34 +315,35 @@ def test_graph_views():
 
     card("pkg/a.py", ["pkg/b.py"])
     card("pkg/b.py", [])
-    card("root.py", ["pkg/a.py"])
+    card("root.py", ["pkg/a.py", "pkg/b.py"])   # b.py импортят двое (a.py, root.py) -> '← ×2 (…)'
     g = build_graph(cards)
 
-    # шапка-ориентир (строки '>') сама содержит '→'/'← ×N' как ключ — ассерты по ТЕЛУ (без '>')
+    # шапка-ориентир (строки '>') сама содержит глифы как ключ — ассерты по ТЕЛУ (без '>')
     def body(text):
         return "\n".join(l for l in text.splitlines() if not l.lstrip().startswith(">"))
 
-    pk = format_packages(g, "__map", "inout")
-    check("packages groups by pkg", "## pkg/ (2)" in pk)
-    check("packages has (root)", "## (root) (1)" in pk)
-    check("packages uses rel path in-pkg", "→ (b.py)" in body(pk))   # pkg/a.py -> pkg/b.py shown as b.py
+    pk = format_tree(g, "__map", "inout")
+    check("tree groups by dir", "## pkg/ (2)" in pk)
+    check("tree has (root)", "## (root) (1)" in pk)
+    check("single dep: no ×, no brackets", "→ b.py" in body(pk))     # a.py -> b.py, один -> без ×/()
     # ассерты по ЛИСТИНГУ модулей (до '## hotspots' — тот легально содержит '← ×N')
-    mods_out = body(format_packages(g, "__map", "out")).split("## hotspots")[0]
-    check("edges=out hides used-by", "← ×" not in mods_out)
-    check("edges=out keeps uses", "→ (b.py)" in mods_out)
-    mods_in = body(format_packages(g, "__map", "in")).split("## hotspots")[0]
-    check("edges=in shows used-by", "← ×" in mods_in)
-    check("edges=in hides uses", "→ (b.py)" not in mods_in)
+    mods_out = body(format_tree(g, "__map", "out")).split("## hotspots")[0]
+    check("edges=out hides used-by", "←" not in mods_out)
+    check("edges=out keeps uses", "→ b.py" in mods_out)
+    mods_in = body(format_tree(g, "__map", "in")).split("## hotspots")[0]
+    check("edges=in shows used-by", "←" in mods_in)
+    check("edges=in multi -> ×N + brackets", "← ×2 (" in mods_in)    # b.py used-by a.py+root.py
+    check("edges=in hides uses", "→ b.py" not in mods_in)
 
-    ly = format_layers(g, "__map", "inout")
-    check("layers has depth layer 0", "## depth layer 0" in ly)
+    dp = format_depth(g, "__map", "inout")
+    check("depth view has depth 0", "## depth 0" in dp)
 
     # --verbose 0 прячет описания (строку « — summary»), но модули/связи остаются
-    v1 = body(format_packages(g, "__map", "inout", 1))
-    v0 = body(format_packages(g, "__map", "inout", 0))
+    v1 = body(format_tree(g, "__map", "inout", 1))
+    v0 = body(format_tree(g, "__map", "inout", 0))
     check("verbose 1 keeps summary", "— s." in v1)
     check("verbose 0 hides summary", "— s." not in v0)
-    check("verbose 0 keeps module+edges", "**b.py**" in v0 and "→ (b.py)" in v0)
+    check("verbose 0 keeps module+edges", "**b.py**" in v0 and "→ b.py" in v0)
 
 
 def test_discrepancies():

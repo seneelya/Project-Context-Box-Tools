@@ -1,15 +1,15 @@
 # graph_from_cards
 
 The project's topology from `__map/` cards — the "second compilation". Load it ONCE and
-then reason in your head (impact / chain / layers); no need to re-read cards.
+then reason in your head (impact / chain / depth); no need to re-read cards.
 
-**Target:** `graph_from_cards.py [--project-root P] [--view packages|layers] [--edges out|in|inout]`
+**Target:** `graph_from_cards.py [--project-root P] [--view tree|depth] [--edges out|in|inout]`
 — default cards = `<project>/__map/`.
 
 ## Quick use
 ```
-graph_from_cards.py                           # packages view (default), both edge directions
-graph_from_cards.py --view layers             # 0=leaves → up toward entry points
+graph_from_cards.py                           # tree view (default), both edge directions
+graph_from_cards.py --view depth              # 0=leaves → up toward entry points
 graph_from_cards.py --edges out               # only "→ uses" (quieter; reading order)
 graph_from_cards.py --edges in                # only "← used-by" (blast radius of a change)
 graph_from_cards.py --verbose 0               # modules + edges only (hide summary lines)
@@ -27,8 +27,8 @@ findings differently — the collection is one flat typed list, grouping is just
 
 ## Emits (lean text)
 
-* **`--view packages`** (default): modules grouped by top dir, each with summary + edges, ⟲ on cycle nodes;
-* **`--view layers`**: same modules ordered by dependency depth (0 = leaves);
+* **`--view tree`** (default): modules grouped by top directory, each with summary + edges, ⟲ on cycle nodes;
+* **`--view depth`**: same modules ordered by dependency depth (0 = leaves);
 * **`--edges`** out | in | inout — which edge directions to print (`→ uses` / `← used-by` / both);
 * tail slices in both views: **hotspots** (most depended-on + leaves), **cycles**, **unresolved refs**.
 

@@ -14,7 +14,7 @@ have no TLDR. The folder is self-contained and travels with a project by copying
 
 ## Pick by task
 - **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_cards_freshness`  (Python AST peek: `show_pyfile_api`)
-- **Orient in the project** (unfamiliar codebase, "what depends on what") → `graph_from_cards`. Load the whole map once (`--view packages` by dir, or `layers` 0=leaves→entry points), then narrow: `--file PATH` = impact slice around one file, `--edges in` = blast radius, `--cycles` = circular-dep health, `--discrepancies` = map-vs-reality audit (orphan/pending/unresolved). Read it and reason in your head — don't re-read cards.
+- **Orient in the project** (unfamiliar codebase, "what depends on what") → `graph_from_cards`. Load the whole map once (`--view tree` by directory, or `depth` 0=leaves→entry points), then narrow: `--file PATH` = impact slice around one file, `--edges in` = blast radius, `--cycles` = circular-dep health, `--discrepancies` = map-vs-reality audit (orphan/pending/unresolved). Read it and reason in your head — don't re-read cards.
 - **Gather context to work on a file** (the target card + only its deps' Public API, in one block) → `collect_card_bundle`
 - **Answer a fact about source** (who imports it · a code block · a file's API) → `find_code_usage`, `get_codeblock`, `show_pyfile_api`
 - **Surgical context, not whole files** — `find_code_usage --verbose` (where a symbol is used + block **depth**) → `get_codeblock --level` (pull just that block). Coarse-locate with `grep` first; these two make it precise.
@@ -53,11 +53,11 @@ layer 1 on purpose). Default cards dir `./__map`; override with `--cards-dir` / 
   sections, deps resolve, orphans). Coaches the author; exit 1 on problems.
 - **`check_cards_freshness.py [--cards-dir P] [--project-root P]`** — which cards are stale vs source
   (git mode / mtime fallback) and which are orphans. Exit 1 if any.
-- **`graph_from_cards.py [--project-root P] [--view packages|layers] [--edges out|in|inout] [--verbose 0|1]`**
+- **`graph_from_cards.py [--project-root P] [--view tree|depth] [--edges out|in|inout] [--verbose 0|1]`**
   — project topology from cards: modules + summaries + edges, hotspots, cycles, unresolved refs. `--view
-  packages` (default) groups by dir; `layers` orders 0=leaves→entry points. `--edges` = uses / used-by /
+  tree` (default) groups by directory; `depth` orders 0=leaves→entry points. `--edges` = uses / used-by /
   both. `--verbose 0` drops summary lines (modules + edges only).
-  `--file PATH [--depth N]` focus slice; `--cycles` circular deps; `--discrepancies [--group-by
+  `--file PATH [--hops N]` focus slice; `--cycles` circular deps; `--discrepancies [--group-by
   kind|package|card]` map-vs-reality digest (orphan/pending/unresolved); `--json` draft for a visualizer.
 - **`collect_card_bundle.py <file> [--cards-dir P] [--depth N]`** — call-saver: target card + only its deps'
   Public API in one block. `--depth` expands transitively (default 1).
