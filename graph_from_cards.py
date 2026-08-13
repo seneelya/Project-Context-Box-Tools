@@ -33,7 +33,14 @@ from collections import namedtuple
 from pathlib import Path
 
 import CARD_FORMAT as cf
-import termstyle
+
+try:
+    import termstyle
+except ImportError:                         # утилиты нет -> работаем без краски, не падаем
+    class termstyle:                        # noqa: N801 (shim под именем модуля)
+        @staticmethod
+        def md(text):
+            return text
 
 _DASH = re.compile(r"\s+[—–-]\s+")   # legacy "# name — summary" separator
 
