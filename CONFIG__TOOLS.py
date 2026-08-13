@@ -72,12 +72,12 @@ BLACKLIST_DIRS = [
 ]
 
 # ---------------------------------------------------------------------------
-# DIR_WHITELIST: allowed directories for file operations (absolute paths).
+# WHITELIST_DIRS: allowed directories for file operations (absolute paths).
 # If a tool resolves a file path that is NOT under any of these dirs, it will be blocked.
 # Use ["*"] as default to allow all paths (no restriction).
 # Example restrictive config:
-#   DIR_WHITELIST = ["/workspace/SRC/memohood", "/project/tools/test"]
+#   WHITELIST_DIRS = ["/workspace/SRC/memohood", "/project/tools/test"]
 # ---------------------------------------------------------------------------
-DIR_WHITELIST = ["*"]
+WHITELIST_DIRS = ["*"]
 
 DECL_BACKEND = "auto"

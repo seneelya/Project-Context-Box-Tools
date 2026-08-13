@@ -114,7 +114,7 @@ def _load_config():
     config_path = os.path.join(os.path.dirname(__file__), "CONFIG__TOOLS.py")
     
     BLACKLIST_DIRS_DEFAULT = [".git", "__pycache__"]
-    DIR_WHITELIST_DEFAULT = ["*"]
+    WHITELIST_DIRS_DEFAULT = ["*"]
     
     if os.path.isfile(config_path):
         try:
@@ -124,16 +124,16 @@ def _load_config():
             exec(config_code, safe_ns)
             
             BLACKLIST_DIRS = safe_ns.get("BLACKLIST_DIRS", BLACKLIST_DIRS_DEFAULT)
-            DIR_WHITELIST = safe_ns.get("DIR_WHITELIST", DIR_WHITELIST_DEFAULT)
+            WHITELIST_DIRS = safe_ns.get("WHITELIST_DIRS", WHITELIST_DIRS_DEFAULT)
         except Exception:
             # If config fails to load, fall back to defaults silently
             BLACKLIST_DIRS = BLACKLIST_DIRS_DEFAULT
-            DIR_WHITELIST = DIR_WHITELIST_DEFAULT
+            WHITELIST_DIRS = WHITELIST_DIRS_DEFAULT
     else:
         BLACKLIST_DIRS = BLACKLIST_DIRS_DEFAULT
-        DIR_WHITELIST = DIR_WHITELIST_DEFAULT
+        WHITELIST_DIRS = WHITELIST_DIRS_DEFAULT
     
-    return BLACKLIST_DIRS, DIR_WHITELIST
+    return BLACKLIST_DIRS, WHITELIST_DIRS
 
 
 def _check_file_safety(filepath, blacklist_dirs):
@@ -313,7 +313,7 @@ def main():
         sys.exit(0)
     
     # Load config for safety rules
-    BLACKLIST_DIRS, DIR_WHITELIST = _load_config()
+    BLACKLIST_DIRS, WHITELIST_DIRS = _load_config()
     
     # Parse positional args first (DIR and MASK are required)
     pos_parser = argparse.ArgumentParser(add_help=False)
