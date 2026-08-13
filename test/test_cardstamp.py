@@ -50,7 +50,7 @@ def _fill(text):
     """Впечатать «человеческую» прозу в свежий штемпель (как это делает агент)."""
     text = text.replace(mic.DIRECTIVE_SUMMARY, "SUMMARY_MARK")
     text = text.replace(mic.DIRECTIVE_DESC, "DESC_MARK", 1)
-    text = text.replace("<Agent: why?>", "WHY_MARK", 1)
+    text = text.replace(mic.DIRECTIVE_WHY, "WHY_MARK", 1)
     text = text.replace(mic.DIRECTIVE_HOWITWORKS, "HOWITWORKS_MARK")
     return text
 
@@ -156,6 +156,21 @@ x
 """
 
 
+def test_agent_directive_marker():
+    """Единый маркер `<|Agent: … |>`: конструктор + детекторы (терпят легаси `<Agent:…>`)."""
+    d = cf.agent("why?")
+    check("agent() builds the uniform marker", d == "<|Agent: why? |>")
+    check("is_agent_directive: new form", cf.is_agent_directive(d))
+    check("is_agent_directive: legacy form", cf.is_agent_directive("<Agent: why?>"))
+    check("is_agent_directive: strips backticks", cf.is_agent_directive("`<|Agent: x |>`"))
+    check("is_agent_directive: real prose is not a directive", not cf.is_agent_directive("does the thing"))
+    check("has_agent_directive: finds inline new", cf.has_agent_directive("consumers 2: a, b  <|Agent: note |>"))
+    check("has_agent_directive: finds inline legacy", cf.has_agent_directive("foo <Agent: note> bar"))
+    check("has_agent_directive: none when filled", not cf.has_agent_directive("consumers 2: a, b"))
+    # marker must not collide with code punctuation the stamp emits around it
+    check("marker uses collision-proof <| |>", cf.AGENT_OPEN == "<|Agent:" and cf.AGENT_CLOSE == "|>")
+
+
 def test_validate_pending_vs_broken():
     """config.py — исходник есть, карточки нет -> pending; ghost.py — нет исходника -> ошибка."""
     root = Path(tempfile.mkdtemp(prefix="vc_"))
@@ -166,11 +181,24 @@ def test_validate_pending_vs_broken():
     card = cards / "foo.py.md"
     card.write_text(_CARD_TMPL, encoding="utf-8")
     # unresolved_raw передаём напрямую (в бою его даёт build_graph)
-    issues, pending = vc.validate_card(card, cards, ["config.py", "ghost.py"], root)
+    issues, pending, awaiting = vc.validate_card(card, cards, ["config.py", "ghost.py"], root)
     check("pending has source-without-card", "config.py" in pending)
     check("pending excludes broken ref", "ghost.py" not in pending)
     check("broken ref is an issue", any("ghost.py" in i for i in issues))
     check("source-without-card is NOT an issue", not any("config.py" in i for i in issues))
+    check("filled card is not awaiting", awaiting == [])
+
+    # карточка с оставшимися директивами `<|Agent:…|>` -> статус awaiting (new + legacy формы)
+    (root / "bar.py").write_text("x=1\n", encoding="utf-8")
+    tmpl = _CARD_TMPL.replace("# foo.py", "# bar.py")
+    tmpl = tmpl.replace("summary.", cf.agent("one-line summary"))     # summary = директива (new)
+    tmpl = tmpl.replace("\nx\n", "\n<Agent: how it works>\n")          # How it works = директива (legacy)
+    wcard = cards / "bar.py.md"
+    wcard.write_text(tmpl, encoding="utf-8")
+    _i, _p, aw = vc.validate_card(wcard, cards, [], root)
+    check("awaiting flags summary directive", "(summary)" in aw)
+    check("awaiting flags section (legacy form too)", "How it works" in aw)
+    check("awaiting is not an issue", not any("Agent" in i for i in _i))
 
 
 # --- resolver (find_code_usage): AST-based imports + submodule resolution --------
@@ -365,6 +393,7 @@ def test_discrepancies():
 
 def main():
     test_is_empty()
+    test_agent_directive_marker()
     test_validate_pending_vs_broken()
     test_resolver_submodule_and_docstring()
     test_stamp_all_recursive()

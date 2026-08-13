@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """make_interface_card.py — штемпель карточки: ОДНА команда -> готовый .md-скелет карточки, где
 ФАКТИЧЕСКИЕ секции заполнены детерминированно, а прозаические — строки-ДИРЕКТИВЫ
-`<Agent: …>`, которые ЛЛМ дописывает, прочитав исходник.
+`<|Agent: … |>`, которые ЛЛМ дописывает, прочитав исходник.
 
 Ничего нового не анализирует — ОРКЕСТРИРУЕТ три факта:
   - объявленная поверхность + сигнатуры   <- единый источник:
@@ -41,9 +41,11 @@ def _lang(file):
 
 # The LLM fills prose; the stamp keeps the machine FACT line and the agent DIRECTIVE line
 # separate so line-based patch edits never collide (the fact is editable too — just a line).
-DIRECTIVE_DESC = "<Agent: replace with a concise, sufficient one-liner — what it does and its role; or delete this line if trivial>"
-DIRECTIVE_SUMMARY = "<Agent: replace with a concise one-line summary — what this file is and does>"
-DIRECTIVE_HOWITWORKS = "<Agent: describe the actual mechanism/flow after reading the source; keep it precise — do NOT generalize a per-case detail to \"each/every\" unless it holds for all>"
+# Все директивы строятся через cf.agent() -> единый маркер `<|Agent: … |>` (детект в CARD_FORMAT).
+DIRECTIVE_DESC = cf.agent("replace with a concise, sufficient one-liner — what it does and its role; or delete this line if trivial")
+DIRECTIVE_SUMMARY = cf.agent("replace with a concise one-line summary — what this file is and does")
+DIRECTIVE_HOWITWORKS = cf.agent("describe the actual mechanism/flow after reading the source; keep it precise — do NOT generalize a per-case detail to \"each/every\" unless it holds for all")
+DIRECTIVE_WHY = cf.agent("why?")
 
 # H4 declaration kind -> H3 subsection label (order below drives emission order).
 _KIND_H3 = {"function": "Functions", "class": "Classes", "interface": "Interfaces",
@@ -242,11 +244,11 @@ def _consumers_fact(sym, consumers):
 # --- merge: сохранить прозу человека, освежить факты -------------------------
 # Проза висит на КЛЮЧЕ-имени (символа/секции), не на позиции и не на сигнатуре —
 # поэтому переезд заголовков и смена сигнатуры прозу не роняют. Незаполненный слот =
-# строка-директива `<Agent: …>`; её мы прозой не считаем.
+# строка-директива `<|Agent: … |>`; её мы прозой не считаем.
 
 def _is_ph(line):
-    """True, если строка — незаполненная директива агенту (`<Agent: …>`)."""
-    return line.strip().startswith("<Agent:")
+    """True, если строка — незаполненная директива агенту (`<|Agent: … |>`, терпит легаси)."""
+    return cf.is_agent_directive(line)
 
 
 def _entry_key(h4_line):
@@ -415,7 +417,7 @@ def build_card(project_root, file, old_prose=None, report=None):
             lines.extend(pl)
             report["kept_sections"].append("Package layout")
         else:
-            lines.append("<Agent: one line per submodule — what it holds>")
+            lines.append(cf.agent("one line per submodule — what it holds"))
         lines.append("")
 
     # ---- Public API ----
@@ -480,7 +482,7 @@ def build_card(project_root, file, old_prose=None, report=None):
         for r in resolved:
             syms = ", ".join(f"`{s}`" for s in r["symbols"]) if r["symbols"] else ""
             key = os.path.basename(r["file"]).rsplit(".", 1)[0]
-            why = op["why"].get(key, "<Agent: why?>")
+            why = op["why"].get(key, DIRECTIVE_WHY)
             lines.append(f"| `{key}` | `{r['file']}` | {syms} | {why} | normal |")
     else:
         lines.append(cf.EMPTY)
@@ -497,7 +499,7 @@ def build_card(project_root, file, old_prose=None, report=None):
             lines.extend(op["ext_note"])
             report["kept_sections"].append("Dependencies External")
         else:
-            lines.append("<Agent: optional — one line ONLY if a lib above is non-obvious; else DELETE this line (do NOT edit the import list)>")
+            lines.append(cf.agent("optional — one line ONLY if a lib above is non-obvious; else DELETE this line (do NOT edit the import list)"))
     else:
         lines.append(cf.EMPTY)
     lines.append("")
@@ -507,7 +509,7 @@ def build_card(project_root, file, old_prose=None, report=None):
     lines.append("")
     prose_section("Doc links", cf.EMPTY)
     lines.append("")
-    prose_section("Discrepancies", "<Agent: docstring vs code contradictions; else write (none)>")
+    prose_section("Discrepancies", cf.agent("docstring vs code contradictions; else write (none)"))
 
     # ---- Salvage: проза записей, которых в коде больше нет (не теряем молча) ----
     old_salv = op["sections"].get("Salvage", [])

@@ -195,7 +195,7 @@ def format_zone(graph, z):
 
     def line(i):
         s = nodes[i]["summary"]
-        return f"{i} — {s}" if s and not s.startswith("<Agent:") else i
+        return f"{i} — {s}" if s and not cf.is_agent_directive(s) else i
 
     out = [f"# zone: {c}  (depth {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)", ""]
     out += ["## center", line(c),
@@ -292,7 +292,7 @@ def _cycle_nodes(nodes):
 
 def _summ(nodes, i):
     s = nodes[i]["summary"]
-    return f" — {s}" if s and not s.startswith("<Agent:") else ""
+    return f" — {s}" if s and not cf.is_agent_directive(s) else ""
 
 
 def _edge_bits(i, nodes, rdeps, pkg, edges):

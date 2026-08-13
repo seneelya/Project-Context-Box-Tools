@@ -11,6 +11,9 @@
 - `Public API` = `(none)` или ≥1 H3; приватные `_x` в Public API запрещены (кроме `Re-exports`);
 - (опц. с --project-root) сироты — карточка без исходника.
 
+Отдельные НЕ-ошибочные статусы (exit не роняют): `pending` — dep на исходник без карточки;
+`awaiting agent` — в карточке ещё остались директивы `<|Agent:…|>`, т.е. её надо пройти агентом.
+
 Выход 1, если есть проблемы. Использование:
     python validate_cards.py [--cards-dir PATH] [--project-root PATH]
 """
@@ -45,6 +48,7 @@ def _entry_name(h4_line):
 def validate_card(path, cards_dir, unresolved_raw, project_root):
     issues = []
     pending = []   # File Path -> исходник есть, карточки пока нет (норм при поштучной сборке)
+    summary = ""
     lines = path.read_text(encoding="utf-8").splitlines()
     fname = path.name[:-3]  # 'db.py'
 
@@ -137,7 +141,18 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
         if not (project_root / node_id).exists():
             issues.append("orphan: source file missing")
 
-    return issues, pending
+    # «ждёт агента» — незаполненные директивы `<|Agent:…|>`. НЕ ошибка: статус для
+    # оркестратора/автора «эту карточку ещё надо пройти агентом». Перечисляем ГДЕ.
+    awaiting = []
+    if summary and cf.is_agent_directive(summary):
+        awaiting.append("(summary)")
+    for raw, body in secs:
+        if any(cf.has_agent_directive(ln) for ln in body):
+            sec = cf.canon(raw)
+            if sec not in awaiting:
+                awaiting.append(sec)
+
+    return issues, pending, awaiting
 
 
 def main():
@@ -172,14 +187,17 @@ def main():
     bad = 0
     report = []
     pending_all = {}
+    awaiting_all = {}
     for p in cards:
         nid = p.relative_to(cards_dir).as_posix()[:-3]
-        issues, pending = validate_card(p, cards_dir, unresolved_by_card.get(nid, []), project_root)
+        issues, pending, awaiting = validate_card(p, cards_dir, unresolved_by_card.get(nid, []), project_root)
         if issues:
             bad += 1
             report.append((nid, issues))
         if pending:
             pending_all[nid] = pending
+        if awaiting:
+            awaiting_all[nid] = awaiting
 
     for nid, issues in sorted(report):
         print(f"{nid}:")
@@ -194,8 +212,17 @@ def main():
         for nid, raws in sorted(pending_all.items()):
             print(f"  {nid}: {', '.join(raws)}")
 
+    # «Ждёт агента» — НЕ ошибка: в карточке ещё остались директивы `<|Agent:…|>`, значит
+    # её нужно пройти агентом (заполнить прозу). Печатаем статусом, exit не роняем.
+    if awaiting_all:
+        print(f"\nawaiting agent ({len(awaiting_all)}) — карточки с незаполненными "
+              f"`<|Agent:…|>` (ждут прохода агента; не ошибка):")
+        for nid, secs in sorted(awaiting_all.items()):
+            print(f"  {nid}: {', '.join(secs)}")
+
     print(f"\nchecked {total} cards, {bad} with issues, {total - bad} clean"
-          + (f", {len(pending_all)} with pending deps" if pending_all else ""))
+          + (f", {len(pending_all)} with pending deps" if pending_all else "")
+          + (f", {len(awaiting_all)} awaiting agent" if awaiting_all else ""))
     sys.exit(1 if bad else 0)
 
 
