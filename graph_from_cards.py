@@ -205,7 +205,8 @@ def format_file_zone(graph, z):
         s = nodes[i]["summary"]
         return f"{i} — {s}" if s and not cf.is_agent_directive(s) else i
 
-    out = [f"# file: {c}  (depth {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)", ""]
+    out = [f"# file: {c}  (depth {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)",
+           _ORIENT_FILE, ""]
     out += ["## center", line(c),
             f"  uses -> {', '.join(nodes[c]['deps']) or '(none)'}",
             f"  used-by <- {', '.join(rdeps[c]) or '(none)'}", ""]
@@ -267,10 +268,10 @@ def find_cycles(nodes):
 
 
 def format_cycles(nodes, cycles):
-    out = ["# cycles (circular internal dependencies)"]
+    out = ["# cycles (circular internal dependencies)", _ORIENT_CYCLES, ""]
     if not cycles:
-        return out[0] + "\n\n(none — graph is acyclic)"
-    out.append("")
+        out.append("(none — graph is acyclic)")
+        return "\n".join(out)
     for cyc in sorted(cycles, key=lambda c: (len(c), c)):
         out.append(" → ".join(cyc))
     out += ["", f"total: {len(cycles)} cycle(s)"]
@@ -360,12 +361,22 @@ def _slices(graph, disp_label):
     return out
 
 
-_LEGEND = "> → uses · ← used-by(N) · ⟲ in a cycle"
+# «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
+# Единый ключ глифов, чтобы не расходился между видами:
+_GLYPHS = "→ uses · ← used-by(N) · ⟲ in a cycle · gray = summary"
+_ORIENT_PACKAGES = ("> read: modules grouped by top-level dir; per module — " + _GLYPHS + ".\n"
+                    "> also: --view layers · --file PATH (zoom to one) · --cycles · --discrepancies")
+_ORIENT_LAYERS = ("> read: modules by dependency depth — layer 0 = leaves (no internal deps), up = toward entry points.\n"
+                  "> per module: " + _GLYPHS + " · zoom: --file PATH")
+_ORIENT_CYCLES = "> read: each line is a circular import chain A → B → C → A; break one edge to break the cycle"
+_ORIENT_DISCR = ("> read: card↔source gaps — orphan (card, no source) · pending (source, no card) · "
+                 "unresolved (dep points nowhere).\n> regroup: --group-by kind|package|card")
+_ORIENT_FILE = "> read: focus around one file — downstream (what it needs) + upstream (who needs it), within --depth"
 
 
 def format_packages(graph, disp, edges):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
-    out = [f"# map — {len(nodes)} modules · packages (dir={disp})", _LEGEND, ""]
+    out = [f"# map — {len(nodes)} modules · packages (dir={disp})", _ORIENT_PACKAGES, ""]
     pkgs = {}
     for i in nodes:
         pkgs.setdefault(_top_pkg(i), []).append(i)
@@ -385,7 +396,7 @@ def format_packages(graph, disp, edges):
 def format_layers(graph, disp, edges):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
     layers = _compute_layers(nodes)
-    out = [f"# map — {len(nodes)} modules · layers 0=leaves (dir={disp})", _LEGEND, ""]
+    out = [f"# map — {len(nodes)} modules · layers 0=leaves (dir={disp})", _ORIENT_LAYERS, ""]
     for l in sorted(layers):
         members = sorted(layers[l])
         out.append(f"## layer {l} ({len(members)})")
@@ -459,7 +470,7 @@ def format_discrepancies(items, group="kind"):
     # порядок групп: для kind — смысловой, иначе алфавит
     gkeys = (sorted(grouped, key=lambda k: _DISCR_ORDER.get(k, 99)) if group == "kind"
              else sorted(grouped))
-    out = [head, ""]
+    out = [head, _ORIENT_DISCR, ""]
     for g in gkeys:
         rows = grouped[g]
         out.append(f"## {g} ({len(rows)})")

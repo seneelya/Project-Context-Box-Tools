@@ -80,6 +80,8 @@ def _paint_line(ln):
     s = ln.lstrip()
     if s.startswith("#"):                                    # заголовок целиком
         return f"\x1b[{_C_HEAD}m{ln}\x1b[0m"
+    if s.startswith(">"):                                    # мета/ориентир («как читать») — серым, весь
+        return f"\x1b[{_C_SUMM}m{ln}\x1b[0m"
     ln = _NAME_RE.sub(lambda m: f"\x1b[{_C_NAME}m{m.group(1)}\x1b[0m", ln)   # **имя** -> цвет, без **
     ln = _SUMM_RE.sub(lambda m: f"\x1b[{_C_SUMM}m{m.group(1)}\x1b[0m", ln)   # « — сводка» -> приглушённо
     ln = _COUNT_RE.sub(lambda m: f"\x1b[{_C_COUNT}m{m.group(1)}\x1b[0m", ln)  # ×N -> жёлтый
