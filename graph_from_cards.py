@@ -33,6 +33,7 @@ from collections import namedtuple
 from pathlib import Path
 
 import CARD_FORMAT as cf
+import termstyle
 
 _DASH = re.compile(r"\s+[—–-]\s+")   # legacy "# name — summary" separator
 
@@ -502,7 +503,7 @@ def main():
         sys.exit(0)
 
     if args.cycles:
-        print(format_cycles(graph["nodes"], find_cycles(graph["nodes"])))
+        print(termstyle.md(format_cycles(graph["nodes"], find_cycles(graph["nodes"]))))
         return
 
     if args.discrepancies:
@@ -510,7 +511,7 @@ def main():
         if args.json:
             print(json.dumps([d._asdict() for d in items], ensure_ascii=False, indent=2))
         else:
-            print(format_discrepancies(items, group=args.group_by))
+            print(termstyle.md(format_discrepancies(items, group=args.group_by)))
         return
 
     if args.file:
@@ -525,7 +526,7 @@ def main():
                               "downstream": sorted(z["down"]), "upstream": sorted(z["up"])},
                              ensure_ascii=False, indent=2))
         else:
-            print(format_file_zone(graph, z))
+            print(termstyle.md(format_file_zone(graph, z)))
         return
 
     if args.json:
@@ -538,9 +539,9 @@ def main():
     except ValueError:
         disp = str(cards_dir)
     if args.view == "layers":
-        print(format_layers(graph, disp, args.edges))
+        print(termstyle.md(format_layers(graph, disp, args.edges)))
     else:
-        print(format_packages(graph, disp, args.edges))
+        print(termstyle.md(format_packages(graph, disp, args.edges)))
 
 
 if __name__ == "__main__":
