@@ -138,6 +138,10 @@ def _load_config():
 
 def _check_file_safety(filepath, blacklist_dirs):
     """Validate a resolved file path against safety rules. Returns (ok, message)."""
+    # First check: must be a regular file, not a directory
+    if os.path.isdir(filepath):
+        return False, f"SKIPPED (directory): {filepath}"
+    
     resolved = os.path.realpath(filepath)
     
     # Check dangerous system paths
@@ -233,7 +237,7 @@ Notes:
   - Masks '*' and '*.*' are restricted to dry-run only for safety.
   - Files in .git, __pycache__, system paths, and binary files are skipped.
 
-For full examples: {prog} --help""", file=sys.stderr)
+For full examples: {prog} --help""")
 
 
 def print_full_help(prog):
