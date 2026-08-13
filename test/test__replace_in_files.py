@@ -7,9 +7,9 @@ import subprocess
 import sys
 
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-UTILS_DIR = SCRIPT_DIR  # test__replace_in_files.py lives in __HQ/tools/ alongside the utility
-FIXTURES_DIR = os.path.join(SCRIPT_DIR, "fixtures")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # test/ directory
+UTILS_DIR = os.path.dirname(SCRIPT_DIR)                  # __HQ/tools/ (one level up from test/)
+FIXTURES_DIR = os.path.join(SCRIPT_DIR, "test__replace_in_files", "fixtures")
 
 UTIL_PATH = os.path.join(UTILS_DIR, "replace_in_files.py")
 
