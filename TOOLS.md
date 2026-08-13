@@ -55,7 +55,8 @@ layer 1 on purpose). Default cards dir `./__map`; override with `--cards-dir` / 
 - **`graph_from_cards.py [--project-root P] [--view packages|layers] [--edges out|in|inout]`** — project
   topology from cards: modules + summaries + edges, hotspots, cycles, unresolved refs. `--view packages`
   (default) groups by dir; `layers` orders 0=leaves→entry points. `--edges` = uses / used-by / both.
-  `--zone FILE [--depth N]` focus slice; `--cycles` circular deps; `--json` draft feed for a visualizer.
+  `--zone FILE [--depth N]` focus slice; `--cycles` circular deps; `--discrepancies [--group-by
+  kind|package|card]` map-vs-reality digest (orphan/pending/unresolved); `--json` draft for a visualizer.
 - **`collect_card_bundle.py <file> [--cards-dir P] [--depth N]`** — call-saver: target card + only its deps'
   Public API in one block. `--depth` expands transitively (default 1).
 

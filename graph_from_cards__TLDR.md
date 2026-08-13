@@ -14,8 +14,15 @@ graph_from_cards.py --edges out               # only "→ uses" (quieter; readin
 graph_from_cards.py --edges in                # only "← used-by" (blast radius of a change)
 graph_from_cards.py --zone _engine/embed.py   # focus slice around one module
 graph_from_cards.py --cycles                  # circular deps as A → B → C → A
+graph_from_cards.py --discrepancies           # "map vs reality" digest (orphan/pending/unresolved)
+graph_from_cards.py --discrepancies --group-by package   # same findings, regrouped by package
 graph_from_cards.py --json                    # JSON draft for a visualizer
 ```
+
+**`--discrepancies`** = coverage audit of the card layer against the source tree:
+*orphan* (card without source), *pending* (dep on a source that has no card yet),
+*unresolved* (dep ref matching neither). `--group-by kind|package|card` slices the same
+findings differently — the collection is one flat typed list, grouping is just a key.
 
 ## Emits (lean text)
 

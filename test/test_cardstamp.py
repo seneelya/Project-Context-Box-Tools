@@ -305,6 +305,64 @@ def test_graph_views():
     check("layers has layer 0", "## layer 0" in ly)
 
 
+def test_discrepancies():
+    """Свод «карта vs реальность»: orphan / pending / unresolved + переорганизация группировки."""
+    from graph_from_cards import (build_graph, collect_discrepancies,
+                                   format_discrepancies, group_by)
+
+    root = Path(tempfile.mkdtemp(prefix="discr_"))
+    cards = root / "__map"
+    (cards / "pkg").mkdir(parents=True)
+
+    def src(rel):                       # реальный исходник в дереве проекта
+        f = root / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("x = 1\n", encoding="utf-8")
+
+    def card(path, deps):
+        if deps:
+            rows = "\n".join(f"| `x` | `{d}` |  | why | normal |" for d in deps)
+            tbl = "| Import | File Path | Symbols | Why | Kind |\n|---|---|---|---|---|\n" + rows
+        else:
+            tbl = "(none)"
+        f = cards / (path + ".md")
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(f"# {path.split('/')[-1]}\n\ns.\n\n## Dependencies Internal\n\n{tbl}\n", encoding="utf-8")
+
+    src("a.py"); src("b.py"); src("c.py")   # c.py БЕЗ карточки (цель pending); ghost/zzz нет вовсе
+    card("a.py", [])                          # исходник есть -> НЕ orphan (контроль)
+    card("b.py", ["c.py", "zzz.py"])          # c.py -> pending, zzz.py -> unresolved
+    card("pkg/ghost.py", [])                  # pkg/ghost.py исходника нет -> orphan
+
+    g = build_graph(cards)
+    items = collect_discrepancies(g, root)
+    kinds = sorted(d.kind for d in items)
+    check("collect finds exactly orphan+pending+unresolved", kinds == ["orphan", "pending", "unresolved"])
+    o = next(d for d in items if d.kind == "orphan")
+    check("orphan is the sourceless card", o.card == "pkg/ghost.py")
+    p = next(d for d in items if d.kind == "pending")
+    check("pending points at uncarded source", p.card == "b.py" and p.ref == "c.py")
+    u = next(d for d in items if d.kind == "unresolved")
+    check("unresolved points at nothing", u.card == "b.py" and u.ref == "zzz.py")
+
+    by_kind = format_discrepancies(items, group="kind")
+    check("digest counts line", "1 orphan · 1 pending · 1 unresolved" in by_kind)
+    check("digest kind order orphan<unresolved",
+          by_kind.index("## orphan") < by_kind.index("## unresolved"))
+    check("kind grouping omits redundant tag", "[orphan]" not in by_kind)
+
+    by_pkg = format_discrepancies(items, group="package")
+    check("package grouping splits (root) vs pkg/", "## (root) (2)" in by_pkg and "## pkg/ (1)" in by_pkg)
+    check("non-kind grouping keeps [kind] tag", "[orphan]" in by_pkg)
+
+    # переорганизация группировки = другая key-функция, без правки формата
+    grouped = group_by(items, lambda d: d.card)
+    check("group_by is a reusable primitive", set(grouped) == {"b.py", "pkg/ghost.py"})
+
+    check("empty digest says clean",
+          format_discrepancies([]) == "# discrepancies — none (map matches reality)")
+
+
 def main():
     test_is_empty()
     test_validate_pending_vs_broken()
@@ -312,6 +370,7 @@ def main():
     test_stamp_all_recursive()
     test_graph_zone_and_cycles()
     test_graph_views()
+    test_discrepancies()
     test_merge_preserves_prose()
     test_merge_signature_refresh()
     test_merge_salvage()

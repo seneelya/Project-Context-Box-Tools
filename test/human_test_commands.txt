@@ -171,8 +171,15 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --edges in
 # expect: inout (default) -> both "→ uses" and "← ×N used-by"
 
+# --- graph_from_cards: DISCREPANCIES (map vs reality digest) ---
+# expect (clean project): "# discrepancies — none (map matches reality)"
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --discrepancies
+# expect: same findings regrouped; groups "## <pkg>/" with [kind] tags on each line
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --discrepancies --group-by package
+# note: to see non-empty output, delete a card (orphan-source flips) or add a dep to an uncarded file (pending)
+
 # --- graph_from_cards: --help shows the flags ---
-# expect: --view, --edges, --zone, --depth, --cycles documented; NO "-h, --help" line; NO --paths/flat
+# expect: --view, --edges, --zone, --depth, --cycles, --discrepancies, --group-by documented; NO "-h, --help" line; NO --paths/flat
 py graph_from_cards.py --help
 
 # --- check_cards_freshness: git-based staleness (no change this session, sanity check) ---

@@ -13,13 +13,15 @@
 
 Виды карты (--view): packages (по пакетам, ДЕФОЛТ) | layers (0=листья→точки входа).
 Ось --edges: out (только '→ uses') | in (только '← used-by') | inout (обе стороны, ДЕФОЛТ).
-Фокус: --zone FILE [--depth N]; health: --cycles.
+Фокус: --zone FILE [--depth N]; health: --cycles; coverage: --discrepancies.
 
 Использование:
     python graph_from_cards.py [--project-root PATH] [--view packages|layers]
                                [--edges out|in|inout]
     python graph_from_cards.py --zone <file> [--depth N]      # фокус-срез вокруг модуля
     python graph_from_cards.py --cycles                       # циклы A → B → C → A
+    python graph_from_cards.py --discrepancies [--group-by kind|package|card]
+                                                              # свод «карта vs реальность»
 Карточки по умолчанию в <project-root>/__map/ (корень: флаг > CONFIG__TOOLS > cwd).
 """
 
@@ -27,6 +29,7 @@ import argparse
 import json
 import re
 import sys
+from collections import namedtuple
 from pathlib import Path
 
 import CARD_FORMAT as cf
@@ -387,6 +390,79 @@ def format_layers(graph, disp, edges):
     return "\n".join(out + _slices(graph, disp))
 
 
+# --- discrepancies digest: "map vs reality" ----------------------------------
+# СБОР и ПОДАЧА разделены нарочно: collect_* отдаёт плоский типизированный список,
+# group_by + _DISCR_KEYS решают КАК его резать. Новую ось группировки добавить =
+# дописать одну строку в _DISCR_KEYS; переставить — сменить --group-by. Формат не трогаем.
+
+Discrepancy = namedtuple("Discrepancy", "kind card ref pkg detail")
+
+
+def collect_discrepancies(graph, project_root):
+    """Плоский список расхождений карты и дерева исходников (БЕЗ группировки):
+    - orphan     — карточка есть, исходника нет;
+    - pending    — dep-ссылка на реальный исходник, у которого ещё нет карточки;
+    - unresolved — dep-ссылка не легла ни на карточку, ни на существующий исходник."""
+    items = []
+    nodes = graph["nodes"]
+    for nid in sorted(nodes):                       # orphan: карта без исходника
+        if project_root is not None and not (project_root / nid).exists():
+            items.append(Discrepancy("orphan", nid, None, _top_pkg(nid),
+                                     "card without source file"))
+    for nid, raw in sorted(set(graph["unresolved"])):   # pending / unresolved
+        parts = raw.split()
+        tok = (parts[0] if parts else raw).strip().lstrip("./")
+        if project_root is not None and (project_root / tok).exists():
+            items.append(Discrepancy("pending", nid, raw, _top_pkg(nid),
+                                     "dep on a source file that has no card yet"))
+        else:
+            items.append(Discrepancy("unresolved", nid, raw, _top_pkg(nid),
+                                     "dep ref matches neither a card nor a source file"))
+    return items
+
+
+def group_by(items, key):
+    """items -> {key_value: [items]} (dict сохраняет порядок первого появления ключа)."""
+    out = {}
+    for it in items:
+        out.setdefault(key(it), []).append(it)
+    return out
+
+
+# реестр осей группировки — добавить ось = одна строка здесь
+_DISCR_KEYS = {
+    "kind": lambda d: d.kind,
+    "package": lambda d: d.pkg,
+    "card": lambda d: d.card,
+}
+_DISCR_ORDER = {"orphan": 0, "pending": 1, "unresolved": 2}   # осмысленный порядок вместо алфавита
+
+
+def format_discrepancies(items, group="kind"):
+    kinds = ("orphan", "pending", "unresolved")
+    counts = {k: sum(1 for d in items if d.kind == k) for k in kinds}
+    head = (f"# discrepancies — {len(items)} total "
+            f"({counts['orphan']} orphan · {counts['pending']} pending · {counts['unresolved']} unresolved)")
+    if not items:
+        return "# discrepancies — none (map matches reality)"
+
+    keyfn = _DISCR_KEYS.get(group, _DISCR_KEYS["kind"])
+    grouped = group_by(items, keyfn)
+    # порядок групп: для kind — смысловой, иначе алфавит
+    gkeys = (sorted(grouped, key=lambda k: _DISCR_ORDER.get(k, 99)) if group == "kind"
+             else sorted(grouped))
+    out = [head, ""]
+    for g in gkeys:
+        rows = grouped[g]
+        out.append(f"## {g} ({len(rows)})")
+        for d in sorted(rows, key=lambda d: (d.card, d.ref or "")):
+            tag = "" if group == "kind" else f"[{d.kind}] "   # не дублируем ось-заголовок
+            ref = f' → "{d.ref}"' if d.ref else ""
+            out.append(f"- {tag}{d.card}{ref} — {d.detail}")
+        out.append("")
+    return "\n".join(out).rstrip()
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8")  # карт-сводки бывают с юникодом (→, кириллица)
@@ -403,6 +479,11 @@ def main():
     ap.add_argument("--depth", type=int, default=1, help="глубина зоны в рёбрах (по умолч. 1)")
     ap.add_argument("--cycles", action="store_true",
                     help="детекция циклических зависимостей, вывод цепочками A → B → C → A")
+    ap.add_argument("--discrepancies", action="store_true",
+                    help="свод «карта vs реальность»: orphan (карта без исходника) + "
+                         "pending (исходник без карточки) + unresolved (ссылка в никуда)")
+    ap.add_argument("--group-by", choices=["kind", "package", "card"], default="kind",
+                    help="ось группировки свода --discrepancies (по умолч. kind)")
     ap.add_argument("--view", choices=["packages", "layers"], default="packages",
                     help="структура карты: packages (по пакетам, дефолт) | layers (0=листья→точки входа)")
     ap.add_argument("--edges", choices=["out", "in", "inout"], default="inout",
@@ -422,6 +503,14 @@ def main():
 
     if args.cycles:
         print(format_cycles(graph["nodes"], find_cycles(graph["nodes"])))
+        return
+
+    if args.discrepancies:
+        items = collect_discrepancies(graph, resolve_project_root(args.project_root))
+        if args.json:
+            print(json.dumps([d._asdict() for d in items], ensure_ascii=False, indent=2))
+        else:
+            print(format_discrepancies(items, group=args.group_by))
         return
 
     if args.zone:
