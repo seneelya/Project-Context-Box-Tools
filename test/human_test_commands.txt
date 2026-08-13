@@ -159,8 +159,8 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file cli.py --hops 2
 
-# graph_from_cards: CYCLES (circular deps as A -> B -> C -> A).
-# expect: chains like "_core/__init__.py -> _core/registry.py -> _core/legacy.py -> _core/__init__.py"
+# graph_from_cards: CYCLES (circular deps, framing arrows show the loop closes).
+# expect: chains like "→ _core/__init__.py → _core/registry.py → _core/legacy.py → _core/__init__.py →"
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --cycles
 
@@ -169,15 +169,16 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --view depth
 
-# graph_from_cards: EDGES = out (only "→ uses" edge lines, no "← ×N used-by").
+# graph_from_cards: EDGES = out (only "→" lines = what it imports; no "←").
+# note: 1 target -> "→ name"; ≥2 -> "→ ×N (a · b · c)".
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --edges out
 
-# graph_from_cards: EDGES = in (only "← ×N used-by": reverse-dependency / blast-radius map, no "→ uses").
+# graph_from_cards: EDGES = in (only "←" lines = what imports it; reverse-dependency / blast-radius map).
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --edges in
 
-# graph_from_cards: EDGES = inout is the default (both "→ uses" and "← ×N used-by") — no command needed.
+# graph_from_cards: EDGES = inout is the default (both "→" and "←") — no command needed.
 
 # graph_from_cards: VERBOSE 0 (modules + edges only; summaries hidden).
 # expect: entries as "- <module>" with edge lines, NO " — <summary>"; header notes summaries hidden
