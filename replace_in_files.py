@@ -207,7 +207,8 @@ def print_full_help(prog):
 {YELLOW}Usage: {prog} PATH MASK --find "F" --with "W" [--match EXPR] (--dry-run or --apply){RESET}
 
 Arguments (required):
-  PATH                  directory to scan; absolute path, relative path from current dir, or "." as alias for root
+  PATH                  directory to scan; absolute path, relative path from current dir,
+                        "." for current dir, or @ as alias for project root (from CONFIG__TOOLS)
   MASK                  file glob pattern (e.g. "*.py", "*.md")
    --find X             text/substring to find in matching files (exactly one per invocation)
    --with Y             replacement text for the preceding --find argument
@@ -271,7 +272,12 @@ def main():
         print_short_help(prog)
         sys.exit(1)
 
-    folder = known.path
+    # Resolve special @ alias to PROJECT_ROOT from CONFIG__TOOLS
+    if known.path == "@":
+        import CONFIG__TOOLS as cfg
+        folder = cfg.PROJECT_ROOT
+    else:
+        folder = known.path
     mask = known.mask
 
     # Parse long-only flags manually to give clear error messages
