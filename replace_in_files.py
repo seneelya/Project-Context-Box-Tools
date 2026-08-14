@@ -89,25 +89,58 @@ def _is_binary_file(filepath):
 
 
 def _load_config():
-    """Load CONFIG__TOOLS settings from the tools directory, or use defaults."""
+    """Load CONFIG__TOOLS settings from the tools directory, or use defaults.
+
+    Returns: (BLACKLIST_DIRS, WHITELIST_DIRS) tuple of lists.
+             If WHITELIST_DIRS contains "*", all paths are allowed.
+             Otherwise only files under one of the whitelisted absolute dirs are processed.
+    """
     config_path = os.path.join(os.path.dirname(__file__), "CONFIG__TOOLS.py")
 
     BLACKLIST_DIRS_DEFAULT = [".git", "__pycache__"]
+    WHITELIST_DIRS_DEFAULT = ["*"]  # "*" means all paths allowed by default
 
     if os.path.isfile(config_path):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 config_code = compile(f.read(), config_path, "exec")
-            safe_ns = {"__builtins__": {}}
+            safe_ns = {
+                "__builtins__": {"__import__": __import__, "open": open},
+                "os": os,
+                "sys": sys,
+            }
             exec(config_code, safe_ns)
 
-            BLACKLIST_DIRS = safe_ns.get("BLACKLIST_DIRS", BLACKLIST_DIRS_DEFAULT)
+            blacklist_dirs = safe_ns.get("BLACKLIST_DIRS", BLACKLIST_DIRS_DEFAULT)
+            whitelist_dirs = safe_ns.get("WHITELIST_DIRS", WHITELIST_DIRS_DEFAULT)
         except Exception:
-            BLACKLIST_DIRS = BLACKLIST_DIRS_DEFAULT
+            blacklist_dirs = BLACKLIST_DIRS_DEFAULT
+            whitelist_dirs = WHITELIST_DIRS_DEFAULT
     else:
-        BLACKLIST_DIRS = BLACKLIST_DIRS_DEFAULT
+        blacklist_dirs = BLACKLIST_DIRS_DEFAULT
+        whitelist_dirs = WHITELIST_DIRS_DEFAULT
 
-    return BLACKLIST_DIRS
+    return blacklist_dirs, whitelist_dirs
+
+
+def _is_in_whitelist_dir(resolved_path, whitelist_dirs):
+    """Check if path is within an allowed directory (whitelist).
+
+    Returns True if allowed. If WHITELIST_DIRS contains "*", all paths are allowed.
+    Otherwise, path must be under one of the specified absolute directories.
+    """
+    if "*" in whitelist_dirs:
+        return True
+
+    for allowed_dir in whitelist_dirs:
+        # Normalize both paths: resolve to absolute and add separator for prefix check
+        norm_allowed = os.path.abspath(allowed_dir).rstrip(os.sep) + os.sep
+        norm_path = os.path.abspath(resolved_path).rstrip(os.sep) + os.sep
+        if norm_path.startswith(norm_allowed):
+            return True
+
+    # Path not under any whitelisted directory
+    return False
 
 
 def _check_file_safety(filepath, blacklist_dirs):
@@ -118,7 +151,7 @@ def _check_file_safety(filepath, blacklist_dirs):
     resolved = os.path.realpath(filepath)
 
     if _is_dangerous_path(resolved):
-        return False, f"BLOCKED: refusing to access system path: {filepath}"
+        return False, f"BLOCKED: refusing to access system path: {resolved}"
 
     if _is_in_blacklist_dir(resolved, blacklist_dirs):
         return False, f"SKIPPED (blacklisted dir): {filepath}"
@@ -132,7 +165,6 @@ def _check_file_safety(filepath, blacklist_dirs):
 # ---------------------------------------------------------------------------
 # Core processing — applies ONE replacement rule to one file
 # ---------------------------------------------------------------------------
-
 def process_file(filepath, find_text, with_text, match_expr=None, dry_run=False, verbose=False, warned_expressions=None):
     """Apply replacement to one file. Returns (count, hit_linenos)."""
     if warned_expressions is None:
@@ -383,8 +415,8 @@ def main():
         print(f"Warning: Dangerous mask '{mask}' detected. Forcing dry-run (read-only).", file=sys.stderr)
         effective_dry_run = True
 
-    # Load config for blacklist dirs
-    blacklist_dirs = _load_config()
+    # Load config for blacklist and whitelist dirs
+    blacklist_dirs, whitelist_dirs = _load_config()
 
     # Resolve file list
     if recursive:
@@ -397,14 +429,21 @@ def main():
         print(f"Error: No files matched the given path and mask.", file=sys.stderr)
         sys.exit(1)
 
-    # Safety check all files upfront
+    # Safety check all files upfront: blacklist first, then whitelist
     safe_files = []
     for fpath in files:
+        # Check blacklist first (skip known dirs like .git, __pycache__)
         ok, msg = _check_file_safety(fpath, blacklist_dirs)
         if not ok:
             print(msg)
-        else:
-            safe_files.append(fpath)
+            continue
+
+        # Then check whitelist (must be under an allowed directory unless "*" is set)
+        if not _is_in_whitelist_dir(fpath, whitelist_dirs):
+            print(f"BLOCKED (not in WHITELIST_DIRS): {fpath}")
+            continue
+
+        safe_files.append(fpath)
 
     if not safe_files:
         print("Error: No safe files to process after applying filters.", file=sys.stderr)

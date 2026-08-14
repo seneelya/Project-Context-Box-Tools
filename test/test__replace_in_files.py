@@ -380,6 +380,9 @@ def main():
         test_verbose_shows_changed_lines_with_line_numbers,
         test_verbose_applied_shows_new_content,
         test_at_alias_resolves_to_project_root,
+        # New tests — safety and validation
+        test_match_syntax_error_before_run,
+        test_whitelist_dirs_enforces_allowed_paths,
     ]
 
     passed = 0
@@ -402,6 +405,62 @@ def main():
         for name, err in failed:
             print(f"  - {name}: {err}")
         sys.exit(1)
+
+
+
+def test_match_syntax_error_before_run():
+    """Syntax error in --match produces clear error message before scanning files."""
+    setup_fixtures()
+
+    # Missing colon — invalid Python syntax
+    out, err, code = run_tool(
+        FIXTURES_DIR, "*.py", "--find", "x", "--with", "y",
+        "--match", 'if line.startswith("#")',  # missing colon after if
+        expect_ok=False
+    )
+
+    assert code != 0
+    combined = (out + err).lower()
+    assert "invalid python" in combined or "syntax error" in combined,         f"Expected syntax error message, got: {combined}"
+
+
+def test_whitelist_dirs_enforces_allowed_paths():
+    """When WHITELIST_DIRS is restrictive (no '*'), only allowed directories are processed."""
+    setup_fixtures()
+
+    # Temporarily modify CONFIG__TOOLS to use a restrictive whitelist that excludes our fixtures dir
+    config_path = os.path.join(os.path.dirname(__file__), "..", "CONFIG__TOOLS.py")
+
+    # Save original content
+    with open(config_path, "r") as f:
+        original_config = f.read()
+
+    try:
+        # Replace WHITELIST_DIRS with a path that definitely doesn't include our fixtures
+        modified_config = original_config.replace(
+            'WHITELIST_DIRS = ["*"]',
+            'WHITELIST_DIRS = ["/nonexistent/path/that/does/not/exist"]'
+        )
+
+        with open(config_path, "w") as f:
+            f.write(modified_config)
+
+        # Run tool — all files should be blocked by whitelist
+        out, err, code = run_tool(
+            FIXTURES_DIR, "*.py", "--find", "def load_config", "--with", "def parse_config",
+            expect_ok=False
+        )
+
+        assert code != 0, f"Expected non-zero exit when all files blocked by whitelist, got {code}"
+        combined = out + err
+        # Should see BLOCKED messages and no safe files error
+        assert "BLOCKED (not in WHITELIST_DIRS)" in combined or                "no safe files" in combined.lower(),                f"Expected whitelist block message, got: {combined[:500]}"
+
+    finally:
+        # Restore original config
+        with open(config_path, "w") as f:
+            f.write(original_config)
+
 
 
 if __name__ == "__main__":
