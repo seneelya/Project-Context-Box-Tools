@@ -168,7 +168,7 @@ def process_file(filepath, find_text, with_text, match_expr=None, dry_run=False,
 
             should_replace = bool(match_result) and find_text in current_line
 
-        if should_replace:
+        if should_replace and find_text in current_line:
             line_hits = current_line.count(find_text)
             new_line = current_line.replace(find_text, with_text)
 
@@ -411,7 +411,8 @@ def main():
         sys.exit(1)
 
     # Run replacements
-    # No header line; mode shown in the result summary below
+    resolved_root = os.path.abspath(folder)
+    print(f"Scanning {resolved_root}/{mask}:")
 
     warned_expressions = set()
     total = 0
@@ -426,17 +427,20 @@ def main():
 
         if n:
             changed_files += 1
-            row = f"  {n:>5}  {fpath}"
-            print(row)
+            # Show path relative to scanning root (one liner header already shows full path)
+            rel_path = os.path.relpath(fpath, resolved_root)
 
-            # Verbose mode: show the actual lines that were/would be changed
+            # Verbose mode: show each affected line with its number and content
             if verbose and hits:
-                for lineno, old_line, new_line in hits[:20]:
-                    print(f"      [{lineno}] -{old_line.rstrip()}")
-                    print(f"             +{new_line.rstrip()}")
+                print(f"  {rel_path}:")
+                for lineno, old_line, new_line in hits[:50]:
+                    print(f"    Line {lineno}: {new_line.rstrip()}")
 
-                if len(hits) > 20:
-                    print(f"      ... (+{len(hits) - 20} more replacements in this file)")
+                if len(hits) > 50:
+                    print(f"      ... (+{len(hits) - 50} more replacements in this file)")
+            else:
+                row = f"  {n:>5}  {rel_path}"
+                print(row)
 
     verb = "would change" if effective_dry_run else "changed"
     mode_tag = "\033[1;93mDRY-RUN\033[0m (nothing written)" if effective_dry_run else "\033[1;32mAPPLIED\033[0m"
