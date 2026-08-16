@@ -46,10 +46,11 @@ language). One call shows all zoom options; then pick a `--level` and `--query` 
 ### Text mode (with `--query`) — block framed by anchor comments
 
 Header + block text byte-for-byte + a footer anchor. The frame lets several extractions
-be concatenated (into a file or context) without merging, and marks the patch region
+(possibly from different files) be concatenated without merging, and marks the patch region
 unambiguously. `--level` chooses which block from the ladder (default `0` = innermost).
 
 ```python
+#File: path/to/file.py
 #Block level: 3 range: 71-77
         try:
             result = do_something()
@@ -59,7 +60,8 @@ unambiguously. `--level` chooses which block from the ladder (default `0` = inne
 #Block end: 77
 ```
 
-The filename is intentionally NOT printed (the caller already knows the file).
+The file line comes first so a block self-identifies its source even when several
+`--query` extractions get concatenated and the originating command is no longer in view.
 
 ### `--outline` — structural table of contents (no `--line` needed)
 

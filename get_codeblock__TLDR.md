@@ -40,4 +40,6 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
 - The green level-legend line and the outline's `#outline` / `Level  Range` header only print
   on a real terminal (`isatty()`). Piped/programmatic callers get bare
   `#Block level: N range: X-Y` lines — nothing extra to parse.
-- Filename is never printed in `--query` output — the caller already knows which file it asked for.
+- `--query` prints `#File: PATH` as its very first line, before `#Block level:` — so a block
+  self-identifies its source when several extractions get concatenated and the call that
+  produced them is no longer in view.

@@ -372,6 +372,9 @@ def main():
             sys.exit(1)
         emit_legend()
         start, end = block["start"], block["end"]  # inclusive
+        # File first: the call that produced this text may not be in view when several
+        # --query extractions get concatenated, so each block must self-identify its source.
+        emit(f"{prefix}File: {file_path}")
         emit(f"{prefix}Block level: {block['level']} range: {start}-{end}")
         last = min(end, len(lines))
         for i in range(start - 1, last):
