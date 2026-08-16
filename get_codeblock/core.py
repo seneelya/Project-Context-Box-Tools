@@ -78,21 +78,30 @@ def parse_args():
             project_root = value
             i += 2
         elif token == '--help':
-            root_info = f'Current PROJECT_ROOT="{default_root}"\n\n' if default_root else ''
-            print("Search or query exact code block from given line at given depth.")
+            print("Search or query an exact code block from a given line, at a given depth (--level).")
             print("")
             print("Usage:")
-            print(f"  get_codeblock.py --file PATH --line N [--level LEVEL] [--query]")
-            print(f"  get_codeblock.py --file PATH --outline [--level MAXDEPTH]")
+            print("  get_codeblock.py --file PATH                          (defaults to --outline)")
+            print("  get_codeblock.py --file PATH --outline [--level MAXDEPTH]")
+            print("  get_codeblock.py --file PATH --line N [--level LEVEL] [--query]")
             print("")
             print("Arguments:")
             print("  --file PATH         Path to file (absolute or relative). Code + Markdown (.md).")
+            print("  --outline           Print every declaration header (Python: def/class by")
+            print("                      indentation; Markdown: headings). No --line needed. Default")
+            print("                      mode when --file is given alone. --level caps depth shown.")
             print("  --line N            Target line number (1-based)")
-            print("  --level L           With --line: block address (0=current, -N=parents, +N=from top).")
-            print("                      With --outline: cap the depth shown.")
             print("  --query             Return the block text (framed by anchors) instead of the ladder")
-            print("  --outline           Print the file's structural TOC (named blocks only); no --line")
-            print(f"  --project-root PATH Root for relative paths ({root_info}CLI overrides config)")
+            print("  --project-root PATH Root for relative paths (CLI overrides config)")
+            print("")
+            print("Level addressing (--level):")
+            print("  Level = block depth (1 = file top, deeper = higher number).")
+            print("    +N          absolute depth address (+1 = file top, +2 = one level in, ...)")
+            print("    0, -N       relative — N steps up from the block at --line (0 = that block itself)")
+            print("  With --outline: N instead caps the max depth shown (not an address).")
+            print("")
+            if default_root:
+                print(f'Current PROJECT_ROOT="{default_root}"')
             sys.exit(0)
         else:
             # Unknown argument, skip it
@@ -104,11 +113,20 @@ def parse_args():
     if project_root:
         project_root = normalize_path(project_root)
 
+    # --file alone (no --line, no --outline) defaults to --outline: it's the primary
+    # discovery mode, and requiring the flag explicitly here would be pure friction.
+    # The flag itself still works and stays documented for explicit use.
+    if file_path and line_num is None and not outline:
+        outline = True
+
     # No arguments or missing required ones: show usage hint
     if not file_path and line_num is None:
-        root_info = f'Current PROJECT_ROOT="{default_root}"\n\n' if default_root else ''
-        print("Search or query exact code block from given line at given depth.")
-        print(f"Usage: get_codeblock.py --file PATH --line N [--level LEVEL] [--query]")
+        print("Search or query an exact code block from a given line, at a given depth (--level).")
+        print("Usage:")
+        print("  get_codeblock.py --file PATH                          (defaults to --outline)")
+        print("  get_codeblock.py --file PATH --outline [--level MAXDEPTH]")
+        print("  get_codeblock.py --file PATH --line N [--level LEVEL] [--query]")
+        print("Run with --help for full options, including --level addressing.")
         print("")
         if default_root:
             print(f"PROJECT_ROOT={default_root}")
@@ -304,19 +322,34 @@ def main():
     def emit(s):
         print(f"\033[93m{s}\033[0m" if is_tty else s)
 
+    # One-line reminder of the two addressing scales (real depth vs --level). Console-only
+    # (is_tty) — external/programmatic callers get bare block lines, nothing extra to parse.
+    def emit_legend():
+        if is_tty:
+            print("\033[92mLevel = block depth (1=file top, deeper=higher). --level: +N=absolute "
+                  "depth address, 0/-N=relative (steps up from --line's block). "
+                  "--query=retrieve text.\033[0m")
+
     # --outline: the file's structural table of contents (named blocks only). --level
     # caps depth. No --line needed. Handlers expose outline() when they support it.
     if args.get('outline'):
         if not hasattr(handler, 'outline'):
             print(f"Error: outline not supported for {language} yet", file=sys.stderr)
             sys.exit(1)
+        emit_legend()
         max_level = args['level'] if args['level'] and args['level'] > 0 else None
         rows = handler.outline(lines, max_level=max_level)
         if not rows:
             emit(f"{prefix}(no structure found)")
             return
-        for r in rows:
-            emit(f"{prefix}Block level: {r['level']} range: {r['start']}-{r['end']} — {r['text']}")
+        emit(f"{prefix}outline  (--line START --query to pull a section)")
+        emit(f"{prefix}Level  Range")
+        # Pad each "<indent><level>" label to the widest one in this output so every
+        # row's "[range]" lines up in a column, regardless of nesting depth.
+        labels = ["  " * (r['level'] - 1) + str(r['level']) for r in rows]
+        width = max(len(s) for s in labels)
+        for r, label in zip(rows, labels):
+            emit(f"{prefix}{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}")
         return
 
     line_num = args['line']
@@ -337,6 +370,7 @@ def main():
         if not block:
             print("Error: Level out of range", file=sys.stderr)
             sys.exit(1)
+        emit_legend()
         start, end = block["start"], block["end"]  # inclusive
         emit(f"{prefix}Block level: {block['level']} range: {start}-{end}")
         last = min(end, len(lines))
@@ -348,6 +382,7 @@ def main():
     else:
         # Metadata = the LADDER: every enclosing block, innermost -> outermost, so one
         # call shows all zoom options (pick a level, then --query it).
+        emit_legend()
         for blk in reversed(blocks):
             emit(f"{prefix}Block level: {blk['level']} range: {blk['start']}-{blk['end']}")
 
