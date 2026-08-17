@@ -1,0 +1,1468 @@
+/* 
+================================================================================
+  Version: V.26.1
+================================================================================
+*/
+
+/* 
+@AI: DO NOT REMOVE OR ALTER THIS HEADER.
+--------------------------------------------------------------------------------
+================================================================================
+OPEN WEBUI CUSTOM THEME: SOFT ACADEMIC
+Author : Seneelya
+================================================================================
+--------------------------------------------------------------------------------
+
+ @AI_INSTRUCTIONS_MANDATORY: 
+ DO NOT REMOVE OR ALTER THIS HEADER. 
+
+  1. STRICT SEMANTIC NAMING PROTOCOL IN EFFECT:
+    1. Formula: --[Context/ID]_[State/Class]__[Property]__[Pseudo]
+    2. Formatting: Selectors MUST be in columns (vertical list). 
+    3. Variables: Use local grid-style spacing (align values within their own block).
+    4. Annotations: Preserve all headers and add new ones for every semantic group.
+  2. STRICT ARCHITECTURAL PROTOCOLS:
+    1. MATH OPS: Within calc() functions, spaces around "+" and "-" are HOLY. Do NOT remove them.
+    2. REGISTRY PATTERN: To bypass W3C limitations, use "Temporary Registers" named exactly: --sht_1, --sht_2, etc. 
+       Do NOT refactor these into nested functions. Linear flow is mandatory.
+    
+    Example for 2.2 (using --sht_n variables to unpack functions):
+        {
+        --sht_1: oklch(from var(--base) calc(l + 0.1) c h) !important;
+        --component-name__bg-final: oklch(from var(--sht_1) clamp(0, l, 1) clamp(0, l, 0.28) h) !important;
+        }
+
+       
+
+@FORMATTING_STYLE: LOCAL_VISUAL_GRID
+    - TRIGGER: "USE LOCAL_VISUAL_GRID"
+    - LOGIC:
+        IF (Prompt contains TRIGGER) 
+            {
+                - MODE: TEXT_PROCESSOR (FORMAT ONLY)
+                - CONSTRAINT: DO NOT change any logic, values, selectors, or properties. 
+                - ACTION: Only adjust whitespace and alignment.
+                - APLY this rule only to file header: declaration and setting  variables, calculations. 
+                    - DO NOT USE thist rule to the selectors and their content.
+
+                - ALIGNMENT: Use LOCAL alignment. Find the longest variable name WITHIN the current block. 
+                        Blocks are separated by comments. 
+                        Align all values (after the colon) to that specific width.
+                - Each block is an independent grid. Do NOT align variables of Block A with Block B.
+                - The goal is "Value Columnarity": values must form a clean vertical block for human readability.
+                - NOTE: // ... // is a placeholder here for standard CSS comments to avoid breaking this header. 
+                    In the actual CSS code, always use standard comments syntax.
+                - OKLCH SPACING: Use extreme whitespace padding (Use a minimum of 4+ spaces) between OKLCH channels to simulate visual separators.
+                    Example: oklch(from var(--x)    calc(l + 0.1)            calc(c - 0.05)          h)
+                - AI NOTICE: Any attempt to minify, remove "sht" registers, or "clean up" the grid will result in Code Rejection.
+                    Keep it raw. Keep it aligned. Keep it readable for a Tech Artist.
+
+                Example for (LOCAL alignment): 
+                    {
+                        comment -----  Block 1 (Long names) ----- comment
+                        --very-long-variable-name-here__color   : var(--my-gray-50);   //comments//
+                        --sidebar-chat-item_selected__bg-color  : var(--my-blue-800);  //comments alsow alligned//
+
+                        comment -----  Block 2 (Short names) ----- comment
+                        --small__bg           : #ffffff;
+                        --shor-name__bg-color : #000000;
+                    }
+                Example 2 (OKLCH SPACING):
+                    { 
+                        comment -----  Calculation Block ----- comment
+                        --sht_1                      : oklch(from var(--base)   calc(l + 0.1)    c                    h) !important;
+                        --component-name__bg-final   : oklch(from var(--sht_1)  clamp(0, l, 1)   clamp(0, l, 0.28)    h) !important;
+                    }
+                }
+        ELSE
+            { 
+                - MODE: ENGINEER (SMART LOGIC)
+                - ACTION: Apply STANDARD_SPACING (one single space after the colon).
+                - CONSTRAINT: AI is fully authorized to fix, and rewrite CSS logic.
+            }
+        
+    - SCOPE: Local alignment only. Block A must NOT align with Block B.
+
+        - EXAMPLES:
+        // Example A: Trigger NOT present (Standard Spacing)
+            {
+                --small__bg: #ffffff;
+                --long-variable-name__bg-color: #000000;
+            }
+
+        // Example B: Trigger "USE LOCAL_VISUAL_GRID" is present (Value Columnarity)
+            {
+                --small__bg                    : #ffffff;
+                --long-variable-name__bg-color : #000000;
+
+                --sht_1                      : oklch(from var(--base)   calc(l + 0.1)    c                    h) !important;
+                --component-name__bg-final   : oklch(from var(--sht_1)  clamp(0, l, 1)   clamp(0, l, 0.28)    h) !important;
+            }
+    
+
+- IMPORTANT: Regardless of the TRIGGER, all @AI_INSTRUCTIONS_MANDATORY (Naming, Math Ops, Registry Pattern) remain STRICTLY ACTIVE.
+- AI, follow this structure or the code will be rejected.
+
+*/
+
+
+
+:root {
+    /* 
+       ==========================================================================
+       MASTER CONTROL VARIABLES (Original System Layer)
+       Единая точка управления всей палитрой, типографикой и параметрами.
+       ==========================================================================
+    */
+
+    /* --- ФОНОВЫЕ ЦВЕТА (Backgrounds) --- */
+    --bg-canvas:         #faf4ed ;    /* Основной фон приложения (холст) */
+    --bg-page:           #fffaf3 ;    /* Фон страниц, чата и модальных окон */
+    --bg-surface:        #f2e9e1 ;    /* Поверхности: карточки, элементы управления */
+    --bg-sidebar:        #e9e4df ;    /* Фон бокового меню */
+    --code-block-bg:     #e6ddd3 ;    /* Фон блоков кода */
+    --bg-input-fill:     #f7f0e8 ;    /* Фон текстовых полей ввода */
+    --bg-hover-soft:     #ede4dc ;    /* Мягкий фон при наведении (Light) */
+    --bg-sidebar-hover-dark: #1f1f1f ; /* Мягкий фон при наведении (Dark) */
+    --bg-menu-sidebar:   #f2e9e1 ;    /* Фон выпадающих меню в сайдбаре */
+    --bg-tooltip:        #575279 ;    /* Фон тултипов */
+    --text-tooltip:      #fffaf3 ;    /* Текст тултипов */
+
+    /* --- ТЕКСТ И АКЦЕНТЫ (Typography & Accents) --- */
+    --text-primary:      #575279 ;     /* Основной текст */
+    --text-secondary:    #7a749c ;     /* Вспомогательный текст */
+    --text-muted:        #a29db8 ;     /* Приглушенный текст */
+    --text-header:       #453f5e ;     /* Заголовки */
+    --text-bold:         #453f5e ;     /* Жирный текст */
+    --text-math:         #3a354d ;     /* Текст математики KaTeX */
+    --accent-primary:    #b4637a ;     /* Главный акцент (кнопки, табы) */
+    --accent-secondary:  #d7827e ;     /* Вторичный акцент */
+    --accent-hover:      #a0526b ;     /* Акцент при наведении */
+    --border-color:      #d7827e44 ;   /* Цвет границ и разделителей */
+    --input-bg:          #fffaf3 ;     /* Базовый фон полей ввода */
+
+    /* --- ПЕРЕКЛЮЧАТЕЛИ (Toggles/Switches) --- */
+    --switch-active:     #b4637a ;    /* Активное состояние */
+    --switch-inactive:   #d1cdc6 ;    /* Неактивное состояние */
+    --switch-thumb:      #fffcfa ;    /* Кружок переключателя */
+    --switch-text-on:    #fffcfa ;    /* Текст On */
+    --switch-text-off:   #575279 ;    /* Текст Off */
+
+    /* --- ПАЛИТРА ПОДСВЕТКИ КОДА (Syntax Highlighting) --- */
+    --code-keyword:  #b4637a ;
+    --code-string:   #6b8e6b ;
+    --code-comment:  #a29db8 ;
+    --code-function: #8a7a9c ;
+    --code-number:   #d7827e ;
+    --code-type:     #7a749c ;
+    --code-fg:       #575279 ;
+
+    --info-color:     oklch(60% 0.175 260) ; /* -> --info-bg  -> --info-border */      
+    --success-color:  oklch(70% 0.22 145) ; /* -> --success-bg  -> --success-border */ 
+    --warning-color:  oklch(70% 0.15 80) ; /* -> --warning-bg  -> --warning-border */ 
+    --error-color:    oklch(60% 0.200 35) ;  /* -> --error-bg  -> --error-border */   
+    --important-color:oklch(60% 0.250 320) ; /* -> --important-bg  -> --important-border */
+    
+    
+   /* ---------------    CALCULATIONS, math BLOCK     ---------------------- */
+   /* ---- I hate W3C !!! just buy "Proggramming For Dumb!"  handbook!! ---- */
+   /* -----     With sh!t_1,2,3,4 to make oklch functions readable     ----- */
+
+    /* info */
+    --sht_1:    oklch(from var(--info-color) calc(l + 0.2)      calc(c - 0.075)     calc(h - 15) / calc(alpha * 0.5));
+    --info-bg:   oklch(from var(--sht_1) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    --sht_2:      oklch(from var(--info-color) calc(l + 0.1)      calc(c)     calc(h - 10)   /   calc(alpha * 0.7)); 
+    --info-border: oklch(from var(--sht_2) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    /* success */
+    --sht_3:    oklch(from var(--success-color) calc(l + 0.2)      calc(c - 0.075)     calc(h - 15) / calc(alpha * 0.5));
+    --success-bg:   oklch(from var(--sht_3) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    --sht_4:      oklch(from var(--success-color) calc(l + 0.1)      calc(c)     calc(h - 10)   /   calc(alpha * 0.7)); 
+    --success-border: oklch(from var(--sht_4) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    /* warning */
+    --sht_5:    oklch(from var(--warning-color) calc(l + 0.2)      calc(c - 0.075)     calc(h - 15) / calc(alpha * 0.5));
+    --warning-bg:   oklch(from var(--sht_5) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    --sht_6:      oklch(from var(--warning-color) calc(l + 0.1)      calc(c)     calc(h - 10)   /   calc(alpha * 0.7)); 
+    --warning-border: oklch(from var(--sht_6) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    /* error */
+    --sht_7:    oklch(from var(--error-color) calc(l + 0.2)      calc(c - 0.075)     calc(h - 15) / calc(alpha * 0.5));
+    --error-bg:   oklch(from var(--sht_7) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    --sht_8:      oklch(from var(--error-color) calc(l + 0.1)      calc(c)     calc(h - 10)   /   calc(alpha * 0.7)); 
+    --error-border: oklch(from var(--sht_8) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    /* important */
+    --sht_9:    oklch(from var(--important-color) calc(l + 0.2)      calc(c - 0.075)     calc(h - 15) / calc(alpha * 0.5));
+    --important-bg:   oklch(from var(--sht_9) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+    --sht_10:      oklch(from var(--important-color) calc(l + 0.1)      calc(c)     calc(h - 10)   /   calc(alpha * 0.7)); 
+    --important-border: oklch(from var(--sht_10) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+    
+    /* --bg-sidebar_hover */ /* a+(b−a)∗s  */
+    --sht_11:    oklch(from var(--bg-sidebar) calc(l + (1 - l)*0.03)      calc(c + (0.28 - c)*0.05)     calc(h - 15) / calc(alpha * 0.5));
+    --bg-sidebar_hover:   oklch(from var(--sht_11) clamp(0.0,l,0.999) clamp(0.0,c,0.28) h);
+
+
+    
+
+    /* --- РАЗМЕРЫ И МАКЕТ (Sizes & Layout) --- */
+    --font-size-base:    1rem     !important;
+    --font-size-code:    0.85rem  !important;
+    --font-size-ui:      0.875rem !important;
+    --font-size-math:    1.25rem  !important;
+    --modal-overlay-bg:  hwb(219 69% 19% / 0.5) !important; 
+    --modal-overlay-blur: 2px; 
+    --modal-overlay-filter: brightness(1.0) !important; 
+    --admin-max-width:   1200px !important;
+
+    /* --- ПЕРЕМЕННЫЕ ИНТЕРФЕЙСА (UI Context Variables) --- */
+    --sidebar-chat-item_selected__bg-color:    var( --bg-surface);
+    --sidebar-chat-item_selected__color:       var(--accent-primary);
+    --sidebar-chat-item_selected__accent:      var(--accent-primary) ;
+
+    --sidebar-chat-item__bg-color__hover:      var(--bg-sidebar_hover);
+    --sidebar-chat-item_menu__hover__bg-color: color-mix(in oklch, var(--bg-sidebar_hover), var(--accent-hover) 5%);
+    --sidebar-chat-group__color:               var(--accent-primary);
+    --sidebar-chat-item__color__hover:         var(--text-bold);
+    --sidebar-chat-item__color:                var(--text-primary);
+
+
+    /* === SEMANTIC CONTROL LAYER (NEW — Universal Semantic Control Panel) === */
+    /* Все inline-цвета и градиенты вынесены сюда для полного контроля через :root */
+
+    /* --- BASE UI ELEMENTS --- */
+    --base-placeholder__color:           #b4b4b4 ;                 /* Placeholder text in all inputs/textarea */
+    --base-selection__bg-color:          rgba(180, 213, 255, 0.5) ;/* Text selection highlight background */
+    --base-submit-btn-text__color:       #faf4ed ;                 /* Submit button text color */
+
+    /* === SEMANTIC LAYER: UI INTERACTION === */
+    --ui-element_hover__bg-color:    var(--bg-hover-soft) ; 
+    --ui-element_hover__color:       var(--text-bold) ;   
+    /* --- SIDEBAR COMPONENTS --- */
+    --sidebar-user-menu_hover__bg-color:    var(--b2g-hover-soft, #f0f) !important;   
+
+    /* --- CODE EDITOR (CodeMirror Specifics) --- */
+    --editor-gutter__bg-color:           #dfd7ce t;                 /* CodeMirror line gutter background */
+    --editor-active-line__bg-color:      rgba(180, 99, 122, 0.08) ;/* Active editor line highlight */
+    --editor-selection-bg__color:        rgba(180, 99, 122, 0.2) ; /* Editor text selection background */
+
+    /* --- EDITOR OVERLAYS & CURSORS --- */
+    --mention-highlight__bg-color:       rgba(180, 99, 122, 0.15) ;/* @Mention tag background fill */
+    --yjs-cursor-text__color:            #ffffff ;                  /* Collaborative cursor caret text */
+    --editor-full-selection__bg-color:   rgba(180, 99, 122, 0.2) ; /* Full editor selection overlay */
+
+    /* --- SIDEBAR NAVIGATION BUTTONS --- */
+    --side-nav-buttons__hover-bg-color:  var(--bg-hover-soft) ;    /* Sidebar nav buttons hover background */
+    --side-nav-buttons__hover-color:     var(--accent-primary);   /* Sidebar nav buttons hover text color */
+
+    /* --- GRADIENT IMAGES (All linear-gradient extracted to variables) --- */
+    --navbar-gradient-to-b__image:                     linear-gradient(to bottom, var(--bg-page), transparent) ; /* Navbar top fade-out gradient */
+    --sidebar-gradient-to-t__image:                    linear-gradient(to top, var(--bg-sidebar), transparent) ;   /* Sidebar bottom fade-out gradient */
+    --chat-item-menu-gradient-left__image:             linear-gradient(to left, var(--bg-menu-sidebar) 70%, transparent) ; /* Chat item context menu side fade */
+    --modal-divider-gradient-right__image:             linear-gradient(to right, transparent, var(--border-color), transparent); /* Modal section separator underline */
+    --shimmer-effect-gradient__image:                  linear-gradient(110deg, var(--text-muted), var(--text-muted) 43%, var(--bg-page), var(--text-muted) 57%, var(--text-muted)) 0 0 / 200% 100% ; /* Loading shimmer animation texture */
+
+    /* --- ADMIN PANEL FORM CONTROLS --- */
+    --admin-input-field__bg-color:     var(--bg-input-fill) ;   /* Admin textarea/input background fill */
+    --admin-select-dropdown__bg-color: var(--code-block-bg) ;   /* Admin select dropdown background */
+
+    /* ===  UPDATE NOTIFICATION === */
+    --toast-update__bg-color:          var(--info-bg) ;
+    --toast-update__color:             var(--info-color) ;  
+    --toast-update__brd-color:         var(--info-border) ; 
+    --toast-update__link-hover__color: var(--accent-primary) ; 
+
+    /* ===  TOASTS  === */
+    --toast_normal__brd-color:       var(--border-color) ;   
+    --toast_success__bg-color:       var(--success-bg) ;        
+    --toast_success__color:          var(--success-color) ;   
+    --toast_warning__bg-color:       var(--warning-bg) ;        
+    --toast_warning__color:          var(--warning-color) ; 
+    --toast_error__bg-color:         var(--error-bg) ;
+    --toast_error__color:            var(--error-color) ;
+
+    /* --- HIJACKED VARIABLES (Trace Integration) --- */
+    /* Перехват стандартных цветов Tailwind для интеграции с темой */
+    --my-color-red-50: oklch(97.2% .014 17.40); --color-red-50: var(--my-color-red-50);
+    --my-color-red-200: oklch(88.6% .063 18.35); --color-red-200: var(--my-color-red-200);
+    --my-color-red-400: oklch(70.5% .192 22.23); --color-red-400: var(--my-color-red-400);
+    --my-color-red-500: oklch(63.8% .238 25.35); --color-red-500: var(--my-color-red-500);
+    --my-color-red-600: oklch(57.8% .246 27.35); --color-red-600: var(--my-color-red-600);
+    --my-color-red-700: oklch(50.6% .214 27.53); --color-red-700: var(--my-color-red-700);
+    --my-color-red-800: oklch(44.5% .178 26.91); --color-red-800: var(--my-color-red-800);
+    --my-color-red-950: oklch(25.9% .093 26.06); --color-red-950: var(--my-color-red-950);
+
+    --my-color-orange-100: oklch(95.5% .039 75.18); --color-orange-100: var(--my-color-orange-100);
+    --my-color-orange-200: oklch(90.2% .077 70.71); --color-orange-200: var(--my-color-orange-200);
+    --my-color-orange-500: oklch(70.6% .214 47.62); --color-orange-500: var(--my-color-orange-500);
+    --my-color-orange-800: oklch(47.1% .158 37.32); --color-orange-800: var(--my-color-orange-800);
+
+    --my-color-amber-50: oklch(98.8% .023 95.30); --color-amber-50: var(--my-color-amber-50);
+    --my-color-amber-100: oklch(96.3% .060 95.63); --color-amber-100: var(--my-color-amber-100);
+    --my-color-amber-200: oklch(92.5% .121 95.76); --color-amber-200: var(--my-color-amber-200);
+    --my-color-amber-400: oklch(82.9% .190 84.45); --color-amber-400: var(--my-color-amber-400);
+    --my-color-amber-500: oklch(77.0% .189 70.10); --color-amber-500: var(--my-color-amber-500);
+    --my-color-amber-600: oklch(66.7% .180 58.33); --color-amber-600: var(--my-color-amber-600);
+
+    --my-color-yellow-100: oklch(97.4% .072 103.21); --color-yellow-100: var(--my-color-yellow-100);
+    --my-color-yellow-200: oklch(94.6% .130 101.56); --color-yellow-200: var(--my-color-yellow-200);
+    --my-color-yellow-300: oklch(90.6% .183 98.13); --color-yellow-300: var(--my-color-yellow-300);
+    --my-color-yellow-500: oklch(79.6% .185 86.06); --color-yellow-500: var(--my-color-yellow-500);
+    --my-color-yellow-700: oklch(55.5% .136 66.46); --color-yellow-700: var(--my-color-yellow-700);
+    --my-color-yellow-800: oklch(47.7% .115 61.92); --color-yellow-800: var(--my-color-yellow-800);
+
+    --my-color-green-200: oklch(92.6% .085 156.01); --color-green-200: var(--my-color-green-200);
+    --my-color-green-400: oklch(79.3% .210 151.73); --color-green-400: var(--my-color-green-400);
+    --my-color-green-500: oklch(72.4% .220 149.60); --color-green-500: var(--my-color-green-500);
+    --my-color-green-700: oklch(52.8% .155 150.08); --color-green-700: var(--my-color-green-700);
+    --my-color-green-800: oklch(44.9% .120 151.35); --color-green-800: var(--my-color-green-800);
+    --my-color-emerald-400: oklch(76.6% .178 163.24); --color-emerald-400: var(--my-color-emerald-400);
+    --my-color-emerald-500: oklch(69.7% .171 162.50); --color-emerald-500: var(--my-color-emerald-500);
+    --my-color-emerald-600: oklch(59.7% .146 163.24); --color-emerald-600: var(--my-color-emerald-600);
+    --my-color-emerald-700: oklch(50.9% .119 165.63); --color-emerald-700: var(--my-color-emerald-700);
+
+    --my-color-sky-50: oklch(97.8% .014 236.64); --color-sky-50: var(--my-color-sky-50);
+    --my-color-sky-100: oklch(95.2% .027 236.84); --color-sky-100: var(--my-color-sky-100);
+    --my-color-sky-200: oklch(90.2% .059 230.92); --color-sky-200: var(--my-color-sky-200);
+    --my-color-sky-300: oklch(82.9% .112 230.33); --color-sky-300: var(--my-color-sky-300);
+    --my-color-sky-400: oklch(74.7% .161 232.68); --color-sky-400: var(--my-color-sky-400);
+    --my-color-sky-500: oklch(68.6% .170 237.34); --color-sky-500: var(--my-color-sky-500);
+    --my-color-sky-600: oklch(58.9% .159 241.98); --color-sky-600: var(--my-color-sky-600);
+    --my-color-sky-700: oklch(50.1% .135 242.76); --color-sky-700: var(--my-color-sky-700);
+
+    --my-color-blue-50: oklch(97.1% .015 254.62); --color-blue-50: var(--my-color-blue-50);
+    --my-color-blue-100: oklch(93.3% .033 255.60); --color-blue-100: var(--my-color-blue-100);
+    --my-color-blue-200: oklch(88.3% .060 254.14); --color-blue-200: var(--my-color-blue-200);
+    --my-color-blue-300: oklch(81.0% .106 251.83); --color-blue-300: var(--my-color-blue-300);
+    --my-color-blue-400: oklch(70.8% .166 254.64); --color-blue-400: var(--my-color-blue-400);
+    --my-color-blue-500: oklch(62.4% .215 259.83); --color-blue-500: var(--my-color-blue-500);
+    --my-color-blue-600: oklch(54.7% .246 262.90); --color-blue-600: var(--my-color-blue-600);
+    --my-color-blue-700: oklch(48.9% .244 264.39); --color-blue-700: var(--my-color-blue-700);
+    --my-color-blue-800: oklch(42.5% .200 265.65); --color-blue-800: var(--my-color-blue-800);
+    --my-color-blue-900: oklch(38.0% .147 265.54); --color-blue-900: var(--my-color-blue-900);
+    --my-color-blue-950: oklch(28.3% .092 267.95); --color-blue-950: var(--my-color-blue-950);
+
+    --my-color-indigo-300: oklch(78.6% .116 274.73); --color-indigo-300: var(--my-color-indigo-300);
+    --my-color-indigo-400: oklch(67.4% .183 276.95); --color-indigo-400: var(--my-color-indigo-400);
+    --my-color-indigo-500: oklch(58.6% .234 277.13); --color-indigo-500: var(--my-color-indigo-500);
+    --my-color-indigo-600: oklch(51.2% .263 277.00); --color-indigo-600: var(--my-color-indigo-600);
+    --my-color-purple-500: oklch(62.8% .266 303.92); --color-purple-500: var(--my-color-purple-500);
+    --my-color-rose-500: oklch(64.6% .247 16.45); --color-rose-500: var(--my-color-rose-500);
+
+    /* Grayscale Mapped to Theme */
+    --my-color-gray-50: var(--bg-page); --color-gray-50: var(--my-color-gray-50);
+    --my-color-gray-100: var(--bg-surface); --color-gray-100: var(--my-color-gray-100);
+    --my-color-gray-200: var(--bg-surface); --color-gray-200: var(--my-color-gray-200);
+    --my-color-gray-300: var(--border-color); --color-gray-300: var(--my-color-gray-300);
+    --my-color-gray-400: var(--text-muted); --color-gray-400: var(--my-color-gray-400);
+    --my-color-gray-500: var(--text-secondary); --color-gray-500: var(--my-color-gray-500);
+    --my-color-gray-600: var(--text-primary); --color-gray-600: var(--my-color-gray-600);
+    --my-color-gray-700: var(--text-header); --color-gray-700: var(--my-color-gray-700);
+    --my-color-gray-800: var(--text-header); --color-gray-800: var(--my-color-gray-800);
+    --my-color-gray-850: var(--text-header); --color-gray-850: var(--my-color-gray-850);
+    --my-color-gray-900: var(--text-header); --color-gray-900: var(--my-color-gray-900);
+    --my-color-gray-950: var(--text-header); --color-gray-950: var(--my-color-gray-950);
+
+    --my-color-stone-700: oklch(37.5% .011 67.57); --color-stone-700: var(--my-color-stone-700);
+    --my-color-black: #000; --color-black: var(--my-color-black);
+    --my-color-white: #fff; --color-white: var(--my-color-white);
+
+    /* Fonts & Radius */
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-secondary: InstrumentSerif, serif;
+    --radius-xs: .125rem; --radius-sm: .25rem; --radius-md: .375rem; --radius-lg: .5rem; 
+    --radius-xl: .75rem; --radius-2xl: 1rem; --radius-3xl: 1.5rem; --radius-4xl: 2rem;
+    --app-text-scale: 1;
+}
+
+/* 
+================================================================================
+1. ШРИФТЫ И БАЗОВЫЕ СТИЛИ (Fonts & Base)
+   Anchor: @font-face declarations + html/body defaults
+================================================================================
+*/
+
+/* Подключение шрифтов KaTeX и системных шрифтов */
+@font-face { font-family: KaTeX_AMS; src:       url(./KaTeX_AMS-Regular.BQhdFMY1.woff2); }
+@font-face { font-family: KaTeX_Main; src:      url(./KaTeX_Main-Regular.B22Nviop.woff2); }
+@font-face { font-family: KaTeX_Math; src:      url(./KaTeX_Math-Italic.t53AETM-.woff2); }
+@font-face { font-family: Inter; src:           url(../../../assets/fonts/Inter-Variable.ttf); }
+@font-face { font-family: Archivo; src:         url(../../../assets/fonts/Archivo-Variable.ttf); }
+@font-face { font-family: InstrumentSerif; src: url(../../../assets/fonts/InstrumentSerif-Regular.ttf); }
+
+html {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+}
+
+/* Placeholder text color for all input and textarea elements */
+input::placeholder,
+textarea::placeholder {
+    color: var(--base-placeholder__color) !important;
+}
+
+/* Text selection highlight background */
+::selection {
+    background-color: var(--base-selection__bg-color) !important;
+}
+
+/* Bазовое применение шрифтов и цветов к телу страницы */
+body,
+.app,
+#main-container {
+    background-color: var(--bg-canvas) !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
+    font-size: var(--font-size-base) !important;
+}
+
+/* Изоляция цвета текста: применяется ко всему, кроме редакторов кода */
+body:not(.cm-editor):not(.cm-scroller):not(.cm-content):not(.tiptap.ProseMirror) {
+    color: var(--text-primary) !important;
+}
+
+/* 
+================================================================================
+2. ТИПОГРАФИКА И МАРКДАУН (Typography & Prose)
+   Anchor: .prose / .markdown-prose semantic mapping
+================================================================================
+*/
+
+/* Базовые переменные для Prose */
+.prose,
+.markdown-prose,
+.input-prose {
+    --tw-prose-body:       var(--text-primary);
+    --tw-prose-headings:   var(--text-header);
+    --tw-prose-lead:       var(--text-secondary);
+    --tw-prose-links:      var(--accent-primary);
+    --tw-prose-bold:       var(--text-bold);
+    --tw-prose-counters:   var(--text-muted);
+    --tw-prose-bullets:    var(--text-muted);
+    --tw-prose-hr:         var(--border-color);
+    --tw-prose-quotes:     var(--text-secondary);
+    --tw-prose-quote-borders: var(--border-color);
+    --tw-prose-kbd:        var(--text-primary);
+    --tw-prose-code:       var(--text-primary);
+    --tw-prose-pre-bg:     var(--code-block-bg);
+    --tw-prose-th-borders: var(--border-color);
+    --tw-prose-td-borders: var(--border-color);
+    max-width: 65ch;
+}
+
+.prose p,
+.markdown-prose p { color: var(--tw-prose-body); }
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6,
+.prose th {
+    color: var(--tw-prose-headings);
+    font-weight: var(--tw-prose-bold);
+}
+
+.prose a,
+.markdown-prose a {
+    color: var(--tw-prose-links);
+    text-decoration: underline;
+}
+
+.prose blockquote {
+    color: var(--tw-prose-quotes);
+    border-inline-start: .25rem solid var(--tw-prose-quote-borders);
+    font-style: italic;
+}
+
+.prose :where(ol),
+.prose :where(ul) { padding-inline-start: 1.625em; }
+.prose :where(h1),
+.prose :where(h2),
+.prose :where(h3) { font-weight: 800; }
+
+input.input-prose { white-space: pre-line; }
+
+/* Защита Markdown от стандартных цветов Tailwind */
+.markdown-prose .text-gray-50,
+.markdown-prose .text-gray-100,
+.markdown-prose .text-gray-200,
+.markdown-prose .text-gray-300,
+.markdown-prose .text-gray-400,
+.markdown-prose .text-gray-500,
+.markdown-prose .bg-white {
+    color: var(--text-primary) !important;
+    background-color: var(--code-block-bg) !important;
+}
+
+/* 
+================================================================================
+3. ПОДСВЕТКА КОДА (Code Blocks & Syntax Highlighting)
+   Anchor: HLJS + Shiki + CodeMirror syntax remapping
+================================================================================
+*/
+
+/* Базовые стили блоков кода HLJS */
+code.hljs,
+pre code.hljs {
+    display: block; 
+    overflow-x: auto; 
+    padding: 1em;
+    background-color: var(--code-block-bg) !important;
+    color: var(--code-fg) !important;
+}
+code.hljs { padding: 3px 5px; }
+
+/* Remapping HLJS цветов на тему Academic */
+.hljs { color: var(--code-fg); background: var(--code-block-bg); }
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag, 
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ { color: var(--code-keyword); }
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ { color: var(--code-function); }
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number, 
+.hljs-operator,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id, 
+.hljs-variable { color: var(--code-number); }
+.hljs-meta .hljs-string,
+.hljs-regexp,
+.hljs-string { color: var(--code-string); }
+.hljs-built_in,
+.hljs-symbol { color: var(--accent-secondary); }
+.hljs-code,
+.hljs-comment,
+.hljs-formula { color: var(--code-comment); }
+.hljs-name,
+.hljs-quote,
+.hljs-selector-pseudo,
+.hljs-selector-tag { color: var(--code-string); }
+.hljs-section { color: var(--accent-primary); font-weight: 700; }
+.hljs-bullet { color: var(--accent-secondary); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
+.hljs-addition { color: var(--code-string); background-color: rgba(107, 142, 107, 0.2); }
+.hljs-deletion { color: var(--code-keyword); background-color: rgba(180, 99, 122, 0.2); }
+
+/* Shiki подсветка */
+.shiki,
+.shiki span {
+    color: var(--code-fg) !important;
+    background-color: var(--code-block-bg) !important;
+}
+pre.shiki { background: var(--code-block-bg); }
+
+/* Инлайн код и блоки кода в сообщениях */
+.language-python,
+.language-javascript,
+.language-css,
+.language-bash, 
+.language-typescript,
+.language-cpp,
+pre,
+code:not(pre code) {
+    background-color: var(--code-block-bg) !important;
+    color: var(--code-fg) !important;
+    font-size: var(--font-size-code) !important;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+    line-height: 1.6 !important;
+}
+
+/* Редактор CodeMirror — базовая подложка и гуттер */
+.cm-editor,
+.cm-scroller {
+    background-color: var(--code-block-bg) !important;
+    color: var(--code-fg) !important;
+    font-size: var(--font-size-code) !important;
+    padding: 0 !important;
+}
+.cm-gutters {
+    background-color: var(--editor-gutter__bg-color) !important;
+    border-right: 1px solid var(--border-color) !important;
+    color: var(--text-muted) !important;
+    font-size: var(--font-size-code) !important;
+}
+.cm-activeLine { background: var(--editor-active-line__bg-color) !important; }
+.cm-cursor { border-left-color: var(--accent-primary) !important; }
+.cm-selectionBackground { background: var(--editor-selection-bg__color) !important; }
+
+/* Синаксис CodeMirror — раскладка по ролям токенов */
+.cm-line span[class*="ͼb"],
+.cm-keyword { color: var(--code-keyword) !important; font-weight: 600 !important; }
+.cm-line span[class*="ͼg"],
+.cm-function { color: var(--code-function) !important; }
+.cm-line span[class*="ͼe"],
+.cm-docstring { color: var(--code-string) !important; font-style: italic !important; }
+.cm-line span[class*="ͼm"],
+.cm-comment { color: var(--code-comment) !important; font-style: italic !important; }
+.cm-line span[class*="ͼd"],
+.cm-number { color: var(--code-number) !important; }
+.cm-line span[class*="ͼf"],
+.cm-string { color: var(--code-string) !important; }
+.cm-line span[class*="ͼh"],
+.cm-operator,
+.cm-punctuation { color: var(--accent-secondary) !important; }
+.cm-line span[class*="ͼc"],
+.cm-variable,
+.cm-property { color: var(--text-primary) !important; }
+.cm-line span[class*="ͼa"],
+.cm-type,
+.cm-class { color: var(--code-type) !important; font-weight: 500 !important; }
+
+/* 
+================================================================================
+4. МАТЕМАТИКА (KaTeX)
+   Anchor: KaTeX rendering pipeline with forced color propagation
+================================================================================
+*/
+
+.katex,
+.katex-display {
+    font: 1.21em KaTeX_Main, Times New Roman, serif;
+    font-size: var(--font-size-math) !important;
+    filter: contrast(1.1) !important;
+    font-weight: 500 !important;
+    color: var(--text-math) !important;
+    text-rendering: optimizeLegibility !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.katex * { border-color: currentColor; }
+.katex .frac-line { border-bottom: 1px solid; }
+.katex .sqrt>.root { margin-left: .2777777778em; margin-right: -.555555556em; }
+.katex .vlist-t { border-collapse: collapse; display: inline-table; }
+.katex .vlist-t2 { margin-right: -2px; }
+.katex .hline,
+.katex .overline .overline-line,
+.katex .underline .underline-line { border-bottom: 1px solid; }
+.katex .hdashline { border-bottom: 1px dashed; }
+.katex .rule { border: 0 solid; }
+.katex .angl { border-right: .049em solid; border-top: .049em solid; }
+.katex .mtable .vertical-separator { display: inline-block; min-width: 1px; }
+.katex .mtable .col-align-c>.vlist-t { text-align: center; }
+.katex .mtable .col-align-l>.vlist-t { text-align: left; }
+.katex .mtable .col-align-r>.vlist-t { text-align: right; }
+.katex-display { display: block; margin: 1em 0; text-align: center; }
+
+/* Начертания KaTeX */
+.katex .textbf { font-weight: 700; }
+.katex .textit { font-style: italic; }
+.katex .mathnormal { font-family: KaTeX_Math; font-style: italic; }
+.katex .mathbf { font-family: KaTeX_Main; font-weight: 700; }
+.katex .mathbb { font-family: KaTeX_AMS; }
+.katex .mathcal { font-family: KaTeX_Caligraphic; }
+.katex .mathfrak { font-family: KaTeX_Fraktur; }
+.katex .mathtt { font-family: KaTeX_Typewriter; }
+
+/* Принудительное применение цвета ко всем элементам KaTeX */
+.katex .mord,
+.katex .mbin,
+.katex .mrel,
+.katex .mopen,
+.katex .mclose, 
+.katex .math-normal,
+.katex .math-it,
+.katex-html,
+.katex * {
+    color: var(--text-math) !important;
+}
+
+/* 
+================================================================================
+5. ДАННЫЕ И ТАБЛИЦЫ (Data & Tables)
+   Anchor: JSON preview + SQLite/CSV/Excel table styling
+================================================================================
+*/
+
+/* JSON Preview — семантическая подсветка типов данных */
+.json-root { font-family: var(--font-mono); }
+.json-key { color: var(--code-function); } 
+.json-string { color: var(--code-string); }
+.json-number { color: var(--code-number); }
+.json-boolean { color: var(--code-keyword); }
+.json-null { color: var(--text-muted); font-style: italic; }
+.json-bracket,
+.json-comma { color: var(--text-muted); }
+
+/* Таблицы SQLite/CSV/Excel — чередование строк и заголовки */
+.sqlite-table th,
+.csv-table th,
+.excel-table-container table th {
+    background-color: var(--bg-surface);
+    font-weight: 600;
+    color: var(--text-header);
+}
+.sqlite-table tr:nth-child(2n),
+.csv-table tr:nth-child(2n),
+.excel-table-container table tr:nth-child(2n) {
+    background-color: var(--bg-page);
+}
+.sqlite-table td,
+.csv-table td,
+.excel-table-container table td {
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+.excel-table-container table { border-collapse: collapse; }
+.sqlite-table thead th,
+.csv-table thead th { position: sticky; top: 0; background: var(--bg-surface); z-index: 1; }
+
+/* 
+================================================================================
+6. БОКОВОЕ МЕНЮ И НАВИГАЦИЯ (Sidebar & Navigation)
+   Anchor: #sidebar container, nav buttons, chat items, group badges
+================================================================================
+*/
+
+/* Контейнер сайдбара — фон и граница */
+#sidebar,
+div#sidebar,
+.bg-gray-50\/70,
+.dark\:bg-gray-950\/70 {
+    background-color: var(--bg-sidebar) !important;
+    border-right: 1px solid var(--border-color) !important;
+    font-size: var(--font-size-ui) !important;
+}
+
+/* Название WebUI в сайдбаре */
+#sidebar-webui-name,
+.text-gray-850,
+.dark\:text-white {
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+}
+
+/* Кнопки навигации сайдбара — базовый стиль */
+#sidebar-new-chat-button,
+#sidebar-search-button,
+#sidebar-workspace-button,
+#sidebar-folder-button,
+.hover\:bg-gray-100,
+.dark\:hover\:bg-gray-900 {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Hover состояние для кнопок навигации сайдбара */
+#sidebar-new-chat-button:hover,
+#sidebar-search-button:hover,
+#sidebar-workspace-button:hover,
+.hover\:bg-gray-100:hover {
+    background-color: var(--side-nav-buttons__hover-bg-color) !important;
+    color: var(--side-nav-buttons__hover-color) !important;
+}
+
+/* Градиент внизу сайдбара — вынесен в переменную __image */
+.sidebar-bg-gradient-to-t,
+.from-gray-50,
+.dark\:from-gray-950 {
+    background-image: var(--sidebar-gradient-to-t__image) !important;
+}
+
+
+
+
+
+/* --- БАЗОВЫЕ СТИЛИ --- */
+#sidebar-chat-item {
+    color:          var(--sidebar-chat-item__color,  #f0f) !important;
+    min-height:     calc(32px * var(--app-text-scale, 1));
+    padding-inline: calc(11px * var(--app-text-scale, 1));
+    padding-block:  calc(6px * var(--app-text-scale, 1));
+}
+
+#sidebar-chat-item div[dir=auto] {
+    height: calc(20px * var(--app-text-scale, 1));
+    line-height: calc(20px * var(--app-text-scale, 1));
+}
+
+/* --- ЛОГИКА ХОВЕРОВ  --- */
+
+/* 1. Навели на всю строку (Синий ховер) */
+#sidebar-chat-group:hover #sidebar-chat-item {
+    background-color: var(--sidebar-chat-item__bg-color__hover,  #f0f) !important;
+    color:            var(--sidebar-chat-item__color__hover,     #f0f) !important;
+}
+
+/* 2. Навели конкретно на меню (Зеленый ховер для подложки) */
+#sidebar-chat-group:has(#sidebar-chat-item-menu:hover) #sidebar-chat-item {
+    background-color: var(--sidebar-chat-item_menu__hover__bg-color, #f0f) !important;
+}
+
+/* 3. Стили для состояния "Выбранный + Наведенный" */
+#sidebar-chat-group:hover #sidebar-chat-item.selected {
+    --raw-hover-bg: oklch( /* 1. Модифицируем фон */
+        from var(--sidebar-chat-item_selected__bg-color) 
+        calc(l + (1.0  - l) * 0.1) 
+        calc(c + (0.28 - c) * 0.02) 
+        h 
+        / alpha
+    );     
+    --raw-hover-accent: oklch( /* 2. Модифицируем акцент */
+        from var(--sidebar-chat-item_selected__accent) 
+        calc(l + (1.0 - l) * 0.07) 
+        calc(c + (0.28 - c) * 0.1) 
+        h 
+        / alpha
+    );
+
+    background-color:  var(--raw-hover-bg,     #f0f) !important;
+    color:             var(--raw-hover-accent, #0f8) !important;
+    border-left-color: var(--raw-hover-accent, white) !important; 
+    
+}
+
+/* --- МЕНЮ (ТРИ ТОЧКИ) --- */
+
+/* Возвращаем твой идеальный градиент */
+#sidebar-chat-item-menu,
+.from-gray-100.bg-linear-to-l,
+.dark\:from-gray-900.bg-linear-to-l {
+    background: var(--chat-item-menu-gradient-left__image) !important;
+    display: flex !important;
+
+    border-top-right-radius:    var(--radius-lg) !important;    
+    border-bottom-right-radius: var(--radius-lg) !important;
+    overflow: hidden !important; 
+}
+
+/* Базовый цвет иконок меню */
+#sidebar-chat-item-menu button { 
+    color: var(--text-primary, #f0f) !important; 
+}
+
+/* 3. Красные точки при наведении на само меню */
+#sidebar-chat-item-menu button:hover { 
+    color: var(--accent-hover, #f0f) !important; 
+    transform: scale(1.2);
+}
+
+/* --- ВЫБРАННЫЙ ЭЛЕМЕНТ (SELECTED) --- */
+#sidebar-chat-item.selected,
+.bg-gray-100,
+.dark\:bg-gray-900 {
+    background-color: var(--sidebar-chat-item_selected__bg-color, #f0f) !important;
+    border-left: 4px solid var(--sidebar-chat-item_selected__accent, #f0f) !important;
+    color: var(--sidebar-chat-item_selected__accent, #f0f) !important;
+}
+
+/* --- ОСТАЛЬНЫЕ ФИКСЫ ЦВЕТА --- */
+#sidebar-chat-item .text-gray-900,
+#sidebar-chat-item :is(.dark *) .dark\:text-gray-100 {
+    color: var(--sidebar-chat-item__color,  #f0f) !important;
+}
+
+#sidebar-chat-group .bg-sky-500 {
+    background-color: var(--sidebar-chat-group__color, #f0f) !important;
+}
+
+
+
+
+/* HOVER SELECTORS  */
+.hover\:bg-gray-50:hover, 
+.dark\:hover\:bg-gray-800:hover, 
+.dark\:hover\:bg-gray-850:hover,
+.dark\:hover\:bg-gray-800:is(.dark *):hover,
+.dark\:hover\:bg-gray-850:is(.dark *):hover {
+    background-color: var(--ui-element_hover__bg-color) !important;
+    color: var(--ui-element_hover__color) !important; 
+}
+
+
+/* --- USER PROFILE MENU  --- */
+/* #sidebar div:has(img[aria-label="Open User Profile Menu"]):hover  */
+/* .sidebar div:has(> div > img[aria-label="Open User Profile Menu"]):hover {
+    background-color: var(--sidebar-user-menu_hover__bg-color) !important;
+} */
+
+
+/* === 6.x ПЕРЕХВАТ HOVER ПРОФИЛЬНОГО МЕНЮ В САЙДБАРЕ (Робастный :has()) === */
+#sidebar
+.sidebar
+.flex.flex-col.font-primary
+> div:has(> img[src*="/profile/image"])
+:hover {
+    background-color: var(--sidebar-user-menu_hover__bg-color) !important;
+}
+
+
+
+/* 
+================================================================================
+7. ИНТЕРФЕЙС ЧАТА И СООБЩЕНИЯ (Chat Interface & Messages)
+   Anchor: chat container, navbar gradient, input area, messages, markdown prose
+================================================================================
+*/
+
+/* Контейнер чата — основной фон страницы чата */
+#chat-container,
+.bg-white,
+.dark\:bg-gray-900 {
+    background-color: var(--bg-page) !important;
+}
+
+/* Навигация сверху — градиент fade-out вниз */
+#navbar-bg-gradient-to-b,
+nav,
+.from-white\/90,
+.dark\:from-gray-900\/90 {
+    background: var(--navbar-gradient-to-b__image) !important;
+    border-bottom: none !important;
+}
+nav button.hover\:bg-gray-50,
+nav button.dark\:hover\:bg-gray-850 { background-color: transparent !important; }
+nav button.hover\:bg-gray-50:hover,
+nav button.dark\:hover\:bg-gray-850:hover {
+    background-color: var(--bg-hover-soft) !important;
+    color: var(--accent-primary) !important;
+}
+
+/* Поле ввода сообщения — скруглённый контейнер */
+#message-input-container,
+.bg-white\/5,
+.dark\:bg-gray-500\/5 {
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 24px !important;
+}
+#chat-input,
+.tiptap.ProseMirror {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+/* Кнопка отправки — акцентный цвет фона + текст */
+button[type="submit"],
+.bg-emerald-600,
+.bg-black {
+    background-color: var(--accent-primary) !important;
+    color: var(--base-submit-btn-text__color) !important;
+}
+
+/* Сообщения пользователя — карточки справа */
+.user-message div.rounded-3xl,
+.bg-gray-50,
+.dark\:bg-gray-850 {
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+/* Сообщения ассистента и контент ответа */
+.chat-assistant,
+#response-content-container,
+.markdown-prose {
+    color: var(--text-primary) !important;
+    font-size: var(--font-size-base) !important;
+}
+#response-message-model-name,
+.text-black,
+.dark\:text-white {
+    color: var(--accent-primary) !important;
+    font-weight: 600 !important;
+}
+
+/* Заголовки и акценты в markdown ответах */
+.markdown-prose h1,
+.markdown-prose h2,
+.markdown-prose h3, 
+.markdown-prose h4,
+.markdown-prose h5,
+.markdown-prose h6 {
+    color: var(--text-header) !important;
+    font-weight: 700 !important;
+    font-size: calc(var(--font-size-base) * 1.5) !important;
+}
+.markdown-prose strong,
+.markdown-prose b {
+    color: var(--text-bold) !important;
+    font-weight: 700 !important;
+}
+.markdown-prose p,
+.markdown-prose li,
+.markdown-prose span, 
+.markdown-prose div,
+.markdown-prose ul,
+.markdown-prose ol {
+    color: var(--text-primary) !important;
+}
+
+/* 
+================================================================================
+8. ЭЛЕМЕНТЫ ФОРМ И УПРАВЛЕНИЯ (Forms & Controls)
+   Anchor: checkboxes, selects, switches, mentions, collaborative cursors
+================================================================================
+*/
+
+/* Чекбоксы — стандартный стиль с акцентом при выборе */
+input[type=checkbox] {
+    border-radius: .25rem;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-page);
+}
+input[type=checkbox]:checked {
+    border-color: var(--accent-primary);
+    background-color: var(--accent-primary);
+}
+
+/* Селекты — прозрачный фон по умолчанию, переопределение для конкретных групп */
+select { background-color: transparent; color: var(--text-primary); }
+.select-none.min-w-\[200px\],
+.bg-white,
+.dark\:bg-gray-850 {
+    background-color: var(--bg-page) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    font-size: var(--font-size-ui) !important;
+}
+
+/* Переключатели (Switches) — состояние active/inactive */
+button[role="switch"].bg-emerald-500, 
+button[role="switch"].dark\:bg-emerald-700 { background-color: var(--switch-inactive) !important; }
+button[role="switch"][aria-checked="true"],
+button[role="switch"][data-state="checked"] { background-color: var(--switch-active) !important; }
+button[role="switch"][aria-checked="false"],
+button[role="switch"][data-state="unchecked"] { background-color: var(--switch-inactive) !important; }
+button[role="switch"] span { color: var(--switch-text-off) !important; }
+button[role="switch"][aria-checked="true"] span,
+button[role="switch"][data-state="checked"] span { color: var(--switch-text-on) !important; }
+button[role="switch"] span[data-switch-thumb] { background-color: var(--switch-thumb) !important; }
+
+body > div.modal.fixed div.flex.justify-between button,
+body > div.modal.fixed div.flex.justify-between select {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    cursor: pointer !important;
+}
+
+/* Упоминания (@mentions) и курсоры совместного редактирования */
+.mention {
+    background-color: var(--mention-highlight__bg-color) !important;
+    color: var(--accent-primary);
+}
+.ProseMirror-yjs-cursor { border-left-color: var(--accent-secondary); }
+.ProseMirror-yjs-cursor > div {
+    background-color: var(--accent-secondary);
+    color: var(--yjs-cursor-text__color) !important;
+}
+.editor-selection { background: var(--editor-full-selection__bg-color) !important; }
+
+/* 
+================================================================================
+9. UI КОМПОНЕНТЫ (Modals, Tooltips, Notifications)
+   Anchor: Sonner toasts, Tippy tooltips, modals, settings tabs, input modal
+================================================================================
+*/
+
+/* Уведомления (Sonner) — все уровни важности маппятся на тему */
+[data-sonner-toaster] {
+    --gray1: var(--bg-page); 
+    --gray2: var(--bg-surface);
+    --border-radius: 8px;
+    z-index: 999999999;
+}
+[data-sonner-toast][data-styled=true] {
+    padding: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+[data-sonner-toaster][data-theme=light],
+[data-sonner-toaster][data-theme=dark] {
+    --normal-bg: var(--bg-surface); --normal-border: var(--border-color); --normal-text: var(--text-primary);
+    --success-bg: var(--bg-page); --success-border: var(--border-color); --success-text: var(--code-string);
+    --error-bg: var(--bg-page); --error-border: var(--border-color); --error-text: var(--code-keyword);
+    --info-bg: var(--bg-page); --info-border: var(--border-color); --info-text: var(--accent-primary);
+    --warning-bg: var(--bg-page); --warning-border: var(--border-color); --warning-text: var(--accent-secondary);
+}
+.sonner-loading-bar { background: var(--accent-primary); border-radius: 6px; height: 8%; }
+
+/*  SONNER TOAST RICH COLORS  */
+[data-rich-colors=true] [data-sonner-toast][data-type=success],
+[data-rich-colors=true] [data-sonner-toast][data-type=success] [data-close-button] {
+    background-color: var(--toast_success__bg-color) !important;
+    border-color: var(--toast_normal__brd-color) !important;
+    color: var(--toast_success__color) !important;
+}
+
+[data-rich-colors=true] [data-sonner-toast][data-type=warning],
+[data-rich-colors=true] [data-sonner-toast][data-type=warning] [data-close-button] {
+    background-color: var(--toast_warning__bg-color) !important;
+    border-color: var(--toast_normal__brd-color) !important;
+    color: var(--toast_warning__color) !important;
+}
+
+
+/* Тултипы (Tippy) — фон, текст, стрелка */
+.tippy-box,
+.tippy-box[data-theme~=dark] {
+    background-color: var(--bg-tooltip) !important;
+    color: var(--text-tooltip) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-lg, .5rem) !important;
+    font-size: var(--font-size-ui) !important;
+    box-shadow: 0 10px 15px -3px rgba(87, 82, 121, 0.3) !important;
+}
+.tippy-content { color: var(--text-tooltip) !important; }
+.tippy-arrow,
+.tippy-box[data-theme~=dark] .tippy-arrow { color: var(--bg-tooltip) !important; }
+
+/* Модальные окна — базовая анимация появления */
+.modal-content,
+.modal-content.svelte-1vr5p4p,
+.confirm-dialog-content {
+    animation: scaleUp 0.1s ease-out forwards;
+}
+@keyframes scaleUp {
+    0% { transform: scale(0.985); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Модальные окна — общий стиль контента */
+.modal-content,
+.bg-white.dark\:bg-gray-850 {
+    background-color: var(--bg-page) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    font-size: var(--font-size-ui) !important;
+}
+
+/* Модальное окно настроек — оверлей с blur + контент модалки */
+body > div.modal.fixed {
+    background: var(--modal-overlay-bg) !important;
+    backdrop-filter: blur(var(--modal-overlay-blur)) var(--modal-overlay-filter) !important;
+    -webkit-backdrop-filter: blur(var(--modal-overlay-blur)) var(--modal-overlay-filter) !important;
+    color: transparent !important;
+    z-index: 9999 !important;
+}
+body > div.modal.fixed > div {
+    background-color: var(--bg-surface) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 25px 50px -12px rgba(87, 82, 121, 0.15) !important;
+}
+body > div.modal.fixed > div > div:first-child > button { color: var(--text-secondary) !important; }
+
+/* Цвета текста внутри модалки настроек — заголовки и основной текст */
+body > div.modal.fixed div:not(button).text-gray-700,
+body > div.modal.fixed div:not(button).text-gray-800,
+body > div.modal.fixed div:not(button).text-black,
+body > div.modal.fixed div:not(button).dark\:text-gray-100,
+body > div.modal.fixed div:not(button).dark\:text-white,
+body > div.modal.fixed div:not(button).font-medium { color: var(--text-primary) !important; }
+
+/* Вторичный текст в модалке настроек */
+body > div.modal.fixed .text-gray-400,
+body > div.modal.fixed .text-gray-500,
+body > div.modal.fixed .text-gray-600,
+body > div.modal.fixed .dark\:text-gray-400,
+body > div.modal.fixed .dark\:text-gray-500 { color: var(--text-secondary) !important; }
+
+/* Поля ввода внутри модалки настроек */
+body > div.modal.fixed input,
+body > div.modal.fixed textarea,
+body > div.modal.fixed select { color: var(--text-primary) !important; }
+
+/* Табы настроек — неактивные / активные / hover */
+#settings-tabs-container { color: var(--text-primary) !important; }
+#settings-tabs-container button[aria-selected="false"],
+#settings-tabs-container button[aria-selected="false"] svg { color: var(--text-primary) !important; }
+#settings-tabs-container button[aria-selected="true"] {
+    background-color: var(--bg-sidebar) !important;
+    color: var(--accent-primary) !important;
+    border-left: 4px solid var(--accent-primary) !important;
+    font-weight: 600 !important;
+}
+#settings-tabs-container button:hover { background-color: var(--bg-page) !important; color: var(--accent-primary) !important; }
+#settings-search,
+#search-input-settings-modal { background-color: var(--bg-page) !important; border: 1px solid var(--border-color) !important; color: var(--text-primary) !important; }
+#settings-tabs-container a { color: var(--text-secondary) !important; }
+#settings-tabs-container a:hover { color: var(--accent-primary) !important; }
+
+/* Кнопки и дропдауны в модалке настроек */
+body > div.modal.fixed button.px-3\.5 {
+    background-color: var(--accent-primary) !important;
+    color: #ffffff !important; 
+}
+body > div.modal.fixed button.px-3\.5:hover { background-color: var(--accent-hover) !important; }
+body > div.modal.fixed div.flex.justify-between > *:last-child { margin-right: 16px !important; }
+body > div.modal.fixed select {
+    text-align: left !important;
+    background-color: var(--code-block-bg) !important;
+    color: var(--text-primary) !important;
+    padding-left: 8px !important;
+    cursor: pointer !important;
+}
+
+/* Градиентные разделители между секциями в модалке настроек */
+body > div.modal.fixed div.flex.justify-between:not(.flex-justify-between-header):not(.flex-justify-between-footer) {
+    position: relative;
+    padding-bottom: 2px !important; 
+    margin-bottom: 4px !important;  
+}
+body > div.modal.fixed div.flex.justify-between:not(.flex-justify-between-header):not(.flex-justify-between-footer)::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--modal-divider-gradient-right__image) !important;
+    pointer-events: none;
+}
+
+/* Модальное окно ввода (Input Modal) — полноэкранный оверлей + контейнер */
+.modal.fixed.justify-center.overflow-hidden.bg-black\/60 {
+    background: var(--modal-overlay-bg) !important;
+    backdrop-filter: blur(var(--modal-overlay-blur)) var(--modal-overlay-filter) !important;
+    -webkit-backdrop-filter: blur(var(--modal-overlay-blur)) var(--modal-overlay-filter) !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    top: 0 !important;
+    left: 0 !important;
+    display: flex !important;
+    align-items: center !important; 
+    justify-content: center !important;
+    z-index: 9999 !important;
+    overflow: hidden !important; 
+}
+.modal.fixed.justify-center.overflow-hidden.bg-black\/60 > div {
+    width: 90% !important;
+    max-width: 1200px !important;
+    height: 85vh !important; 
+    position: relative !important;
+    left: 5% !important; 
+    background-color: var(--input-bg) !important; 
+    border-radius: var(--radius-2xl, 1rem) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+    margin: 0 !important;
+    overflow-y: auto !important; 
+    overflow-x: hidden !important;
+    display: block !important; 
+}
+.modal.fixed.justify-center.overflow-hidden.bg-black\/60 > div > div {
+    min-height: unset !important; 
+    height: auto !important; 
+    display: flex !important;
+    flex-direction: column !important;
+}
+.modal.fixed.justify-center.overflow-hidden.bg-black\/60 > div > div > div:first-child {
+    background-color: var(--bg-surface) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    flex-shrink: 0 !important;
+}
+.modal.fixed.justify-center.overflow-hidden.bg-black\/60 > div > div > div:nth-child(2) {
+    flex: 1 1 auto !important;
+    padding-top: 10px !important;
+    padding-bottom: 30px !important;
+}
+.modal.fixed.justify-center.overflow-hidden.bg-black\/60 ::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+.modal.fixed.justify-center.overflow-hidden.bg-black\/60 > div {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+/* NOTIFICATION OVERRIDE */
+.bg-\[\#F1F8FE\], 
+.dark\:bg-\[\#020C1D\],
+.dark\:bg-\[\#020C1D\]:is(.dark *) {
+    background-color: var(--toast-update__bg-color) !important;
+}
+
+.border-\[3371D5\], 
+.dark\:border-\[\#03113B\],
+.dark\:border-\[\#03113B\]:is(.dark *) {
+    border-color: var(--toast-update__brd-color) !important;
+}
+
+.text-\[\#2B6CD4\], 
+.dark\:text-\[\#6795EC\],
+.dark\:text-\[\#6795EC\]:is(.dark *) {
+    color: var(--toast-update__color) !important;
+}
+
+.dark\:hover\:text-blue-300:hover {
+    color: var(--toast-update__link-hover__color) !important;
+}
+
+/* 
+================================================================================
+10. ГРАФЫ И ВИЗУАЛИЗАЦИЯ (Graphs & Visualizer)
+   Anchor: svelte-flow nodes, edges, handles, visualizer bars
+================================================================================
+*/
+
+.svelte-flow { background-color: var(--bg-canvas); }
+:root {
+    --xy-background-color-default: var(--bg-canvas);
+    --xy-edge-stroke-default: var(--border-color);
+    --xy-connectionline-stroke-default: var(--border-color);
+    --xy-node-background-color-default: var(--bg-page);
+    --xy-node-border-default: 1px solid var(--border-color);
+    --xy-handle-background-color-default: var(--text-primary);
+    --xy-handle-border-color-default: var(--bg-page);
+    --xy-selection-background-color-default: rgba(180, 99, 122, 0.1);
+}
+.svelte-flow__node-input,
+.svelte-flow__node-default, 
+.svelte-flow__node-output,
+.svelte-flow__node-group {
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    border: var(--xy-node-border);
+    background-color: var(--xy-node-background-color);
+}
+.visualizer-bar { width: 2px; background-color: var(--accent-primary); }
+
+/* 
+================================================================================
+11. СКРОЛЛБАРЫ И ЭФФЕКТЫ (Scrollbars & Effects)
+   Anchor: custom scrollbar styling, shimmer animation, confetti, waterfall fade-in
+================================================================================
+*/
+
+/* Кастомный скроллбар — трек и ползунок */
+::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+::-webkit-scrollbar-track { background: var(--bg-canvas) !important; }
+::-webkit-scrollbar-thumb {
+    background: var(--bg-surface) !important;
+    border-radius: 10px !important;
+    border: 2px solid var(--bg-canvas) !important;
+}
+.buttons::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Анимации и эффекты */
+.confetti { --color: var(--accent-primary); opacity: 0; }
+
+/* Shimmer loading effect — градиентная текстура бегущей полосы */
+.shimmer {
+    background: var(--shimmer-effect-gradient__image) !important;
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.waterfall { animation: fadeInUp 0.2s ease-out forwards; }
+@keyframes fadeInUp {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* 
+================================================================================
+12. АДМИН ПАНЕЛЬ И МАКЕТ (Admin & Layout Control)
+   Anchor: centering admin panels, input/textarea/select overrides in admin context
+================================================================================
+*/
+
+/* Центрирование и ограничение ширины админ-панелей */
+div.flex-col.h-screen.max-h-\[100dvh\]:has(a[href="/admin"]) > *,
+div.flex-col.h-screen.max-h-\[100dvh\]:has(a[href="/workspace/models"]) > * {
+    max-width: var(--admin-max-width) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
+    flex-shrink: 1 !important;
+    align-self: center !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+div.flex-col.h-screen.max-h-\[100dvh\]:has(a[href="/admin"]) ::-webkit-scrollbar,
+div.flex-col.h-screen.max-h-\[100dvh\]:has(a[href="/workspace/models"]) ::-webkit-scrollbar { 
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important; 
+}
+div.flex-col.h-screen.max-h-\[100dvh\]:has(a[href="/admin"]),
+div.flex-col.h-screen.max-h-\[100dvh\]:has(a[href="/workspace/models"]) {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+/* Стили полей ввода в админке — фон, текст, граница */
+body div.flex-1.overflow-y-scroll textarea,
+body div.flex-1.overflow-y-scroll input[type="text"],
+body div.flex-1.overflow-y-scroll input[type="number"] {
+    background-color: var(--admin-input-field__bg-color) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+}
+body div.flex-1.overflow-y-scroll div.flex.justify-between > *:last-child { margin-right: 16px !important; }
+body div.flex-1.overflow-y-scroll select {
+    text-align: left !important;
+    background-color: var(--admin-select-dropdown__bg-color) !important;
+    color: var(--text-primary) !important;
+    padding-left: 8px !important;
+}
+
+/* Автоматизация выделения контейнера для автоматизаций */
+div.flex.flex-col.w-full.h-screen.max-h-\[100dvh\].transition-width.duration-200.ease-in-out.md\:max-w-\[calc\(100\%-var\(--sidebar-width\)\)\].max-w-full:not(#chat-container) > * {
+    max-width: var(--admin-max-width) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
+    flex-shrink: 1 !important;
+    align-self: center !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+/* 
+================================================================================
+13. ТЕМНАЯ ТЕМА (DARK MODE OVERRIDES)
+   Anchor: dark mode hijack to preserve semantic layer consistency
+================================================================================
+*/
+
+html.dark,
+body.dark,
+[data-theme="dark"] {
+    /* 
+       В темной теме сохраняем тот же цвет ховера, что и в светлой.
+       Это предотвращает "просачивание" тёмной темы сайта сквозь нашу светлую.
+       Переменная --bg-sidebar-hover-dark оставлена для будущей реализации темной темы.
+    */
+    --side-chat-hover: var(--bg-hover-soft) !important;
+}
+
+/* 
+================================================================================
+КОНЕЦ ФАЙЛА — SEMANTIC REFACTORING COMPLETE
+Все цвета и градиенты изолированы через :root переменные с суффиксом __image / __color / __bg-color
+================================================================================
+*/
