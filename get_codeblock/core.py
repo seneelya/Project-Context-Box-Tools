@@ -51,6 +51,8 @@ def parse_args():
             file_path = tokens[i + 1]
             i += 2
         elif token == '--line' and i + 1 < len(tokens):
+            # TODO(deferred): accept a LIST of lines (grep hands you many) so one file
+            # scan can resolve blocks for several candidate lines at once. For now: one.
             try:
                 line_num = int(tokens[i + 1])
             except ValueError:
@@ -384,17 +386,19 @@ def main():
 
         rows = [r for r in rows_all if r['level'] <= shown]
 
-        # Header: total depth + per-level tally + what is shown — a glance says
-        # "there is more, and how to get it".
+        # Header: total depth + per-level tally + what is shown. This is METADATA
+        # (the overview signal) — emitted for every caller, including the API.
         tally = " ".join(f"L{lvl}={per_level[lvl]}" for lvl in sorted(per_level))
         emit(f"{prefix}outline — depth {depth}"
              + (f", {tally}" if tally else "")
              + f", showing 1..{min(shown, depth)}")
-        if not explicit and shown < depth:
-            emit(f"{prefix}add --level N to set research depth (N high = full); "
-                 f"--line N --query to pull a section")
-        else:
-            emit(f"{prefix}--line N --query to pull a section")
+        # Actionable hints are HUMAN guidance, not part of the tool's output contract:
+        # console-only (is_tty), so programmatic callers get clean block lines.
+        if is_tty:
+            hint = "--line N --query to pull a section"
+            if not explicit and shown < depth:
+                hint = "add --level N to set research depth (N high = full) · " + hint
+            print(f"\033[92m{hint}\033[0m")
 
         # Pad each "<indent><marker>" so ranges line up; a frame shows '.' not a number.
         labels = ["  " * (r['level'] - 1) + ("." if r.get('frame') else str(r['level']))
