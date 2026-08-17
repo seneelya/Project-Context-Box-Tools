@@ -160,6 +160,8 @@ LADDER = [
     # try/except siblings: line 45 (in the inner `except`) must NOT report the sibling
     # `try` (41) as a deeper container — clean monotonic chain, no phantom rung.
     {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 43, 46), (5, 40, 48), (4, 39, 48), (3, 38, 48), (2, 35, 52), (1, 17, 65)]},
+    # CSS nested at-rules: a rule inside @media inside @supports — 3 real rungs.
+    {"file": 'cssSRC/ChatViewer.css', "line": 214, "expect": [(3, 213, 219), (2, 212, 220), (1, 210, 221)]},
     # TS one-truth: line 71 (inside an arrow that is a property value in an object
     # literal) -> arrow-body [70-73] · object literal [69-74] · function [17-77]. The
     # brace-less `if (...) return true;` on 71 is NOT a block; the object literal IS.
