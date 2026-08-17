@@ -114,6 +114,15 @@ OUTLINE = {
         (2,  7, 10, 'const increment = () =>'),
         (1, 19, 22, 'function label(n: number): string'),
     ],
+    # CSS/SCSS via tree-sitter-css: nested rule sets, `&` nesting, @media; the
+    # selector list is the label; a preamble comment glues onto the rule.
+    'Edge/Edge.scss': [
+        (1,  1, 12, '.card'),
+        (2,  5,  7, '&:hover'),
+        (2,  9, 11, '.title'),
+        (1, 14, 18, '@media (max-width: 600px)'),
+        (2, 15, 17, '.card'),
+    ],
     'mdSRC/cli.py.md': [
         # (level, start, end, label)
         (1,   1,  55, 'cli.py'),

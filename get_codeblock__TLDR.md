@@ -48,7 +48,9 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
 - Transparent frames (a C#/C++ `namespace`, `extern "C"`) render with a `.` marker
   instead of a level number — they're a wrapper, not a nesting level.
 - `--outline` works for Python (indentation), Markdown (headings), and the tree-sitter
-  languages C/C++, C#, and TypeScript/JS/TSX (`.ts .js .tsx .jsx`).
+  languages C/C++, C#, TypeScript/JS/TSX (`.ts .js .tsx .jsx`), and CSS/SCSS
+  (`.css .scss`). SCSS note: `@mixin`/`@include`/`@function` WITH parameters parse
+  imperfectly (css grammar), but nested rule sets, `&` nesting and `@media` are solid.
 - TS/JS first pass: named `function`/`class`/`interface`/`enum`/`method` + control blocks
   are mapped. Expression-bodied arrows (`const Foo = () => …`, callback chains) don't add a
   level yet and `--line` inside a brace-less arrow can miss — name-bound arrows are the next pass.

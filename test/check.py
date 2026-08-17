@@ -25,6 +25,7 @@ from get_codeblock.core import get_line_levels
 
 _LANG = {".py": "python", ".ts": "typescript", ".js": "typescript",
          ".tsx": "tsx", ".jsx": "tsx",
+         ".scss": "css", ".sass": "css", ".css": "css",
          ".cs": "csharp", ".md": "markdown", ".markdown": "markdown",
          ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".c++": "cpp",
          ".hpp": "cpp", ".hh": "cpp", ".hxx": "cpp", ".h": "cpp", ".c": "cpp"}

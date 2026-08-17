@@ -212,7 +212,8 @@ def resolve(blocks, level):
 
 def make_comment_prefix(language):
     """Return comment prefix for the given language."""
-    return {"python": "#", "typescript": "//", "tsx": "//", "csharp": "//", "cpp": "//"}.get(language, "#")
+    return {"python": "#", "typescript": "//", "tsx": "//", "csharp": "//",
+            "cpp": "//", "css": "//"}.get(language, "#")
 
 
 def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool = False) -> dict:
@@ -249,6 +250,7 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
+                '.scss': 'css', '.sass': 'css', '.css': 'css',
                 '.md': 'markdown', '.markdown': 'markdown'}
     language = lang_map.get(ext, 'python')
 
@@ -315,6 +317,7 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
+                '.scss': 'css', '.sass': 'css', '.css': 'css',
                 '.md': 'markdown', '.markdown': 'markdown'}
     language = lang_map.get(ext, 'python')
 
@@ -351,6 +354,7 @@ def main():
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
+                '.scss': 'css', '.sass': 'css', '.css': 'css',
                 '.md': 'markdown', '.markdown': 'markdown'}
     language = lang_map.get(ext, 'python')
 

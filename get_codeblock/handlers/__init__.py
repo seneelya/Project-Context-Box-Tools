@@ -19,6 +19,9 @@ def get_handler(language: str):
         "cpp": _make_cpp_handler,
         "c++": _make_cpp_handler,
         "c": _make_cpp_handler,
+        "css": _make_css_handler,
+        "scss": _make_css_handler,
+        "sass": _make_css_handler,
         "markdown": _make_markdown_handler,
         "md": _make_markdown_handler,
     }
@@ -56,6 +59,11 @@ def _make_csharp_handler():
 def _make_cpp_handler():
     from .cpp_handler import CppHandler
     return CppHandler()
+
+
+def _make_css_handler():
+    from .css_handler import CssHandler
+    return CssHandler()
 
 
 def _make_markdown_handler():

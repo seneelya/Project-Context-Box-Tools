@@ -13,4 +13,5 @@
 tree-sitter>=0.23        # core parsing engine (needed by every grammar below)
 tree-sitter-cpp>=0.23    # C / C++   (.cpp .cc .cxx .c++ .hpp .hh .hxx .h .c)
 tree-sitter-c-sharp>=0.23 # C#        (.cs)
-tree-sitter-typescript>=0.23 # TypeScript / JavaScript (.ts .js)
+tree-sitter-typescript>=0.23 # TypeScript / JavaScript (.ts .js .tsx .jsx)
+tree-sitter-css>=0.23    # CSS / SCSS / Sass (.css .scss .sass)
