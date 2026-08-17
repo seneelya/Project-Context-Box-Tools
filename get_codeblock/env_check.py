@@ -25,6 +25,7 @@ LANGUAGE_MODULES = {
     "cpp": ["tree_sitter", "tree_sitter_cpp"],
     "csharp": ["tree_sitter", "tree_sitter_c_sharp"],
     "typescript": ["tree_sitter", "tree_sitter_typescript"],
+    "tsx": ["tree_sitter", "tree_sitter_typescript"],
     "python": [],
     "markdown": [],
 }

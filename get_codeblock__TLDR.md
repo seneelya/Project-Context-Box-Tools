@@ -47,8 +47,11 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
   so you know there's more. Add `--level N` for an EXACT depth cap (high N = everything).
 - Transparent frames (a C#/C++ `namespace`, `extern "C"`) render with a `.` marker
   instead of a level number — they're a wrapper, not a nesting level.
-- `--outline` works for Python (indentation), Markdown (headings), and C/C++ & C#
-  (tree-sitter). TypeScript/JS have no outline yet — it errors out.
+- `--outline` works for Python (indentation), Markdown (headings), and the tree-sitter
+  languages C/C++, C#, and TypeScript/JS/TSX (`.ts .js .tsx .jsx`).
+- TS/JS first pass: named `function`/`class`/`interface`/`enum`/`method` + control blocks
+  are mapped. Expression-bodied arrows (`const Foo = () => …`, callback chains) don't add a
+  level yet and `--line` inside a brace-less arrow can miss — name-bound arrows are the next pass.
 - `--outline` range end is "line before the next same-or-shallower header" — a TOC estimate,
   not the exact block boundary. Use `--query` when you need the real end line.
 - The green level-legend line and the outline's `#outline` / `Level  Range` header only print

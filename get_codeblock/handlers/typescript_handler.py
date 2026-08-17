@@ -1,371 +1,92 @@
-"""TypeScript/JavaScript language handler for get_codeblock."""
+"""TypeScript / JavaScript handler for get_codeblock.
+
+Navigation (outline / get_blocks / line_level) is provided by the shared
+tree-sitter block engine in `_treesitter_blocks` — the same engine C/C++ and C#
+use. Two grammars back it: `typescript` for `.ts`/`.js`, `tsx` for `.tsx`/`.jsx`
+(the tsx grammar understands JSX). A real parse handles multi-line signatures,
+generics `<T>`, template literals, object-type literals and comments correctly —
+the class of edge-cases the old brace heuristic kept tripping on.
+
+Block model / level rule: see `_treesitter_blocks`. For TS specifically:
+  * function/class/interface/enum declarations, methods, and control blocks
+    (if/for/while/switch/try/…) are blocks;
+  * `namespace`/`module` are TRANSPARENT (shown in outline, add no depth);
+  * imports, `type X = …`, and value bindings (`const`/`let`/`var`) are leaves.
+
+FIRST PASS: bare arrow/function EXPRESSIONS (React `const Foo = () => {…}`,
+inline callbacks) are not yet named in the outline — their bodies still resolve
+as standalone scopes, so get_blocks/levels inside them are correct; only their
+outline LABEL is pending (needs a walk-up to the binding name). See TODO below.
+
+The regex `declarations()` (declared surface for make_interface_card) is kept
+below unchanged; the old brace-based navigation is preserved, disconnected, in
+`_LegacyBraceNav` for reference.
+
+Requires: pip install tree-sitter tree-sitter-typescript
+"""
 
 import re
 
+from ._treesitter_blocks import LangSpec, TreeSitterBlockHandler
 
-def is_block_header(line):
-    """Check if line starts a named block (function/class/interface/etc)."""
-    stripped = line.strip()
-    if not stripped or stripped.startswith('//'):
-        return False
 
-    # Skip single-line comments and block comment markers
-    if stripped.startswith('/*') or stripped.startswith('*'):
-        return False
+def _load_typescript():
+    import tree_sitter_typescript as tsts
+    from tree_sitter import Language
+    return Language(tsts.language_typescript())
 
-    # Check for block-starting keywords before any '{'
-    check_part = stripped.split('{')[0].strip().lower()
 
-    keywords = {
-        'function', 'class', 'interface', 'enum', 'type',
-        'namespace', 'module', 'const', 'let', 'var',
-        'if', 'for', 'while', 'do', 'switch', 'try', 'catch', 'finally',
-    }
+def _load_tsx():
+    import tree_sitter_typescript as tsts
+    from tree_sitter import Language
+    return Language(tsts.language_tsx())
 
-    return any(check_part.startswith(kw) for kw in keywords)
 
+# Node-type config shared by both grammars (tsx == typescript + JSX nodes).
+_TS_BODY = {'statement_block', 'class_body', 'interface_body', 'enum_body', 'switch_body'}
+_TS_NAMED = {
+    'function_declaration', 'generator_function_declaration',
+    'class_declaration', 'abstract_class_declaration',
+    'interface_declaration', 'enum_declaration',
+    'method_definition',
+}
+_TS_CONTROL = {
+    'if_statement', 'else_clause',
+    'for_statement', 'for_in_statement',
+    'while_statement', 'do_statement',
+    'switch_statement',
+    'try_statement', 'catch_clause', 'finally_clause',
+}
+_TS_TRANSPARENT = {'internal_module', 'module'}   # `namespace X {}` / `module X {}`
 
-def get_indent(line):
-    """Get indentation level (spaces/tabs converted to spaces)."""
-    stripped = line.lstrip()
-    indent_str = line[:len(line) - len(stripped)]
-    return len(indent_str.replace('\t', '    '))
 
+def _make_ts_spec(name, loader):
+    return LangSpec(
+        name, loader,
+        body_types=_TS_BODY,
+        transparent_parents=_TS_TRANSPARENT,
+        named_def=_TS_NAMED,
+        container=_TS_TRANSPARENT,
+        control=_TS_CONTROL,
+        scope_body='statement_block',
+    )
 
-_BRACELESS_KW = ('if', 'else', 'for', 'while', 'do', 'foreach')
 
+TS_SPEC = _make_ts_spec("TypeScript", _load_typescript)
+TSX_SPEC = _make_ts_spec("TypeScript (TSX)", _load_tsx)
 
-def _is_braceless_control(stripped):
-    """A control header whose body is the next statement (no '{' on this line)."""
-    if '{' in stripped or stripped.endswith(';') or stripped.endswith(','):
-        return False
-    for kw in _BRACELESS_KW:
-        if stripped == kw or stripped.startswith(kw + ' ') or stripped.startswith(kw + '('):
-            return True
-    return False
 
+# TODO(next pass): name arrow/function EXPRESSIONS bound to an identifier
+# (`const Foo = () => {…}`, class fields, object props) in the outline — the
+# React-component pattern. Needs an _outline_nodes/_label override that walks
+# arrow_function.parent -> variable_declarator/public_field_definition/pair to
+# recover the name, while NOT surfacing anonymous inline callbacks as noise.
 
-class TypeScriptHandler:
 
-    def __init__(self):
-        pass
+class TypeScriptHandler(TreeSitterBlockHandler):
+    """.ts / .js — tree-sitter (typescript grammar) navigation + regex declared surface."""
 
-    def line_level(self, lines, idx):
-        """Logical nesting level of ONE line (0-based idx), 1-based.
-
-        level = 1 + enclosing block BODIES. For brace languages a body is the region
-        inside a matching {...}; the header (up to and including '{') sits at the
-        parent's level, so a leading '}' counts against the parent too. Brace-less
-        control bodies (if/for/while/else with no '{') are recovered via indentation.
-        Root = 1 (0 is reserved for --level addressing, never a real depth).
-        """
-        if idx < 0 or idx >= len(lines):
-            return 1
-        stack = []
-        for i in range(idx):
-            self._scan_line_for_braces(lines[i], stack, i)
-        depth = len(stack)
-        content = lines[idx].lstrip()
-        if content.startswith('}'):
-            depth = max(depth - 1, 0)  # a closing brace belongs to the parent level
-        return depth + 1 + self._braceless_bonus(lines, idx)
-
-    def _braceless_bonus(self, lines, idx):
-        """Extra levels from brace-less control headers governing this line by indent."""
-        bonus = 0
-        cur_indent = get_indent(lines[idx])
-        j = idx - 1
-        while j >= 0:
-            s = lines[j].strip()
-            if not s or s.startswith('//') or s.startswith('*') or s.startswith('/*'):
-                j -= 1
-                continue
-            ind = get_indent(lines[j])
-            if ind < cur_indent and _is_braceless_control(s):
-                bonus += 1
-                cur_indent = ind
-                j -= 1
-                continue
-            break
-        return bonus
-
-    def get_blocks(self, file_path, target_line):
-        """Get blocks containing target line.
-
-        Returns list sorted outermost-first:
-        [{'level': N, 'start': X, 'end': Y}, ...]
-        Level = depth from root (1=top-level block).
-        start/end = 1-indexed inclusive line numbers.
-        """
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        if not lines or target_line < 1 or target_line > len(lines):
-            return []
-
-        idx = target_line - 1
-
-        # Find all containing brace-blocks scanning from file start to target line
-        containing = self._find_containing_braces(lines, idx)
-
-        if not containing:
-            return []
-
-        result = []
-        for i, (brace_line, end) in enumerate(containing):
-            level = i + 1
-
-            # Look above brace_line for the actual header/start of this block
-            header_start = self._find_block_header_start(lines, brace_line)
-
-            result.append({
-                'level': level,
-                'start': header_start + 1,
-                'end': end + 1,
-            })
-
-        return result
-
-    def _find_containing_braces(self, lines, target_idx):
-        """Find all open '{' blocks that contain the target line index.
-
-        Scans from file start to target, tracking brace depth while ignoring strings/comments.
-        Returns list sorted outermost-first: [(brace_line_idx, matching_close_line), ...]
-        """
-        stack = []  # [brace_line_idx, ...] — each open '{' pushed here
-
-        for i in range(target_idx + 1):
-            line = lines[i]
-            self._scan_line_for_braces(line, stack, i)
-
-        # Now find matching '}' for each brace in stack (outermost first = bottom of stack)
-        containing = []
-        for brace_line_idx in stack:
-            end_line = self._find_matching_brace(lines, brace_line_idx)
-            if end_line != -1:
-                containing.append((brace_line_idx, end_line))
-
-        return containing
-
-    def _scan_line_for_braces(self, line, stack, line_idx):
-        """Scan a single line for '{' and '}', updating the brace stack.
-
-        Ignores braces inside strings, template literals, and comments.
-        For '{': push its line index onto stack.
-        For '}': pop one entry from stack (one-to-one matching).
-        """
-        i = 0
-        n = len(line)
-
-        while i < n:
-            ch = line[i]
-
-            # Skip strings
-            if ch in ('"', "'"):
-                quote = ch
-                i += 1
-                while i < n and line[i] != quote:
-                    if line[i] == '\\':
-                        i += 2
-                    else:
-                        i += 1
-                i += 1
-                continue
-
-            # Skip template literals
-            if ch == '`':
-                i += 1
-                while i < n and line[i] != '`':
-                    if line[i] == '\\':
-                        i += 2
-                    else:
-                        i += 1
-                i += 1
-                continue
-
-            # Skip line comments
-            if i + 1 < n and ch == '/' and line[i+1] == '/':
-                break  # rest of line is comment
-
-            # Skip block comments
-            if i + 1 < n and ch == '/' and line[i+1] == '*':
-                i += 2
-                while i < n - 1:
-                    if line[i] == '*' and line[i+1] == '/':
-                        i += 2
-                        break
-                    i += 1
-                else:
-                    i = n
-                continue
-
-            # Handle braces
-            if ch == '{':
-                stack.append(line_idx)  # store LINE index
-
-            elif ch == '}':
-                # Pop from stack — this close brace closes whatever is on top (one-to-one)
-                if stack:
-                    stack.pop()
-
-            i += 1
-
-    def _find_matching_brace(self, lines, brace_line_idx):
-        """Find the closing '}' for '{' at brace_line_idx.
-
-        Starts scanning from the line AFTER brace_line_idx with depth=1 (the opening brace counted).
-        Returns inclusive line index or -1 if not found.
-        """
-        depth = 1
-
-        for i in range(brace_line_idx + 1, len(lines)):
-            line = lines[i]
-
-            j = 0
-            n = len(line)
-
-            while j < n:
-                ch = line[j]
-
-                # Skip strings
-                if ch in ('"', "'"):
-                    quote = ch
-                    j += 1
-                    while j < n and line[j] != quote:
-                        if line[j] == '\\':
-                            j += 2
-                        else:
-                            j += 1
-                    j += 1
-                    continue
-
-                # Skip template literals
-                if ch == '`':
-                    j += 1
-                    while j < n and line[j] != '`':
-                        if line[j] == '\\':
-                            j += 2
-                        else:
-                            j += 1
-                    j += 1
-                    continue
-
-                # Skip line comments
-                if j + 1 < n and ch == '/' and line[j+1] == '/':
-                    break
-
-                # Skip block comments
-                if j + 1 < n and ch == '/' and line[j+1] == '*':
-                    j += 2
-                    while j < n - 1:
-                        if line[j] == '*' and line[j+1] == '/':
-                            j += 2
-                            break
-                        j += 1
-                    else:
-                        j = n
-                    continue
-
-                # Handle braces
-                if ch == '{':
-                    depth += 1
-                elif ch == '}':
-                    depth -= 1
-                    if depth == 0:
-                        return i
-
-                j += 1
-
-        return -1
-
-    def _find_block_header_start(self, lines, brace_line_idx):
-        """Find the earliest header/start line for a block whose '{' is at brace_line_idx.
-
-        Looks upward from brace_line to find:
-        - The keyword/function/class declaration that owns this brace
-        - Attached comments above that declaration
-
-        Returns line index (0-based).
-        """
-        current = brace_line_idx
-        brace_indent = get_indent(lines[brace_line_idx])
-
-        # If '{' is on its own line or at end of a declaration line, check that line first
-        stripped = lines[current].strip()
-        if stripped == '{':
-            # Go up to find the actual header (skip blanks)
-            current -= 1
-            while current >= 0 and not lines[current].strip():
-                current -= 1
-
-        if current < 0 or current >= brace_line_idx:
-            return brace_line_idx
-
-        # Find where this block's declaration starts (could be multi-line)
-        header_start = self._find_declaration_start(lines, current)
-
-        # Include attached comments above the declaration
-        preamble_start = self._collect_preamble(lines, header_start)
-
-        return preamble_start
-
-    def _find_declaration_start(self, lines, start_idx):
-        """Find the beginning of a declaration that ends at or near start_idx.
-
-        Handles multi-line declarations like:
-          public async function foo<T>(
-              x: T
-          ): Promise<void> {
-
-        Returns earliest line index of this declaration.
-        """
-        current = start_idx
-        brace_indent = get_indent(lines[start_idx])
-
-        while current > 0:
-            prev_line = lines[current - 1].strip()
-            prev_indent = get_indent(lines[current - 1])
-
-            # Stop at blank lines (separators) or block headers above us
-            if not prev_line:
-                break
-
-            if is_block_header(prev_line) and prev_indent <= brace_indent:
-                break
-
-            # Continuation of same declaration (same or deeper indent, non-header)
-            current -= 1
-
-        return current
-
-    def _collect_preamble(self, lines, header_idx):
-        """Find earliest comment/docblock attached above the header.
-
-        Returns index of first preamble line, or header_idx if none."""
-        if header_idx == 0:
-            return header_idx
-
-        start = header_idx
-        i = header_idx - 1
-
-        while i >= 0:
-            content = lines[i].strip()
-
-            # Blank lines separate — skip them but don't count as preamble boundary
-            if not content:
-                i -= 1
-                continue
-
-            # Block comment ending or single-line comment attached above
-            if (content.startswith('//') or
-                    content.endswith('*/') or
-                    content.startswith('*')):
-                start = i
-                i -= 1
-            else:
-                break
-
-        return start
+    SPEC = TS_SPEC
 
     # -- declared surface (for make_interface_card) --------------------------------------
 
@@ -478,3 +199,124 @@ class TypeScriptHandler:
         sig = ' '.join(''.join(out).split()).rstrip(';').strip()
         return sig, j
 
+    @staticmethod
+    def _scan_line_for_braces(line, stack, line_idx):
+        """Scan a single line for '{'/'}' (ignoring strings, template literals, comments),
+        pushing/popping LINE indices. Used by declarations() to track depth-0."""
+        i, n = 0, len(line)
+        while i < n:
+            ch = line[i]
+            if ch in ('"', "'"):
+                quote = ch
+                i += 1
+                while i < n and line[i] != quote:
+                    i += 2 if line[i] == '\\' else 1
+                i += 1
+                continue
+            if ch == '`':
+                i += 1
+                while i < n and line[i] != '`':
+                    i += 2 if line[i] == '\\' else 1
+                i += 1
+                continue
+            if i + 1 < n and ch == '/' and line[i + 1] == '/':
+                break
+            if i + 1 < n and ch == '/' and line[i + 1] == '*':
+                i += 2
+                while i < n - 1:
+                    if line[i] == '*' and line[i + 1] == '/':
+                        i += 2
+                        break
+                    i += 1
+                else:
+                    i = n
+                continue
+            if ch == '{':
+                stack.append(line_idx)
+            elif ch == '}':
+                if stack:
+                    stack.pop()
+            i += 1
+
+
+class TsxHandler(TypeScriptHandler):
+    """.tsx / .jsx — same as TypeScriptHandler but with the JSX-aware tsx grammar."""
+
+    SPEC = TSX_SPEC
+
+
+# ============================================================================
+# LEGACY — superseded by the tree-sitter engine above. Kept for reference only;
+# NOT wired into any handler. The brace-matching navigation below was the
+# original TS/JS implementation before the migration onto TreeSitterBlockHandler.
+# ============================================================================
+
+def is_block_header(line):
+    """(legacy) Check if a line starts a named/control block by keyword."""
+    stripped = line.strip()
+    if not stripped or stripped.startswith('//'):
+        return False
+    if stripped.startswith('/*') or stripped.startswith('*'):
+        return False
+    check_part = stripped.split('{')[0].strip().lower()
+    keywords = {
+        'function', 'class', 'interface', 'enum', 'type',
+        'namespace', 'module', 'const', 'let', 'var',
+        'if', 'for', 'while', 'do', 'switch', 'try', 'catch', 'finally',
+    }
+    return any(check_part.startswith(kw) for kw in keywords)
+
+
+def get_indent(line):
+    """(legacy) Indentation width, tabs = 4."""
+    stripped = line.lstrip()
+    indent_str = line[:len(line) - len(stripped)]
+    return len(indent_str.replace('\t', '    '))
+
+
+class _LegacyBraceNav:
+    """(legacy, disconnected) Original brace-matching navigation for TS/JS.
+
+    Replaced by TreeSitterBlockHandler; retained so the pre-migration heuristics
+    remain visible. Do not wire this into the handler registry.
+    """
+
+    _BRACELESS_KW = ('if', 'else', 'for', 'while', 'do', 'foreach')
+
+    def _is_braceless_control(self, stripped):
+        if '{' in stripped or stripped.endswith(';') or stripped.endswith(','):
+            return False
+        for kw in self._BRACELESS_KW:
+            if stripped == kw or stripped.startswith(kw + ' ') or stripped.startswith(kw + '('):
+                return True
+        return False
+
+    def line_level(self, lines, idx):
+        if idx < 0 or idx >= len(lines):
+            return 1
+        stack = []
+        for i in range(idx):
+            TypeScriptHandler._scan_line_for_braces(lines[i], stack, i)
+        depth = len(stack)
+        content = lines[idx].lstrip()
+        if content.startswith('}'):
+            depth = max(depth - 1, 0)
+        return depth + 1 + self._braceless_bonus(lines, idx)
+
+    def _braceless_bonus(self, lines, idx):
+        bonus = 0
+        cur_indent = get_indent(lines[idx])
+        j = idx - 1
+        while j >= 0:
+            s = lines[j].strip()
+            if not s or s.startswith('//') or s.startswith('*') or s.startswith('/*'):
+                j -= 1
+                continue
+            ind = get_indent(lines[j])
+            if ind < cur_indent and self._is_braceless_control(s):
+                bonus += 1
+                cur_indent = ind
+                j -= 1
+                continue
+            break
+        return bonus

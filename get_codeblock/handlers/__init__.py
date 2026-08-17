@@ -12,6 +12,8 @@ def get_handler(language: str):
         "typescript": _make_ts_handler,
         "ts": _make_ts_handler,
         "js": _make_ts_handler,
+        "tsx": _make_tsx_handler,
+        "jsx": _make_tsx_handler,
         "csharp": _make_csharp_handler,
         "cs": _make_csharp_handler,
         "cpp": _make_cpp_handler,
@@ -39,6 +41,11 @@ def _make_python_handler():
 def _make_ts_handler():
     from .typescript_handler import TypeScriptHandler
     return TypeScriptHandler()
+
+
+def _make_tsx_handler():
+    from .typescript_handler import TsxHandler
+    return TsxHandler()
 
 
 def _make_csharp_handler():

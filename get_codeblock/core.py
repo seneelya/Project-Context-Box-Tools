@@ -212,7 +212,7 @@ def resolve(blocks, level):
 
 def make_comment_prefix(language):
     """Return comment prefix for the given language."""
-    return {"python": "#", "typescript": "//", "csharp": "//", "cpp": "//"}.get(language, "#")
+    return {"python": "#", "typescript": "//", "tsx": "//", "csharp": "//", "cpp": "//"}.get(language, "#")
 
 
 def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool = False) -> dict:
@@ -245,7 +245,8 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
 
     # Detect language by extension
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp',
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript',
+                '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
                 '.md': 'markdown', '.markdown': 'markdown'}
@@ -310,7 +311,8 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
 
     # Detect language by extension
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp',
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript',
+                '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
                 '.md': 'markdown', '.markdown': 'markdown'}
@@ -345,7 +347,8 @@ def main():
         sys.exit(1)
 
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.cs': 'csharp',
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript',
+                '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
                 '.md': 'markdown', '.markdown': 'markdown'}

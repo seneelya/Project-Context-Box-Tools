@@ -308,9 +308,11 @@ INCOMING_DETAIL = {
         # (source_file, symbol, [lines in target], [levels])
         "usages": [
             ('src/constants.ts',                   'ignoreComment',          [151],      [2]),
-            ('src/util/getModuleSourceFile.ts',    'getModuleSourceFile',    [178, 193], [2, 2]),
+            # 178/193 sit in expression-bodied arrow chains (no statement_block) -> level 1;
+            # the tree-sitter engine counts only code blocks, not object-literal braces.
+            ('src/util/getModuleSourceFile.ts',    'getModuleSourceFile',    [178, 193], [1, 1]),
             ('src/util/getNodesOfKind.ts',         'getNodesOfKind',         [64],       [2]),
-            ('src/util/isDefinitelyUsedImport.ts', 'isDefinitelyUsedImport', [179],      [2]),
+            ('src/util/isDefinitelyUsedImport.ts', 'isDefinitelyUsedImport', [179],      [1]),
             ('src/utils/common.ts',                'countBy',                [221],      [2]),
             ('src/utils/common.ts',                'last',                   [151],      [2]),
         ],
