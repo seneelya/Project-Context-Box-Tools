@@ -92,11 +92,24 @@ class TreeSitterBlockHandler:
     def _has_body(self, node):
         return any(c.type in self.SPEC.body_types for c in node.children)
 
-    def _is_standalone_scope(self, node):
+    def _is_standalone_body(self, node):
+        """A brace body with no declaring header of its own — an arrow-function body,
+        a bare `{}` block, or a multi-line object/array literal. These are foldable
+        regions you'd want to pull when the cursor lands inside, but they carry no
+        name. MULTI-LINE only: a single-line `{…}` is nothing to fold, so it is not a
+        level (this also drops brace-less one-line control, which has no body node).
+
+        Excluded: bodies owned by a named/control node (the owner is the block) and
+        bodies of a transparent container (namespace/extern "C")."""
         sp = self.SPEC
-        return (node.type == sp.scope_body
-                and node.parent is not None
-                and node.parent.type not in sp.body_owners)
+        if node.type not in sp.body_types:
+            return False
+        if node.end_point[0] <= node.start_point[0]:
+            return False
+        parent = node.parent
+        return (parent is not None
+                and parent.type not in sp.body_owners
+                and parent.type not in sp.transparent_parents)
 
     def _label(self, node, source_bytes):
         """Header text: everything up to the body / init-list."""
@@ -153,9 +166,9 @@ class TreeSitterBlockHandler:
             t = n.type
             if t in sp.named_def and self._has_body(n):
                 out.append(n)
-            elif t in sp.control:
-                out.append(n)
-            elif self._is_standalone_scope(n):
+            elif t in sp.control and self._has_body(n):   # braced control only — a
+                out.append(n)                             # brace-less one-liner is not a block
+            elif self._is_standalone_body(n):
                 out.append(n)
         return out
 

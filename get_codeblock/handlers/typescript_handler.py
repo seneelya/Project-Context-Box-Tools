@@ -43,7 +43,11 @@ def _load_tsx():
 
 
 # Node-type config shared by both grammars (tsx == typescript + JSX nodes).
-_TS_BODY = {'statement_block', 'class_body', 'interface_body', 'enum_body', 'switch_body'}
+# `object` is included so a multi-line object literal counts as a foldable block
+# (TS/JS routinely hide methods in them: `{ value: (x) => {…} }`). Single-line
+# objects are filtered out by the multi-line gate in the engine.
+_TS_BODY = {'statement_block', 'class_body', 'interface_body', 'enum_body',
+            'switch_body', 'object'}
 _TS_NAMED = {
     'function_declaration', 'generator_function_declaration',
     'class_declaration', 'abstract_class_declaration',

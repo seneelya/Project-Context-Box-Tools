@@ -143,6 +143,10 @@ LADDER = [
     # try/except siblings: line 45 (in the inner `except`) must NOT report the sibling
     # `try` (41) as a deeper container — clean monotonic chain, no phantom rung.
     {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 43, 46), (5, 40, 48), (4, 39, 48), (3, 38, 48), (2, 35, 52), (1, 17, 65)]},
+    # TS one-truth: line 71 (inside an arrow that is a property value in an object
+    # literal) -> arrow-body [70-73] · object literal [69-74] · function [17-77]. The
+    # brace-less `if (...) return true;` on 71 is NOT a block; the object literal IS.
+    {"file": 'Edge/Edge.ts', "line": 71, "expect": [(3, 70, 73), (2, 69, 74), (1, 17, 77)]},
 ]
 
 QUERY = [
@@ -308,11 +312,12 @@ INCOMING_DETAIL = {
         # (source_file, symbol, [lines in target], [levels])
         "usages": [
             ('src/constants.ts',                   'ignoreComment',          [151],      [2]),
-            # 178/193 sit in expression-bodied arrow chains (no statement_block) -> level 1;
-            # the tree-sitter engine counts only code blocks, not object-literal braces.
-            ('src/util/getModuleSourceFile.ts',    'getModuleSourceFile',    [178, 193], [1, 1]),
+            # 178/193 sit inside multi-line object literals (`({...})` returned from an
+            # arrow) — those count as foldable blocks, so depth 2. get_blocks returns the
+            # object literal itself, not a bogus nearby function.
+            ('src/util/getModuleSourceFile.ts',    'getModuleSourceFile',    [178, 193], [2, 2]),
             ('src/util/getNodesOfKind.ts',         'getNodesOfKind',         [64],       [2]),
-            ('src/util/isDefinitelyUsedImport.ts', 'isDefinitelyUsedImport', [179],      [1]),
+            ('src/util/isDefinitelyUsedImport.ts', 'isDefinitelyUsedImport', [179],      [2]),
             ('src/utils/common.ts',                'countBy',                [221],      [2]),
             ('src/utils/common.ts',                'last',                   [151],      [2]),
         ],
