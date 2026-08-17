@@ -1,14 +1,14 @@
 # get_codeblock — TLDR
 
 Returns a self-contained structural block containing a line — for code
-(`.py`/`.ts`/`.js`/`.cs`/`.cpp`/`.cc`/`.h`/`.hpp`/`.c`) AND Markdown (`.md`: heading sections).
-Lets an agent get precise context around any location, or a file's table of contents, without
-reading the whole file.
+(`.py` · `.ts .js .tsx .jsx` · `.cs` · `.cpp .cc .cxx .h .hpp .c` · `.css .scss`) AND Markdown
+(`.md`: heading sections). Lets an agent get precise context around any location, or a file's
+table of contents, without reading the whole file.
 
-> **Dependencies:** Python (`.py`) and Markdown (`.md`) are zero-dependency. C/C++, C# and
-> TypeScript/JS use tree-sitter grammars — see `get_codeblock/requirements.txt`. If a needed
-> package is missing, the tool prints the exact `pip install` command for the interpreter that
-> ran it (no traceback) — just run it and retry.
+> **Dependencies:** Python (`.py`) and Markdown (`.md`) are zero-dependency. C/C++, C#,
+> TypeScript/JS/TSX and CSS/SCSS use tree-sitter grammars — see `get_codeblock/requirements.txt`.
+> If a needed package is missing, the tool prints the exact `pip install` command for the
+> interpreter that ran it (no traceback) — just run it and retry.
 
 ## Route yourself
 
@@ -50,15 +50,19 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
 - `--outline` works for Python (indentation), Markdown (headings), and the tree-sitter
   languages C/C++, C#, TypeScript/JS/TSX (`.ts .js .tsx .jsx`), and CSS/SCSS
   (`.css .scss`). SCSS note: `@mixin`/`@include`/`@function` WITH parameters parse
-  imperfectly (css grammar), but nested rule sets, `&` nesting and `@media` are solid.
-- TS/JS first pass: named `function`/`class`/`interface`/`enum`/`method` + control blocks
-  are mapped. Expression-bodied arrows (`const Foo = () => …`, callback chains) don't add a
-  level yet and `--line` inside a brace-less arrow can miss — name-bound arrows are the next pass.
-- `--outline` range end is "line before the next same-or-shallower header" — a TOC estimate,
-  not the exact block boundary. Use `--query` when you need the real end line.
-- The green level-legend line and the outline's `#outline` / `Level  Range` header only print
-  on a real terminal (`isatty()`). Piped/programmatic callers get bare
-  `#Block level: N range: X-Y` lines — nothing extra to parse.
+  imperfectly (css grammar), but nested rule sets, `&` nesting and `@media`/`@supports` are solid.
+- Outline is **named blocks only**. In JS/TS that includes name-bound arrows/functions
+  (`const Foo = () => {…}`, `value: () => {…}`, class fields) — React components show up;
+  expression-bodied arrows and anonymous inline callbacks stay out of the map by design.
+- **Depth is one truth**: `--line`'s ladder and `line_level` (the depth a tool reports for a
+  symbol) always agree. A multi-line `{…}` (incl. JS object literals / arrow bodies) is a block;
+  a one-line `if (x) return;` / single-line `{…}` is not.
+- `--outline` range end is exact for the tree-sitter languages; for Python/Markdown it's a
+  table-of-contents estimate (line before the next same-or-shallower header) — use `--query`
+  for the precise boundary.
+- **Piped/programmatic output is clean**: the depth header and `Block level:` lines are
+  comment-prefixed and parseable; only the green human hints (legend, "add --level N") are
+  suppressed off a real terminal (`isatty()`).
 - `--query` prints `#File: PATH` as its very first line, before `#Block level:` — so a block
   self-identifies its source when several extractions get concatenated and the call that
   produced them is no longer in view.

@@ -5,17 +5,20 @@ Returns a meaningful, self-contained code block containing a specified line in a
 ## Quick Start
 
 ```bash
-# Show block boundaries (metadata only, yellow on TTY)
+# The file's map (bare = --outline): named blocks, adaptive depth
+python get_codeblock.py --file path/to/file.py
+
+# Block boundaries containing line 100 (the ladder, innermost -> outermost, with labels)
 python get_codeblock.py --file path/to/file.py --line 100
 
-# Return actual text of the current block containing line 100
+# Return the actual text of the innermost block containing line 100
 python get_codeblock.py --file path/to/file.py --line 100 --query
 
-# Show parent block boundaries (one level up)
-python get_codeblock.py --file path/to/file.py --line 100 --level -1
+# The parent block instead of the innermost (one level up)
+python get_codeblock.py --file path/to/file.py --line 100 --ancestor-level 1
 
-# Return text of grandparent block (two levels up)
-python get_codeblock.py --file path/to/file.py --line 100 --level -2 --query
+# Text of the grandparent block, with line numbers
+python get_codeblock.py --file path/to/file.py --line 100 --ancestor-level 2 --query --numbered
 ```
 
 ## Output Format
@@ -26,14 +29,16 @@ Prints EVERY enclosing block, innermost → outermost, one per line (comment pre
 language). One call shows all zoom options; then pick a `--level` and `--query` it.
 
 ```
-#Block level: 3 range: 139-145
-#Block level: 2 range: 137-161
-#Block level: 1 range: 94-172
+#Block level: 3 range: 139-145  if not chain:
+#Block level: 2 range: 137-161  def resolve_chain(cfg, role):
+#Block level: 1 range: 94-172  def chat(cfg, role, messages):
 ```
 
 **Fields:**
 - `level` — nesting depth of that block (file root = 1)
 - `range: X-Y` — start and end line numbers (1-based, inclusive)
+- trailing **label** — what the block is (its header, or a short tag like `{…} object`,
+  `() => {…}` for an anonymous brace region)
 
 **Level semantics** (`level` = `1 + number of enclosing block BODIES`):
 - File root = **1** (the file itself is unnumbered). A block header (`if`/`for`/`def`,
@@ -65,43 +70,56 @@ The file line comes first so a block self-identifies its source even when severa
 
 ### `--outline` — structural table of contents (no `--line` needed)
 
-Prints the file's **named** blocks only — headings for Markdown; `def`/`class`/methods for
-code (control blocks like `if`/`for` are excluded) — hierarchical, with ranges and a label.
-`--level K` caps depth. This is how an agent discovers WHICH line to go to, then pulls the
-section with `--line N --query`. Works for `.md` and Python now (TS/C# pending).
+Prints the file's **named** blocks only — headings for Markdown; functions/classes/methods/rules
+for code (control blocks like `if`/`for` are excluded; in JS/TS, name-bound arrows such as
+`const Foo = () => {…}` ARE included) — hierarchical, with ranges and a label. Works for **every
+supported language**. This is how an agent discovers WHICH line to go to, then pulls the section
+with `--line N --query`.
 
 ```
-#Block level: 1 range: 1-381 — find_code_usage — поиск публичного API
-#Block level: 2 range: 25-54 — Пример работы
-#Block level: 3 range: 57-70 — Параметры CLI
+#outline — depth 3, L1=3 L2=8 L3=2, showing 1..2
+#1   [1-381] find_code_usage — поиск публичного API
+#  2 [25-54] Пример работы
+#  2 [57-70] Параметры CLI
 ```
 
-Section end = the line before the next block at the same-or-shallower level (accurate for a
-TOC; for exact block boundaries use `--query`).
+- **Header line** (`outline — depth D, L1=… L2=…, showing 1..K`) reports the whole file's shape
+  (total depth + block count per level) so a shallow view still tells you there's more.
+- Each row: `<level> [start-end] <label>`; a `.` marker instead of a number = a **transparent
+  frame** (a `namespace`, `extern "C"`), shown but adding no depth.
+- **Bare `--outline` is adaptive** — it sizes the shown depth to the file (a lone top-level
+  object expands to level 2; a big flat file shows the tops). `--level N` forces an EXACT cap
+  (`--level 1` = tops only, `--level 10` = everything).
+- Section end is exact for the tree-sitter languages; for Python/Markdown it is a line-before-
+  the-next-header estimate — use `--query` for the precise boundary.
 
 ## Arguments and Flags
 
 | Flag | Type | Description |
 |------|------|-------------|
 | `--file PATH` | required | Path to source file (absolute or relative) |
-| `--line N` | required | Target line number (1-based), where we search for the block |
-| `--level L` | optional | Block address level. Default: `0`. See details below. |
-| `--query` | flag | Return actual text of block instead of metadata only. No digits needed — it's a boolean flag. |
-| `--project-root PATH` | optional | Root directory for resolving relative file paths. CLI value overrides the config file setting (`CONFIG__TOOLS.py`). |
+| `--line N` | for ladder/query | Target line number (1-based). Not needed for `--outline`. |
+| `--ancestor-level N` | optional | Relative block address: N blocks **up** from the line (`0`=innermost, `1`=parent). The usual navigator. |
+| `--level N` | optional | Absolute block address: depth N from the file **top** (`1`=outermost). With `--outline`, caps the depth shown. |
+| `--query` | flag | Return actual text of the chosen block instead of the metadata ladder. |
+| `--numbered` | flag | With `--query`, prefix each code line with its absolute line number. Off by default (raw text stays copy/paste-safe). |
+| `--project-root PATH` | optional | Root directory for resolving relative file paths. CLI value overrides `CONFIG__TOOLS.py`. |
 
-### Level Addressing
+### Level addressing — two self-describing flags (don't mix)
 
-The `--level` argument controls which block in the hierarchy you want:
+Both pick which block in the ladder you want when using `--line`:
 
-| Value | Meaning | Example (line inside try → if → function) |
-|-------|---------|-------------------------------------------|
-| `0` (default) | Current block — the innermost one containing the line | Returns the `try` block |
-| `-1` | Parent of current block | Returns the `if` block |
-| `-2`, `-3`, ... | Grandparent, etc. Going up N steps from current block | Returns the function definition |
-| `+1` | Topmost containing block (outermost in hierarchy) | Returns the file-level/root block or outermost container |
-| `+2`, `+3`, ... | Next level down from top of nesting hierarchy | Counts down into nested blocks from the top |
+| Flag | Direction | Example (line inside try → if → function) |
+|------|-----------|-------------------------------------------|
+| `--ancestor-level 0` (default) | the block itself | the `try` block |
+| `--ancestor-level 1` | one parent up | the `if` block |
+| `--ancestor-level 2`, `3`, … | grandparent, … | the function definition |
+| `--level 1` | outermost from the top | the function definition |
+| `--level 2`, `3`, … | Nth level down from the top | the `if`, then the `try`, … |
 
-If a negative level goes beyond the root, returns the outermost available block. If a positive level exceeds actual depth, returns the deepest available block.
+`--ancestor-level N` is internally `--level -N`; the raw negative `--level -N` still works. If an
+address runs past the root or the deepest block, the outermost / deepest available block is
+returned.
 
 ### Fallback Mode (Between Blocks)
 
@@ -111,15 +129,20 @@ When `--line` falls between blocks at file-level scope (no containing block foun
 
 | Language | Extension(s) | Detection Method | Notes |
 |----------|--------------|------------------|-------|
-| Python | `.py` | Indentation-based (no AST) | Handles multiline function signatures, compound blocks (`try/except`, `if/elif`), docstrings attached above functions. Comments are semantically assigned to the block they precede. |
-| TypeScript / JavaScript | `.ts`, `.js` | Brace matching `{...}` | Ignores braces inside strings, template literals `${...}`, single-line comments `//`, and multi-line comments `/* ... */`. Arrow functions, classes, interfaces all treated uniformly as blocks by their brace pair. |
-| C / C++ | `.cpp` `.cc` `.cxx` `.c++` `.h` `.hpp` `.hh` `.hxx` `.c` | tree-sitter (`tree_sitter_cpp`) | Real syntax tree: multi-line signatures, `template<...>`, `Class::method`, macros, raw string literals `R"(...)"`. `namespace`/`extern "C"` are **transparent** (shown in `--outline`, add no depth level). `#include`, `using`/alias, forward decls and fields are leaves. |
-| C# | `.cs` | tree-sitter (`tree_sitter_c_sharp`) | Real syntax tree: multi-line signatures, `record` types, file-scoped namespaces, nested types. Namespaces are **transparent** (shown in `--outline`, add no depth level). |
-| Markdown | `.md`, `.markdown` | Heading hierarchy | Sections by ATX headings (`#`..`######`); level = heading depth (no +1). Fenced code (` ``` `/`~~~`) skipped so `#` inside code isn't a heading. Best paired with `--outline`. |
+| Python | `.py` | Indentation-based (no AST) | Multiline signatures, compound blocks (`try/except`, `if/elif` — sibling branches share one depth), docstrings/comments glued to the block they precede. |
+| TypeScript / JS / TSX | `.ts` `.js` `.tsx` `.jsx` | tree-sitter (`tree_sitter_typescript`) | Real syntax tree (`typescript` grammar for `.ts`/`.js`, `tsx` for `.tsx`/`.jsx`). Named blocks + name-bound arrows (`const Foo = () => {…}`, `value: () => {…}`, class fields); multi-line object literals & arrow bodies count as blocks. `declarations()` (for make_interface_card) preserved. |
+| C / C++ | `.cpp` `.cc` `.cxx` `.c++` `.h` `.hpp` `.hh` `.hxx` `.c` | tree-sitter (`tree_sitter_cpp`) | Real syntax tree: multi-line signatures, `template<...>`, `Class::method`, macros, raw string literals `R"(...)"`. `namespace`/`extern "C"` are **transparent** (shown in `--outline`, add no depth). |
+| C# | `.cs` | tree-sitter (`tree_sitter_c_sharp`) | Real syntax tree: multi-line signatures, `record` types, file-scoped namespaces, nested types. Namespaces are **transparent**. |
+| CSS / SCSS / Sass | `.css` `.scss` `.sass` | tree-sitter (`tree_sitter_css`) | A block is a rule set `selector { … }`; nested rules (`&::before`), `@media`/`@supports`/`@keyframes`/`@font-face` nest; label = the selector list. SCSS-only syntax (parameterized `@mixin`/`@include`, unquoted `url(../x)`) parses imperfectly but doesn't derail structure. |
+| Markdown | `.md`, `.markdown` | Heading hierarchy | Sections by ATX headings (`#`..`######`); level = heading depth. Fenced code skipped so `#` inside code isn't a heading. |
 
 Language detection happens automatically from the file extension — no need to specify it explicitly.
 
-> **tree-sitter dependency.** C/C++ and C# navigation parse a real syntax tree, so they need the grammars installed: `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp`. Run get_codeblock with an interpreter that has them (a `.cpp`/`.cs` file gives a clear error otherwise). Python, TypeScript/JavaScript and Markdown stay zero-dependency.
+> **tree-sitter dependency.** C/C++, C#, TypeScript/JS/TSX and CSS/SCSS parse a real syntax tree,
+> so they need grammars: `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp
+> tree-sitter-typescript tree-sitter-css` (see `get_codeblock/requirements.txt`). You don't have
+> to pre-install — if a needed package is missing the tool prints the exact `pip install` command
+> for the interpreter that ran it (no traceback). Python and Markdown stay zero-dependency.
 
 ## Importable API for Other Tools
 
@@ -231,22 +254,23 @@ get_codeblock/
 └── handlers/
     ├── __init__.py      # Language registry (get_handler(language) factory)
     ├── python_handler.py     # Indentation-based block detection (no AST)
-    ├── typescript_handler.py # Brace matching with string/template literal awareness
     ├── _treesitter_blocks.py # Shared tree-sitter engine (LangSpec + TreeSitterBlockHandler)
-    ├── cpp_handler.py        # C/C++ node-type spec on the tree-sitter engine
-    ├── csharp_handler.py     # C# spec on the tree-sitter engine + regex declarations() for cards
+    ├── cpp_handler.py        # C/C++ node-type spec on the engine
+    ├── csharp_handler.py     # C# spec on the engine + regex declarations() for cards
+    ├── typescript_handler.py # TS/JS/TSX specs on the engine + named-arrow outline + declarations()
+    ├── css_handler.py        # CSS/SCSS spec on the engine
     └── markdown_handler.py   # Heading-hierarchy sections (line_level + get_blocks + outline)
 ```
 
-Handlers come in two families. **Heuristic** (Python indentation, TypeScript braces,
-Markdown headings) — zero-dependency, hand-rolled. **tree-sitter** (C/C++, C#) — a thin
-`LangSpec` (node-type sets) plugged into the shared `TreeSitterBlockHandler`; the block
-model (foldable-region blocks, transparent namespaces, comment gluing) lives once in the
-engine. The old C# brace heuristic is kept, unused, as `_LegacyBraceNav` for reference.
+Two families. **Heuristic** (Python indentation, Markdown headings) — zero-dependency,
+hand-rolled. **tree-sitter** (C/C++, C#, TypeScript/JS/TSX, CSS/SCSS) — a thin `LangSpec`
+(node-type sets + grammar loader) plugged into the shared `TreeSitterBlockHandler`; the block
+model (multi-line brace regions, transparent frames, comment gluing, one canonical range so
+`get_blocks` and `line_level` agree) lives once in the engine. Pre-migration TS/C# brace
+heuristics are kept, unused, as `_LegacyBraceNav` for reference.
 
-Each handler exposes `line_level` (per-line depth) and `get_blocks` (enclosing blocks for a
-line); `outline` (structural TOC) is implemented by markdown, python, and the tree-sitter
-handlers (C/C++, C#).
+Each handler exposes `line_level` (per-line depth) and `get_blocks` (enclosing blocks, each with
+a label); `outline` (structural TOC) is implemented by every handler.
 
 Each handler implements `get_blocks(file_path, line_num) -> list[dict]` returning blocks sorted outermost-first. Each block dict has:
 - `level`: int — nesting depth from file root (1-based).
@@ -255,12 +279,12 @@ Each handler implements `get_blocks(file_path, line_num) -> list[dict]` returnin
 
 ## Testing
 
-Test projects located at `/workspace/SRC/` (host paths mapped via Docker bind mounts):
-- Python: `memohood/` (small), `hermes-agent-src/` (large)
-- TypeScript: `ts-prune/` (medium)
-- C#: `CoreSharp/` (small), `test_SWARM_SRC/`, `test_Unity/` (large)
-
-See `__HQ/HowTo__Test-get_codeblock.md` for detailed test scenarios and checklists.
+Golden checker: `py test/check.py` (full report) · `py test/check.py --fails` (regressions only).
+It compares live output on the `test/` fixtures against the hand-verified oracle in
+`test/expected.py` across sections LEVELS / OUTLINE / LADDER / QUERY (plus find_code_usage).
+`test/Edge/` is the per-condition, multi-language corpus (comment gluing, syntax edge cases,
+one-truth) — one file per language; `test/cssSRC/`, `test/tsSRC/`, `test/csharpSRC/` etc. hold
+larger real-world fixtures. Exit 0 = all match.
 
 ## Design Principles
 
