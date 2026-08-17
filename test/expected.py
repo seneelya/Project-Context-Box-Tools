@@ -48,7 +48,7 @@ LEVELS = {
         (22, 3, 'await function();'),
     ],
     # Syntax-edge fixture: doc/line/block comments, wrapped signatures, nested types.
-    'csEdge/Edge.cs': [
+    'Edge/Edge.cs': [
         # line  lvl  source
         ( 3, 1, '/// class doc \u2014 transparent namespace, so class header = level 1'),
         ( 9, 2, '/// ctor doc \u2014 preamble sits at the ctor header level (member)'),
@@ -95,7 +95,7 @@ OUTLINE = {
         (2,  44,  51, 'Dependencies External'),
         (2,  52,  56, '⚠️ Расхождения docstring ↔ код'),
     ],
-    'csEdge/Edge.cs': [
+    'Edge/Edge.cs': [
         # (level, start, end, label) — preamble comments glued onto each block's start
         (1,  1, 56, 'namespace Edge.Cases'),
         (1,  3, 55, 'public class Widget'),              # /// doc on line 3 glued
@@ -131,9 +131,9 @@ LADDER = [
     # namespace is transparent -> not a ladder entry; enclosing blocks one level shallower.
     {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(2, 10, 17), (1, 8, 26)]},
     # Preamble comment (line 9 = ctor's /// doc) belongs to the ctor, not the class.
-    {"file": 'csEdge/Edge.cs', "line": 9, "expect": [(2, 8, 17), (1, 4, 55)]},
+    {"file": 'Edge/Edge.cs', "line": 9, "expect": [(2, 8, 17), (1, 4, 55)]},
     # Deep nesting: for-body -> Deep -> Inner -> Widget (namespace transparent).
-    {"file": 'csEdge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 45, 54), (1, 4, 55)]},
+    {"file": 'Edge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 45, 54), (1, 4, 55)]},
 ]
 
 QUERY = [
@@ -141,12 +141,12 @@ QUERY = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 1, "expect": (1, 94, 172)},
     {"file": 'mdSRC/capture.py.md', "line": 4, "level": 0, "expect": (2, 4, 27)},
     # --- preamble-comment regression: landing on a comment returns the block it documents ---
-    {"file": 'csEdge/Edge.cs', "line":  9, "level": 0, "expect": (2,  8, 17)},  # /// doc  -> ctor
-    {"file": 'csEdge/Edge.cs', "line": 19, "level": 0, "expect": (2, 19, 28)},  # //       -> Increment
-    {"file": 'csEdge/Edge.cs', "line": 31, "level": 0, "expect": (2, 30, 36)},  # /* ... */ -> Reset
-    {"file": 'csEdge/Edge.cs', "line":  9, "level": 1, "expect": (1,  4, 55)},  # zoom out -> class
+    {"file": 'Edge/Edge.cs', "line":  9, "level": 0, "expect": (2,  8, 17)},  # /// doc  -> ctor
+    {"file": 'Edge/Edge.cs', "line": 19, "level": 0, "expect": (2, 19, 28)},  # //       -> Increment
+    {"file": 'Edge/Edge.cs', "line": 31, "level": 0, "expect": (2, 30, 36)},  # /* ... */ -> Reset
+    {"file": 'Edge/Edge.cs', "line":  9, "level": 1, "expect": (1,  4, 55)},  # zoom out -> class
     # trailing comment INSIDE a body documents nothing below: stays in its own method.
-    {"file": 'csEdge/Edge.cs', "line": 41, "level": 0, "expect": (2, 38, 42)},
+    {"file": 'Edge/Edge.cs', "line": 41, "level": 0, "expect": (2, 38, 42)},
 ]
 
 IMPORTS = {
