@@ -392,16 +392,10 @@ def main():
 
         rows = [r for r in rows_all if r['level'] <= shown]
 
-        # Header: total depth + per-level tally + what is shown. This is METADATA
-        # (the overview signal) — emitted for every caller, including the API.
-        tally = " ".join(f"L{lvl}={per_level[lvl]}" for lvl in sorted(per_level))
-        emit(f"{prefix}outline — depth {depth}"
-             + (f", {tally}" if tally else "")
-             + f", showing 1..{min(shown, depth)}")
-        # Actionable hints are HUMAN guidance, not part of the tool's output contract:
-        # console-only (is_tty), so programmatic callers get clean block lines. Teach
-        # the mode map explicitly: here --level = depth cap; --line/--query are OTHER
-        # modes (and must NOT be combined with --outline).
+        # Help line ALWAYS on top. Actionable hints are HUMAN guidance, not part of
+        # the tool's output contract: console-only (is_tty), so programmatic callers
+        # get clean block lines. Teach the mode map explicitly: here --level = depth
+        # cap; --line/--query are OTHER modes (never combined with --outline).
         if is_tty:
             g, r = "\033[92m", "\033[0m"
             cap = "--level N caps depth (raise N for the full tree)" if shown < depth \
@@ -409,6 +403,13 @@ def main():
             print(f"{g}outline (map) mode · {cap}{r}")
             print(f"{g}to read code, drop --outline: `--line N` = block bounds at a line "
                   f"· `--line N --query` = that block's text{r}")
+
+        # Header: total depth + per-level tally + what is shown. This is METADATA
+        # (the overview signal) — emitted for every caller, including the API.
+        tally = " ".join(f"L{lvl}={per_level[lvl]}" for lvl in sorted(per_level))
+        emit(f"{prefix}outline — depth {depth}"
+             + (f", {tally}" if tally else "")
+             + f", showing 1..{min(shown, depth)}")
 
         # Pad each "<indent><marker>" so ranges line up; a frame shows '.' not a number.
         labels = ["  " * (r['level'] - 1) + ("." if r.get('frame') else str(r['level']))
