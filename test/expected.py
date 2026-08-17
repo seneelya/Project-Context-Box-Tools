@@ -136,6 +136,8 @@ LADDER = [
     # Deep nesting: for-body -> Deep -> Inner -> Widget (namespace transparent).
     # Inner glues its line-44 ///; Widget its line-3 /// — outer rungs glued too.
     {"file": 'Edge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 44, 54), (1, 3, 55)]},
+    # Python Bug A: landing on `async def ws_reader` gives that def + its parent.
+    {"file": 'Edge/Edge.py', "line": 37, "expect": [(2, 35, 52), (1, 17, 65)]},
 ]
 
 QUERY = [
@@ -154,6 +156,18 @@ QUERY = [
     {"file": 'Edge/Edge.cs', "line": 51, "level":  0, "expect": (4, 49, 52)},  # ancestor-level 0
     {"file": 'Edge/Edge.cs', "line": 51, "level": -1, "expect": (3, 47, 53)},  # ancestor-level 1
     {"file": 'Edge/Edge.cs', "line": 51, "level": -2, "expect": (2, 44, 54)},  # ancestor-level 2
+
+    # --- C++ preamble gluing (shared engine): both comment kinds glue to the func ---
+    {"file": 'Edge/Edge.cpp', "line":  82, "level": 0, "expect": (1,  82,  87)},  # /// doc -> version
+    {"file": 'Edge/Edge.cpp', "line": 131, "level": 0, "expect": (1, 131, 153)},  # /* block */ -> main
+
+    # --- Python handler fixes ---
+    # Bug B: the FIRST line of a multi-line comment preamble still reaches the def below.
+    {"file": 'Edge/Edge.py', "line": 35, "level": 0, "expect": (2, 35, 52)},  # 1st comment -> ws_reader
+    {"file": 'Edge/Edge.py', "line": 36, "level": 0, "expect": (2, 35, 52)},  # 2nd comment -> ws_reader
+    # Bug A: a def-header line belongs to the block it opens, not the parent.
+    {"file": 'Edge/Edge.py', "line": 37, "level": 0, "expect": (2, 35, 52)},  # `async def ws_reader`
+    {"file": 'Edge/Edge.py', "line": 53, "level": 0, "expect": (2, 52, 61)},  # `async def ws_writer`
 ]
 
 IMPORTS = {

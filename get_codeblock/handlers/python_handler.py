@@ -318,10 +318,12 @@ def find_attached_block(lines, comment_idx):
     Returns header index of the compound block containing that attachment target,
     or None if no attachment found.
     """
+    # Skip blank AND comment lines: a multi-line comment block above a def means the
+    # first comment line must still reach the def below it (not stop at the 2nd comment).
     i = comment_idx + 1
-    while i < len(lines) and not lines[i].strip():
+    while i < len(lines) and (not lines[i].strip() or lines[i].strip().startswith('#')):
         i += 1
-    
+
     if i >= len(lines):
         return None
     
@@ -435,7 +437,14 @@ class PythonHandler:
                     # Use min of comment position and preamble
                     blocks[-1]['start'] = min(idx + 1, preamble_start + 1)
                 return blocks
-        
+
+        # A block-header line belongs to the block it OPENS: land on `def ws_reader`
+        # (or `if ...`, `for ...`) and the innermost block is that block, not its parent.
+        # find_containing_blocks only returns strict ancestors, so route headers through
+        # the ancestors+own-block builder (same one the comment path uses).
+        if is_block_header(lines, idx):
+            return self._build_hierarchy_for_header(lines, idx)
+
         containing = find_containing_blocks(lines, idx)
         
         if not containing:
@@ -446,19 +455,19 @@ class PythonHandler:
         result = []
         for i, (h, end) in enumerate(containing):
             level = i + 1
-            
+
             # Include preamble only for innermost block
             if i == len(containing) - 1:
                 ps = collect_preamble(lines, h)
             else:
                 ps = h
-            
+
             result.append({
                 'level': level,
                 'start': ps + 1,
                 'end': end + 1,
             })
-        
+
         return result
     
     def _find_nearest_block(self, lines, target_idx):
@@ -547,5 +556,5 @@ class PythonHandler:
                 'start': ps + 1,
                 'end': end + 1,
             })
-        
+
         return result

@@ -24,7 +24,9 @@ for p in (_TOOLS, _HERE):
 from get_codeblock.core import get_line_levels
 
 _LANG = {".py": "python", ".ts": "typescript", ".js": "typescript",
-         ".cs": "csharp", ".md": "markdown", ".markdown": "markdown"}
+         ".cs": "csharp", ".md": "markdown", ".markdown": "markdown",
+         ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".c++": "cpp",
+         ".hpp": "cpp", ".hh": "cpp", ".hxx": "cpp", ".h": "cpp", ".c": "cpp"}
 
 
 def _lang(file):
