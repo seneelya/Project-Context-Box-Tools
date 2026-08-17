@@ -163,25 +163,33 @@ def find_colon_line(lines, start_idx):
     return start_idx
 
 
-def find_body_end(lines, header_idx):
+def find_body_end(lines, header_idx, respect_siblings=True):
     """Find last line of block body starting at header_idx.
-    
+
     Handles multi-line headers and sibling branches (try/except/finally, if/elif/else).
     Comments/docstrings at header_indent level are allowed inside the body.
     Returns inclusive index.
+
+    respect_siblings=True: the returned range spans the WHOLE construct — a `try`
+    reaches over its `except`/`finally`, an `if` over its `elif`/`else` (used when
+    landing directly on the group's opening header, and for section spans).
+    respect_siblings=False: BRANCH end only — stop at the first sibling. A line
+    inside `except` is contained by `except`, not by the `try` above it, so
+    containment/depth must use this to avoid counting a sibling as a deeper block.
     """
     colon_idx = find_colon_line(lines, header_idx)
     header_indent = get_indent(lines[header_idx])[0]
-    
+
     if colon_idx + 1 >= len(lines):
         return colon_idx
-    
+
     first_kw = get_keyword(lines[header_idx])
     group = None
-    for parent, siblings in SIBLING_GROUPS.items():
-        if first_kw == parent or first_kw in siblings:
-            group = {parent} | siblings
-            break
+    if respect_siblings:
+        for parent, siblings in SIBLING_GROUPS.items():
+            if first_kw == parent or first_kw in siblings:
+                group = {parent} | siblings
+                break
     
     last_line = colon_idx
     
@@ -270,7 +278,10 @@ def find_containing_blocks(lines, target_idx):
     
     containing = []
     for h in candidates:
-        end = find_body_end(lines, h)
+        # BRANCH end (respect_siblings=False): a `try`/`if` must NOT be reported as
+        # containing a line that actually sits in its `except`/`elif`/`else` sibling —
+        # that sibling is at the same depth, not one deeper.
+        end = find_body_end(lines, h, respect_siblings=False)
         if target_idx >= h and target_idx <= end:
             containing.append((h, end))
     
@@ -538,9 +549,10 @@ class PythonHandler:
             target = h - 1
         
         ancestors.reverse()
-        
-        # Add the header's own block as innermost level
-        header_end = find_body_end(lines, header_idx)
+
+        # Add the header's own block as innermost level (branch end: a `try`/`if`
+        # header's block is its own branch, matching how it reads as an ancestor).
+        header_end = find_body_end(lines, header_idx, respect_siblings=False)
         ancestors.append((header_idx, header_end))
         
         result = []

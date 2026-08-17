@@ -140,6 +140,9 @@ LADDER = [
     {"file": 'Edge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 44, 54), (1, 3, 55)]},
     # Python Bug A: landing on `async def ws_reader` gives that def + its parent.
     {"file": 'Edge/Edge.py', "line": 37, "expect": [(2, 35, 52), (1, 17, 65)]},
+    # try/except siblings: line 45 (in the inner `except`) must NOT report the sibling
+    # `try` (41) as a deeper container — clean monotonic chain, no phantom rung.
+    {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 43, 46), (5, 40, 48), (4, 39, 48), (3, 38, 48), (2, 35, 52), (1, 17, 65)]},
 ]
 
 QUERY = [
@@ -260,8 +263,10 @@ INCOMING_DETAIL = {
         "dangling": [],
         # (source_file, symbol, [lines in target], [levels])
         "usages": [
-            ('backends/__init__.py',      'embed',                      [176, 202, 211, 224, 230],               [1, 3, 4, 5, 2]),
-            ('backends/_http.py',         'BackendError',               [51, 136, 154, 207, 221, 222, 276, 293], [1, 2, 3, 2, 3, 5, 2, 3]),
+            ('backends/__init__.py',      'embed',                      [176, 202, 211, 224, 230],               [1, 3, 4, 4, 2]),
+            # line 222 is inside `except` (a sibling of `try`, same depth) -> 4, not 5:
+            # the fix stops `try` from being counted as containing its except's lines.
+            ('backends/_http.py',         'BackendError',               [51, 136, 154, 207, 221, 222, 276, 293], [1, 2, 3, 2, 3, 4, 2, 3]),
             ('backends/_http.py',         'DEFAULT_TIMEOUT_S',          [52],                                    [1]),
             ('backends/_http.py',         'MAX_RETRIES',                [53, 101, 248],                          [1, 1, 1]),
             ('backends/_http.py',         '_DEFAULT_CONNECT_TIMEOUT_S', [54],                                    [1]),
