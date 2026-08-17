@@ -149,6 +149,11 @@ QUERY = [
     {"file": 'Edge/Edge.cs', "line":  9, "level": 1, "expect": (1,  3, 55)},  # zoom out -> class (glued)
     # trailing comment INSIDE a body documents nothing below: stays in its own method.
     {"file": 'Edge/Edge.cs', "line": 41, "level": 0, "expect": (2, 38, 42)},
+    # --- relative addressing (what --ancestor-level N exposes = --level -N) ---
+    # From deep line 51: ancestor 0 = for-body, 1 = Deep, 2 = Inner (walking up).
+    {"file": 'Edge/Edge.cs', "line": 51, "level":  0, "expect": (4, 49, 52)},  # ancestor-level 0
+    {"file": 'Edge/Edge.cs', "line": 51, "level": -1, "expect": (3, 47, 53)},  # ancestor-level 1
+    {"file": 'Edge/Edge.cs', "line": 51, "level": -2, "expect": (2, 44, 54)},  # ancestor-level 2
 ]
 
 IMPORTS = {

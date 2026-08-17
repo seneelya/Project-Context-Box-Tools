@@ -76,6 +76,20 @@ def parse_args():
         elif token == '--numbered':
             numbered = True
             i += 1
+        elif token in ('--ancestor-level', '--ancestor_level') and i + 1 < len(tokens):
+            # Self-documenting relative address: N ancestors up from the block at
+            # --line (0 = that block itself, 1 = parent, ...). Sugar for --level -N;
+            # the underlying mechanic (negative level) is unchanged.
+            try:
+                a = int(tokens[i + 1])
+            except ValueError:
+                print("Error: --ancestor-level requires an integer >= 0", file=sys.stderr)
+                sys.exit(1)
+            if a < 0:
+                print("Error: --ancestor-level must be >= 0 (0=self, 1=parent, ...)", file=sys.stderr)
+                sys.exit(1)
+            level = -a
+            i += 2
         elif token in ('--project-root', '--project_root') and i + 1 < len(tokens):
             value = tokens[i + 1]
             if ' --' in value or '--line' in value or '--file' in value or '--level' in value or '--query' in value:
@@ -89,25 +103,28 @@ def parse_args():
             print("Usage:")
             print("  get_codeblock.py --file PATH                          (defaults to --outline)")
             print("  get_codeblock.py --file PATH --outline [--level MAXDEPTH]")
-            print("  get_codeblock.py --file PATH --line N [--level LEVEL] [--query]")
+            print("  get_codeblock.py --file PATH --line N [--ancestor-level N | --level N] [--query]")
             print("")
             print("Arguments:")
             print("  --file PATH         Path to file (absolute or relative). Code + Markdown (.md).")
-            print("  --outline           Print every declaration header (Python: def/class by")
-            print("                      indentation; Markdown: headings). No --line needed. Default")
-            print("                      mode when --file is given alone. --level caps depth shown.")
-            print("  --line N            Target line number (1-based)")
-            print("  --query             Return the block text (framed by anchors) instead of the ladder")
+            print("  --outline           Print the structural map (named blocks only). No --line")
+            print("                      needed. Default mode when --file is given alone. Bare = an")
+            print("                      overview sized to the file; --level N caps depth (high N = all).")
+            print("  --line N            Target line number (1-based). Returns the block(s) at that line.")
+            print("  --ancestor-level N  Which block at --line: N ancestors up. 0 = the innermost block")
+            print("                      itself (default), 1 = its parent, 2 = grandparent, ...")
+            print("  --level N           Absolute depth address instead: 1 = file top, 2 = one level in.")
+            print("                      (With --outline, --level N caps the depth shown — not an address.)")
+            print("  --query             Return the block TEXT (framed by anchors) instead of the ladder.")
             print("  --numbered          With --query: prefix each code line with its absolute line")
             print("                      number ('  92 | ...'). Off by default — raw text stays")
             print("                      copy/diff-safe; the range header already gives the numbers.")
             print("  --project-root PATH Root for relative paths (CLI overrides config)")
             print("")
-            print("Level addressing (--level):")
-            print("  Level = block depth (1 = file top, deeper = higher number).")
-            print("    +N          absolute depth address (+1 = file top, +2 = one level in, ...)")
-            print("    0, -N       relative — N steps up from the block at --line (0 = that block itself)")
-            print("  With --outline: N instead caps the max depth shown (not an address).")
+            print("Two ways to pick a block at --line (don't mix):")
+            print("  --ancestor-level N  relative — walk N blocks up from where the line lands (0=here).")
+            print("  --level N           absolute — jump to depth N counted from the file top.")
+            print("  Output 'Block level: K' is the block's real depth (1 = file top, deeper = higher).")
             print("")
             if default_root:
                 print(f'Current PROJECT_ROOT="{default_root}"')
@@ -355,9 +372,9 @@ def main():
     # (is_tty) — external/programmatic callers get bare block lines, nothing extra to parse.
     def emit_legend():
         if is_tty:
-            print("\033[92mLevel = block depth (1=file top, deeper=higher). --level: +N=absolute "
-                  "depth address, 0/-N=relative (steps up from --line's block). "
-                  "--query=retrieve text.\033[0m")
+            print("\033[92m'Block level: K' = real depth (1=file top, deeper=higher). Pick a block: "
+                  "--ancestor-level N = N up from here (0=this block, 1=parent) · "
+                  "--level N = absolute depth from top · --query = its text.\033[0m")
 
     # --outline: the file's structural table of contents (named blocks only).
     # Default (no --level) = an adaptive OVERVIEW sized to the file so you can poke a

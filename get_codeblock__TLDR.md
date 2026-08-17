@@ -16,8 +16,8 @@ reading the whole file.
 | --- | --- |
 | "What's in this file? Where do I go?" | `--file PATH` (bare — defaults to `--outline`) |
 | "Pull the exact text of the section/function at `--line N` " | `--file PATH --line N --query` |
-| "Give me the parent/grandparent block, not the innermost `--line N` " | add `--level -1`, `-2`, ... |
-| "Give me block N counting from the file top for given `--line N` " | add `--level +1`, `+2`, ... |
+| "Give me the parent/grandparent block, not the innermost `--line N` " | add `--ancestor-level 1`, `2`, ... |
+| "Give me block N counting from the file top for given `--line N` " | add `--level 1`, `2`, ... |
 | "Big file — cap outline to top 2 levels" | `--file PATH --outline --level 2` |
 
 ## Workflow
@@ -27,15 +27,16 @@ get_codeblock --file PATH                   # outline: find the line you want
 get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-byte
 ```
 
-## Level addressing — two different numbers, don't confuse them
+## Level addressing — two flags, one for each direction
 
 - The **level printed in output** (`Block level: N`) = real nesting depth (1 = file top,
   deeper = higher number).
-- The **`--level` flag** (used with `--line`) picks a block two ways:
-  - `+N` = absolute — go to depth N from the top.
-  - `0` / `-N` = relative — N steps up from the block at `--line` (`0` = that block itself,
-    the default).
-  - With `--outline`, `--level` instead caps the max depth shown — it's not an address there.
+- Picking a block at `--line N` — two self-describing flags (don't mix):
+  - **`--ancestor-level N`** = relative — walk N blocks **up** from where the line lands
+    (`0` = the innermost block itself, the default; `1` = parent; `2` = grandparent). This is
+    the usual one. (Internally = `--level -N`; the raw negative form still works.)
+  - **`--level N`** = absolute — jump to depth N counted from the file **top** (`1` = top).
+  - With `--outline`, `--level N` instead caps the max depth shown — it's not an address there.
 
 ## Gotchas
 
