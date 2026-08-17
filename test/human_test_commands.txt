@@ -107,9 +107,11 @@ py get_codeblock.py --file "Accounts/User.cs" --line 80 --query --project-root "
 
 py get_codeblock.py --file "Code/Core/Common/Commands/HttpCmd.cs" --line 100 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity"
 
-python get_codeblock.py --file test/csEdge/Edge.cs --line 9
+python get_codeblock.py --file test/Edge/Edge.cs --line 9
 
-python get_codeblock.py --file test/csEdge/Edge.cs --outline
+python get_codeblock.py --file test/Edge/Edge.cs --outline
+
+python get_codeblock.py --file test/Edge/Edge.py 
 
 # ============================================================
 # SESSION 2026-08-13 — card stamp / validate / graph pipeline (target = memohood)
