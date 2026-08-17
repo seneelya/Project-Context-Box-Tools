@@ -47,6 +47,19 @@ LEVELS = {
         (19, 2, 'public async Task<long> StopWatchActionAsync(Func<Task> fu'),
         (22, 3, 'await function();'),
     ],
+    # Syntax-edge fixture: doc/line/block comments, wrapped signatures, nested types.
+    'csEdge/Edge.cs': [
+        # line  lvl  source
+        ( 3, 1, '/// class doc \u2014 transparent namespace, so class header = level 1'),
+        ( 9, 2, '/// ctor doc \u2014 preamble sits at the ctor header level (member)'),
+        (13, 2, 'wrapped ctor param \u2014 NOT a new scope, stays at header level'),
+        (16, 3, '_count = count;  (ctor body)'),
+        (22, 3, 'if (_count > 0)  \u2014 control header at method-body level'),
+        (24, 4, '_count++;  (if body)'),
+        (44, 2, '/// nested-type doc'),
+        (49, 4, 'for (...) header inside Deep'),
+        (51, 5, 'Console.WriteLine(i);  (for body, deepest)'),
+    ],
 }
 
 OUTLINE = {
@@ -82,6 +95,17 @@ OUTLINE = {
         (2,  44,  51, 'Dependencies External'),
         (2,  52,  56, '⚠️ Расхождения docstring ↔ код'),
     ],
+    'csEdge/Edge.cs': [
+        # (level, start, end, label) — preamble comments glued onto each block's start
+        (1,  1, 56, 'namespace Edge.Cases'),
+        (1,  3, 55, 'public class Widget'),              # /// doc on line 3 glued
+        (2,  8, 17, 'public Widget( int count, string name)'),  # multi-line sig + /// glued
+        (2, 19, 28, 'public int Increment()'),           # // comment glued
+        (2, 30, 36, 'public void Reset()'),              # /* block */ glued
+        (2, 38, 42, 'public void Trailing()'),           # no preamble
+        (2, 44, 54, 'public class Inner'),               # nested type, /// glued
+        (3, 47, 53, 'public void Deep()'),
+    ],
     'mdSRC/cli.py.md': [
         # (level, start, end, label)
         (1,   1,  55, 'cli.py'),
@@ -106,12 +130,23 @@ LADDER = [
     {"file": 'mdSRC/capture.py.md', "line": 12, "expect": [(4, 12, 15), (3, 10, 27), (2, 4, 27), (1, 1, 56)]},
     # namespace is transparent -> not a ladder entry; enclosing blocks one level shallower.
     {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(2, 10, 17), (1, 8, 26)]},
+    # Preamble comment (line 9 = ctor's /// doc) belongs to the ctor, not the class.
+    {"file": 'csEdge/Edge.cs', "line": 9, "expect": [(2, 8, 17), (1, 4, 55)]},
+    # Deep nesting: for-body -> Deep -> Inner -> Widget (namespace transparent).
+    {"file": 'csEdge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 45, 54), (1, 4, 55)]},
 ]
 
 QUERY = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 0, "expect": (3, 139, 145)},
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 1, "expect": (1, 94, 172)},
     {"file": 'mdSRC/capture.py.md', "line": 4, "level": 0, "expect": (2, 4, 27)},
+    # --- preamble-comment regression: landing on a comment returns the block it documents ---
+    {"file": 'csEdge/Edge.cs', "line":  9, "level": 0, "expect": (2,  8, 17)},  # /// doc  -> ctor
+    {"file": 'csEdge/Edge.cs', "line": 19, "level": 0, "expect": (2, 19, 28)},  # //       -> Increment
+    {"file": 'csEdge/Edge.cs', "line": 31, "level": 0, "expect": (2, 30, 36)},  # /* ... */ -> Reset
+    {"file": 'csEdge/Edge.cs', "line":  9, "level": 1, "expect": (1,  4, 55)},  # zoom out -> class
+    # trailing comment INSIDE a body documents nothing below: stays in its own method.
+    {"file": 'csEdge/Edge.cs', "line": 41, "level": 0, "expect": (2, 38, 42)},
 ]
 
 IMPORTS = {

@@ -132,6 +132,20 @@ class TreeSitterBlockHandler:
             break
         return first
 
+    def _preamble_owner(self, nodes, row, comment_rows, lines):
+        """The ladder node whose preamble (comments directly above it) includes
+        `row`, i.e. preamble_start(node) <= row < node.start. None if the row is
+        a comment that documents nothing (trailing/detached). If several nodes
+        qualify (a comment above a block that is itself the first line of an outer
+        block), pick the nearest one below the row = the block it actually
+        annotates."""
+        owners = [n for n in nodes
+                  if self._preamble_start(n.start_point[0], comment_rows, lines)
+                  <= row < n.start_point[0]]
+        if not owners:
+            return None
+        return min(owners, key=lambda n: n.start_point[0])
+
     def _ladder_nodes(self, root):
         sp = self.SPEC
         out = []
@@ -199,6 +213,16 @@ class TreeSitterBlockHandler:
         nodes = self._ladder_nodes(root)
         containing = [n for n in nodes
                       if n.start_point[0] <= row <= n.end_point[0]]
+
+        # Landing on a preamble comment: it documents the block directly below it,
+        # so it belongs to THAT block, not to whatever encloses the gap between
+        # blocks (a class, a body). Mirror outline's gluing: if the row sits in a
+        # node's preamble region [preamble_start .. node.start), treat that node as
+        # the innermost containing block. An inner comment can't document the class.
+        if row in comment_rows:
+            owner = self._preamble_owner(nodes, row, comment_rows, lines)
+            if owner is not None and owner not in containing:
+                containing.append(owner)
 
         if not containing:
             return self._nearest(nodes, row, bodies, comment_rows, lines)
