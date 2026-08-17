@@ -113,10 +113,13 @@ When `--line` falls between blocks at file-level scope (no containing block foun
 |----------|--------------|------------------|-------|
 | Python | `.py` | Indentation-based (no AST) | Handles multiline function signatures, compound blocks (`try/except`, `if/elif`), docstrings attached above functions. Comments are semantically assigned to the block they precede. |
 | TypeScript / JavaScript | `.ts`, `.js` | Brace matching `{...}` | Ignores braces inside strings, template literals `${...}`, single-line comments `//`, and multi-line comments `/* ... */`. Arrow functions, classes, interfaces all treated uniformly as blocks by their brace pair. |
-| C# | `.cs` | Brace matching `{...}` | Handles verbatim strings `@"..."`, single-line comments `//`. Namespace → class → method → control-flow hierarchy tracked via brace depth. |
+| C / C++ | `.cpp` `.cc` `.cxx` `.c++` `.h` `.hpp` `.hh` `.hxx` `.c` | tree-sitter (`tree_sitter_cpp`) | Real syntax tree: multi-line signatures, `template<...>`, `Class::method`, macros, raw string literals `R"(...)"`. `namespace`/`extern "C"` are **transparent** (shown in `--outline`, add no depth level). `#include`, `using`/alias, forward decls and fields are leaves. |
+| C# | `.cs` | tree-sitter (`tree_sitter_c_sharp`) | Real syntax tree: multi-line signatures, `record` types, file-scoped namespaces, nested types. Namespaces are **transparent** (shown in `--outline`, add no depth level). |
 | Markdown | `.md`, `.markdown` | Heading hierarchy | Sections by ATX headings (`#`..`######`); level = heading depth (no +1). Fenced code (` ``` `/`~~~`) skipped so `#` inside code isn't a heading. Best paired with `--outline`. |
 
 Language detection happens automatically from the file extension — no need to specify it explicitly.
+
+> **tree-sitter dependency.** C/C++ and C# navigation parse a real syntax tree, so they need the grammars installed: `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp`. Run get_codeblock with an interpreter that has them (a `.cpp`/`.cs` file gives a clear error otherwise). Python, TypeScript/JavaScript and Markdown stay zero-dependency.
 
 ## Importable API for Other Tools
 
@@ -227,14 +230,23 @@ get_codeblock/
 ├── core.py              # CLI parsing, resolve() logic, file I/O, importable get_codeblock() function
 └── handlers/
     ├── __init__.py      # Language registry (get_handler(language) factory)
-    ├── python_handler.py    # Indentation-based block detection (no AST)
+    ├── python_handler.py     # Indentation-based block detection (no AST)
     ├── typescript_handler.py # Brace matching with string/template literal awareness
-    ├── csharp_handler.py    # Brace matching with verbatim string support
-    └── markdown_handler.py  # Heading-hierarchy sections (line_level + get_blocks + outline)
+    ├── _treesitter_blocks.py # Shared tree-sitter engine (LangSpec + TreeSitterBlockHandler)
+    ├── cpp_handler.py        # C/C++ node-type spec on the tree-sitter engine
+    ├── csharp_handler.py     # C# spec on the tree-sitter engine + regex declarations() for cards
+    └── markdown_handler.py   # Heading-hierarchy sections (line_level + get_blocks + outline)
 ```
 
+Handlers come in two families. **Heuristic** (Python indentation, TypeScript braces,
+Markdown headings) — zero-dependency, hand-rolled. **tree-sitter** (C/C++, C#) — a thin
+`LangSpec` (node-type sets) plugged into the shared `TreeSitterBlockHandler`; the block
+model (foldable-region blocks, transparent namespaces, comment gluing) lives once in the
+engine. The old C# brace heuristic is kept, unused, as `_LegacyBraceNav` for reference.
+
 Each handler exposes `line_level` (per-line depth) and `get_blocks` (enclosing blocks for a
-line); `outline` (structural TOC) is implemented by markdown and python so far.
+line); `outline` (structural TOC) is implemented by markdown, python, and the tree-sitter
+handlers (C/C++, C#).
 
 Each handler implements `get_blocks(file_path, line_num) -> list[dict]` returning blocks sorted outermost-first. Each block dict has:
 - `level`: int — nesting depth from file root (1-based).

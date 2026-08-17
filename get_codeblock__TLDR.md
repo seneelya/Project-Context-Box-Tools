@@ -1,8 +1,12 @@
 # get_codeblock — TLDR
 
-Returns a self-contained structural block containing a line — for code (`.py`/`.ts`/`.js`/`.cs`)
-AND Markdown (`.md`: heading sections). Lets an agent get precise context around any location,
-or a file's table of contents, without reading the whole file.
+Returns a self-contained structural block containing a line — for code
+(`.py`/`.ts`/`.js`/`.cs`/`.cpp`/`.cc`/`.h`/`.hpp`/`.c`) AND Markdown (`.md`: heading sections).
+Lets an agent get precise context around any location, or a file's table of contents, without
+reading the whole file.
+
+> C/C++ and C# use tree-sitter — needs `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp`
+> in whatever interpreter runs the tool. Python/TS/JS/Markdown are zero-dependency.
 
 ## Route yourself
 
@@ -33,8 +37,8 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
 
 ## Gotchas
 
-- `--outline` only works for Python (indentation) and Markdown (headings) — TypeScript/C#
-  not implemented yet, errors out.
+- `--outline` works for Python (indentation), Markdown (headings), and C/C++ & C#
+  (tree-sitter). TypeScript/JS have no outline yet — it errors out.
 - `--outline` range end is "line before the next same-or-shallower header" — a TOC estimate,
   not the exact block boundary. Use `--query` when you need the real end line.
 - The green level-legend line and the outline's `#outline` / `Level  Range` header only print

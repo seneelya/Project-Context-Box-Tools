@@ -1,6 +1,59 @@
-"""C# language handler for get_codeblock."""
+"""C# language handler for get_codeblock.
+
+Navigation (outline/get_blocks/line_level) now runs on the shared tree-sitter
+engine (`_treesitter_blocks` + CS_SPEC below) -- a real parse, so multi-line
+signatures, file-scoped namespaces and `record` types are handled correctly.
+
+The brace-heuristic functions in this module are LEGACY. `declarations()` (the
+zero-dependency regex fallback for interface cards, superseded by cs_treesitter
+when its grammar is installed) still uses `find_body_end` / `_csharp_member` /
+`_TYPE_RE`. The OLD brace-based navigation (get_blocks/line_level and helpers)
+is preserved, unused, at the bottom of this file as `_LegacyBraceNav` for
+reference -- it is NOT registered anywhere.
+"""
 
 import re
+
+from ._treesitter_blocks import LangSpec, TreeSitterBlockHandler
+
+
+def _load_csharp_language():
+    import tree_sitter_c_sharp
+    from tree_sitter import Language
+    return Language(tree_sitter_c_sharp.language())
+
+
+CS_SPEC = LangSpec(
+    "C#",
+    _load_csharp_language,
+    body_types={
+        'block', 'declaration_list', 'enum_member_declaration_list', 'accessor_list',
+    },
+    # namespaces are TRANSPARENT (consistent with C++): shown in --outline but
+    # they do NOT add a nesting level, so a top-level type sits at level 1
+    # whether the file uses a braced or a file-scoped namespace.
+    transparent_parents={
+        'namespace_declaration', 'file_scoped_namespace_declaration',
+    },
+    named_def={
+        'class_declaration', 'struct_declaration', 'interface_declaration',
+        'enum_declaration', 'record_declaration', 'record_struct_declaration',
+        'method_declaration', 'constructor_declaration', 'destructor_declaration',
+        'operator_declaration', 'conversion_operator_declaration',
+        'indexer_declaration', 'local_function_statement',
+    },
+    container={'namespace_declaration', 'file_scoped_namespace_declaration'},
+    control={
+        'if_statement', 'else_clause',
+        'for_statement', 'for_each_statement', 'foreach_statement',
+        'while_statement', 'do_statement',
+        'switch_statement', 'try_statement', 'catch_clause', 'finally_clause',
+        'using_statement', 'lock_statement', 'fixed_statement', 'unsafe_statement',
+        'lambda_expression', 'anonymous_method_expression', 'property_declaration',
+    },
+    scope_body='block',
+    cut_extra={'constructor_initializer', 'base_list'},
+)
 
 _MODS = r"(?:public|internal|protected|private|abstract|sealed|static|partial|readonly|virtual|override|async|new|extern|unsafe|const)"
 
@@ -443,8 +496,11 @@ def _scan_line_braces(line, stack, line_idx):
         j += 1
 
 
-class CSharpHandler:
-    """Handles C# code block detection using brace matching."""
+class CSharpHandler(TreeSitterBlockHandler):
+    """C# handler: tree-sitter navigation (outline/get_blocks/line_level via
+    CS_SPEC) plus the regex `declarations()` used by interface cards."""
+
+    SPEC = CS_SPEC
 
     def declarations(self, lines):
         """Declared surface (regex heuristic): public types + their public members.
@@ -485,6 +541,13 @@ class CSharpHandler:
                  "reexport_from": None, "signature": t["signature"],
                  "methods": t["methods"], "start": t["i"] + 1, "end": t["end"] + 1}
                 for t in types]
+
+
+class _LegacyBraceNav:
+    """LEGACY brace-heuristic navigation -- SUPERSEDED by the tree-sitter engine
+    (CSharpHandler above, via CS_SPEC). Kept unused for reference / possible
+    zero-dependency fallback; NOT registered anywhere. This was the previous
+    get_blocks/line_level implementation before the tree-sitter port."""
 
     def line_level(self, lines, idx):
         """Logical nesting level of ONE line (0-based idx), 1-based.

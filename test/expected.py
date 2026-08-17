@@ -40,10 +40,12 @@ LEVELS = {
     'csharpSRC/Core/GlobalStopWatchInstance.cs': [
         # line  lvl  source
         ( 1, 1, '\ufeffusing AndreasReitberger.Core.Interfaces;'),
-        ( 8, 2, 'public class GlobalStopWatchInstance : IGlobalStopWatch'),
-        (12, 4, 'Stopwatch sw = Stopwatch.StartNew();'),
-        (19, 3, 'public async Task<long> StopWatchActionAsync(Func<Task> fu'),
-        (22, 4, 'await function();'),
+        # namespaces are transparent -> types/members one level shallower than
+        # the old brace engine (which counted the braced namespace as a level).
+        ( 8, 1, 'public class GlobalStopWatchInstance : IGlobalStopWatch'),
+        (12, 3, 'Stopwatch sw = Stopwatch.StartNew();'),
+        (19, 2, 'public async Task<long> StopWatchActionAsync(Func<Task> fu'),
+        (22, 3, 'await function();'),
     ],
 }
 
@@ -102,7 +104,8 @@ OUTLINE = {
 LADDER = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 161), (1, 94, 172)]},
     {"file": 'mdSRC/capture.py.md', "line": 12, "expect": [(4, 12, 15), (3, 10, 27), (2, 4, 27), (1, 1, 56)]},
-    {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(3, 10, 17), (2, 8, 26), (1, 6, 27)]},
+    # namespace is transparent -> not a ladder entry; enclosing blocks one level shallower.
+    {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(2, 10, 17), (1, 8, 26)]},
 ]
 
 QUERY = [
@@ -258,7 +261,7 @@ INCOMING_DETAIL = {
         "dangling": [],
         # (source_file, symbol, [lines in target], [levels])
         "usages": [
-            ('Core/IGlobalStopWatch.cs', 'IGlobalStopWatch', [8], [2]),
+            ('Core/IGlobalStopWatch.cs', 'IGlobalStopWatch', [8], [1]),
         ],
     },
 }
