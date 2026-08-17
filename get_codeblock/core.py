@@ -470,7 +470,9 @@ def main():
         # File first: the call that produced this text may not be in view when several
         # --query extractions get concatenated, so each block must self-identify its source.
         emit(f"{prefix}File: {file_path}")
-        emit(f"{prefix}Block level: {block['level']} range: {start}-{end}")
+        _lbl = block.get('label')
+        emit(f"{prefix}Block level: {block['level']} range: {start}-{end}"
+             + (f"  {_lbl}" if _lbl else ""))
         last = min(end, len(lines))
         # --numbered: prefix ONLY the code lines with right-aligned absolute numbers;
         # the frame tags (File/Block level/Block end) stay clean. Off by default so the
@@ -488,7 +490,9 @@ def main():
         # call shows all zoom options (pick a level, then --query it).
         emit_legend()
         for blk in reversed(blocks):
-            emit(f"{prefix}Block level: {blk['level']} range: {blk['start']}-{blk['end']}")
+            lbl = blk.get('label')
+            emit(f"{prefix}Block level: {blk['level']} range: {blk['start']}-{blk['end']}"
+                 + (f"  {lbl}" if lbl else ""))
 
 
 if __name__ == "__main__":

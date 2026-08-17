@@ -473,6 +473,7 @@ class PythonHandler:
                 'level': i + 1,
                 'start': collect_preamble(lines, h) + 1,
                 'end': end + 1,
+                'label': lines[h].strip()[:80],
             })
 
         return result
@@ -487,6 +488,7 @@ class PythonHandler:
                 'level': 1,
                 'start': ps + 1,
                 'end': end + 1,
+                'label': lines[target_idx].strip()[:80],
             }]
         
         # Find nearest block header above (ignoring comments)
@@ -526,11 +528,12 @@ class PythonHandler:
         
         end = find_body_end(lines, chosen)
         ps = collect_preamble(lines, chosen)
-        
+
         return [{
             'level': 1,
             'start': ps + 1,
             'end': end + 1,
+            'label': lines[chosen].strip()[:80],
         }]
     
     def _build_hierarchy_for_header(self, lines, header_idx):
@@ -562,6 +565,7 @@ class PythonHandler:
                 'level': i + 1,
                 'start': collect_preamble(lines, h) + 1,
                 'end': end + 1,
+                'label': lines[h].strip()[:80],
             })
 
         return result

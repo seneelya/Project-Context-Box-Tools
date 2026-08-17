@@ -121,6 +121,21 @@ class TreeSitterBlockHandler:
         text = source_bytes[node.start_byte:cut].decode("utf-8", "replace")
         return " ".join(text.split()).rstrip('{').rstrip().rstrip(':').rstrip()
 
+    def _block_label(self, node, source_bytes):
+        """Label for a ladder rung: the header for a named/control block; a short
+        kind tag for an anonymous brace region (arrow body, object literal, block)."""
+        sp = self.SPEC
+        if node.type in sp.named_def or node.type in sp.control:
+            return self._label(node, source_bytes)
+        parent = node.parent.type if node.parent is not None else ''
+        if node.type in ('object', 'object_pattern'):
+            return "{…} object"
+        if node.type in ('array', 'array_pattern'):
+            return "[…] array"
+        if 'arrow' in parent:
+            return "() => {…}"
+        return "{…} block"
+
     @staticmethod
     def _comment_rows(root):
         rows = set()
@@ -258,8 +273,14 @@ class TreeSitterBlockHandler:
         containing.sort(key=lambda n: (n.start_point[0], -n.end_point[0]))
 
         # EVERY rung glued the same way (was: innermost-only) -> a block's range
-        # matches its outline range exactly.
-        return [self._bounds(n, bodies, comment_rows, lines) for n in containing]
+        # matches its outline range exactly. Each rung carries a label (what it is).
+        source = _source_bytes(lines)
+        result = []
+        for n in containing:
+            b = self._bounds(n, bodies, comment_rows, lines)
+            b['label'] = self._block_label(n, source)
+            result.append(b)
+        return result
 
     def _nearest(self, nodes, row, bodies, comment_rows, lines):
         below = [n for n in nodes if n.start_point[0] >= row]
@@ -273,4 +294,6 @@ class TreeSitterBlockHandler:
                 chosen = a
         if chosen is None:
             return []
-        return [self._bounds(chosen, bodies, comment_rows, lines)]
+        b = self._bounds(chosen, bodies, comment_rows, lines)
+        b['label'] = self._block_label(chosen, _source_bytes(lines))
+        return [b]
