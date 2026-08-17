@@ -18,6 +18,65 @@ def is_keyword(kw):
     return kw in KEYWORDS or kw == 'async'
 
 
+def compute_in_string_mask(lines):
+    """Return list of bools: mask[i] is True if line i BEGINS inside a
+    triple-quoted string that opened on an earlier line.
+
+    Used so is_block_header never mistakes prose inside a docstring (e.g. a
+    wrapped line starting with the word "class" or "for") for a real header.
+    A best-effort single-pass scanner: tracks the active triple-quote
+    delimiter across lines, skips `#` comments and single-line quoted strings.
+    """
+    mask = [False] * len(lines)
+    delim = None  # active triple-quote delimiter carried across lines
+    for i, line in enumerate(lines):
+        if delim is not None:
+            mask[i] = True  # this line starts inside a multi-line string
+        j, n = 0, len(line)
+        while j < n:
+            if delim is not None:
+                if line.startswith(delim, j):
+                    delim = None
+                    j += 3
+                else:
+                    j += 1
+                continue
+            c = line[j]
+            if c == '#':
+                break  # rest of line is a comment
+            if line.startswith('"""', j) or line.startswith("'''", j):
+                delim = line[j:j + 3]
+                j += 3
+                continue
+            if c == '"' or c == "'":
+                j += 1  # single-line quoted string
+                while j < n:
+                    if line[j] == '\\':
+                        j += 2
+                        continue
+                    if line[j] == c:
+                        j += 1
+                        break
+                    j += 1
+                continue
+            j += 1
+    return mask
+
+
+_MASK_CACHE = {'lines': None, 'mask': None}
+
+
+def _in_string_mask(lines):
+    """Cached accessor for compute_in_string_mask, keyed on the lines object
+    identity (one file is loaded once per tool run and passed around)."""
+    if _MASK_CACHE['lines'] is lines:
+        return _MASK_CACHE['mask']
+    mask = compute_in_string_mask(lines)
+    _MASK_CACHE['lines'] = lines
+    _MASK_CACHE['mask'] = mask
+    return mask
+
+
 def get_indent(line):
     """Return (indent_spaces, is_blank). Tabs count as 4."""
     stripped = line.lstrip()
@@ -28,8 +87,17 @@ def get_indent(line):
     return len(indent), False
 
 
-def is_block_header(line):
-    """Check if line starts a block (def/class/if/for/etc)."""
+def is_block_header(lines, idx):
+    """Check if line idx starts a block (def/class/if/for/etc).
+
+    Lines that begin inside a multi-line string (docstrings) are never
+    headers, even if their first word happens to be a keyword.
+    """
+    if idx < 0 or idx >= len(lines):
+        return False
+    if _in_string_mask(lines)[idx]:
+        return False
+    line = lines[idx]
     stripped = line.strip()
     if not stripped or stripped.startswith('#'):
         return False
@@ -143,7 +211,7 @@ def find_body_end(lines, header_idx):
                     if pblank or pstripped.startswith('#') or pstripped.startswith('"""') or pstripped.startswith("'''"):
                         peek += 1
                         continue
-                    if pi == header_indent and is_block_header(lines[peek]):
+                    if pi == header_indent and is_block_header(lines, peek):
                         kw = get_keyword(lines[peek])
                         if kw in group:
                             last_line = peek
@@ -158,7 +226,7 @@ def find_body_end(lines, header_idx):
         # At same indent level as header
         if ind == header_indent:
             # Non-block-header code at same indent → something else started, our block ended
-            if not is_block_header(lines[i]):
+            if not is_block_header(lines, i):
                 break
             
             # Block header at same indent: check if it's a sibling in our compound group
@@ -197,7 +265,7 @@ def find_containing_blocks(lines, target_idx):
         if ind >= target_indent:
             continue
         
-        if is_block_header(lines[i]):
+        if is_block_header(lines, i):
             candidates.append(i)
     
     containing = []
@@ -231,7 +299,7 @@ def collect_preamble(lines, header_idx):
             i -= 1
             continue
         
-        if is_block_header(lines[i]):
+        if is_block_header(lines, i):
             break
         
         # Comments and docstrings are preamble
@@ -257,7 +325,7 @@ def find_attached_block(lines, comment_idx):
     if i >= len(lines):
         return None
     
-    if is_block_header(lines[i]):
+    if is_block_header(lines, i):
         attached_kw = get_keyword(lines[i])
         
         # If this is a sibling keyword (except/elif), find the parent compound header above
@@ -270,7 +338,7 @@ def find_attached_block(lines, comment_idx):
                     ind, _ = get_indent(lines[j])
                     if ind < target_indent:
                         break
-                    if is_block_header(lines[j]) and get_keyword(lines[j]) == parent:
+                    if is_block_header(lines, j) and get_keyword(lines[j]) == parent:
                         return j
                     j -= 1
                 break
@@ -295,7 +363,7 @@ class PythonHandler:
         """
         defs = []  # (idx, indent, label)
         for i, line in enumerate(lines):
-            if is_block_header(line) and get_keyword(line) in ('def', 'class', 'async_def'):
+            if is_block_header(lines, i) and get_keyword(line) in ('def', 'class', 'async_def'):
                 defs.append((i, get_indent(line)[0], line.strip()))
 
         out = []
@@ -327,12 +395,12 @@ class PythonHandler:
         if idx < 0 or idx >= len(lines):
             return 1
         # A wrapped-signature continuation line belongs to its header → use the header.
-        if not is_block_header(lines[idx]):
+        if not is_block_header(lines, idx):
             j = idx - 1
             while j >= 0:
                 if not lines[j].strip():
                     break
-                if is_block_header(lines[j]):
+                if is_block_header(lines, j):
                     if find_colon_line(lines, j) >= idx:
                         idx = j  # part of this header's multi-line signature
                     break
@@ -396,7 +464,7 @@ class PythonHandler:
     def _find_nearest_block(self, lines, target_idx):
         """Fallback: find nearest block above or below when line is between blocks."""
         # If target line itself is a block header, return that block
-        if is_block_header(lines[target_idx]):
+        if is_block_header(lines, target_idx):
             end = find_body_end(lines, target_idx)
             ps = collect_preamble(lines, target_idx)
             return [{
@@ -411,7 +479,7 @@ class PythonHandler:
         for i in range(target_idx - 1, -1, -1):
             if not lines[i].strip() or lines[i].strip().startswith('#'):
                 continue
-            if is_block_header(lines[i]):
+            if is_block_header(lines, i):
                 dist = target_idx - find_body_end(lines, i)
                 above_dist = abs(dist)
                 above_header = i
@@ -423,7 +491,7 @@ class PythonHandler:
         for i in range(target_idx + 1, len(lines)):
             if not lines[i].strip() or lines[i].strip().startswith('#'):
                 continue
-            if is_block_header(lines[i]):
+            if is_block_header(lines, i):
                 dist = i - target_idx
                 below_dist = abs(dist)
                 below_header = i
