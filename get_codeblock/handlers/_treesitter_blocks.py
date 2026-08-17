@@ -202,6 +202,9 @@ class TreeSitterBlockHandler:
             if max_level and b['level'] > max_level:
                 continue
             b['text'] = self._label(n, source)
+            # Transparent containers (namespace / extern "C") are frames, not depth:
+            # rendered with a "." marker instead of a level number.
+            b['frame'] = n.type in self.SPEC.transparent_parents
             out.append(b)
         return out
 

@@ -39,6 +39,13 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
 
 ## Gotchas
 
+- **Bare `--outline` is an adaptive OVERVIEW, not the full tree.** It sizes depth to
+  the file: tiny files / a lone top-level object expand to level 2; otherwise it shows
+  level 1 only when a deeper map would exceed ~15% of the file or ~40 rows. The header
+  line reports total depth + per-level counts (`depth 3, L1=1 L2=5 L3=1, showing 1..2`)
+  so you know there's more. Add `--level N` for an EXACT depth cap (high N = everything).
+- Transparent frames (a C#/C++ `namespace`, `extern "C"`) render with a `.` marker
+  instead of a level number — they're a wrapper, not a nesting level.
 - `--outline` works for Python (indentation), Markdown (headings), and C/C++ & C#
   (tree-sitter). TypeScript/JS have no outline yet — it errors out.
 - `--outline` range end is "line before the next same-or-shallower header" — a TOC estimate,

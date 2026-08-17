@@ -349,23 +349,56 @@ def main():
                   "depth address, 0/-N=relative (steps up from --line's block). "
                   "--query=retrieve text.\033[0m")
 
-    # --outline: the file's structural table of contents (named blocks only). --level
-    # caps depth. No --line needed. Handlers expose outline() when they support it.
+    # --outline: the file's structural table of contents (named blocks only).
+    # Default (no --level) = an adaptive OVERVIEW sized to the file so you can poke a
+    # file blind and see its map, not a wall. --level N caps depth EXACTLY (N high =
+    # full). No --line needed. Handlers expose outline() when they support it.
     if args.get('outline'):
         if not hasattr(handler, 'outline'):
             print(f"Error: outline not supported for {language} yet", file=sys.stderr)
             sys.exit(1)
-        emit_legend()
-        max_level = args['level'] if args['level'] and args['level'] > 0 else None
-        rows = handler.outline(lines, max_level=max_level)
-        if not rows:
+        rows_all = handler.outline(lines, max_level=None)
+        if not rows_all:
             emit(f"{prefix}(no structure found)")
             return
-        emit(f"{prefix}outline  (--line START --query to pull a section)")
-        emit(f"{prefix}Level  Range")
-        # Pad each "<indent><level>" label to the widest one in this output so every
-        # row's "[range]" lines up in a column, regardless of nesting depth.
-        labels = ["  " * (r['level'] - 1) + str(r['level']) for r in rows]
+
+        depth = max(r['level'] for r in rows_all)
+        per_level = {}                      # frames ('.') excluded from the tally
+        for r in rows_all:
+            if not r.get('frame'):
+                per_level[r['level']] = per_level.get(r['level'], 0) + 1
+        n1, n2 = per_level.get(1, 0), per_level.get(2, 0)
+        total_lines = len(lines)
+
+        explicit = args['level'] if args['level'] and args['level'] > 0 else None
+        if explicit:
+            shown = explicit
+        else:
+            # Overview depth from the file's own size. Show level 2 only when the map
+            # stays a small fraction of the file (<=PCT) AND fits a hard row budget
+            # (<=MAX_ROWS). But with very few tops (<=TINY_TOPS) the tops alone say
+            # almost nothing, so expand anyway — the members ARE the map. Never past 2.
+            OUTLINE_PCT, OUTLINE_MAX_ROWS, OUTLINE_TINY_TOPS = 0.15, 40, 2
+            fits = (n1 + n2) <= OUTLINE_PCT * total_lines and (n1 + n2) <= OUTLINE_MAX_ROWS
+            shown = 2 if (n2 > 0 and (fits or n1 <= OUTLINE_TINY_TOPS)) else 1
+
+        rows = [r for r in rows_all if r['level'] <= shown]
+
+        # Header: total depth + per-level tally + what is shown — a glance says
+        # "there is more, and how to get it".
+        tally = " ".join(f"L{lvl}={per_level[lvl]}" for lvl in sorted(per_level))
+        emit(f"{prefix}outline — depth {depth}"
+             + (f", {tally}" if tally else "")
+             + f", showing 1..{min(shown, depth)}")
+        if not explicit and shown < depth:
+            emit(f"{prefix}add --level N to set research depth (N high = full); "
+                 f"--line N --query to pull a section")
+        else:
+            emit(f"{prefix}--line N --query to pull a section")
+
+        # Pad each "<indent><marker>" so ranges line up; a frame shows '.' not a number.
+        labels = ["  " * (r['level'] - 1) + ("." if r.get('frame') else str(r['level']))
+                  for r in rows]
         width = max(len(s) for s in labels)
         for r, label in zip(rows, labels):
             emit(f"{prefix}{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}")
