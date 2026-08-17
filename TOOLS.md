@@ -1,86 +1,151 @@
-# Tools
+# TOOLS_RC — Agent Router Directive
 
-Dev "hands" for the ProjectStarter scheme — small, universal CLIs that compose over pipes (Unix
-philosophy), not one monster. **This file is the ROUTER**: pick a tool by task, read the one-line
-description + main flags; open the tool's `<name>__TLDR.md` only when you need copy-paste examples.
+**THIS IS NOT DOCUMENTATION. THIS IS YOUR ROUTER.**
 
-**Conventions.** Every **utility** (lowercase name) has a one-screen `<name>__TLDR.md` (glance-and-apply
-examples) and a full `--help`; run them from the **project root**: `python __HQ/tools/<name>.py …`
-(`--project-root .` and the `__map/` cards dir resolve from there). The two **UPPERCASE files are not
-utilities** — `CONFIG__TOOLS.py` (per-project config) and `CARD_FORMAT.py` (the format contract): you
-read/edit them, not run them; their own docstring is the doc (and the guides link to them), so they
-have no TLDR. The folder is self-contained and travels with a project by copying — except `__delme/`
-(dev-only notes, safe to delete when deployed).
-
-## Pick by task
-- **Make / refresh a card** for a file → `make_interface_card` → check with `validate_cards` / `check_cards_freshness`  (Python AST peek: `show_pyfile_api`)
-- **Orient in the project** (unfamiliar codebase, "what depends on what") → `graph_from_cards`. Load the whole map once (`--view tree` by directory, or `depth` 0=leaves→entry points), then narrow: `--file PATH` = impact slice around one file, `--edges in` = blast radius, `--cycles` = circular-dep health, `--discrepancies` = map-vs-reality audit (orphan/pending/unresolved). Read it and reason in your head — don't re-read cards.
-- **Gather context to work on a file** (the target card + only its deps' Public API, in one block) → `collect_card_bundle`
-- **Answer a fact about source** (who imports it · a code block · a file's API) → `find_code_usage`, `get_codeblock`, `show_pyfile_api`
-- **Surgical context, not whole files** — `find_code_usage --verbose` (where a symbol is used + block **depth**) → `get_codeblock --level` (pull just that block). Coarse-locate with `grep` first; these two make it precise.
-- **Mass-edit across files** (migrate / rename) → `replace_in_files`
-- **Change the card format itself** → `CARD_FORMAT` (the contract)
+When you are working in this project and need to inspect code, understand dependencies, or edit files at scale — **consult this file first**. Treat these rules the same way you treat your built-in tool instructions (read_file, write_file, terminal). They constrain how you work.
 
 ---
 
-## 1. Source analysis — fact-fetchers over raw code
+## ROUTE YOURSELF — Pick Tool by Task
 
-Factual questions about source directly (heuristics for `.py` `.ts`/`.js` `.cs`, plus Markdown for
-`get_codeblock`). They fetch facts; they do NOT build the project graph.
+Match your current goal to exactly one path below. Do not guess which tool fits; follow the mapping.
 
-- **`find_code_usage.py --file PATH`** — reverse import index: who *really* imports the target
-  and which symbols they consume (the "consumed surface" = real external interface). Flags: `--incoming`
-  (upstream deps), `--verbose` (per source file), `--tests-only`, `--symbol NAME`, `--language`.
-- **`get_codeblock.py --file PATH [--line N]`** — the self-contained structural block around a line.
-  No `--line` + `--outline` = the file's table of contents; `--query` = the exact framed text;
-  `--level N` picks which block (`0` = the line, `-N` = enclosing parents, `+N` = from the top).
-- **`show_pyfile_api.py <file.py>`** — Python-only AST hint: public functions/classes/methods with signatures +
-  imports (internal/external) + first docstring line. Reads only, never a gate.
+| Your task | Primary tool(s) | Secondary / verification |
+|-----------|-----------------|--------------------------|
+| "What does this project look like? What depends on what?" | `graph_from_cards` (`--view depth`) | then `--file PATH` for focus slice |
+| "I need to work on FILE — give me its context" | `collect_card_bundle FILE --depth 1..2` | then read the bundle, not raw sources |
+| "Who uses this file / symbol? What breaks if I change it?" | `find_code_usage --file PATH [--symbol NAME]` | add `--verbose` for line numbers → use with `get_codeblock` |
+| "Show me just this function/class/block around line N" | `get_codeblock --file PATH --outline` (map) → `--line N --query` (text) | use `--level K` to zoom in/out the nesting ladder |
+| "Quick glance: what public API does this Python file expose?" | `show_pyfile_api FILE.py` | treat as hint only; verify with raw code when precision matters |
+| "Create or refresh a card for FILE" | `make_interface_card FILE --force > __map/FILE.md` | then fill `<|Agent: …|>` placeholders → run `validate_cards` |
+| "Are my cards valid / up-to-date?" | `validate_cards` (format) + `check_cards_freshness` (stale vs source) | fix issues before trusting cards for reasoning |
+| "Mass find-and-replace across many files" | `replace_in_files FOLDER MASK -r FIND WITH --dry-run` | add `-m 'EXPR'` guard if context-sensitive; confirm dry-run then run without it |
 
-## 2. Card map — the "second compilation" over `__map/` cards
-
-Build and consume the per-file `.py.md` card layer (this is where project topology lives — kept OUT of
-layer 1 on purpose). Default cards dir `./__map`; override with `--cards-dir` / `--project-root`.
-
-- **`CARD_FORMAT.py`** — (not a CLI) the format contract: section/subsection names, deps columns, the
-  `File Path` graph edge, aliases, helpers. Edit the card shape HERE; the tools import it. Running it
-  prints the skeleton.
-- **`make_interface_card.py <file> --project-root R [--out PATH] [--force]`** — the card STAMP: one
-  command → a fact-filled card skeleton (declared API + signatures × consumed surface `consumers N` ×
-  deps); prose left as `<Agent: …>`. Multilingual (py/ts/cs). `--out` writes (won't clobber without
-  `--force`). Backend `CONFIG__TOOLS.DECL_BACKEND`.
-- **`validate_cards.py [--cards-dir P] [--project-root P]`** — gate cards against the contract (H1,
-  sections, deps resolve, orphans). Coaches the author; exit 1 on problems.
-- **`check_cards_freshness.py [--cards-dir P] [--project-root P]`** — which cards are stale vs source
-  (git mode / mtime fallback) and which are orphans. Exit 1 if any.
-- **`graph_from_cards.py [--project-root P] [--view tree|depth] [--edges out|in|inout] [--verbose 0|1]`**
-  — project topology from cards: modules + summaries + edges, hotspots, cycles, unresolved refs. `--view
-  tree` (default) groups by directory; `depth` orders 0=leaves→entry points. `--edges` = uses / used-by /
-  both. `--verbose 0` drops summary lines (modules + edges only).
-  `--file PATH [--hops N]` focus slice; `--cycles` circular deps; `--discrepancies [--group-by
-  kind|package|card]` map-vs-reality digest (orphan/pending/unresolved); `--json` draft for a visualizer.
-- **`collect_card_bundle.py <file> [--cards-dir P] [--depth N]`** — call-saver: target card + only its deps'
-  Public API in one block. `--depth` expands transitively (default 1).
-
-## 3. Maintenance / migration
-
-- **`replace_in_files.py <folder> <mask> [-r FIND WITH | -m EXPR FIND WITH] [-R] [-n]`** — batch
-  find-and-replace by mask. `-r` = substring; `-m EXPR` = only on lines where the Python `EXPR`
-  (`line`, `re`) is true (guard against prose); `-R` = recurse; **`-n`/`--dry-run` = count + list hit
-  line numbers, write nothing.** Escapes `\n \t \r \\` decoded in `FIND`/`WITH`.
+**RULE:** If your task is not in this table, fall back to:
+1. Source analysis tools (`find_code_usage`, `get_codeblock`) for facts about code.
+2. Card-map tools (`graph_from_cards`, `collect_card_bundle`) for topology and context.
+3. Only read raw source files when no tool gives you what you need precisely.
 
 ---
 
-## Configuration notes
+## PRE-FLIGHT: Before Using Any Tool
 
-- `CONFIG__TOOLS.py` (per-project) supplies defaults `PROJECT_ROOT`, `LANGUAGE`, `TEST_DIRS`,
-  `DECL_BACKEND` (CLI flags override).
-- Source language auto-detected from extension: `.py`, `.ts`/`.js`, `.cs`. Python indentation-based;
-  TS/JS + C# brace matching with string/verbatim awareness.
-- All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
-- Tests: `py test/check.py` (full golden report) · `py test/check.py --fails` (regressions only).
-- **Declared-surface backend** (`make_interface_card` on TS/JS and C#): `CONFIG__TOOLS.DECL_BACKEND` =
-  `auto` (tree-sitter if installed, else regex) · `treesitter` (force) · `regex` (force zero-dep
-  fallback). Python always uses stdlib `ast`. Tree-sitter is OPTIONAL (no numpy/torch cascade):
-  `pip install tree-sitter tree-sitter-typescript tree-sitter-c-sharp`. In `auto`/`treesitter`, a
-  missing grammar prints a one-time stderr WARNING (names the pip package + "regex fallback").
+These steps are **mandatory**, not optional:
+
+1. **Open the tool's TLDR before running it:** `__HQ/tools/<name>__TLDR.md`
+   - This is your quick-reference for flags, idiomatic usage, and gotchas.
+   - Do NOT rely solely on `--help`; TLDR contains patterns specific to this project workflow.
+2. **Run from project root.** The tools resolve `--project-root` and `__map/` dir from CONFIG__TOOLS or cwd automatically — you do not need to specify it manually unless overriding defaults.
+
+This sequence is: TOOLS_RC.md → `<tool>__TLDR.md` → execute tool. Do not skip step 1.
+
+---
+
+## WORKFLOW PATTERNS — Common Scenarios
+
+### Pattern A: Understanding an unfamiliar file
+```
+graph_from_cards --file TARGET.py --verbose 1      # see its position + deps + consumers
+collect_card_bundle TARGET.py --depth 1            # get card + dependency APIs in one block
+find_code_usage --file TARGET.py                   # verify real consumed surface
+get_codeblock --file TARGET.py --outline           # structural map before reading code
+```
+
+### Pattern B: Assessing blast radius of a change
+```
+find_code_usage --file CHANGED.py --verbose        # who imports what, at which lines?
+graph_from_cards --file CHANGED.py --edges in      # upstream dependents (who breaks?)
+# Then for each affected file: get_codeblock --line N --query to see exact usage context
+```
+
+### Pattern C: Creating/updating a card
+```
+make_interface_card FILE.py --force > __map/FILE.py.md   # generate skeleton with facts
+# You (the agent) now fill all <|Agent: …|> placeholders by reading the actual code.
+validate_cards                                           # verify format compliance
+check_cards_freshness                                    # confirm freshness status
+```
+
+### Pattern D: Mass refactoring / migration
+```
+replace_in_files . "*.py" -r "OLD_TEXT" "NEW_TEXT" --dry-run    # preview impact first!
+# Inspect output; if guard needed:
+replace_in_files . "*.py" -m 'line.startswith("def ")' "OLD" "NEW" --dry-run
+# Once confirmed, rerun WITHOUT --dry-run to apply.
+```
+
+---
+
+## PROHIBITIONS — What NOT to Do
+
+- **DO NOT** read entire source files when a tool can give you exactly what you need (card bundle, codeblock, API hint). Use tools first; raw reads are fallback only.
+- **DO NOT** run a tool without reading its TLDR file first. You will miss idiomatic flags and project-specific conventions.
+- **DO NOT** trust `show_pyfile_api` output as specification — it is an AST hint with possible inaccuracies. Verify against actual code when correctness matters.
+- **DO NOT** ignore card freshness. If `check_cards_freshness` marks a card outdated, refresh it before using it for reasoning. Stale cards lead to wrong conclusions.
+- **DO NOT** run `replace_in_files` without `--dry-run` first. Always preview the blast radius on text changes across files.
+
+---
+
+## TOOL REFERENCE INDEX
+
+All CLI tools run from project root: `python __HQ/tools/<name>.py [args]`
+
+### Source analysis (facts about raw code)
+
+| Tool | One-liner |
+|------|-----------|
+| `find_code_usage.py --file PATH` | Reverse import index: who really imports this file/symbol and which symbols they consume |
+| `get_codeblock.py --file PATH [--line N]` | Structural block around a line: `--outline` for TOC, `--query` for exact framed text |
+| `show_pyfile_api.py FILE.py` | Python AST hint: public functions/classes with signatures + imports (quick glance only) |
+
+### Card map ("second compilation" over `__map/`)
+
+| Tool | One-liner |
+|------|-----------|
+| `make_interface_card.py FILE [--force]` | Stamp a card skeleton from source (facts auto-filled, prose as `<\|Agent:\…\|>`) |
+| `validate_cards.py` | Gate cards against CARD_FORMAT contract; reports issues and awaiting-agent markers |
+| `check_cards_freshness.py` | Which cards are stale vs source (git/mtime) + orphans |
+| `graph_from_cards.py [--view tree\|depth]` | Project topology from cards: modules, edges, hotspots, cycles, focus slices |
+| `collect_card_bundle.py FILE [--depth N]` | Target card + its deps' Public API in one block (for passing context to another agent) |
+
+### Maintenance
+
+| Tool | One-liner |
+|------|-----------|
+| `replace_in_files.py FOLDER MASK -r FIND WITH [-m EXPR] [-n]` | Batch find-and-replace by mask with optional Python guard; `-n` = dry-run first |
+
+### Non-CLI files (read/edit only, do not run)
+
+| File | One-liner |
+|------|-----------|
+| `CARD_FORMAT.py` | Card format contract: section names, deps columns, aliases — the schema cards must follow |
+| `CONFIG__TOOLS.py` | Per-project defaults: PROJECT_ROOT, LANGUAGE, TEST_DIRS, DECL_BACKEND |
+
+Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-apply examples).
+
+---
+
+## ENVIRONMENT & DEPENDENCIES
+
+- **Run from project root:** `python __HQ/tools/<name>.py …`. Tools resolve `--project-root` and the
+  `__map/` cards dir from `CONFIG__TOOLS.py` (or cwd) automatically; pass flags only to override.
+- **Language auto-detected from extension.** Python (indentation, stdlib `ast`); `.ts`/`.js`, `.cs`,
+  `.cpp`/`.h`/… (tree-sitter); Markdown (`.md`) for `get_codeblock`.
+- **Dependencies are minimal and OPTIONAL per language.** Python and Markdown work with **zero**
+  third-party packages. The tree-sitter languages need grammar packages — see
+  `get_codeblock/requirements.txt`.
+  - `get_codeblock` **preflights**: if a language you use needs a package that isn't installed, it
+    prints the exact `pip install` command for the current interpreter (no traceback) — run it and retry.
+  - `make_interface_card` on TS/JS & C#: backend `CONFIG__TOOLS.DECL_BACKEND` = `auto` (tree-sitter if
+    present, else regex) · `treesitter` (force) · `regex` (force zero-dep fallback). A missing grammar
+    prints a one-time stderr WARNING naming the pip package, then falls back to regex.
+  - Install grammars: `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp tree-sitter-typescript`
+    (no numpy/torch cascade). All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
+- **Tests:** `py test/check.py` (full golden report) · `py test/check.py --fails` (regressions only).
+- **The folder is self-contained** and travels with a project by copying — except `__delme/`
+  (dev-only notes, safe to delete when deployed). `CONFIG__TOOLS.py` holds per-project defaults
+  (`PROJECT_ROOT`, `LANGUAGE`, `TEST_DIRS`, `DECL_BACKEND`); `CARD_FORMAT.py` is the card-shape contract.
+
+---
+
+**END OF DIRECTIVE.** When in doubt about how to use these tools, re-read this file. It is your router; follow it.
