@@ -210,10 +210,16 @@ def resolve(blocks, level):
         return blocks[min(idx, len(blocks) - 1)]
 
 
-def make_comment_prefix(language):
-    """Return comment prefix for the given language."""
-    return {"python": "#", "typescript": "//", "tsx": "//", "csharp": "//",
-            "cpp": "//", "css": "//"}.get(language, "#")
+def make_comment_delims(language):
+    """(open, close) comment delimiters for the tool's own metadata lines, so those
+    lines are valid comments in the target language and don't collide with its syntax.
+
+    Markdown needs a CLOSED HTML comment `<!-- … -->` — a leading `#` would render as
+    an H1 heading. The line-comment languages just get a prefix and an empty closer.
+    """
+    return {"python": ("#", ""), "typescript": ("//", ""), "tsx": ("//", ""),
+            "csharp": ("//", ""), "cpp": ("//", ""), "css": ("//", ""),
+            "markdown": ("<!-- ", " -->")}.get(language, ("#", ""))
 
 
 def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool = False) -> dict:
@@ -369,8 +375,12 @@ def main():
 
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
-    prefix = make_comment_prefix(language)
+    _copen, _cclose = make_comment_delims(language)
     is_tty = sys.stdout.isatty()
+
+    def c(s):
+        """Wrap one metadata line as a comment valid in the target language."""
+        return f"{_copen}{s}{_cclose}"
 
     def emit(s):
         print(f"\033[93m{s}\033[0m" if is_tty else s)
@@ -399,7 +409,7 @@ def main():
                   "for its text.", file=sys.stderr)
         rows_all = handler.outline(lines, max_level=None)
         if not rows_all:
-            emit(f"{prefix}(no structure found)")
+            emit(c("(no structure found)"))
             return
 
         depth = max(r['level'] for r in rows_all)
@@ -439,16 +449,16 @@ def main():
         # Header: total depth + per-level tally + what is shown. This is METADATA
         # (the overview signal) — emitted for every caller, including the API.
         tally = " ".join(f"L{lvl}={per_level[lvl]}" for lvl in sorted(per_level))
-        emit(f"{prefix}outline — depth {depth}"
-             + (f", {tally}" if tally else "")
-             + f", showing 1..{min(shown, depth)}")
+        emit(c(f"outline — depth {depth}"
+               + (f", {tally}" if tally else "")
+               + f", showing 1..{min(shown, depth)}"))
 
         # Pad each "<indent><marker>" so ranges line up; a frame shows '.' not a number.
         labels = ["  " * (r['level'] - 1) + ("." if r.get('frame') else str(r['level']))
                   for r in rows]
         width = max(len(s) for s in labels)
         for r, label in zip(rows, labels):
-            emit(f"{prefix}{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}")
+            emit(c(f"{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}"))
         return
 
     line_num = args['line']
@@ -473,10 +483,10 @@ def main():
         start, end = block["start"], block["end"]  # inclusive
         # File first: the call that produced this text may not be in view when several
         # --query extractions get concatenated, so each block must self-identify its source.
-        emit(f"{prefix}File: {file_path}")
+        emit(c(f"File: {file_path}"))
         _lbl = block.get('label')
-        emit(f"{prefix}Block level: {block['level']} range: {start}-{end}"
-             + (f"  {_lbl}" if _lbl else ""))
+        emit(c(f"Block level: {block['level']} range: {start}-{end}"
+               + (f"  {_lbl}" if _lbl else "")))
         last = min(end, len(lines))
         # --numbered: prefix ONLY the code lines with right-aligned absolute numbers;
         # the frame tags (File/Block level/Block end) stay clean. Off by default so the
@@ -488,15 +498,15 @@ def main():
             sys.stdout.write(lines[i])
         if last >= 1 and not lines[last - 1].endswith("\n"):
             sys.stdout.write("\n")  # ensure the footer starts on its own line at EOF
-        emit(f"{prefix}Block end: {end}")
+        emit(c(f"Block end: {end}"))
     else:
         # Metadata = the LADDER: every enclosing block, innermost -> outermost, so one
         # call shows all zoom options (pick a level, then --query it).
         emit_legend()
         for blk in reversed(blocks):
             lbl = blk.get('label')
-            emit(f"{prefix}Block level: {blk['level']} range: {blk['start']}-{blk['end']}"
-                 + (f"  {lbl}" if lbl else ""))
+            emit(c(f"Block level: {blk['level']} range: {blk['start']}-{blk['end']}"
+                   + (f"  {lbl}" if lbl else "")))
 
 
 if __name__ == "__main__":
