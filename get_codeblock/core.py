@@ -359,6 +359,12 @@ def main():
         if not hasattr(handler, 'outline'):
             print(f"Error: outline not supported for {language} yet", file=sys.stderr)
             sys.exit(1)
+        # --outline is the map mode; it does not take --line. If both are given the
+        # user meant to inspect a line — say so (stderr, so stdout stays clean).
+        if args.get('line') is not None:
+            print("Note: --outline is the map mode and ignores --line. To inspect a "
+                  "line, drop --outline: `--line N` for block bounds, `--line N --query` "
+                  "for its text.", file=sys.stderr)
         rows_all = handler.outline(lines, max_level=None)
         if not rows_all:
             emit(f"{prefix}(no structure found)")
@@ -393,12 +399,16 @@ def main():
              + (f", {tally}" if tally else "")
              + f", showing 1..{min(shown, depth)}")
         # Actionable hints are HUMAN guidance, not part of the tool's output contract:
-        # console-only (is_tty), so programmatic callers get clean block lines.
+        # console-only (is_tty), so programmatic callers get clean block lines. Teach
+        # the mode map explicitly: here --level = depth cap; --line/--query are OTHER
+        # modes (and must NOT be combined with --outline).
         if is_tty:
-            hint = "--line N --query to pull a section"
-            if not explicit and shown < depth:
-                hint = "add --level N to set research depth (N high = full) · " + hint
-            print(f"\033[92m{hint}\033[0m")
+            g, r = "\033[92m", "\033[0m"
+            cap = "--level N caps depth (raise N for the full tree)" if shown < depth \
+                  else "--level N caps depth"
+            print(f"{g}outline (map) mode · {cap}{r}")
+            print(f"{g}to read code, drop --outline: `--line N` = block bounds at a line "
+                  f"· `--line N --query` = that block's text{r}")
 
         # Pad each "<indent><marker>" so ranges line up; a frame shows '.' not a number.
         labels = ["  " * (r['level'] - 1) + ("." if r.get('frame') else str(r['level']))
