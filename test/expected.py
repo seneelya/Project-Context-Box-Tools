@@ -126,7 +126,9 @@ OUTLINE = {
 }
 
 LADDER = [
-    {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 161), (1, 94, 172)]},
+    # (1,*) glued to 89: the '# chat ...' banner above `def chat` (94) is its preamble
+    # — every ladder rung now reports the same glued range as a direct query (tool-verified).
+    {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 161), (1, 89, 172)]},
     {"file": 'mdSRC/capture.py.md', "line": 12, "expect": [(4, 12, 15), (3, 10, 27), (2, 4, 27), (1, 1, 56)]},
     # namespace is transparent -> not a ladder entry; enclosing blocks one level shallower.
     {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(2, 10, 17), (1, 8, 26)]},
@@ -142,7 +144,7 @@ LADDER = [
 
 QUERY = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 0, "expect": (3, 139, 145)},
-    {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 1, "expect": (1, 94, 172)},
+    {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 1, "expect": (1, 89, 172)},  # glued to '# chat' banner
     {"file": 'mdSRC/capture.py.md', "line": 4, "level": 0, "expect": (2, 4, 27)},
     # --- preamble-comment regression: landing on a comment returns the block it documents ---
     {"file": 'Edge/Edge.cs', "line":  9, "level": 0, "expect": (2,  8, 17)},  # /// doc  -> ctor

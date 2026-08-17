@@ -454,17 +454,13 @@ class PythonHandler:
         
         result = []
         for i, (h, end) in enumerate(containing):
-            level = i + 1
-
-            # Include preamble only for innermost block
-            if i == len(containing) - 1:
-                ps = collect_preamble(lines, h)
-            else:
-                ps = h
-
+            # Glue the preamble onto EVERY rung (not just the innermost) so a block
+            # reports the same range as an ancestor rung of a deep query as it does
+            # when it's the block landed on — the tree-sitter engine's single
+            # canonical range (_bounds), now matched here.
             result.append({
-                'level': level,
-                'start': ps + 1,
+                'level': i + 1,
+                'start': collect_preamble(lines, h) + 1,
                 'end': end + 1,
             })
 
@@ -549,11 +545,10 @@ class PythonHandler:
         
         result = []
         for i, (h, end) in enumerate(ancestors):
-            level = i + 1
-            ps = collect_preamble(lines, h) if i == len(ancestors) - 1 else h
+            # Every rung glued (see get_blocks) — consistent ranges across modes.
             result.append({
-                'level': level,
-                'start': ps + 1,
+                'level': i + 1,
+                'start': collect_preamble(lines, h) + 1,
                 'end': end + 1,
             })
 
