@@ -131,9 +131,11 @@ LADDER = [
     # namespace is transparent -> not a ladder entry; enclosing blocks one level shallower.
     {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(2, 10, 17), (1, 8, 26)]},
     # Preamble comment (line 9 = ctor's /// doc) belongs to the ctor, not the class.
-    {"file": 'Edge/Edge.cs', "line": 9, "expect": [(2, 8, 17), (1, 4, 55)]},
+    # Every rung glued: class reports 3-55 (its /// on line 3), same as outline.
+    {"file": 'Edge/Edge.cs', "line": 9, "expect": [(2, 8, 17), (1, 3, 55)]},
     # Deep nesting: for-body -> Deep -> Inner -> Widget (namespace transparent).
-    {"file": 'Edge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 45, 54), (1, 4, 55)]},
+    # Inner glues its line-44 ///; Widget its line-3 /// — outer rungs glued too.
+    {"file": 'Edge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 44, 54), (1, 3, 55)]},
 ]
 
 QUERY = [
@@ -144,7 +146,7 @@ QUERY = [
     {"file": 'Edge/Edge.cs', "line":  9, "level": 0, "expect": (2,  8, 17)},  # /// doc  -> ctor
     {"file": 'Edge/Edge.cs', "line": 19, "level": 0, "expect": (2, 19, 28)},  # //       -> Increment
     {"file": 'Edge/Edge.cs', "line": 31, "level": 0, "expect": (2, 30, 36)},  # /* ... */ -> Reset
-    {"file": 'Edge/Edge.cs', "line":  9, "level": 1, "expect": (1,  4, 55)},  # zoom out -> class
+    {"file": 'Edge/Edge.cs', "line":  9, "level": 1, "expect": (1,  3, 55)},  # zoom out -> class (glued)
     # trailing comment INSIDE a body documents nothing below: stays in its own method.
     {"file": 'Edge/Edge.cs', "line": 41, "level": 0, "expect": (2, 38, 42)},
 ]

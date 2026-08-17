@@ -168,6 +168,23 @@ class TreeSitterBlockHandler:
                 out.append(n)
         return out
 
+    # -- one canonical range calculator -----------------------------------
+
+    def _bounds(self, node, bodies, comment_rows, lines):
+        """THE range of a block node — identical in every mode (outline, ladder,
+        query, nearest). Level = structural depth of the header row; `start` is
+        pulled up over the block's preamble comments (doc/line/block comment
+        directly above it); `end` = the node's last row. 1-based, end inclusive.
+
+        Every code path goes through here, so a block reports the same
+        [start-end] whether it is the innermost hit or an outer rung of the
+        ladder — no more outline-vs-ladder drift."""
+        return {
+            'level': self._level_of_row(node.start_point[0], bodies),
+            'start': self._preamble_start(node.start_point[0], comment_rows, lines) + 1,
+            'end': node.end_point[0] + 1,
+        }
+
     # -- public API (mirrors PythonHandler) -------------------------------
 
     def outline(self, lines, max_level=None):
@@ -181,16 +198,11 @@ class TreeSitterBlockHandler:
 
         out = []
         for n in nodes:
-            level = self._level_of_row(n.start_point[0], bodies)
-            if max_level and level > max_level:
+            b = self._bounds(n, bodies, comment_rows, lines)
+            if max_level and b['level'] > max_level:
                 continue
-            start = self._preamble_start(n.start_point[0], comment_rows, lines)
-            out.append({
-                'level': level,
-                'text': self._label(n, source),
-                'start': start + 1,
-                'end': n.end_point[0] + 1,
-            })
+            b['text'] = self._label(n, source)
+            out.append(b)
         return out
 
     def line_level(self, lines, idx):
@@ -229,18 +241,9 @@ class TreeSitterBlockHandler:
 
         containing.sort(key=lambda n: (n.start_point[0], -n.end_point[0]))
 
-        result = []
-        for i, n in enumerate(containing):
-            level = self._level_of_row(n.start_point[0], bodies)
-            start = n.start_point[0]
-            if i == len(containing) - 1:  # glue preamble onto innermost only
-                start = self._preamble_start(start, comment_rows, lines)
-            result.append({
-                'level': level,
-                'start': start + 1,
-                'end': n.end_point[0] + 1,
-            })
-        return result
+        # EVERY rung glued the same way (was: innermost-only) -> a block's range
+        # matches its outline range exactly.
+        return [self._bounds(n, bodies, comment_rows, lines) for n in containing]
 
     def _nearest(self, nodes, row, bodies, comment_rows, lines):
         below = [n for n in nodes if n.start_point[0] >= row]
@@ -254,10 +257,4 @@ class TreeSitterBlockHandler:
                 chosen = a
         if chosen is None:
             return []
-        level = self._level_of_row(chosen.start_point[0], bodies)
-        start = self._preamble_start(chosen.start_point[0], comment_rows, lines)
-        return [{
-            'level': level,
-            'start': start + 1,
-            'end': chosen.end_point[0] + 1,
-        }]
+        return [self._bounds(chosen, bodies, comment_rows, lines)]
