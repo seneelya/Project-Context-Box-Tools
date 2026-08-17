@@ -27,7 +27,7 @@ Requires: pip install tree-sitter tree-sitter-typescript
 
 import re
 
-from ._treesitter_blocks import LangSpec, TreeSitterBlockHandler
+from ._treesitter_blocks import LangSpec, TreeSitterBlockHandler, _walk, _source_bytes
 
 
 def _load_typescript():
@@ -91,6 +91,53 @@ class TypeScriptHandler(TreeSitterBlockHandler):
     """.ts / .js — tree-sitter (typescript grammar) navigation + regex declared surface."""
 
     SPEC = TS_SPEC
+
+    # node types that bind an arrow/function EXPRESSION to a name we can show.
+    _ARROW_BINDINGS = {'variable_declarator', 'pair', 'public_field_definition',
+                       'field_definition', 'assignment_expression'}
+
+    # -- outline: named blocks + name-bound arrow/function expressions --------------------
+
+    def outline(self, lines, max_level=None):
+        """Base named outline PLUS the JS/TS idiom the base can't see: an arrow or
+        function EXPRESSION bound to a name — `const Foo = () => {…}` (React
+        components), `value: () => {…}`, class field `foo = () => {…}`. Only
+        block-bodied ones (a real `{…}` to fold); expression-bodied arrows and inline
+        anonymous callbacks stay out of the map. Each is labelled by its binding, so
+        `const App = () => {…}` reads as `const App = () =>`, not just its params.
+        """
+        rows = super().outline(lines, max_level)
+        root = self._root(_source_bytes(lines))
+        bodies = self._bodies(root)
+        comment_rows = self._comment_rows(root)
+        source = _source_bytes(lines)
+
+        for n in _walk(root):
+            if n.type not in ('arrow_function', 'function', 'function_expression'):
+                continue
+            body = next((c for c in n.children if c.type == 'statement_block'), None)
+            if body is None or body.end_point[0] <= body.start_point[0]:
+                continue                                   # no multi-line {…} to fold
+            binding = n.parent
+            if binding is None or binding.type not in self._ARROW_BINDINGS:
+                continue                                   # anonymous inline callback
+            # Anchor the entry at the whole binding statement (include const/export).
+            stmt = binding
+            if binding.type == 'variable_declarator' and binding.parent is not None:
+                stmt = binding.parent
+                if stmt.parent is not None and stmt.parent.type == 'export_statement':
+                    stmt = stmt.parent
+            level = self._level_of_row(stmt.start_point[0], bodies)
+            if max_level and level > max_level:
+                continue
+            start = self._preamble_start(stmt.start_point[0], comment_rows, lines)
+            label = source[stmt.start_byte:body.start_byte].decode('utf-8', 'replace')
+            label = " ".join(label.split()).rstrip('{').rstrip()
+            rows.append({'level': level, 'text': label,
+                         'start': start + 1, 'end': body.end_point[0] + 1, 'frame': False})
+
+        rows.sort(key=lambda r: (r['start'], -r['end']))
+        return rows
 
     # -- declared surface (for make_interface_card) --------------------------------------
 

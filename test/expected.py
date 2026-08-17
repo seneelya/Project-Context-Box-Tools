@@ -106,6 +106,14 @@ OUTLINE = {
         (2, 44, 54, 'public class Inner'),               # nested type, /// glued
         (3, 47, 53, 'public void Deep()'),
     ],
+    # TSX named-arrow outline: block-bodied const-arrows bound to a name show up
+    # (React components + nested handlers); expression-bodied arrows & JSX inline
+    # callbacks do not. Preamble comments glue onto each entry's start.
+    'Edge/Component.tsx': [
+        (1,  3, 17, 'export const Counter = (props: { start: number }) =>'),
+        (2,  7, 10, 'const increment = () =>'),
+        (1, 19, 22, 'function label(n: number): string'),
+    ],
     'mdSRC/cli.py.md': [
         # (level, start, end, label)
         (1,   1,  55, 'cli.py'),
