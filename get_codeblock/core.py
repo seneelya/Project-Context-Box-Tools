@@ -41,6 +41,7 @@ def parse_args():
     level = 0  # default: current block
     query = False  # flag, no value needed
     outline = False  # flag: print the file's structural outline (no --line needed)
+    numbered = False  # flag: prefix --query code lines with absolute line numbers
     project_root = default_root
 
     i = 0
@@ -72,6 +73,9 @@ def parse_args():
         elif token == '--outline':
             outline = True
             i += 1
+        elif token == '--numbered':
+            numbered = True
+            i += 1
         elif token in ('--project-root', '--project_root') and i + 1 < len(tokens):
             value = tokens[i + 1]
             if ' --' in value or '--line' in value or '--file' in value or '--level' in value or '--query' in value:
@@ -94,6 +98,9 @@ def parse_args():
             print("                      mode when --file is given alone. --level caps depth shown.")
             print("  --line N            Target line number (1-based)")
             print("  --query             Return the block text (framed by anchors) instead of the ladder")
+            print("  --numbered          With --query: prefix each code line with its absolute line")
+            print("                      number ('  92 | ...'). Off by default — raw text stays")
+            print("                      copy/diff-safe; the range header already gives the numbers.")
             print("  --project-root PATH Root for relative paths (CLI overrides config)")
             print("")
             print("Level addressing (--level):")
@@ -146,6 +153,7 @@ def parse_args():
         'level': level,
         'query': query,
         'outline': outline,
+        'numbered': numbered,
         'project_root': project_root
     }, config
 
@@ -444,7 +452,13 @@ def main():
         emit(f"{prefix}File: {file_path}")
         emit(f"{prefix}Block level: {block['level']} range: {start}-{end}")
         last = min(end, len(lines))
+        # --numbered: prefix ONLY the code lines with right-aligned absolute numbers;
+        # the frame tags (File/Block level/Block end) stay clean. Off by default so the
+        # raw text is copy/diff-safe.
+        numw = len(str(last)) if args.get('numbered') else 0
         for i in range(start - 1, last):
+            if numw:
+                sys.stdout.write(f"{i + 1:>{numw}} | ")
             sys.stdout.write(lines[i])
         if last >= 1 and not lines[last - 1].endswith("\n"):
             sys.stdout.write("\n")  # ensure the footer starts on its own line at EOF
