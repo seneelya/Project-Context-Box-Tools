@@ -225,6 +225,8 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
     language = lang_map.get(ext, 'python')
 
     # Get blocks via handler
+    from get_codeblock.env_check import ensure_language
+    ensure_language(language)  # raises EnvError with install instructions if deps missing
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
     blocks = handler.get_blocks(file_path, line_num)
@@ -289,6 +291,8 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
 
     # Per-line logical level: level = 1 + enclosing block BODIES (a block header sits
     # at its parent's level). Every handler implements line_level.
+    from get_codeblock.env_check import ensure_language
+    ensure_language(language)  # raises EnvError with install instructions if deps missing
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)
     return {
@@ -319,6 +323,15 @@ def main():
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
                 '.md': 'markdown', '.markdown': 'markdown'}
     language = lang_map.get(ext, 'python')
+
+    # Preflight: if this language needs tree-sitter packages that aren't installed,
+    # print exactly what to install (from requirements.txt) instead of a traceback.
+    from get_codeblock.env_check import ensure_language, EnvError
+    try:
+        ensure_language(language)
+    except EnvError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
 
     from get_codeblock.handlers import get_handler
     handler = get_handler(language)

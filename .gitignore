@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 *.pyo
+
+# Private test data — real project sources, must NOT be published.
+# Kept locally as test fixtures for get_codeblock etc.
+test/secret/

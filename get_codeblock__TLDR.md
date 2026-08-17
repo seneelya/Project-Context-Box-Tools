@@ -5,8 +5,10 @@ Returns a self-contained structural block containing a line — for code
 Lets an agent get precise context around any location, or a file's table of contents, without
 reading the whole file.
 
-> C/C++ and C# use tree-sitter — needs `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp`
-> in whatever interpreter runs the tool. Python/TS/JS/Markdown are zero-dependency.
+> **Dependencies:** Python (`.py`) and Markdown (`.md`) are zero-dependency. C/C++, C# and
+> TypeScript/JS use tree-sitter grammars — see `get_codeblock/requirements.txt`. If a needed
+> package is missing, the tool prints the exact `pip install` command for the interpreter that
+> ran it (no traceback) — just run it and retry.
 
 ## Route yourself
 
