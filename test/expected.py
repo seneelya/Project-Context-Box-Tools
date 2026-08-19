@@ -1,7 +1,8 @@
 """ЭТАЛОН (оракул) для test/check.py — значения проверяются РУКАМИ; правь ЗДЕСЬ.
 Формат выровнен по колонкам для сверки глазами. Секции:
   LEVELS  (line, level, src)           глубина строки; 1+объемлющие тела; корень=1; MD=глубина заголовка
-  OUTLINE (level, start, end, label)   оглавление: именованные блоки / заголовки
+  OUTLINE (level, start, end, label)   НОВЫЙ путь: .0-рендер Reader.outline (регресс-эталон,
+                                       снят с проверенного вывода; регенерация — см. ниже у OUTLINE=)
   LADDER  (level, start, end)          все объемлющие блоки строки, внутренний→внешний
   QUERY   (level, start, end)          какой блок вернёт --query --level
   IMPORTS {файл: [символы]}            downstream=потребитель берёт у цели / incoming=цель берёт у источника
@@ -62,83 +63,98 @@ LEVELS = {
     ],
 }
 
-OUTLINE = {
+OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регресс-эталон, снят с проверенного вывода)
     'pythonSRC/backends/__init__.py': [
-        # (level, start, end, label)
-        (1,  94, 175, 'def chat('),
-        (1, 176, 240, 'def embed('),
-        (1, 241, 306, 'def rerank('),
+        (1, 1, 41, '~docstring'),
+        (1, 43, 46, 'imports: annotations, logging, time'),
+        (1, 46, 46, '~comment'),
+        (1, 47, 47, 'imports: typing'),
+        (1, 49, 49, '~comment'),
+        (1, 50, 61, 'imports: ._http'),
+        (1, 63, 63, '~comment'),
+        (1, 64, 74, 'imports: .resolve'),
+        (1, 76, 76, '~comment'),
+        (1, 77, 77, 'imports: .chat'),
+        (1, 77, 77, '~comment'),
+        (1, 78, 78, 'imports: .embed_driver'),
+        (1, 78, 78, '~comment'),
+        (1, 79, 84, 'imports: .rerank_driver'),
+        (1, 86, 86, 'assign: logger'),
+        (1, 89, 166, 'def chat( cfg: Optional[Dict[str, Any]], role: str, system_prompt: str, user_content: str, *, timeout: Optional[float] = None, max_retries: int = MAX_RETRIES, params: Optional[Dict[str, Any]] = None, messages: Optional[List[Dict[str, Any]]] = None, ) -> Optional[str]  # chat — openai-chat protocol, walk the chain …'),
+        (1, 169, 171, '~comment x3'),
+        (1, 173, 173, 'assign: _EMBED_PROVIDERS'),
+        (1, 176, 233, 'def embed( cfg: Optional[Dict[str, Any]], role: str, texts: List[str], *, is_query: bool = False, ) -> Optional[List[List[float]]]'),
+        (1, 236, 306, 'def rerank( cfg: Optional[Dict[str, Any]], role: str, query: str, candidates: List[Dict[str, Any]], *, timeout: Optional[float] = None, max_retries: int = MAX_RETRIES, ) -> Tuple[List[Dict[str, Any]], str]  # rerank — cross-encoder reranking, walk the reranker chain …'),
     ],
     'pythonSRC/backends/resolve.py': [
-        # (level, start, end, label)
-        (1,  26,  42, 'def _backends_map(cfg: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:'),
-        (1,  43,  47, 'def _roles_section(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:'),
-        (1,  48,  67, 'def _normalize_backend(name: str, definition: Dict[str, Any]) -> Dict[str, Any]:'),
-        (1,  68,  80, 'def _fallback_names(backend: Dict[str, Any]) -> List[str]:'),
-        (1,  81, 106, 'def is_local_backend(backend: Dict[str, Any]) -> bool:'),
-        (1, 107, 170, 'def resolve_chain(cfg: Optional[Dict[str, Any]], role: str) -> List[Dict[str, Any]]:'),
-        (1, 171, 184, 'def _embedder_chain_key(backend: Dict[str, Any]) -> str:'),
-        (1, 185, 216, 'def validate_embedder_chain(chain: List[Dict[str, Any]]) -> List[Dict[str, Any]]:'),
+        (1, 1, 8, '~docstring'),
+        (1, 10, 14, 'imports: annotations, logging, typing, urllib.parse'),
+        (1, 16, 16, 'assign: logger'),
+        (1, 18, 19, '~comment x2'),
+        (1, 20, 20, 'assign: _LOCAL_HOST_SUFFIXES'),
+        (1, 22, 22, '~comment'),
+        (1, 23, 23, 'assign: _ROLE_KIND'),
+        (1, 26, 40, 'def _backends_map(cfg: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]'),
+        (1, 43, 45, 'def _roles_section(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]'),
+        (1, 48, 65, 'def _normalize_backend(name: str, definition: Dict[str, Any]) -> Dict[str, Any]'),
+        (1, 68, 78, 'def _fallback_names(backend: Dict[str, Any]) -> List[str]'),
+        (1, 81, 104, 'def is_local_backend(backend: Dict[str, Any]) -> bool'),
+        (1, 107, 168, 'def resolve_chain(cfg: Optional[Dict[str, Any]], role: str) -> List[Dict[str, Any]]'),
+        (1, 171, 182, 'def _embedder_chain_key(backend: Dict[str, Any]) -> str'),
+        (1, 185, 216, 'def validate_embedder_chain(chain: List[Dict[str, Any]]) -> List[Dict[str, Any]]'),
     ],
     'mdSRC/capture.py.md': [
-        # (level, start, end, label)
-        (1,   1,  56, 'capture.py'),
-        (2,   4,  27, 'Public API'),
-        (3,   6,   9, 'Классы'),
-        (3,  10,  27, 'Функции'),
-        (4,  12,  15, 'compute_signals(text: str, \\*, side: str = "user") -> Dict\\[str, Any]'),
-        (4,  16,  19, 'extract_and_store(conn, text: str, \\*, side: str = "user", session_id: str = "", cfg: Optional\\[Dict\\[str, Any]] = None) -> Optional\\[Dict\\[str, Any]]'),
-        (4,  20,  23, 'process_turn(conn, user_content: str, assistant_content: str, \\*, session_id: str = "", cfg: Optional\\[Dict\\[str, Any]] = None) -> Dict\\[str, Optional\\[Dict\\[str, Any]]]'),
-        (4,  24,  27, 'manual_capture(conn, content: str, \\*, kind: str = "fact", notability: str = "high", pinned: bool = False, session_id: str = "", cfg: Optional\\[Dict\\[str, Any]] = None) -> Dict\\[str, Any]'),
-        (2,  28,  39, 'Dependencies Internal'),
-        (2,  40,  43, 'How it works'),
-        (2,  44,  51, 'Dependencies External'),
-        (2,  52,  56, '⚠️ Расхождения docstring ↔ код'),
+        (1, 1, 56, 'capture.py'),
+        (2, 4, 27, 'Public API'),
+        (3, 6, 9, 'Классы'),
+        (3, 10, 27, 'Функции'),
+        (4, 12, 15, 'compute_signals(text: str, \\*, side: str = "user") -> Dict\\[str, Any]'),
+        (4, 16, 19, 'extract_and_store(conn, text: str, \\*, side: str = "user", session_id: str = "", cfg: Optional\\[Dict\\[str, Any]] = None) -> Optional\\[Dict\\[str, Any]]'),
+        (4, 20, 23, 'process_turn(conn, user_content: str, assistant_content: str, \\*, session_id: str = "", cfg: Optional\\[Dict\\[str, Any]] = None) -> Dict\\[str, Optional\\[Dict\\[str, Any]]]'),
+        (4, 24, 27, 'manual_capture(conn, content: str, \\*, kind: str = "fact", notability: str = "high", pinned: bool = False, session_id: str = "", cfg: Optional\\[Dict\\[str, Any]] = None) -> Dict\\[str, Any]'),
+        (2, 28, 39, 'Dependencies Internal'),
+        (2, 40, 43, 'How it works'),
+        (2, 44, 51, 'Dependencies External'),
+        (2, 52, 56, '⚠️ Расхождения docstring ↔ код'),
     ],
     'Edge/Edge.cs': [
-        # (level, start, end, label) — preamble comments glued onto each block's start
-        (1,  1, 56, 'namespace Edge.Cases'),
-        (1,  3, 55, 'public class Widget'),              # /// doc on line 3 glued
-        (2,  8, 17, 'public Widget( int count, string name)'),  # multi-line sig + /// glued
-        (2, 19, 28, 'public int Increment()'),           # // comment glued
-        (2, 30, 36, 'public void Reset()'),              # /* block */ glued
-        (2, 38, 42, 'public void Trailing()'),           # no preamble
-        (2, 44, 54, 'public class Inner'),               # nested type, /// glued
+        (1, 1, 56, 'namespace Edge.Cases'),
+        (1, 3, 55, 'public class Widget  /// <summary>Documents the whole class.</summary>'),
+        (2, 8, 17, 'public Widget( int count, string name)  /// <summary> …'),
+        (2, 19, 28, 'public int Increment()  // ordinary line comment, not XML-doc — still a preamble of…'),
+        (2, 30, 36, 'public void Reset()  /* block comment …'),
+        (2, 38, 42, 'public void Trailing()'),
+        (2, 44, 54, 'public class Inner  /// <summary>A nested type inside Widget.</summary>'),
         (3, 47, 53, 'public void Deep()'),
     ],
-    # TSX named-arrow outline: block-bodied const-arrows bound to a name show up
-    # (React components + nested handlers); expression-bodied arrows & JSX inline
-    # callbacks do not. Preamble comments glue onto each entry's start.
     'Edge/Component.tsx': [
-        (1,  3, 17, 'export const Counter = (props: { start: number }) =>'),
-        (2,  7, 10, 'const increment = () =>'),
-        (1, 19, 22, 'function label(n: number): string'),
+        (1, 1, 1, 'imports: react'),
+        (1, 3, 17, 'export const Counter = (props: { start: number }) =>  /** A tiny React component — a block-bodied const-arrow boun…'),
+        (2, 7, 10, 'const increment = () =>  // nested block-bodied arrow bound to `increment` -> named,…'),
+        (1, 19, 22, 'function label(n: number): string  // plain named function still works alongside'),
     ],
-    # CSS/SCSS via tree-sitter-css: nested rule sets, `&` nesting, @media; the
-    # selector list is the label; a preamble comment glues onto the rule.
     'Edge/Edge.scss': [
-        (1,  1, 12, '.card'),
-        (2,  5,  7, '&:hover'),
-        (2,  9, 11, '.title'),
+        (1, 1, 12, '.card  /* Card component — nested SCSS rules (comment preamble abov…'),
+        (2, 5, 7, '&:hover'),
+        (2, 9, 11, '.title'),
         (1, 14, 18, '@media (max-width: 600px)'),
         (2, 15, 17, '.card'),
     ],
     'mdSRC/cli.py.md': [
-        # (level, start, end, label)
-        (1,   1,  55, 'cli.py'),
-        (2,   4,  33, 'Public API'),
-        (3,   6,  19, 'Функции'),
-        (4,   8,  11, 'register_cli(subparser) -> None'),
-        (4,  12,  15, 'memohood_command(args) -> None'),
-        (4,  16,  19, 'register(ctx) -> None'),
-        (3,  20,  33, 'Функции (внутренние, не описаны)'),
-        (4,  22,  25, '\\_print_status(hermes_home: str) -> None'),
-        (4,  26,  29, '\\_setup = register_cli'),
-        (4,  30,  33, '\\_handle = memohood_command'),
-        (2,  34,  44, 'Dependencies Internal'),
-        (2,  45,  48, 'How it works'),
-        (2,  49,  52, 'Dependencies External'),
-        (2,  53,  55, '⚠️ Расхождения docstring ↔ код'),
+        (1, 1, 55, 'cli.py'),
+        (2, 4, 33, 'Public API'),
+        (3, 6, 19, 'Функции'),
+        (4, 8, 11, 'register_cli(subparser) -> None'),
+        (4, 12, 15, 'memohood_command(args) -> None'),
+        (4, 16, 19, 'register(ctx) -> None'),
+        (3, 20, 33, 'Функции (внутренние, не описаны)'),
+        (4, 22, 25, '\\_print_status(hermes_home: str) -> None'),
+        (4, 26, 29, '\\_setup = register_cli'),
+        (4, 30, 33, '\\_handle = memohood_command'),
+        (2, 34, 44, 'Dependencies Internal'),
+        (2, 45, 48, 'How it works'),
+        (2, 49, 52, 'Dependencies External'),
+        (2, 53, 55, '⚠️ Расхождения docstring ↔ код'),
     ],
 }
 

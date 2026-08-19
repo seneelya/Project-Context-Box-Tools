@@ -39,31 +39,32 @@ def _read(fixture):
     return open(os.path.join(_HERE, fixture), encoding="utf-8", errors="replace").readlines()
 
 
-# --- get_codeblock runners ---------------------------------------------------
+# --- get_codeblock runners (НОВЫЙ путь: через фасад Reader, как ходит приложение) -----
+# outline = новый .0-рендер (Reader.outline); ladder/query/levels/declarations Reader
+# делегирует старым хендлерам (адресация не тронута) — значения те же.
+
+def _reader(fixture):
+    from get_codeblock.reader.reader import Reader
+    return Reader.open(os.path.join(_HERE, fixture), _read(fixture), _lang(fixture))
+
 
 def levels_for(fixture, lines):
     return get_line_levels(os.path.join(_HERE, fixture), list(lines))
 
 
 def outline_for(fixture, max_level=None):
-    from get_codeblock.handlers import get_handler
-    h = get_handler(_lang(fixture))
-    if not hasattr(h, "outline"):
-        return None
-    rows = h.outline(_read(fixture), max_level=max_level)
+    rows = _reader(fixture).outline(_read(fixture), max_level=max_level)
     return [(r["level"], r["start"], r["end"], r["text"]) for r in rows]
 
 
 def ladder_for(fixture, line):
-    from get_codeblock.handlers import get_handler
-    blocks = get_handler(_lang(fixture)).get_blocks(os.path.join(_HERE, fixture), line)
+    blocks = _reader(fixture).get_blocks(os.path.join(_HERE, fixture), line)
     return [(b["level"], b["start"], b["end"]) for b in reversed(blocks)]  # innermost→outermost (as CLI)
 
 
 def query_bounds(fixture, line, level):
-    from get_codeblock.handlers import get_handler
     from get_codeblock.core import resolve
-    blocks = get_handler(_lang(fixture)).get_blocks(os.path.join(_HERE, fixture), line)
+    blocks = _reader(fixture).get_blocks(os.path.join(_HERE, fixture), line)
     b = resolve(blocks, level)
     return (b["level"], b["start"], b["end"]) if b else None
 
@@ -145,12 +146,11 @@ def incoming_sources(root, file):
 
 
 def declarations_regex(root, file):
-    """Declared surface via the REGEX handler (deterministic, tree-sitter-independent):
-    (name, kind, exported, n_members) per top-level declaration."""
-    from get_codeblock.handlers import get_handler
+    """Declared surface (name, kind, exported, n_members) через фасад Reader
+    (делегирует REGEX-хендлеру — детерминизм, не зависит от tree-sitter)."""
     lines = _read(os.path.join(root, file))
     return [(d["name"], d["kind"], d["exported"], len(d.get("methods", [])))
-            for d in get_handler(_lang(file)).declarations(lines)]
+            for d in _reader(os.path.join(root, file)).declarations(lines)]
 
 
 # --- comparison --------------------------------------------------------------
