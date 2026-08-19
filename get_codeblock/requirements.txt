@@ -15,3 +15,12 @@ tree-sitter-cpp>=0.23    # C / C++   (.cpp .cc .cxx .c++ .hpp .hh .hxx .h .c)
 tree-sitter-c-sharp>=0.23 # C#        (.cs)
 tree-sitter-typescript>=0.23 # TypeScript / JavaScript (.ts .js .tsx .jsx)
 tree-sitter-css>=0.23    # CSS / SCSS / Sass (.css .scss .sass)
+
+# tree-sitter-scss — выделенная SCSS-грамматика (`@mixin`/`@function`/`$var` без ~ERROR).
+# ОТКЛЮЧЕНО намеренно: единственный релиз на PyPI (1.0.0) отдаёт старый-ABI language(),
+# который переполняется с tree-sitter >= 0.26 (см. css_handler.py). Тяжёлый скачивающий
+# `tree-sitter-language-pack` — тоже мимо (докачивает грамматики по сети в рантайме).
+# Пока SCSS навигируется через tree-sitter-css (деградация, но структура читается).
+# КОГДА выйдет починенная версия — раскомментировать строку ниже и подключить в
+# reader/profiles/ (registry: .scss -> scss-профиль на этой грамматике).
+# tree-sitter-scss>=1.1   # SCSS/Sass (.scss .sass) — раскомментировать после фикса ABI
