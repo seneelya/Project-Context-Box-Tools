@@ -52,8 +52,13 @@ def _langspec_for_ext(ext):
 
 
 def resolve(ext):
-    """(Backend, Spec) под расширение, или ValueError."""
-    ls = _langspec_for_ext(ext)
+    """(Backend, Spec) под расширение, или ValueError. Единый вход: ветка на нужный
+    backend по формату (tree-sitter-код / markdown / позже docx/pdf)."""
+    ext = ext.lower()
+    if ext in ('.md', '.markdown'):                    # core2 — НЕ tree-sitter
+        from .backends.markdown import MarkdownBackend, MarkdownSpec
+        return MarkdownBackend(), MarkdownSpec()
+    ls = _langspec_for_ext(ext)                        # core1 — tree-sitter
     if ls is None:
         raise ValueError(f"reader: формат {ext} пока не поддержан")
     return TSBackend(ls), TreeSitterSpec(ls)

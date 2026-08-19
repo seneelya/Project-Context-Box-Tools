@@ -19,9 +19,11 @@ class Role(str, Enum):
 
 class Block:
     """Узел IR. Диапазон 1-based, end включительно (как во всех режимах утилиты)."""
-    __slots__ = ('role', 'kind', 'name', 'start', 'end', 'level', 'count', 'children')
+    __slots__ = ('role', 'kind', 'name', 'start', 'end', 'level', 'count',
+                 'children', 'description')
 
-    def __init__(self, role, kind, start, end, level, name=None, count=1, children=None):
+    def __init__(self, role, kind, start, end, level, name=None, count=1,
+                 children=None, description=None):
         self.role = role          # Role
         self.kind = kind          # str — тип узла backend'а (node_type / 'heading' / ...)
         self.name = name          # str | None — заголовок landmark/frame
@@ -30,6 +32,9 @@ class Block:
         self.level = level        # int — файловый уровень = 1 (рамка не углубляет)
         self.count = count        # int — сколько узлов слито в filler-полосу
         self.children = children if children is not None else []
+        # Опциональное описание от Analyzer (см. protocol.Analyzer): «license-блок»,
+        # «docstring» и т.п. Backend его НЕ ставит — это пост-проход. None = не анализировано.
+        self.description = description
 
     def __repr__(self):
         who = self.name if self.name is not None else f"{self.kind}×{self.count}"

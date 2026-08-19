@@ -57,3 +57,17 @@ class Spec(Protocol):
     def unwrap_def(self, node: RNode) -> Optional[RNode]: ...    # развернуть обёртку до определения, или None
 
     def filler_kind(self, node: RNode) -> str: ...     # ключ группировки filler-полосы
+
+
+class Analyzer(Protocol):
+    """Опциональный СЕМАНТИЧЕСКИЙ пост-проход над готовым IR (Vision03, пласт 2).
+
+    Backend даёт СТРУКТУРУ («comment-полоса [1-15]»); Analyzer по косвенным
+    признакам ставит СМЫСЛ в block.description («license-блок», «docstring»).
+    Реализации — от простых эвристик (regex «Copyright/SPDX») до embedder-rerank.
+
+    ИНВАРИАНТ: аналайзер ОПЦИОНАЛЕН и ЧИСТ. Его отсутствие/падение НЕ ломает
+    пайплайн — блок рендерится со структурным лейблом. Никогда не меняет
+    структуру (role/range/children) — только обогащает description."""
+
+    def describe(self, block, source: str) -> "Optional[str]": ...  # текст или None

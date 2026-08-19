@@ -80,12 +80,15 @@ def render(blocks, marker='#'):
         for b in items:
             rng = f"[{b.start}-{b.end}]"
             if b.role is Role.LANDMARK:
-                lines.append(f"{marker}{pad}L{b.level}  {rng:>10}  {b.name}")
+                body = f"L{b.level}  {rng:>10}  {b.name}"
             elif b.role is Role.FRAME:
-                lines.append(f"{marker}{pad}.   {rng:>10}  {b.name}")
+                body = f".   {rng:>10}  {b.name}"
             else:
                 tag = f"~{b.kind}" + (f" ×{b.count}" if b.count > 1 else "")
-                lines.append(f"{marker}{pad}    {rng:>10}  {tag}")
+                body = f"    {rng:>10}  {tag}"
+            if b.description:                       # обогащение от Analyzer, если было
+                body += f"   « {b.description} »"
+            lines.append(f"{marker}{pad}{body}")
             if b.children:
                 walk(b.children, indent + 1)
 
