@@ -263,8 +263,8 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
     # Get blocks via handler
     from get_codeblock.env_check import ensure_language
     ensure_language(language)  # raises EnvError with install instructions if deps missing
-    from get_codeblock.handlers import get_handler
-    handler = get_handler(language)
+    from get_codeblock.reader.reader import Reader
+    handler = Reader.open(file_path, lines, language)
     blocks = handler.get_blocks(file_path, line_num)
 
     if not blocks:
@@ -331,8 +331,8 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     # at its parent's level). Every handler implements line_level.
     from get_codeblock.env_check import ensure_language
     ensure_language(language)  # raises EnvError with install instructions if deps missing
-    from get_codeblock.handlers import get_handler
-    handler = get_handler(language)
+    from get_codeblock.reader.reader import Reader
+    handler = Reader.open(file_path, lines, language)
     return {
         ln: (handler.line_level(lines, ln - 1) if 1 <= ln <= len(lines) else 1)
         for ln in line_nums
@@ -373,8 +373,11 @@ def main():
         print(str(e), file=sys.stderr)
         sys.exit(1)
 
-    from get_codeblock.handlers import get_handler
-    handler = get_handler(language)
+    # Единая точка входа приложения (Vision03): проверенные режимы делегируются
+    # хендлеру внутри Reader (паритет), новый .0 — там же. core.py в get_handler
+    # напрямую больше не ходит.
+    from get_codeblock.reader.reader import Reader
+    handler = Reader.open(file_path, lines, language)
     _copen, _cclose = make_comment_delims(language)
     is_tty = sys.stdout.isatty()
 
