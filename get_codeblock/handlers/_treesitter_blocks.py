@@ -138,12 +138,22 @@ class TreeSitterBlockHandler:
 
     @staticmethod
     def _comment_rows(root):
-        rows = set()
+        """Rows covered EXCLUSIVELY by comment nodes.
+
+        A row that also carries a non-comment (code) node — e.g. a trailing
+        `// note` after `if (x) {...}` — is a code row, not a comment row, so it
+        must NOT let the preamble glue climb over it. Subtracting code_rows kills
+        BUG #1 (hanging comments dragging a block's start up over foreign code)."""
+        comment_rows, code_rows = set(), set()
         for n in _walk(root):
+            if n.child_count:          # only LEAF nodes carry a real token on a row;
+                continue               # container nodes span comment rows and would
+            rows = range(n.start_point[0], n.end_point[0] + 1)  # falsely mark them code
             if n.type == 'comment':
-                for r in range(n.start_point[0], n.end_point[0] + 1):
-                    rows.add(r)
-        return rows
+                comment_rows.update(rows)
+            else:
+                code_rows.update(rows)
+        return comment_rows - code_rows
 
     @staticmethod
     def _preamble_start(start_row, comment_rows, lines):

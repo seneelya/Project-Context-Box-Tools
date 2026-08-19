@@ -12,7 +12,7 @@ export interface $constructor<T extends ZodTrait, D = T["_zod"]["def"]> {
 /** A special constant with type `never` */
 export const NEVER: never = /*@__PURE__*/ Object.freeze({
   status: "aborted",
-}) as never;
+}) as never;   // trailing comment — must NOT glue onto $constructor below (BUG #1 regression)
 
 export /*@__NO_SIDE_EFFECTS__*/ function $constructor<T extends ZodTrait, D = T["_zod"]["def"]>(
   name: string,
