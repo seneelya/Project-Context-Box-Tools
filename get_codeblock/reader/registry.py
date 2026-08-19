@@ -1,0 +1,59 @@
+"""Единый реестр ридера: расширение → (Backend, Spec). ОДИН вход (Vision03).
+
+Заменяет собой размазанную диспетчеризацию (lang_map ×3 в core.py, get_handler,
+_spec_for_ext). Пока только tree-sitter-языки; новый язык = одна запись здесь,
+новый backend (docx/pdf) = ветка на другой Backend-класс.
+"""
+
+from .backends.treesitter import TSBackend, TreeSitterSpec
+
+
+def _load_python_language():
+    import tree_sitter_python
+    from tree_sitter import Language
+    return Language(tree_sitter_python.language())
+
+
+def _py_ts_spec():
+    from ..handlers._treesitter_blocks import LangSpec
+    return LangSpec(
+        "Python(ts)", _load_python_language,
+        body_types={'block'},
+        transparent_parents=set(),
+        named_def={'function_definition', 'class_definition'},
+        container=set(),
+        control={'if_statement', 'for_statement', 'while_statement',
+                 'with_statement', 'try_statement', 'match_statement'},
+        scope_body='block',
+    )
+
+
+def _langspec_for_ext(ext):
+    """Существующий LangSpec под расширение (переиспользуем движковые SPEC-и)."""
+    ext = ext.lower()
+    if ext == '.py':
+        return _py_ts_spec()
+    if ext in ('.cpp', '.cc', '.cxx', '.hpp', '.h', '.hh', '.c'):
+        from ..handlers.cpp_handler import CPP_SPEC
+        return CPP_SPEC
+    if ext in ('.ts', '.js'):
+        from ..handlers.typescript_handler import TS_SPEC
+        return TS_SPEC
+    if ext in ('.tsx', '.jsx'):
+        from ..handlers.typescript_handler import TSX_SPEC
+        return TSX_SPEC
+    if ext == '.cs':
+        from ..handlers.csharp_handler import CS_SPEC
+        return CS_SPEC
+    if ext in ('.scss', '.sass', '.css'):
+        from ..handlers.css_handler import CSS_SPEC
+        return CSS_SPEC
+    return None
+
+
+def resolve(ext):
+    """(Backend, Spec) под расширение, или ValueError."""
+    ls = _langspec_for_ext(ext)
+    if ls is None:
+        raise ValueError(f"reader: формат {ext} пока не поддержан")
+    return TSBackend(ls), TreeSitterSpec(ls)
