@@ -175,17 +175,33 @@ def _is_focus_block(spec, node):
     return spec.unwrap_def(node) is not None or spec.unwrap_frame(node) is not None
 
 
+def _owning_block(spec, children, line):
+    """Focus-блок среди `children`, которому принадлежит `line` — С УЧЁТОМ ПРЕАМБУЛЫ:
+    если строка попала на doc/коммент прямо над блоком (только комменты/пусто между),
+    она принадлежит этому блоку (как в склейке). Иначе — блок, чей диапазон её содержит."""
+    pre = None   # начало непрерывного коммент-рана перед текущим focus-блоком
+    for ch in children:
+        s, e = ch.start_row + 1, ch.end_row + 1
+        if _is_focus_block(spec, ch):
+            lo = pre if pre is not None else s     # диапазон + его преамбула
+            if lo <= line <= e:
+                return ch
+            pre = None
+        elif ch.type == 'comment':
+            if pre is None:
+                pre = s                            # старт коммент-рана (преамбула следующего блока)
+        else:
+            pre = None                             # код рвёт преамбулу
+    return None
+
+
 def _containing_chain(root, spec, line):
     """Цепочка объемлющих ИМЕНОВАННЫХ блоков строки `line`, внешний→внутренний. Спуск по
     reader-дереву (корректно, в отличие от старого get_blocks). Backend-agnostic."""
     chain, cur, guard = [], root, 0
     while guard < 512:
         guard += 1
-        nxt = None
-        for child in cur.children():
-            if child.start_row + 1 <= line <= child.end_row + 1 and _is_focus_block(spec, child):
-                nxt = child
-                break
+        nxt = _owning_block(spec, cur.children(), line)
         if nxt is None:
             break
         chain.append(nxt)
