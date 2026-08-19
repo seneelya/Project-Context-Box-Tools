@@ -34,9 +34,11 @@ def _python_backend_spec():
         import tree_sitter_python  # noqa: F401
     except ImportError:
         import sys
-        print("[!] tree_sitter_python не установлен - .0 для Python идёт через stdlib ast "
-              "(НЕПОЛНО: без ~comment-полос, декоратор схлопнут).\n"
-              "    Полный режим:  pip install tree_sitter_python",
+        print("[fallback mode] Full analysis is unavailable: tree_sitter_python is not "
+              "installed, so this Python file is parsed with the stdlib `ast` backend. "
+              "In this reduced mode, comments and file-level blocks are not tracked. "
+              "To enable full analysis, install the tree-sitter engine and its Python "
+              "grammar:  pip install tree-sitter tree_sitter_python",
               file=sys.stderr)
         from .backends.python_ast import PythonAstBackend, PythonAstSpec
         return PythonAstBackend(), PythonAstSpec()
