@@ -83,10 +83,20 @@ class DotEntry:
         self.children = []          # вложенная классификация (frame-всплытие / drill)
 
 
+# Прозрачные рамки, которых НЕТ в общих SPEC (их менять нельзя — на них завязан
+# рабочий outline/query). Классификатор знает про них локально. Ключ = spec.name.
+_EXTRA_FRAME_TYPES = {
+    'TypeScript': {'internal_module', 'module'},          # namespace X {} / module X {}
+    'TypeScript (TSX)': {'internal_module', 'module'},
+    'C/C++': {'preproc_ifdef', 'preproc_if'},             # include-guard / #if оборачивает объявления
+}
+
+
 class DotClassifier:
     def __init__(self, spec, source_bytes):
         self.spec = spec
         self.src = source_bytes
+        self.frame_types = spec.transparent_parents | _EXTRA_FRAME_TYPES.get(spec.name, set())
 
     # -- helpers ----------------------------------------------------------
 
@@ -115,7 +125,13 @@ class DotClassifier:
         включает декоратор для decorated_definition. Надёжнее выбора одного
         `name`-поля (в C++ имя функции спрятано в declarator)."""
         body = self._body_of(node)
-        cut = body.start_byte if body is not None else self._def_node(node).end_byte
+        if body is not None:
+            cut = body.start_byte
+        else:
+            # нет body-узла (inline-рамка #ifndef, однострочный record/enum): берём
+            # только первую физическую строку, чтобы не всосать весь блок в лейбл.
+            nl = self.src.find(b'\n', node.start_byte, node.end_byte)
+            cut = nl if nl != -1 else self._def_node(node).end_byte
         txt = self.src[node.start_byte:cut].decode('utf-8', 'replace')
         return " ".join(txt.split()).rstrip('{').rstrip(':').rstrip()
 
@@ -128,8 +144,19 @@ class DotClassifier:
                 return c
         return None
 
+    def _frame_node(self, node):
+        """Прозрачная рамка, если node ЕЮ является или ОБОРАЧИВАЕТ её одним уровнем.
+        tree-sitter оборачивает bare TS `namespace X {}` в expression_statement →
+        internal_module — разворачиваем так же, как обёртку над определением."""
+        if node.type in self.frame_types:
+            return node
+        for c in node.named_children:
+            if c.type in self.frame_types:
+                return c
+        return None
+
     def _role(self, node):
-        if node.type in self.spec.transparent_parents:   # рамка проверяется первой
+        if self._frame_node(node) is not None:           # рамка проверяется первой
             return 'frame'
         if self._inner_def(node) is not None:            # определение или обёртка над ним
             return 'landmark'
@@ -176,11 +203,15 @@ class DotClassifier:
             flush()
 
             if role == 'frame':
-                entry = DotEntry('frame', child.type, s, e, level,
-                                 name=self._header(child))
-                body = self._body_of(child)
-                if body is not None:                    # дети рамки ВСПЛЫВАЮТ: тот же level
-                    entry.children = self.classify(body, level, depth)
+                fnode = self._frame_node(child)          # разворачиваем обёртку до рамки
+                entry = DotEntry('frame', fnode.type, s, e, level,
+                                 name=self._header(fnode))
+                # Дети рамки ВСПЛЫВАЮТ: тот же level. У namespace тело — declaration_list
+                # (body_type). У inline-рамок (#ifndef-гард) тела-узла нет — объявления
+                # лежат прямыми детьми самой рамки, разворачиваем их.
+                body = self._body_of(fnode)
+                scope = body if body is not None else fnode
+                entry.children = self.classify(scope, level, depth)
                 out.append(entry)
             else:  # landmark
                 entry = DotEntry('landmark', self._def_node(child).type, s, e, level,
