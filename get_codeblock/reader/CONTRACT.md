@@ -10,20 +10,24 @@
 ```mermaid
 flowchart LR
   F["file (.py .ts .md …)"] --> R["Reader · registry.resolve(ext)"]
-  R -->|code| TS["tree-sitter backend<br/>(LangSpec)"]
-  R -->|.md| MD["markdown backend"]
+  R --> P["PROFILE (плагин языка)<br/>profiles/&lt;lang&gt;.py"]
+  P -->|backend| TS["tree-sitter backend<br/>(core1)"]
+  R -->|.md| MD["markdown backend<br/>(core2)"]
   R -->|.py без грамматики| AST["python ast backend<br/>(фолбек)"]
   TS --> N["RNode<br/>(адаптер узла)"]
   MD --> N
   AST --> N
-  N --> C["Classifier + Spec<br/>(роли landmark/filler/frame)"]
+  P -->|"role/name/label"| SP["Spec-движок"]
+  N --> C["Classifier (backend-agnostic)"]
+  SP -. "промоушен + label(band)" .-> C
   C --> IR["IR: дерево Block"]
   IR --> OUT["render · outline · query · .0"]
-  IR -. "опц." .-> AN["Analyzer<br/>→ block.description"]
+  IR -. "опц., пост-IR" .-> AN["Analyzer<br/>→ block.description"]
   AN -. "смысл" .-> OUT
 ```
 
-Backend/Spec — единственное языко/формато-зависимое место. Всё правее IR — общее.
+Профиль (backend + Spec-правила) — единственное языко/формато-зависимое место. Общее (`label(band)`
+в `label.py`, классификатор, рендеры) правее — backend-agnostic.
 
 ## Карта файлов
 
@@ -31,9 +35,15 @@ Backend/Spec — единственное языко/формато-зависи
 ir.py         — Block (IR: то, что потребляют рендеры) + Role + description(для Analyzer)
 protocol.py   — контракты: RNode, Backend, Spec, Analyzer
 registry.py   — resolve(ext) → (Backend, Spec)   ← ЕДИНЫЙ вход
+profiles/     — плагины языков (Vision03), по файлу на язык:
+  base.py       — TSProfile (данные плагина: langspec + extra_frames + binders)
+  typescript.py, cpp.py, csharp.py, css.py, python.py — сами профили
+  presets.py    — общие наборы (HUMAN_KIND/IMPORT_KINDS/…), чтобы C-подобные не копипастить
+  __init__.py   — ts_profile_for_ext(ext) → профиль
 backends/
-  treesitter.py — core1: TSNode-адаптер + TSBackend + TreeSitterSpec (обёртка LangSpec)
+  treesitter.py — core1: TSNode-адаптер + TSBackend + TreeSitterSpec (движок над профилем)
   markdown.py   — core2: свой разбор заголовков, БЕЗ tree-sitter (образец не-TS кора)
+label.py      — backend-agnostic лейблер filler-полосы: band → список имён (оглавление)
 classify.py   — backend-agnostic .0-классификатор + render + CLI
 ```
 
@@ -43,7 +53,9 @@ classify.py   — backend-agnostic .0-классификатор + render + CLI
   `field(name)`. Минимум, который нужен классификатору. (`protocol.py`)
 - **Backend** — парсер: `root(source: bytes) → RNode`. (`protocol.py`)
 - **Spec** — декоратор формата/языка, ВЕСЬ языкозависимый нюанс: `role/name/body/unwrap_frame/
-  unwrap_def/filler_kind`. (`protocol.py`)
+  unwrap_def/filler_kind` (+ опц. `filler_label(nodes)` — заголовок-оглавление полосы). (`protocol.py`)
+- **Profile** *(tree-sitter)* — плагин языка (`profiles/<lang>.py`): данными задаёт backend (LangSpec) +
+  надстройки (`extra_frames`, binder/value-типы промоушена). `TreeSitterSpec` — тонкий движок над ним.
 - **Analyzer** *(опционально)* — семантический пост-проход: `describe(block, source) → str|None`,
   кладёт смысл в `block.description`. (`protocol.py`)
 - **IR = Block** — `role {landmark|filler|frame}`, `kind`, `name`, `start/end` (1-based, end incl.),
@@ -70,23 +82,32 @@ classify.py   — backend-agnostic .0-классификатор + render + CLI
    `role/range/children`.
 4. **Analyzer опционален и чист.** Его отсутствие/падение не ломает пайплайн.
 5. **Общие `LangSpec` (в `handlers/`) не менять** — на них завязан рабочий outline/query (оракул
-   88/88). Языковые «добавки» ридера держать локально (см. `_EXTRA_FRAME_TYPES` в `treesitter.py`).
+   88/88). Языковые «добавки» ридера держать в профиле (`profiles/<lang>.py`: `extra_frames`, binders).
 
 ## Рецепт A — новый язык на tree-sitter
 
-Одна запись в `registry._langspec_for_ext`. Если грамматика новая — `LangSpec` с наборами node-типов
-(`named_def` → landmark, `transparent_parents`/локальные extra → frame, `body_types` → тело). Backend,
-Spec, classify, рендер — НЕ трогаем.
+Новый файл-профиль `profiles/<lang>.py` + одна строка в `profiles/__init__.py`. Профиль несёт
+`LangSpec` (наборы node-типов: `named_def`→landmark, `transparent_parents`/`extra_frames`→frame,
+`body_types`→тело) и, при нужде, binder/value-типы промоушена. Движок, classify, рендер, `label.py`
+— НЕ трогаем. Общие label-наборы (если правило делит несколько языков) — в `profiles/presets.py`.
 
 ```python
-# registry.py, внутри _langspec_for_ext
-if ext == '.rs':
-    from ..handlers._treesitter_blocks import LangSpec
-    return LangSpec("Rust", _load_rust, body_types={'block','declaration_list'},
-                    transparent_parents={'mod_item'}, named_def={'function_item','struct_item',
-                    'enum_item','impl_item','trait_item'}, container={'mod_item'},
-                    control={'if_expression','for_expression','while_expression','match_expression'},
-                    scope_body='block')
+# profiles/rust.py
+from ..handlers._treesitter_blocks import LangSpec
+from .base import TSProfile
+
+def _load_rust():
+    import tree_sitter_rust
+    from tree_sitter import Language
+    return Language(tree_sitter_rust.language())
+
+RUST = TSProfile(LangSpec("Rust", _load_rust, body_types={'block','declaration_list'},
+    transparent_parents={'mod_item'}, named_def={'function_item','struct_item','enum_item',
+    'impl_item','trait_item'}, container={'mod_item'},
+    control={'if_expression','for_expression','while_expression','match_expression'},
+    scope_body='block'))
+
+# profiles/__init__.py:  if ext == '.rs': from .rust import RUST; return RUST
 ```
 
 ## Рецепт B — новый backend (не tree-sitter: plain-text, docx, pdf…)
