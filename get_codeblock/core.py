@@ -420,32 +420,23 @@ def main():
                   "--ancestor-level N = N up from here (0=this block, 1=parent) · "
                   "--level N = absolute depth from top · --query = its text.\033[0m")
 
-    # --dot: reader .0 универсальная карта (IR) — landmark по имени + filler-полосы +
-    # frames со всплытием. --depth N раскрывает тела landmark-ов на N уровней глубже.
-    # Единый механизм на все backend'ы (код через tree-sitter, markdown и т.д.).
-    if args.get('dot'):
-        from get_codeblock.reader.classify import render
-        blocks = handler.classify(depth=args.get('depth', 0))
-        emit(c(f".0 map - depth {args.get('depth', 0)}"))
-        for ln in render(blocks, marker='').splitlines():
-            emit(c(ln))
-        return
-
-    # --outline: the file's structural table of contents (named blocks only).
-    # Default (no --level) = an adaptive OVERVIEW sized to the file so you can poke a
-    # file blind and see its map, not a wall. --level N caps depth EXACTLY (N high =
-    # full). No --line needed. Handlers expose outline() when they support it.
-    if args.get('outline'):
+    # --outline / --dot: единый адаптивный рендер поверх `.0` IR (Vision03).
+    #   --outline — чистая карта: landmark'и вглубь, filler только на уровне файла.
+    #   --dot     — тот же рендер, но filler на ВСЕХ раскрытых уровнях (диагностика).
+    # Глубина адаптивная (по размеру файла); --level N / --depth N — явный потолок.
+    if args.get('outline') or args.get('dot'):
+        deep = bool(args.get('dot'))
+        mode_word = '.0' if deep else 'outline'
         if not hasattr(handler, 'outline'):
             print(f"Error: outline not supported for {language} yet", file=sys.stderr)
             sys.exit(1)
-        # --outline is the map mode; it does not take --line. If both are given the
-        # user meant to inspect a line — say so (stderr, so stdout stays clean).
+        # Map mode does not take --line. If both are given the user meant to inspect a
+        # line — say so (stderr, so stdout stays clean).
         if args.get('line') is not None:
-            print("Note: --outline is the map mode and ignores --line. To inspect a "
-                  "line, drop --outline: `--line N` for block bounds, `--line N --query` "
-                  "for its text.", file=sys.stderr)
-        rows_all = handler.outline(lines, max_level=None)
+            print(f"Note: --{mode_word if deep else 'outline'} is the map mode and ignores "
+                  "--line. To inspect a line, drop it: `--line N` for block bounds, "
+                  "`--line N --query` for its text.", file=sys.stderr)
+        rows_all = handler.outline(lines, max_level=None, deep=deep)
         if not rows_all:
             emit(c("(no structure found)"))
             return
@@ -458,7 +449,9 @@ def main():
         n1, n2 = per_level.get(1, 0), per_level.get(2, 0)
         total_lines = len(lines)
 
-        explicit = args['level'] if args['level'] and args['level'] > 0 else None
+        # Явный потолок: --level N (outline) или --depth N (dot). Иначе адаптив.
+        explicit = (args['level'] if args['level'] and args['level'] > 0 else None) \
+            or (args['depth'] if deep and args.get('depth', 0) > 0 else None)
         if explicit:
             shown = explicit
         else:
@@ -478,16 +471,18 @@ def main():
         # cap; --line/--query are OTHER modes (never combined with --outline).
         if is_tty:
             g, r = "\033[92m", "\033[0m"
-            cap = "--level N caps depth (raise N for the full tree)" if shown < depth \
-                  else "--level N caps depth"
-            print(f"{g}outline (map) mode · {cap}{r}")
-            print(f"{g}to read code, drop --outline: `--line N` = block bounds at a line "
+            capflag = "--depth N" if deep else "--level N"
+            cap = f"{capflag} caps depth (raise N for the full tree)" if shown < depth \
+                  else f"{capflag} caps depth"
+            kind = ".0 map (all levels: named + filler)" if deep else "outline (map) mode"
+            print(f"{g}{kind} · {cap}{r}")
+            print(f"{g}to read code, drop the map flag: `--line N` = block bounds at a line "
                   f"· `--line N --query` = that block's text{r}")
 
         # Header: total depth + per-level tally + what is shown. This is METADATA
         # (the overview signal) — emitted for every caller, including the API.
         tally = " ".join(f"L{lvl}={per_level[lvl]}" for lvl in sorted(per_level))
-        emit(c(f"outline — depth {depth}"
+        emit(c(f"{mode_word} — depth {depth}"
                + (f", {tally}" if tally else "")
                + f", showing 1..{min(shown, depth)}"))
 

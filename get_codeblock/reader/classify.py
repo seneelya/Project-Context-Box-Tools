@@ -86,15 +86,17 @@ def classify_file(path, depth=0):
 _OUTLINE_FULL_DEPTH = 64   # раскрыть landmark'и до конца; отображение режет адаптив core.py
 
 
-def outline_rows(path):
+def outline_rows(path, deep=False):
     """Unified-outline (Vision03): `.0`-строки для адаптивного outline в core.py.
-    Landmark'и раскрыты вглубь, filler — только на уровне файла. Строки несут флаги
-    frame/filler (обе рисуются точкой; в подсчёт глубины/тэлли идут только landmark'и).
+    Landmark'и раскрыты вглубь. deep=False (`--outline`) — filler только на уровне файла;
+    deep=True (диагностический `--dot`) — filler на ВСЕХ раскрытых уровнях. Строки несут
+    флаги frame/filler (обе рисуются точкой; в подсчёт глубины/тэлли идут только landmark'и).
     Формат строки совпадает со старым handler.outline: {level,start,end,text,frame}."""
     backend, spec = resolve(os.path.splitext(path)[1])
     with open(path, 'rb') as f:
         root = backend.root(f.read())
-    tree = Classifier(spec).classify(root, level=1, depth=_OUTLINE_FULL_DEPTH, top_filler_only=True)
+    tree = Classifier(spec).classify(root, level=1, depth=_OUTLINE_FULL_DEPTH,
+                                     top_filler_only=not deep)
     rows = []
 
     def walk(items):
