@@ -42,6 +42,8 @@ def parse_args():
     query = False  # flag, no value needed
     outline = False  # flag: print the file's structural outline (no --line needed)
     numbered = False  # flag: prefix --query code lines with absolute line numbers
+    dot = False  # flag: reader .0 universal map (IR: landmarks + filler-полосы + frames)
+    depth = 0    # for --dot: how many landmark levels to expand
     project_root = default_root
 
     i = 0
@@ -73,6 +75,16 @@ def parse_args():
         elif token == '--outline':
             outline = True
             i += 1
+        elif token == '--dot':
+            dot = True
+            i += 1
+        elif token == '--depth' and i + 1 < len(tokens):
+            try:
+                depth = int(tokens[i + 1])
+            except ValueError:
+                print("Error: --depth requires an integer value", file=sys.stderr)
+                sys.exit(1)
+            i += 2
         elif token == '--numbered':
             numbered = True
             i += 1
@@ -110,6 +122,8 @@ def parse_args():
             print("  --outline           Print the structural map (named blocks only). No --line")
             print("                      needed. Default mode when --file is given alone. Bare = an")
             print("                      overview sized to the file; --level N caps depth (high N = all).")
+            print("  --dot [--depth N]   Universal .0 map (reader): named landmarks + filler bands +")
+            print("                      frames. Works on code AND markdown. --depth N expands N levels.")
             print("  --line N            Target line number (1-based). Returns the block(s) at that line.")
             print("  --ancestor-level N  Which block at --line: N ancestors up. 0 = the innermost block")
             print("                      itself (default), 1 = its parent, 2 = grandparent, ...")
@@ -142,7 +156,7 @@ def parse_args():
     # --file alone (no --line, no --outline) defaults to --outline: it's the primary
     # discovery mode, and requiring the flag explicitly here would be pure friction.
     # The flag itself still works and stays documented for explicit use.
-    if file_path and line_num is None and not outline:
+    if file_path and line_num is None and not outline and not dot:
         outline = True
 
     # No arguments or missing required ones: show usage hint
@@ -158,9 +172,9 @@ def parse_args():
             print(f"PROJECT_ROOT={default_root}")
         sys.exit(0)
 
-    # --outline needs only --file; every other mode needs --file and --line
-    if not file_path or (line_num is None and not outline):
-        need = "--file" if outline else "--file, --line"
+    # --outline / --dot need only --file; every other mode needs --file and --line
+    if not file_path or (line_num is None and not outline and not dot):
+        need = "--file" if (outline or dot) else "--file, --line"
         print(f"Error: the following arguments are required: {need}", file=sys.stderr)
         sys.exit(1)
 
@@ -171,6 +185,8 @@ def parse_args():
         'query': query,
         'outline': outline,
         'numbered': numbered,
+        'dot': dot,
+        'depth': depth,
         'project_root': project_root
     }, config
 
@@ -395,6 +411,17 @@ def main():
             print("\033[92m'Block level: K' = real depth (1=file top, deeper=higher). Pick a block: "
                   "--ancestor-level N = N up from here (0=this block, 1=parent) · "
                   "--level N = absolute depth from top · --query = its text.\033[0m")
+
+    # --dot: reader .0 универсальная карта (IR) — landmark по имени + filler-полосы +
+    # frames со всплытием. --depth N раскрывает тела landmark-ов на N уровней глубже.
+    # Единый механизм на все backend'ы (код через tree-sitter, markdown и т.д.).
+    if args.get('dot'):
+        from get_codeblock.reader.classify import render
+        blocks = handler.classify(depth=args.get('depth', 0))
+        emit(c(f".0 map — depth {args.get('depth', 0)}"))
+        for ln in render(blocks, marker='').splitlines():
+            emit(c(ln))
+        return
 
     # --outline: the file's structural table of contents (named blocks only).
     # Default (no --level) = an adaptive OVERVIEW sized to the file so you can poke a
