@@ -44,13 +44,13 @@ class Reader:
 
     # -- проверенные режимы: делегация хендлеру (drop-in-сигнатуры) --------
 
-    def outline(self, lines, max_level=None, deep=False):
+    def outline(self, lines, max_level=None, deep=False, focus_line=None, focus_level=0):
         """Unified-outline (Vision03): `.0`-карта (landmark'и вглубь), а НЕ делегация
         старому хендлеру. Адаптивную глубину режет core.py. deep=True (диагностический
         `--dot`) — filler на ВСЕХ раскрытых уровнях; deep=False (`--outline`) — только
-        на уровне файла."""
+        на уровне файла. focus_line задан — карта только блока-цели (K=focus_level предок)."""
         from .classify import outline_rows
-        rows = outline_rows(self.path, deep=deep)
+        rows = outline_rows(self.path, deep=deep, focus_line=focus_line, focus_level=focus_level)
         if max_level:
             rows = [r for r in rows if r['level'] <= max_level]
         return rows

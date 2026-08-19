@@ -170,17 +170,80 @@ def classify_file(path, depth=0):
 _OUTLINE_FULL_DEPTH = 64   # раскрыть landmark'и до конца; отображение режет адаптив core.py
 
 
-def outline_rows(path, deep=False):
+def _is_focus_block(spec, node):
+    """Узел-цель для фокуса = именованный блок (landmark) или прозрачная рамка."""
+    return spec.unwrap_def(node) is not None or spec.unwrap_frame(node) is not None
+
+
+def _containing_chain(root, spec, line):
+    """Цепочка объемлющих ИМЕНОВАННЫХ блоков строки `line`, внешний→внутренний. Спуск по
+    reader-дереву (корректно, в отличие от старого get_blocks). Backend-agnostic."""
+    chain, cur, guard = [], root, 0
+    while guard < 512:
+        guard += 1
+        nxt = None
+        for child in cur.children():
+            if child.start_row + 1 <= line <= child.end_row + 1 and _is_focus_block(spec, child):
+                nxt = child
+                break
+        if nxt is None:
+            break
+        chain.append(nxt)
+        body = spec.body(nxt)
+        if body is None:
+            break
+        cur = body
+    return chain
+
+
+def _pick_focus(chain, level):
+    """Выбор цели из цепочки по --level (как core.resolve): 0=внутренний, +1=верхний (от файла),
+    -N=на N вверх от внутреннего."""
+    if not chain:
+        return None
+    if level == 0:
+        return chain[-1]
+    if level < 0:
+        idx = len(chain) - 1 + level
+        return chain[0] if idx < 0 else chain[idx]
+    return chain[min(level - 1, len(chain) - 1)]
+
+
+def _focus_head(spec, node):
+    """Block-заголовок цели на уровне 1 (как будто она одна в файле)."""
+    frame = spec.unwrap_frame(node)
+    s, e = node.start_row + 1, node.end_row + 1
+    if frame is not None:
+        return Block(Role.FRAME, frame.type, s, e, 1, name=spec.name(frame))
+    return Block(Role.LANDMARK, spec.unwrap_def(node).type, s, e, 1, name=spec.name(node))
+
+
+def outline_rows(path, deep=False, focus_line=None, focus_level=0):
     """Unified-outline (Vision03): `.0`-строки для адаптивного outline в core.py.
     Landmark'и раскрыты вглубь. deep=False (`--outline`) — filler только на уровне файла;
     deep=True (диагностический `--dot`) — filler на ВСЕХ раскрытых уровнях. Строки несут
     флаги frame/filler (обе рисуются точкой; в подсчёт глубины/тэлли идут только landmark'и).
-    Формат строки совпадает со старым handler.outline: {level,start,end,text,frame}."""
+    Формат строки совпадает со старым handler.outline: {level,start,end,text,frame}.
+
+    focus_line задан → карта ТОЛЬКО блока-цели (K-предок строки, K=focus_level): цель на
+    уровне 1, её тело — вглубь. Решает монстро-классы: развернуть один блок как отдельный файл."""
     backend, spec = resolve(os.path.splitext(path)[1])
     with open(path, 'rb') as f:
         root = backend.root(f.read())
-    tree = Classifier(spec).classify(root, level=1, depth=_OUTLINE_FULL_DEPTH,
-                                     top_filler_only=not deep)
+    clf = Classifier(spec)
+    if focus_line is not None:
+        target = _pick_focus(_containing_chain(root, spec, focus_line), focus_level)
+        if target is None:
+            tree = []
+        else:
+            head = _focus_head(spec, target)
+            body = spec.body(target)
+            if body is not None:
+                head.children = clf.classify(body, level=2, depth=_OUTLINE_FULL_DEPTH,
+                                             top_filler_only=not deep)
+            tree = [head]
+    else:
+        tree = clf.classify(root, level=1, depth=_OUTLINE_FULL_DEPTH, top_filler_only=not deep)
     rows = []
 
     def walk(items):

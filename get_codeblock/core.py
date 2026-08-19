@@ -431,14 +431,17 @@ def main():
             print(f"Error: outline not supported for {language} yet", file=sys.stderr)
             sys.exit(1)
         # Map mode does not take --line. If both are given the user meant to inspect a
-        # line — say so (stderr, so stdout stays clean).
-        if args.get('line') is not None:
-            print(f"Note: --{mode_word if deep else 'outline'} is the map mode and ignores "
-                  "--line. To inspect a line, drop it: `--line N` for block bounds, "
-                  "`--line N --query` for its text.", file=sys.stderr)
-        rows_all = handler.outline(lines, max_level=None, deep=deep)
+        # line — карта ТОЛЬКО блока-цели: K-предок строки (K=--level, по умолч. внутренний).
+        # Решает монстро-файлы/классы: развернуть один блок как отдельный файл, рекурсивно.
+        focus_line = args.get('line')
+        focus_level = args.get('level') or 0
+        if focus_line is not None and (focus_line < 1 or focus_line > len(lines)):
+            print(f"Error: Line {focus_line} out of range (1-{len(lines)})", file=sys.stderr)
+            sys.exit(1)
+        rows_all = handler.outline(lines, max_level=None, deep=deep,
+                                   focus_line=focus_line, focus_level=focus_level)
         if not rows_all:
-            emit(c("(no structure found)"))
+            emit(c("(no block found at that line)" if focus_line else "(no structure found)"))
             return
 
         depth = max((r['level'] for r in rows_all if not r.get('filler')), default=1)
@@ -450,8 +453,10 @@ def main():
         total_lines = len(lines)
 
         # Явный потолок: --level N (outline) или --depth N (dot). Иначе адаптив.
-        explicit = (args['level'] if args['level'] and args['level'] > 0 else None) \
-            or (args['depth'] if deep and args.get('depth', 0) > 0 else None)
+        # В фокус-режиме --level = предок цели (не потолок глубины) → адаптив.
+        explicit = None if focus_line else (
+            (args['level'] if args['level'] and args['level'] > 0 else None)
+            or (args['depth'] if deep and args.get('depth', 0) > 0 else None))
         if explicit:
             shown = explicit
         else:
@@ -482,7 +487,8 @@ def main():
         # Header: total depth + per-level tally + what is shown. This is METADATA
         # (the overview signal) — emitted for every caller, including the API.
         tally = " ".join(f"L{lvl}={per_level[lvl]}" for lvl in sorted(per_level))
-        emit(c(f"{mode_word} — depth {depth}"
+        focus_tag = f"focus line {focus_line} " if focus_line else ""
+        emit(c(f"{mode_word} — {focus_tag}depth {depth}"
                + (f", {tally}" if tally else "")
                + f", showing 1..{min(shown, depth)}"))
 
