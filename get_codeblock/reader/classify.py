@@ -73,27 +73,34 @@ def classify_file(path, depth=0):
 
 
 def render(blocks, marker='#'):
-    lines = []
+    """Метка уровня: frame — точка вплотную (`.`), landmark — номер уровня с ведущим
+    пробелом (` 1`), filler — пусто. Вложенность — отступом. Диапазоны выровнены."""
+    flat = []
 
     def walk(items, indent):
         pad = '  ' * indent
         for b in items:
-            rng = f"[{b.start}-{b.end}]"
-            if b.role is Role.LANDMARK:
-                body = f"L{b.level}  {rng:>10}  {b.name}"
-            elif b.role is Role.FRAME:
-                body = f".   {rng:>10}  {b.name}"
+            if b.role is Role.FRAME:
+                sym, content = pad + '.', b.name
+            elif b.role is Role.LANDMARK:
+                sym, content = pad + ' ' + str(b.level), b.name
             else:
-                tag = f"~{b.kind}" + (f" x{b.count}" if b.count > 1 else "")
-                body = f"    {rng:>10}  {tag}"
-            if b.description:                       # обогащение от Analyzer, если было
-                body += f"   « {b.description} »"
-            lines.append(f"{marker}{pad}{body}")
+                sym = pad
+                content = '~' + b.kind + (f' x{b.count}' if b.count > 1 else '')
+            flat.append((sym, b.start, b.end, content, b.description))
             if b.children:
                 walk(b.children, indent + 1)
 
     walk(blocks, 0)
-    return "\n".join(lines)
+    symw = max((len(r[0]) for r in flat), default=0)
+    out = []
+    for sym, s, e, content, desc in flat:
+        rng = f"[{s}-{e}]"
+        line = f"{marker}{sym.ljust(symw)}  {rng:>10}  {content}"
+        if desc:                                    # обогащение от Analyzer, если было
+            line += f"  -- {desc}"
+        out.append(line)
+    return "\n".join(out)
 
 
 def main():

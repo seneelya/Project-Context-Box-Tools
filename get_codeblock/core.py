@@ -426,7 +426,7 @@ def main():
     if args.get('dot'):
         from get_codeblock.reader.classify import render
         blocks = handler.classify(depth=args.get('depth', 0))
-        emit(c(f".0 map — depth {args.get('depth', 0)}"))
+        emit(c(f".0 map - depth {args.get('depth', 0)}"))
         for ln in render(blocks, marker='').splitlines():
             emit(c(ln))
         return
