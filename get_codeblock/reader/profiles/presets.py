@@ -16,6 +16,7 @@ HUMAN_KIND = {
     'lexical_declaration': 'const', 'variable_declaration': 'const',
     'using_directive': 'imports', 'import_declaration': 'imports',
     'preproc_include': 'includes', 'export_statement': 'export',
+    'declaration': 'decl', 'field_declaration': 'field',
 }
 
 # узлы, чей заголовок = список имён импортируемых модулей
@@ -26,14 +27,15 @@ IMPORT_KINDS = {
 }
 
 # узлы-обёртки, внутри которых сидит привязка имени (NAME = value / const NAME = … /
-# export const NAME = …). def/class/arrow сюда НЕ попадают — они landmark'и (unwrap_def).
+# export const NAME = … / C++ `int NAME = …;`). def/class/arrow сюда НЕ попадают — они landmark'и.
 ASSIGN_WRAPPERS = {
     'expression_statement', 'lexical_declaration', 'variable_declaration',
-    'export_statement', 'Assign', 'AnnAssign',
+    'export_statement', 'declaration', 'field_declaration', 'Assign', 'AnnAssign',
 }
 
-# узлы-привязки и их поле-цель (имя слева от `=`)
-BINDER_TYPES = ('assignment', 'augmented_assignment', 'variable_declarator')
+# узлы-привязки и их поле-цель (имя слева от `=` / declarator у C/C++)
+BINDER_TYPES = ('assignment', 'augmented_assignment', 'variable_declarator',
+                'init_declarator', 'function_declarator')
 
 # узлы, которые сами ЯВЛЯЮТСЯ именем (для fallback-поиска И отсева токена-имени рамки)
 NAME_TYPES = ('identifier', 'dotted_name', 'scoped_identifier', 'type_identifier',

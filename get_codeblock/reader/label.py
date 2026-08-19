@@ -50,7 +50,7 @@ def _binding_target(node):
     while stack:
         n, d = stack.pop(0)
         if n.type in BINDER_TYPES:
-            return n.field('left') or n.field('name')
+            return n.field('left') or n.field('name') or n.field('declarator')
         if d <= 2:
             for c in n.children():
                 stack.append((c, d + 1))
