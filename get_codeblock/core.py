@@ -444,12 +444,16 @@ def main():
             emit(c("(no block found at that line)" if focus_line else "(no structure found)"))
             return
 
-        depth = max((r['level'] for r in rows_all if not r.get('filler')), default=1)
         per_level = {}                      # frames/filler ('.') excluded from the tally
         for r in rows_all:
             if not r.get('frame') and not r.get('filler'):
                 per_level[r['level']] = per_level.get(r['level'], 0) + 1
-        n1, n2 = per_level.get(1, 0), per_level.get(2, 0)
+        # Базовый уровень = РЕАЛЬНАЯ глубина корня карты: 1 для файла, глубже — в фокусе
+        # (напр. метод на глубине 2). Адаптив/хедер считаем ОТ него, а не от жёсткого 1.
+        base_level = min(per_level) if per_level else 1
+        depth = max((r['level'] for r in rows_all if not r.get('filler')), default=base_level)
+        nb = per_level.get(base_level, 0)          # «вершины» на базовом уровне
+        nb1 = per_level.get(base_level + 1, 0)     # следующий уровень
         total_lines = len(lines)
 
         # Явный потолок: --level N (outline) или --depth N (dot). Иначе адаптив.
@@ -460,13 +464,13 @@ def main():
         if explicit:
             shown = explicit
         else:
-            # Overview depth from the file's own size. Show level 2 only when the map
-            # stays a small fraction of the file (<=PCT) AND fits a hard row budget
-            # (<=MAX_ROWS). But with very few tops (<=TINY_TOPS) the tops alone say
-            # almost nothing, so expand anyway — the members ARE the map. Never past 2.
+            # Overview depth from the map's own size. Expand ONE level past base only when
+            # the map stays a small fraction of the file (<=PCT) AND fits a row budget
+            # (<=MAX_ROWS). With very few tops (<=TINY_TOPS) the tops say almost nothing —
+            # expand anyway (the members ARE the map). Relative to base_level, not hard 1/2.
             OUTLINE_PCT, OUTLINE_MAX_ROWS, OUTLINE_TINY_TOPS = 0.15, 40, 2
-            fits = (n1 + n2) <= OUTLINE_PCT * total_lines and (n1 + n2) <= OUTLINE_MAX_ROWS
-            shown = 2 if (n2 > 0 and (fits or n1 <= OUTLINE_TINY_TOPS)) else 1
+            fits = (nb + nb1) <= OUTLINE_PCT * total_lines and (nb + nb1) <= OUTLINE_MAX_ROWS
+            shown = (base_level + 1) if (nb1 > 0 and (fits or nb <= OUTLINE_TINY_TOPS)) else base_level
 
         rows = [r for r in rows_all if r['level'] <= shown]
 
@@ -490,7 +494,7 @@ def main():
         focus_tag = f"focus line {focus_line} " if focus_line else ""
         emit(c(f"{mode_word} — {focus_tag}depth {depth}"
                + (f", {tally}" if tally else "")
-               + f", showing 1..{min(shown, depth)}"))
+               + f", showing {base_level}..{min(shown, depth)}"))
 
         # Pad each "<indent><marker>" so ranges line up. Named block = bare level number;
         # unnamed (frame/filler) = '.'+level ('.3' = «уровень 3, без имени»), чтобы глубина

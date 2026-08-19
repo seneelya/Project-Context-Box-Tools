@@ -209,13 +209,14 @@ def _pick_focus(chain, level):
     return chain[min(level - 1, len(chain) - 1)]
 
 
-def _focus_head(spec, node):
-    """Block-заголовок цели на уровне 1 (как будто она одна в файле)."""
+def _focus_head(spec, node, level):
+    """Block-заголовок цели на её РЕАЛЬНОЙ файловой глубине `level` (не ре-базируем в 1 —
+    иначе хедер/отступ врут о глубине). Тело раскрывается с level+1."""
     frame = spec.unwrap_frame(node)
     s, e = node.start_row + 1, node.end_row + 1
     if frame is not None:
-        return Block(Role.FRAME, frame.type, s, e, 1, name=spec.name(frame))
-    return Block(Role.LANDMARK, spec.unwrap_def(node).type, s, e, 1, name=spec.name(node))
+        return Block(Role.FRAME, frame.type, s, e, level, name=spec.name(frame))
+    return Block(Role.LANDMARK, spec.unwrap_def(node).type, s, e, level, name=spec.name(node))
 
 
 def outline_rows(path, deep=False, focus_line=None, focus_level=0):
@@ -232,14 +233,16 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
         root = backend.root(f.read())
     clf = Classifier(spec)
     if focus_line is not None:
-        target = _pick_focus(_containing_chain(root, spec, focus_line), focus_level)
+        chain = _containing_chain(root, spec, focus_line)
+        target = _pick_focus(chain, focus_level)
         if target is None:
             tree = []
         else:
-            head = _focus_head(spec, target)
+            base = chain.index(target) + 1     # РЕАЛЬНАЯ глубина цели в файле (не 1)
+            head = _focus_head(spec, target, base)
             body = spec.body(target)
             if body is not None:
-                head.children = clf.classify(body, level=2, depth=_OUTLINE_FULL_DEPTH,
+                head.children = clf.classify(body, level=base + 1, depth=_OUTLINE_FULL_DEPTH,
                                              top_filler_only=not deep)
             tree = [head]
     else:
