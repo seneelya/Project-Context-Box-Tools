@@ -538,20 +538,14 @@ class PythonHandler:
     
     def _build_hierarchy_for_header(self, lines, header_idx):
         """Build full hierarchy of blocks containing the given header, plus the header's own block."""
-        target = header_idx
-        ancestors = []
-        
-        while True:
-            above = find_containing_blocks(lines, target)
-            if not above:
-                break
-            
-            # Take innermost ancestor (last in sorted list)
-            h, end = above[-1]
-            ancestors.append((h, end))
-            target = h - 1
-        
-        ancestors.reverse()
+        # find_containing_blocks already returns ALL strict ancestors (outermost-first).
+        # The old climb (target = h - 1) stepped onto the line ABOVE each ancestor header —
+        # which is usually the previous SIBLING's last line — and wrongly pulled that
+        # sibling (and its predecessors) in as ancestors. On a flat module with many
+        # top-level defs this ballooned the ladder (e.g. `def emit` inside `def main`
+        # reported all 10 preceding top-level funcs as containers). One direct call is
+        # correct and cheap.
+        ancestors = list(find_containing_blocks(lines, header_idx))
 
         # Add the header's own block as innermost level (branch end: a `try`/`if`
         # header's block is its own branch, matching how it reads as an ancestor).
