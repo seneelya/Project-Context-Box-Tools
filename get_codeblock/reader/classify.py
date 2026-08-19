@@ -84,7 +84,7 @@ def render(blocks, marker='#'):
             elif b.role is Role.FRAME:
                 body = f".   {rng:>10}  {b.name}"
             else:
-                tag = f"~{b.kind}" + (f" ×{b.count}" if b.count > 1 else "")
+                tag = f"~{b.kind}" + (f" x{b.count}" if b.count > 1 else "")
                 body = f"    {rng:>10}  {tag}"
             if b.description:                       # обогащение от Analyzer, если было
                 body += f"   « {b.description} »"

@@ -356,6 +356,14 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
 
 
 def main():
+    # Windows-консоль (cp1251/1252) роняет print на не-ASCII (×, кириллица, emoji).
+    # utf-8 + replace: не падаем; на не-utf8 консоли максимум косметический мохито.
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding='utf-8', errors='replace')
+        except Exception:
+            pass
+
     args, config = parse_args()
 
     # Resolve file path: relative paths are joined with --root (or config PROJECT_ROOT)
