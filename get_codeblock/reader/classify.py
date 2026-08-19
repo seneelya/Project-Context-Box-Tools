@@ -11,6 +11,23 @@ from .ir import Block, Role
 from .registry import resolve
 
 
+def _first_comment_line(nodes, cap=60):
+    """Первая физическая строка первого коммента полосы — для подписи блока (преамбула).
+    Обрезаем длинное, ставим '…' если коммент многострочный/многоузловой."""
+    if not nodes:
+        return None
+    raw = nodes[0].text().splitlines()
+    if not raw:
+        return None
+    line = raw[0].strip()
+    if not line:
+        return None
+    multi = len(nodes) > 1 or len(raw) > 1
+    if len(line) > cap:
+        return line[:cap].rstrip() + '…'
+    return line + ' …' if multi else line
+
+
 class Classifier:
     def __init__(self, spec):
         self.spec = spec
@@ -22,21 +39,47 @@ class Classifier:
         top_filler_only=True (режим outline): filler-полосы показываем ТОЛЬКО на
         уровне файла (level==1). Присвоения/комменты внутри подобъектов малоинформативны
         фактом наличия — это данные для --query. Рамки не углубляют, поэтому filler в
-        рамке уровня файла остаётся level==1 и показывается."""
+        рамке уровня файла остаётся level==1 и показывается.
+
+        ПРЕАМБУЛА: comment-полоса ПРЯМО над landmark'ом вливается в него — граница блока
+        поднимается вверх над коммент, отдельной строкой он не показывается, а его первая
+        строка дописывается в подпись блока (информативность для --query). Коммент НЕ над
+        блоком (закомментированный текст) остаётся обычным filler на своём уровне."""
         out = []
-        run = None   # filler-полоса: [kind, start, end, nodes]
+        run = None       # текущая filler-полоса: [kind, start, end, nodes]
+        pending = None   # удержанная comment-полоса (start, end, nodes) — вдруг ниже landmark
+
+        def make_filler(kind, s, e, nodes):
+            if top_filler_only and level > 1:              # outline: filler только на файле
+                return None
+            label = None
+            labeler = getattr(self.spec, 'filler_label', None)   # опц. (Vision03)
+            if labeler is not None:
+                label = labeler(nodes)
+            return Block(Role.FILLER, kind, s, e, level, name=label, count=len(nodes))
+
+        def release_pending():
+            nonlocal pending
+            if pending is not None:
+                blk = make_filler('comment', *pending)     # ниже не блок — коммент как есть
+                if blk is not None:
+                    out.append(blk)
+                pending = None
 
         def flush():
-            nonlocal run
-            if run is not None:
-                kind, s, e, nodes = run
-                if not (top_filler_only and level > 1):   # outline: filler только на файле
-                    label = None
-                    labeler = getattr(self.spec, 'filler_label', None)   # опц. (Vision03)
-                    if labeler is not None:
-                        label = labeler(nodes)
-                    out.append(Block(Role.FILLER, kind, s, e, level, name=label, count=len(nodes)))
-                run = None
+            nonlocal run, pending
+            if run is None:
+                return
+            kind, s, e, nodes = run
+            run = None
+            if kind == 'comment':
+                release_pending()                          # два коммент-бэнда подряд — прежний отдать
+                pending = (s, e, nodes)                     # держим: вдруг ниже landmark
+                return
+            release_pending()                              # не-comment полоса рвёт склейку
+            blk = make_filler(kind, s, e, nodes)
+            if blk is not None:
+                out.append(blk)
 
         for child in scope.children():
             s = child.start_row + 1
@@ -57,6 +100,7 @@ class Classifier:
             flush()
 
             if frame is not None:                         # рамка: дети всплывают (тот же level)
+                release_pending()                         # к рамке не клеим — коммент как есть
                 entry = Block(Role.FRAME, frame.type, s, e, level, name=self.spec.name(frame))
                 body = self.spec.body(frame)
                 scope2 = body if body is not None else frame
@@ -64,6 +108,12 @@ class Classifier:
                 out.append(entry)
             else:                                         # landmark: имя от внешнего узла (с export/deco)
                 entry = Block(Role.LANDMARK, defn.type, s, e, level, name=self.spec.name(child))
+                if pending is not None:                   # ПРЕАМБУЛА: коммент над блоком вливается
+                    entry.start = pending[0]
+                    first = _first_comment_line(pending[2])
+                    if first:
+                        entry.name = f"{entry.name}  {first}"
+                    pending = None
                 if depth > 0:
                     body = self.spec.body(child)
                     if body is not None:
@@ -71,6 +121,7 @@ class Classifier:
                 out.append(entry)
 
         flush()
+        release_pending()
         return out
 
 
