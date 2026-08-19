@@ -73,25 +73,27 @@ def classify_file(path, depth=0):
 
 
 def render(blocks, marker='#'):
-    """Метка уровня: frame — точка вплотную (`.`), landmark — номер уровня с ведущим
-    пробелом (` 1`), filler — пусто. Вложенность — отступом. Диапазоны выровнены."""
+    """Метка = обозначение УРОВНЯ. Отступ = глубина уровня (` ` * level). Символ:
+    landmark — номер уровня (`1`/`2`), frame и filler — точка (`.`, «сам уровень/скоуп»,
+    а не именованное определение). Точки и числа в одной колонке — консистентно.
+    Диапазоны выровнены."""
     flat = []
 
-    def walk(items, indent):
-        pad = '  ' * indent
+    def walk(items):
         for b in items:
-            if b.role is Role.FRAME:
-                sym, content = pad + '.', b.name
-            elif b.role is Role.LANDMARK:
-                sym, content = pad + ' ' + str(b.level), b.name
+            indent = ' ' * b.level
+            if b.role is Role.LANDMARK:
+                sym, content = indent + str(b.level), b.name
+            elif b.role is Role.FRAME:
+                sym, content = indent + '.', b.name
             else:
-                sym = pad
+                sym = indent + '.'
                 content = '~' + b.kind + (f' x{b.count}' if b.count > 1 else '')
             flat.append((sym, b.start, b.end, content, b.description))
             if b.children:
-                walk(b.children, indent + 1)
+                walk(b.children)
 
-    walk(blocks, 0)
+    walk(blocks)
     symw = max((len(r[0]) for r in flat), default=0)
     out = []
     for sym, s, e, content, desc in flat:
