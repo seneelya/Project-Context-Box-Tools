@@ -156,10 +156,10 @@ LADDER = [
     # Inner glues its line-44 ///; Widget its line-3 /// — outer rungs glued too.
     {"file": 'Edge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 44, 54), (1, 3, 55)]},
     # Python Bug A: landing on `async def ws_reader` gives that def + its parent.
-    {"file": 'Edge/Edge.py', "line": 37, "expect": [(2, 35, 52), (1, 17, 65)]},
+    {"file": 'Edge/Edge.py', "line": 37, "expect": [(2, 35, 54), (1, 17, 67)]},
     # try/except siblings: line 45 (in the inner `except`) must NOT report the sibling
     # `try` (41) as a deeper container — clean monotonic chain, no phantom rung.
-    {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 43, 46), (5, 40, 48), (4, 39, 48), (3, 38, 48), (2, 35, 52), (1, 17, 65)]},
+    {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 44, 47), (5, 41, 49), (4, 40, 49), (3, 39, 49), (2, 35, 54), (1, 17, 67)]},
     # CSS nested at-rules: a rule inside @media inside @supports — 3 real rungs.
     {"file": 'cssSRC/ChatViewer.css', "line": 214, "expect": [(3, 213, 219), (2, 212, 220), (1, 210, 221)]},
     # TS one-truth: line 71 (inside an arrow that is a property value in an object
@@ -191,11 +191,11 @@ QUERY = [
 
     # --- Python handler fixes ---
     # Bug B: the FIRST line of a multi-line comment preamble still reaches the def below.
-    {"file": 'Edge/Edge.py', "line": 35, "level": 0, "expect": (2, 35, 52)},  # 1st comment -> ws_reader
-    {"file": 'Edge/Edge.py', "line": 36, "level": 0, "expect": (2, 35, 52)},  # 2nd comment -> ws_reader
+    {"file": 'Edge/Edge.py', "line": 35, "level": 0, "expect": (2, 35, 54)},  # 1st comment -> ws_reader
+    {"file": 'Edge/Edge.py', "line": 36, "level": 0, "expect": (2, 35, 54)},  # 2nd comment -> ws_reader
     # Bug A: a def-header line belongs to the block it opens, not the parent.
-    {"file": 'Edge/Edge.py', "line": 37, "level": 0, "expect": (2, 35, 52)},  # `async def ws_reader`
-    {"file": 'Edge/Edge.py', "line": 53, "level": 0, "expect": (2, 52, 61)},  # `async def ws_writer`
+    {"file": 'Edge/Edge.py', "line": 37, "level": 0, "expect": (2, 35, 54)},  # `async def ws_reader`
+    {"file": 'Edge/Edge.py', "line": 53, "level": 0, "expect": (2, 53, 63)},  # `async def ws_writer`
 ]
 
 IMPORTS = {

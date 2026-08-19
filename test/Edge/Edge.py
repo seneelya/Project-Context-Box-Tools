@@ -32,6 +32,7 @@ async def websocket_server(scope: Scope, receive: Receive, send: Send):
     read_stream_writer, read_stream = anyio.create_memory_object_stream(0)
     write_stream, write_stream_reader = anyio.create_memory_object_stream(0)
 
+    # =================================================== 
     # Pump inbound WebSocket text frames into the read stream.
     # (Comment preamble — must glue to ws_reader below.)
     async def ws_reader():
@@ -49,6 +50,7 @@ async def websocket_server(scope: Scope, receive: Receive, send: Send):
         except anyio.ClosedResourceError:
             await websocket.close()
 
+    # ----------------------------------------------------
     # Drain the write stream out to the WebSocket as text frames.
     async def ws_writer():
         try:
