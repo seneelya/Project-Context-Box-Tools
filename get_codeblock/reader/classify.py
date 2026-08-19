@@ -8,6 +8,7 @@
 import os
 
 from .ir import Block, Role
+from .profiles.presets import NAME_TYPES
 from .registry import resolve
 
 
@@ -33,7 +34,7 @@ class Classifier:
     def __init__(self, spec):
         self.spec = spec
 
-    def classify(self, scope, level, depth, top_filler_only=False):
+    def classify(self, scope, level, depth, top_filler_only=False, skip_leaf_names=False):
         """Классифицировать прямых детей scope на уровне `level`. depth>0 —
         рекурсивно раскрыть тела landmark-ов на уровень глубже.
 
@@ -83,6 +84,11 @@ class Classifier:
                 out.append(blk)
 
         for child in scope.children():
+            # Рамка без тела рекурсит СВОИ дети, среди которых её токен-имя (guard
+            # `#ifndef NAME` → identifier, C#-namespace → qualified_name). Это не контент —
+            # отсеваем, иначе имя рамки утекает отдельной filler-строкой `~identifier`.
+            if skip_leaf_names and child.type in NAME_TYPES:
+                continue
             s = child.start_row + 1
             e = child.end_row + 1
             frame = self.spec.unwrap_frame(child)
@@ -105,7 +111,9 @@ class Classifier:
                 entry = Block(Role.FRAME, frame.type, s, e, level, name=self.spec.name(frame))
                 body = self.spec.body(frame)
                 scope2 = body if body is not None else frame
-                entry.children = self.classify(scope2, level, depth, top_filler_only)
+                # у рамки без тела дети = её собственные узлы (вкл. токен-имя) → отсеиваем его
+                entry.children = self.classify(scope2, level, depth, top_filler_only,
+                                               skip_leaf_names=(body is None))
                 out.append(entry)
             else:                                         # landmark: имя от внешнего узла (с export/deco)
                 entry = Block(Role.LANDMARK, defn.type, s, e, level, name=self.spec.name(child))

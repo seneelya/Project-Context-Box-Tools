@@ -35,8 +35,8 @@ ASSIGN_WRAPPERS = {
 # узлы-привязки и их поле-цель (имя слева от `=`)
 BINDER_TYPES = ('assignment', 'augmented_assignment', 'variable_declarator')
 
-# узлы, которые сами ЯВЛЯЮТСЯ именем (для fallback-поиска)
+# узлы, которые сами ЯВЛЯЮТСЯ именем (для fallback-поиска И отсева токена-имени рамки)
 NAME_TYPES = ('identifier', 'dotted_name', 'scoped_identifier', 'type_identifier',
-              'property_identifier', 'field_identifier')
+              'property_identifier', 'field_identifier', 'qualified_name')
 
 CAP = 8   # максимум имён в заголовке; дальше — «…» (полное через --query)
