@@ -6,10 +6,33 @@
 """
 
 import os
+import re
 
 from .ir import Block, Role
 from .profiles.presets import NAME_TYPES
 from .registry import resolve
+
+
+# Признаки лицензионного блока — язык-независимо (по содержимому коммента, не по языку).
+_LICENSE_RE = re.compile(
+    r'SPDX-License-Identifier'
+    r'|Copyright\s*(\(c\)|©|\d{4})'
+    r'|Licensed under\b'
+    r'|Permission is hereby granted'
+    r'|Redistribution and use'
+    r'|All rights reserved'
+    r'|GNU (General|Lesser) Public License'
+    r'|Apache License|MIT License|BSD [0-9-]*Clause',
+    re.IGNORECASE)
+
+
+def _comment_band_label(nodes):
+    """Метка comment-полосы: `license block` если распознан лицензионный блок, иначе
+    первая СОДЕРЖАТЕЛЬНАЯ строка (декоративные разделители пропускаются). Язык-независимо."""
+    text = "\n".join(n.text() for n in nodes)
+    if _LICENSE_RE.search(text):
+        return 'license block'
+    return _first_comment_line(nodes)
 
 
 def _first_comment_line(nodes, cap=60):
@@ -54,10 +77,11 @@ class Classifier:
         def make_filler(kind, s, e, nodes):
             if top_filler_only and level > 1:              # outline: filler только на файле
                 return None
-            label = None
-            labeler = getattr(self.spec, 'filler_label', None)   # опц. (Vision03)
-            if labeler is not None:
-                label = labeler(nodes)
+            if kind == 'comment':                          # коммент-полоса: 1-я значимая строка / license
+                label = _comment_band_label(nodes)
+            else:
+                labeler = getattr(self.spec, 'filler_label', None)   # опц. (Vision03)
+                label = labeler(nodes) if labeler is not None else None
             return Block(Role.FILLER, kind, s, e, level, name=label, count=len(nodes))
 
         def release_pending():
