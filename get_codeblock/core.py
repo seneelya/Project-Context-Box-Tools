@@ -486,9 +486,12 @@ def main():
                + (f", {tally}" if tally else "")
                + f", showing 1..{min(shown, depth)}"))
 
-        # Pad each "<indent><marker>" so ranges line up; frame/filler show '.' not a number.
+        # Pad each "<indent><marker>" so ranges line up. Named block = bare level number;
+        # unnamed (frame/filler) = '.'+level ('.3' = «уровень 3, без имени»), чтобы глубина
+        # была видна, но было ясно: имени тут нет, в оглавление не тащим.
         labels = ["  " * (r['level'] - 1)
-                  + ("." if (r.get('frame') or r.get('filler')) else str(r['level']))
+                  + ("." + str(r['level']) if (r.get('frame') or r.get('filler'))
+                     else str(r['level']))
                   for r in rows]
         width = max(len(s) for s in labels)
         for r, label in zip(rows, labels):

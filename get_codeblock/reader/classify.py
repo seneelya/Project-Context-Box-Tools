@@ -176,9 +176,9 @@ def render(blocks, marker='#'):
             if b.role is Role.LANDMARK:
                 sym, content = indent + str(b.level), b.name
             elif b.role is Role.FRAME:
-                sym, content = indent + '.', b.name
+                sym, content = indent + '.' + str(b.level), b.name
             else:
-                sym = indent + '.'
+                sym = indent + '.' + str(b.level)       # '.N' — уровень без имени
                 if b.name:                              # лейбл-оглавление полосы (Vision03)
                     content = b.name
                 else:
