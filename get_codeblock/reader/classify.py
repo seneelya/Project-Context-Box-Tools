@@ -12,20 +12,21 @@ from .registry import resolve
 
 
 def _first_comment_line(nodes, cap=60):
-    """Первая физическая строка первого коммента полосы — для подписи блока (преамбула).
-    Обрезаем длинное, ставим '…' если коммент многострочный/многоузловой."""
-    if not nodes:
+    """Первая СОДЕРЖАТЕЛЬНАЯ строка комментов полосы — для подписи блока (преамбула).
+    Декоративные строки-разделители (`#====`, `----`, `____`, `####`, `***` …)
+    пропускаем: язык-независимо — содержательная строка содержит хотя бы одну БУКВУ
+    (буквы и есть текст, разделители — только пунктуация). Обрезаем длинное; '…' если
+    в полосе есть ещё строки."""
+    lines = []
+    for n in nodes:
+        lines.extend(n.text().splitlines())
+    chosen = next((ln.strip() for ln in lines if any(ch.isalpha() for ch in ln)), None)
+    if not chosen:
         return None
-    raw = nodes[0].text().splitlines()
-    if not raw:
-        return None
-    line = raw[0].strip()
-    if not line:
-        return None
-    multi = len(nodes) > 1 or len(raw) > 1
-    if len(line) > cap:
-        return line[:cap].rstrip() + '…'
-    return line + ' …' if multi else line
+    multi = len(lines) > 1
+    if len(chosen) > cap:
+        return chosen[:cap].rstrip() + '…'
+    return chosen + ' …' if multi else chosen
 
 
 class Classifier:
