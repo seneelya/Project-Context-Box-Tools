@@ -173,12 +173,13 @@ def render(blocks, marker='#'):
     def walk(items):
         for b in items:
             indent = ' ' * b.level
+            dot = '.' + (str(b.level) if b.level > 1 else '')   # '.N' (N≥2); на уровне 1 голая '.'
             if b.role is Role.LANDMARK:
                 sym, content = indent + str(b.level), b.name
             elif b.role is Role.FRAME:
-                sym, content = indent + '.' + str(b.level), b.name
+                sym, content = indent + dot, b.name
             else:
-                sym = indent + '.' + str(b.level)       # '.N' — уровень без имени
+                sym = indent + dot                      # '.N' — уровень без имени
                 if b.name:                              # лейбл-оглавление полосы (Vision03)
                     content = b.name
                 else:

@@ -488,11 +488,13 @@ def main():
 
         # Pad each "<indent><marker>" so ranges line up. Named block = bare level number;
         # unnamed (frame/filler) = '.'+level ('.3' = «уровень 3, без имени»), чтобы глубина
-        # была видна, но было ясно: имени тут нет, в оглавление не тащим.
-        labels = ["  " * (r['level'] - 1)
-                  + ("." + str(r['level']) if (r.get('frame') or r.get('filler'))
-                     else str(r['level']))
-                  for r in rows]
+        # была видна, но было ясно: имени тут нет, в оглавление не тащим. На уровне 1 номер
+        # не пишем (он очевиден по нулевому отступу) — голая '.', чтобы оглавление не шумело.
+        def _mark(r):
+            if not (r.get('frame') or r.get('filler')):
+                return str(r['level'])
+            return '.' + (str(r['level']) if r['level'] > 1 else '')
+        labels = ["  " * (r['level'] - 1) + _mark(r) for r in rows]
         width = max(len(s) for s in labels)
         for r, label in zip(rows, labels):
             emit(c(f"{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}"))
@@ -538,12 +540,17 @@ def main():
         emit(c(f"Block end: {end}"))
     else:
         # Metadata = the LADDER: every enclosing block, innermost -> outermost, so one
-        # call shows all zoom options (pick a level, then --query it).
+        # call shows all zoom options (pick a level, then --query it). Рисуем ЛЕСЕНКОЙ:
+        # номер уровня отступает вправо с глубиной (внутренний — правее), диапазоны в
+        # столбец; сразу видно, куда «нырять».
         emit_legend()
-        for blk in reversed(blocks):
-            lbl = blk.get('label')
-            emit(c(f"Block level: {blk['level']} range: {blk['start']}-{blk['end']}"
-                   + (f"  {lbl}" if lbl else "")))
+        ladder = list(reversed(blocks))                 # innermost -> outermost
+        emit(c(f"You hit in block lvl {ladder[0]['level']}:"))
+        marks = [' ' * (b['level'] - 1) + str(b['level']) for b in ladder]
+        mw = max(len(m) for m in marks)
+        for b, m in zip(ladder, marks):
+            lbl = b.get('label') or ''
+            emit(c(f"{m.ljust(mw)} [{b['start']}-{b['end']}] {lbl}".rstrip()))
 
 
 if __name__ == "__main__":
