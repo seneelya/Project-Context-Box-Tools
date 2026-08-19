@@ -15,9 +15,14 @@ class Classifier:
     def __init__(self, spec):
         self.spec = spec
 
-    def classify(self, scope, level, depth):
+    def classify(self, scope, level, depth, top_filler_only=False):
         """Классифицировать прямых детей scope на уровне `level`. depth>0 —
-        рекурсивно раскрыть тела landmark-ов на уровень глубже."""
+        рекурсивно раскрыть тела landmark-ов на уровень глубже.
+
+        top_filler_only=True (режим outline): filler-полосы показываем ТОЛЬКО на
+        уровне файла (level==1). Присвоения/комменты внутри подобъектов малоинформативны
+        фактом наличия — это данные для --query. Рамки не углубляют, поэтому filler в
+        рамке уровня файла остаётся level==1 и показывается."""
         out = []
         run = None   # filler-полоса: [kind, start, end, nodes]
 
@@ -25,11 +30,12 @@ class Classifier:
             nonlocal run
             if run is not None:
                 kind, s, e, nodes = run
-                label = None
-                labeler = getattr(self.spec, 'filler_label', None)   # опц. (Vision03)
-                if labeler is not None:
-                    label = labeler(nodes)
-                out.append(Block(Role.FILLER, kind, s, e, level, name=label, count=len(nodes)))
+                if not (top_filler_only and level > 1):   # outline: filler только на файле
+                    label = None
+                    labeler = getattr(self.spec, 'filler_label', None)   # опц. (Vision03)
+                    if labeler is not None:
+                        label = labeler(nodes)
+                    out.append(Block(Role.FILLER, kind, s, e, level, name=label, count=len(nodes)))
                 run = None
 
         for child in scope.children():
@@ -54,14 +60,14 @@ class Classifier:
                 entry = Block(Role.FRAME, frame.type, s, e, level, name=self.spec.name(frame))
                 body = self.spec.body(frame)
                 scope2 = body if body is not None else frame
-                entry.children = self.classify(scope2, level, depth)
+                entry.children = self.classify(scope2, level, depth, top_filler_only)
                 out.append(entry)
             else:                                         # landmark: имя от внешнего узла (с export/deco)
                 entry = Block(Role.LANDMARK, defn.type, s, e, level, name=self.spec.name(child))
                 if depth > 0:
                     body = self.spec.body(child)
                     if body is not None:
-                        entry.children = self.classify(body, level + 1, depth - 1)
+                        entry.children = self.classify(body, level + 1, depth - 1, top_filler_only)
                 out.append(entry)
 
         flush()
@@ -75,6 +81,32 @@ def classify_file(path, depth=0):
         src = f.read()
     root = backend.root(src)
     return Classifier(spec).classify(root, level=1, depth=depth)
+
+
+_OUTLINE_FULL_DEPTH = 64   # раскрыть landmark'и до конца; отображение режет адаптив core.py
+
+
+def outline_rows(path):
+    """Unified-outline (Vision03): `.0`-строки для адаптивного outline в core.py.
+    Landmark'и раскрыты вглубь, filler — только на уровне файла. Строки несут флаги
+    frame/filler (обе рисуются точкой; в подсчёт глубины/тэлли идут только landmark'и).
+    Формат строки совпадает со старым handler.outline: {level,start,end,text,frame}."""
+    backend, spec = resolve(os.path.splitext(path)[1])
+    with open(path, 'rb') as f:
+        root = backend.root(f.read())
+    tree = Classifier(spec).classify(root, level=1, depth=_OUTLINE_FULL_DEPTH, top_filler_only=True)
+    rows = []
+
+    def walk(items):
+        for b in items:
+            text = b.name if b.name else '~' + b.kind + (f' x{b.count}' if b.count > 1 else '')
+            rows.append({'level': b.level, 'start': b.start, 'end': b.end, 'text': text,
+                         'frame': b.role is Role.FRAME, 'filler': b.role is Role.FILLER})
+            if b.children:
+                walk(b.children)
+
+    walk(tree)
+    return rows
 
 
 def render(blocks, marker='#'):

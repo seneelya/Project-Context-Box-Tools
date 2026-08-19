@@ -45,7 +45,13 @@ class Reader:
     # -- проверенные режимы: делегация хендлеру (drop-in-сигнатуры) --------
 
     def outline(self, lines, max_level=None):
-        return self.handler.outline(lines, max_level=max_level)
+        """Unified-outline (Vision03): `.0`-карта (landmark'и вглубь + filler на уровне
+        файла), а НЕ делегация старому хендлеру. Адаптивную глубину режет core.py."""
+        from .classify import outline_rows
+        rows = outline_rows(self.path)
+        if max_level:
+            rows = [r for r in rows if r['level'] <= max_level]
+        return rows
 
     def get_blocks(self, file_path, line):
         return self.handler.get_blocks(file_path, line)

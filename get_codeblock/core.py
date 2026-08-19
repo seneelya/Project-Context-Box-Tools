@@ -450,10 +450,10 @@ def main():
             emit(c("(no structure found)"))
             return
 
-        depth = max(r['level'] for r in rows_all)
-        per_level = {}                      # frames ('.') excluded from the tally
+        depth = max((r['level'] for r in rows_all if not r.get('filler')), default=1)
+        per_level = {}                      # frames/filler ('.') excluded from the tally
         for r in rows_all:
-            if not r.get('frame'):
+            if not r.get('frame') and not r.get('filler'):
                 per_level[r['level']] = per_level.get(r['level'], 0) + 1
         n1, n2 = per_level.get(1, 0), per_level.get(2, 0)
         total_lines = len(lines)
@@ -491,8 +491,9 @@ def main():
                + (f", {tally}" if tally else "")
                + f", showing 1..{min(shown, depth)}"))
 
-        # Pad each "<indent><marker>" so ranges line up; a frame shows '.' not a number.
-        labels = ["  " * (r['level'] - 1) + ("." if r.get('frame') else str(r['level']))
+        # Pad each "<indent><marker>" so ranges line up; frame/filler show '.' not a number.
+        labels = ["  " * (r['level'] - 1)
+                  + ("." if (r.get('frame') or r.get('filler')) else str(r['level']))
                   for r in rows]
         width = max(len(s) for s in labels)
         for r, label in zip(rows, labels):
