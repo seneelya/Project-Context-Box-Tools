@@ -143,6 +143,9 @@ class TreeSitterSpec:
         return " ".join(raw.split()).rstrip('{').rstrip(':').rstrip()
 
     def filler_kind(self, node):
+        from ..profiles.presets import IMPORT_KINDS
+        if node.type in IMPORT_KINDS:
+            return 'import'                 # огрубляем: import и from-import → одна полоса
         if node.type == 'expression_statement':
             kids = node.children()
             if len(kids) == 1 and kids[0].type in ('string', 'concatenated_string'):

@@ -85,6 +85,9 @@ class PythonAstSpec:
         return node.text()
 
     def filler_kind(self, node):
+        from ..profiles.presets import IMPORT_KINDS
+        if node.type in IMPORT_KINDS:
+            return 'import'                 # огрубляем: Import и ImportFrom → одна полоса
         return node.type
 
     def filler_label(self, nodes):
