@@ -5,6 +5,26 @@
 `Vision03__get_codeblock.md` (архитектура) и `Vision02__get_codeblock.md` (`.0`-классификатор); оба
 в ProjectStarter `__dev/tools/` (`../../../../__dev/tools/`).
 
+## Схема потока
+
+```mermaid
+flowchart LR
+  F["file (.py .ts .md …)"] --> R["Reader · registry.resolve(ext)"]
+  R -->|code| TS["tree-sitter backend<br/>(LangSpec)"]
+  R -->|.md| MD["markdown backend"]
+  R -->|.py без грамматики| AST["python ast backend<br/>(фолбек)"]
+  TS --> N["RNode<br/>(адаптер узла)"]
+  MD --> N
+  AST --> N
+  N --> C["Classifier + Spec<br/>(роли landmark/filler/frame)"]
+  C --> IR["IR: дерево Block"]
+  IR --> OUT["render · outline · query · .0"]
+  IR -. "опц." .-> AN["Analyzer<br/>→ block.description"]
+  AN -. "смысл" .-> OUT
+```
+
+Backend/Spec — единственное языко/формато-зависимое место. Всё правее IR — общее.
+
 ## Карта файлов
 
 ```
