@@ -1,0 +1,32 @@
+// toplevel.scss — фиктивные стили для теста .0 (SCSS)
+
+$primary: #4caf50;
+$radius: 6px;
+
+:root {
+  --gap: 8px;
+}
+
+@mixin card($pad) {
+  padding: $pad;
+  border-radius: $radius;
+}
+
+@function double($n) {
+  @return $n * 2;
+}
+
+.apple {
+  color: $primary;
+  @include card(12px);
+
+  .core {
+    font-weight: bold;
+  }
+}
+
+@media (max-width: 600px) {
+  .apple {
+    color: red;
+  }
+}
