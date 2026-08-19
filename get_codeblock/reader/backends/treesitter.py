@@ -148,3 +148,8 @@ class TreeSitterSpec:
             if len(kids) == 1 and kids[0].type in ('string', 'concatenated_string'):
                 return 'docstring'
         return node.type
+
+    def filler_label(self, nodes):
+        """Заголовок filler-полосы: список имён (импорты/привязки). См. reader/label.py."""
+        from ..label import band_label, ts_name_of
+        return band_label(nodes, ts_name_of)

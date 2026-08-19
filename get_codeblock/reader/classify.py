@@ -19,12 +19,17 @@ class Classifier:
         """Классифицировать прямых детей scope на уровне `level`. depth>0 —
         рекурсивно раскрыть тела landmark-ов на уровень глубже."""
         out = []
-        run = None   # filler-полоса: [kind, start, end, count]
+        run = None   # filler-полоса: [kind, start, end, nodes]
 
         def flush():
             nonlocal run
             if run is not None:
-                out.append(Block(Role.FILLER, run[0], run[1], run[2], level, count=run[3]))
+                kind, s, e, nodes = run
+                label = None
+                labeler = getattr(self.spec, 'filler_label', None)   # опц. (Vision03)
+                if labeler is not None:
+                    label = labeler(nodes)
+                out.append(Block(Role.FILLER, kind, s, e, level, name=label, count=len(nodes)))
                 run = None
 
         for child in scope.children():
@@ -37,10 +42,10 @@ class Classifier:
                 kind = self.spec.filler_kind(child)
                 if run is not None and run[0] == kind:
                     run[2] = e
-                    run[3] += 1
+                    run[3].append(child)
                 else:
                     flush()
-                    run = [kind, s, e, 1]
+                    run = [kind, s, e, [child]]
                 continue
 
             flush()
@@ -88,7 +93,10 @@ def render(blocks, marker='#'):
                 sym, content = indent + '.', b.name
             else:
                 sym = indent + '.'
-                content = '~' + b.kind + (f' x{b.count}' if b.count > 1 else '')
+                if b.name:                              # лейбл-оглавление полосы (Vision03)
+                    content = b.name
+                else:
+                    content = '~' + b.kind + (f' x{b.count}' if b.count > 1 else '')
             flat.append((sym, b.start, b.end, content, b.description))
             if b.children:
                 walk(b.children)

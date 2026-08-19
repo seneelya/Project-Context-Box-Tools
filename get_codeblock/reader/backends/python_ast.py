@@ -86,3 +86,23 @@ class PythonAstSpec:
 
     def filler_kind(self, node):
         return node.type
+
+    def filler_label(self, nodes):
+        """Минимальный лейблер для ast-фолбека: импорты и присваивания по имени
+        (ast остаточный — глубоко не разбираем, полный режим = tree-sitter)."""
+        from ..label import band_label
+        return band_label(nodes, _ast_name_of)
+
+
+def _ast_name_of(node):
+    n = node._n
+    if isinstance(n, ast.ImportFrom):
+        return n.module or '.'
+    if isinstance(n, ast.Import):
+        return n.names[0].name if n.names else None
+    if isinstance(n, ast.Assign):
+        t = n.targets[0] if n.targets else None
+        return getattr(t, 'id', None)
+    if isinstance(n, ast.AnnAssign):
+        return getattr(n.target, 'id', None)
+    return None
