@@ -95,6 +95,31 @@ class TreeSitterSpec:
         for c in node.children():
             if c.type in self.ls.named_def:
                 return c
+        # NAME = () => {…} / NAME = function(){…} — привязка функции к имени. Старый
+        # outline показывает такие через _ARROW_BINDINGS; без этого «.0» роняет
+        # большинство функций JS/TS в filler. Возвращаем узел-значение (arrow/function),
+        # у него блочное тело в body_types → name/body работают штатно.
+        return self._arrow_binding_value(node)
+
+    def _arrow_binding_value(self, node):
+        """Значение-функция (arrow/function с блочным телом), привязанное к имени внутри
+        node на 1-2 уровня вглубь (const/let/export const, поле класса, pair, x = ...)."""
+        BINDERS = ('variable_declarator', 'field_definition', 'public_field_definition',
+                   'pair', 'assignment_expression')
+        VALUE_TYPES = ('arrow_function', 'function', 'function_expression')
+        stack = [(node, 0)]
+        while stack:
+            n, d = stack.pop()
+            if d > 2:
+                continue
+            if n.type in BINDERS:
+                val = n.field('value') or n.field('right')
+                if val is not None and val.type in VALUE_TYPES:
+                    for c in val.children():                 # только блочно-телые
+                        if c.type in self.ls.body_types and c.end_row > c.start_row:
+                            return val
+            for c in n.children():
+                stack.append((c, d + 1))
         return None
 
     # -- контракт Spec ----------------------------------------------------
