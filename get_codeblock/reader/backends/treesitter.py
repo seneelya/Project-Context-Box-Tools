@@ -4,19 +4,11 @@
   * TSNode        — тонкая обёртка tree-sitter-узла под протокол RNode (+ пара
                     helper'ов для нарезки заголовка, которых нет в минимальном RNode).
   * TSBackend     — парсер: байты → корневой TSNode (поверх LangSpec.parser()).
-  * TreeSitterSpec — декоратор: роль/имя/тело/обёртки узла. Весь язык-нюанс тут
-                    (порт логики dot_classify на RNode). Наборы node-типов берём из
-                    существующего LangSpec — не дублируем.
-
-_EXTRA_FRAME_TYPES: прозрачные рамки, которых нет в общих LangSpec (их менять
-нельзя — на них завязан рабочий outline/query). Ключ = spec.name.
+  * TreeSitterSpec — тонкий ДВИЖОК: роль/имя/тело/обёртки узла. Общая логика; весь
+                    язык-нюанс приходит ДАННЫМИ из TSProfile (profiles/<lang>.py):
+                    extra-frames и binder/value-типы промоушена. Наборы структурных
+                    node-типов — из LangSpec профиля (не дублируем).
 """
-
-_EXTRA_FRAME_TYPES = {
-    'TypeScript': {'internal_module', 'module'},
-    'TypeScript (TSX)': {'internal_module', 'module'},
-    'C/C++': {'preproc_ifdef', 'preproc_if'},
-}
 
 
 class TSNode:
@@ -73,11 +65,13 @@ class TSBackend:
 
 
 class TreeSitterSpec:
-    """Декоратор языка поверх LangSpec. Реализует протокол Spec на TSNode."""
+    """Движок Spec поверх TSProfile. Реализует протокол Spec на TSNode; язык-нюанс —
+    из профиля (frame-типы, binder/value-типы промоушена)."""
 
-    def __init__(self, langspec):
-        self.ls = langspec
-        self.frame_types = langspec.transparent_parents | _EXTRA_FRAME_TYPES.get(langspec.name, set())
+    def __init__(self, profile):
+        self.profile = profile
+        self.ls = profile.langspec
+        self.frame_types = self.ls.transparent_parents | profile.extra_frames
 
     # -- разворачивание обёрток (export/decorator/expression_statement) ----
 
@@ -103,18 +97,20 @@ class TreeSitterSpec:
 
     def _arrow_binding_value(self, node):
         """Значение-функция (arrow/function с блочным телом), привязанное к имени внутри
-        node на 1-2 уровня вглубь (const/let/export const, поле класса, pair, x = ...)."""
-        BINDERS = ('variable_declarator', 'field_definition', 'public_field_definition',
-                   'pair', 'assignment_expression')
-        VALUE_TYPES = ('arrow_function', 'function', 'function_expression')
+        node на 1-2 уровня вглубь (const/let/export const, поле класса, pair, x = ...).
+        Наборы binder/value-типов — из профиля (пусто → правило неактивно для языка)."""
+        binders = self.profile.binders
+        value_types = self.profile.value_types
+        if not binders:
+            return None
         stack = [(node, 0)]
         while stack:
             n, d = stack.pop()
             if d > 2:
                 continue
-            if n.type in BINDERS:
+            if n.type in binders:
                 val = n.field('value') or n.field('right')
-                if val is not None and val.type in VALUE_TYPES:
+                if val is not None and val.type in value_types:
                     for c in val.children():                 # только блочно-телые
                         if c.type in self.ls.body_types and c.end_row > c.start_row:
                             return val
