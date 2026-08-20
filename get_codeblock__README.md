@@ -23,20 +23,24 @@ python get_codeblock.py --file path/to/file.py --line 100 --ancestor-level 2 --q
 
 ## Output Format
 
-### Metadata only (default, without `--query`) — the nesting LADDER
+### Metadata only (default, without `--query`) — the nesting LADDER (staircase)
 
-Prints EVERY enclosing block, innermost → outermost, one per line (comment prefix per
-language). One call shows all zoom options; then pick a `--level` and `--query` it.
+Prints EVERY enclosing block as a staircase, innermost → outermost (comment prefix per language).
+One call shows all zoom options; then pick a `--level` and `--query` it.
 
 ```
-#Block level: 3 range: 139-145  if not chain:
-#Block level: 2 range: 137-161  def resolve_chain(cfg, role):
-#Block level: 1 range: 94-172  def chat(cfg, role, messages):
+#You hit in block lvl 3:
+#   3 [139-145] if not chain:
+#  2  [137-160] def resolve_chain(cfg, role):
+# 1   [89-166]  def chat(cfg, role, messages):
 ```
 
-**Fields:**
+The header names the depth you landed in (`lvl 3`). Each rung is right-indented so deeper nesting
+steps right — innermost at the top, file-level block at the bottom.
+
+**Fields per rung:**
 - `level` — nesting depth of that block (file root = 1)
-- `range: X-Y` — start and end line numbers (1-based, inclusive)
+- `[X-Y]` — start and end line numbers (1-based, inclusive)
 - trailing **label** — what the block is (its header, or a short tag like `{…} object`,
   `() => {…}` for an anonymous brace region)
 
@@ -70,28 +74,33 @@ The file line comes first so a block self-identifies its source even when severa
 
 ### `--outline` — structural table of contents (no `--line` needed)
 
-Prints the file's **named** blocks only — headings for Markdown; functions/classes/methods/rules
-for code (control blocks like `if`/`for` are excluded; in JS/TS, name-bound arrows such as
-`const Foo = () => {…}` ARE included) — hierarchical, with ranges and a label. Works for **every
-supported language**. This is how an agent discovers WHICH line to go to, then pulls the section
-with `--line N --query`.
+Numbers the file's **named** blocks — headings for Markdown; functions/classes/methods/rules for
+code (control blocks like `if`/`for` are excluded; in JS/TS, name-bound arrows such as
+`const Foo = () => {…}` ARE included) — hierarchical, with ranges and a label. At the **file
+level** it also lists **filler bands** (imports, module constants, comment/license blocks) as `.`
+rows whose label indexes the contents (`imports: os, sys, …`). Works for **every supported
+language**. This is how an agent discovers WHICH line to go to, then pulls the section with
+`--line N --query`.
 
 ```
-#outline — depth 3, L1=3 L2=8 L3=2, showing 1..2
-#1   [1-381] find_code_usage — поиск публичного API
-#  2 [25-54] Пример работы
-#  2 [57-70] Параметры CLI
+#outline — depth 2, L1=1 L2=2, showing 1..2
+#.   [1-11]  imports: logging, contextlib, anyio, starlette.websockets, …
+#.   [13-13] assign: logger
+#1   [16-67] async def websocket_server(scope, receive, send)
+#  2 [35-51] async def ws_reader()   # Pump inbound frames into the read stream …
 ```
 
 - **Header line** (`outline — depth D, L1=… L2=…, showing 1..K`) reports the whole file's shape
   (total depth + block count per level) so a shallow view still tells you there's more.
-- Each row: `<level> [start-end] <label>`; a `.` marker instead of a number = a **transparent
-  frame** (a `namespace`, `extern "C"`), shown but adding no depth.
+- Each row: `<level> [start-end] <label>`. A **number** = a named block at that depth; a `.` = a
+  level marker — either a **transparent frame** (a `namespace`, `extern "C"`, shown but adding no
+  depth) or a **file-level filler band** (imports/constants/comments) labeled with its contents.
 - **Bare `--outline` is adaptive** — it sizes the shown depth to the file (a lone top-level
   object expands to level 2; a big flat file shows the tops). `--level N` forces an EXACT cap
   (`--level 1` = tops only, `--level 10` = everything).
-- Section end is exact for the tree-sitter languages; for Python/Markdown it is a line-before-
-  the-next-header estimate — use `--query` for the precise boundary.
+- Section end is exact for the tree-sitter languages (including Python with its grammar installed);
+  Markdown headings are a line-before-the-next-heading estimate, and Python's `ast`-fallback (no
+  grammar) is reduced — use `--query` for the precise boundary there.
 
 ## Arguments and Flags
 
@@ -247,35 +256,47 @@ Query line 10 (`return u;`):
 
 ## Architecture
 
+`core.py` (CLI + importable API) talks to ONE façade, `reader.Reader`; the `reader/` layer is the
+engine (Vision03/04 — "universal reader"). A single registry maps extension → (Backend, Spec); one
+parse tree feeds two consumers — the **map** (`.0`-classifier → outline/focus) and **addressing**
+(`address.py` → ladder/query/line_level). Both read the same per-language `LangSpec`, so a line
+gets ONE answer to "which block am I in", whether asked as a map or as an address.
+
 ```
 get_codeblock/
-├── __init__.py
-├── core.py              # CLI parsing, resolve() logic, file I/O, importable get_codeblock() function
-└── handlers/
-    ├── __init__.py      # Language registry (get_handler(language) factory)
-    ├── python_handler.py     # Indentation-based block detection (no AST)
-    ├── _treesitter_blocks.py # Shared tree-sitter engine (LangSpec + TreeSitterBlockHandler)
-    ├── cpp_handler.py        # C/C++ node-type spec on the engine
-    ├── csharp_handler.py     # C# spec on the engine + regex declarations() for cards
-    ├── typescript_handler.py # TS/JS/TSX specs on the engine + named-arrow outline + declarations()
-    ├── css_handler.py        # CSS/SCSS spec on the engine
-    └── markdown_handler.py   # Heading-hierarchy sections (line_level + get_blocks + outline)
+├── core.py               # CLI parsing, resolve() logic, file I/O, importable get_codeblock()
+├── reader/               # the engine (Vision03/04)
+│   ├── reader.py           # Reader — façade/router: outline→classify, get_blocks/line_level→address
+│   ├── registry.py         # resolve(ext) → (Backend, Spec)   ← single entry
+│   ├── protocol.py         # contracts: RNode, Backend, Spec, Analyzer
+│   ├── ir.py               # Block (IR the renderers consume) + Role
+│   ├── classify.py         # backend-agnostic .0-classifier (the MAP) + focus + render + CLI
+│   ├── address.py          # backend-agnostic ADDRESSING for brace langs (get_blocks/line_level)
+│   ├── label.py            # filler-band labeler: band → comma-list of names (an index)
+│   ├── backends/           # treesitter.py (core1) · markdown.py (core2) · python_ast.py (fallback)
+│   └── profiles/           # one plug-in file per language (LangSpec + promotion rules) + presets
+└── handlers/             # per-language engines, reused BEHIND the façade
+    ├── _treesitter_blocks.py # shared tree-sitter LangSpec (node-type sets) — feeds reader profiles
+    ├── python_handler.py     # indentation parser — reader DELEGATES .py addressing here
+    ├── markdown_handler.py   # heading hierarchy — reader delegates .md addressing here
+    └── cpp/csharp/typescript/css handlers + declarations() for interface cards
 ```
 
-Two families. **Heuristic** (Python indentation, Markdown headings) — zero-dependency,
-hand-rolled. **tree-sitter** (C/C++, C#, TypeScript/JS/TSX, CSS/SCSS) — a thin `LangSpec`
-(node-type sets + grammar loader) plugged into the shared `TreeSitterBlockHandler`; the block
-model (multi-line brace regions, transparent frames, comment gluing, one canonical range so
-`get_blocks` and `line_level` agree) lives once in the engine. Pre-migration TS/C# brace
-heuristics are kept, unused, as `_LegacyBraceNav` for reference.
+Two families feed the reader. **tree-sitter** (C/C++, C#, TS/JS/TSX, CSS/SCSS) — a thin `LangSpec`
+(node-type sets + grammar loader) wrapped by a language **profile** (`reader/profiles/<lang>.py`);
+`address.py` reproduces the shared block model (brace regions, transparent frames, comment gluing,
+one canonical range so `get_blocks` and `line_level` agree) on the RNode protocol. **Heuristic**
+(Python indentation, Markdown headings) — zero-dependency; the reader uses their tree-sitter/`.0`
+map where it can and delegates their addressing to the hand-rolled handler, which shares the same
+block-end convention so map and addressing stay consistent.
 
-Each handler exposes `line_level` (per-line depth) and `get_blocks` (enclosing blocks, each with
-a label); `outline` (structural TOC) is implemented by every handler.
+`Reader.get_blocks(file_path, line) -> list[dict]` returns blocks sorted outermost-first; each dict
+has `level` (nesting depth from file root, 1-based), `start`, `end` (1-based, inclusive), and a
+`label`. `Reader.line_level(path, idx)` returns one line's depth.
 
-Each handler implements `get_blocks(file_path, line_num) -> list[dict]` returning blocks sorted outermost-first. Each block dict has:
-- `level`: int — nesting depth from file root (1-based).
-- `start`: int — start line number (0-based internally, converted to 1-based for output).
-- `end`: int — end line number (inclusive).
+Adding a tree-sitter language is **data, not code** (Vision03): drop a `reader/profiles/<lang>.py`
+(a `LangSpec`) + register its extension — the classifier, `address.py`, and the renderers are
+untouched. See `reader/CONTRACT.md` for the recipes (new language / new backend / new analyzer).
 
 ## Testing
 
@@ -291,6 +312,8 @@ larger real-world fixtures. Exit 0 = all match.
 1. **Clean output** — only relevant data returned; no noise or extra metadata beyond what agents need.
 2. **Self-contained blocks** — each block is a complete, readable unit of code with its header included.
 3. **Flexible navigation** — level addressing via positive/negative offsets lets you jump up/down the hierarchy without knowing exact structure upfront.
-4. **Language-agnostic core** — handlers are interchangeable; new languages can be added by implementing `get_blocks()`.
+4. **Language-agnostic core, languages as data** — one registry, one parse tree, two consumers
+   (map + addressing) sharing one per-language `LangSpec`. Adding a tree-sitter language is a
+   profile file + a registry entry, not new engine code (Vision03).
 5. **LLM-friendly** — output format is designed for direct consumption by agents: comment-prefixed metadata doesn't interfere with code parsing, text is byte-for-byte from source files.
 6. **Dual interface** — works both as a CLI tool and as an importable library function (`from get_codeblock.core import get_codeblock`).

@@ -29,8 +29,8 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
 
 ## Level addressing — two flags, one for each direction
 
-- The **level printed in output** (`Block level: N`) = real nesting depth (1 = file top,
-  deeper = higher number).
+- The **level printed in output** (`lvl N` in the ladder header, `Block level: N` under `--query`)
+  = real nesting depth (1 = file top, deeper = higher number).
 - Picking a block at `--line N` — two self-describing flags (don't mix):
   - **`--ancestor-level N`** = relative — walk N blocks **up** from where the line lands
     (`0` = the innermost block itself, the default; `1` = parent; `2` = grandparent). This is
@@ -51,15 +51,21 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
   languages C/C++, C#, TypeScript/JS/TSX (`.ts .js .tsx .jsx`), and CSS/SCSS
   (`.css .scss`). SCSS note: `@mixin`/`@include`/`@function` WITH parameters parse
   imperfectly (css grammar), but nested rule sets, `&` nesting and `@media`/`@supports` are solid.
-- Outline is **named blocks only**. In JS/TS that includes name-bound arrows/functions
-  (`const Foo = () => {…}`, `value: () => {…}`, class fields) — React components show up;
-  expression-bodied arrows and anonymous inline callbacks stay out of the map by design.
-- **Depth is one truth**: `--line`'s ladder and `line_level` (the depth a tool reports for a
-  symbol) always agree. A multi-line `{…}` (incl. JS object literals / arrow bodies) is a block;
-  a one-line `if (x) return;` / single-line `{…}` is not.
-- `--outline` range end is exact for the tree-sitter languages; for Python/Markdown it's a
-  table-of-contents estimate (line before the next same-or-shallower header) — use `--query`
-  for the precise boundary.
+- Outline **numbers named blocks** (functions/classes/methods/rules). In JS/TS that includes
+  name-bound arrows/functions (`const Foo = () => {…}`, `value: () => {…}`, class fields) — React
+  components show up; expression-bodied arrows and anonymous inline callbacks stay out by design.
+  At the **file level** it ALSO shows filler bands — imports, module constants, comment/license
+  blocks — as `.` rows with an **index label** (`imports: os, sys, …`, `assign: logger`): the
+  file's data-at-a-glance, not noise. Inside blocks, only named ones show.
+- **Depth is one truth (one engine)**: `--line`'s ladder, `--outline`, and `line_level` (the depth
+  a tool reports for a symbol) all agree — same block boundaries for the same line, by construction.
+  A multi-line `{…}` (incl. JS object literals / arrow bodies) is a block; a one-line
+  `if (x) return;` / single-line `{…}` is not.
+- **A block ends at its last content line** (like `}`); trailing blank/comment lines belong to the
+  next block's preamble. `--outline` ranges are exact for the tree-sitter languages — including
+  Python with its grammar installed. Markdown headings are a TOC estimate (line before the next
+  same-or-shallower heading); Python's `ast`-fallback (no grammar) is reduced — use `--query` for
+  the precise boundary in those.
 - **Piped/programmatic output is clean**: the depth header and `Block level:` lines are
   comment-prefixed and parseable; only the green human hints (legend, "add --level N") are
   suppressed off a real terminal (`isatty()`).
