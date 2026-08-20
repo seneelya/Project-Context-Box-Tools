@@ -68,50 +68,74 @@ py find_code_usage.py --incoming --file "Code/Core/Common/Commands/HttpCmd.cs" -
 
 
 # ============================================================
-# get_codeblock — Vision contract v2 (query is a flag WITHOUT digits; level controls block address)
+# get_codeblock — Vision03/04 · canonical order: WHERE -> VERB -> ADVERBS
+#   --project-root R  --file F  --line N  (--ancestor-level N | --level N)  (--outline | --query)  --numbered
+#   Address narrows FIRST (root -> file -> line -> block), THEN the verb acts, THEN adverbs.
+#   (flags are position-INDEPENDENT; this is the writing convention, not a parser rule.)
+#   verbs:    bare/--outline = map · --line = ladder (staircase) · --query = pull block text
+#   address:  --ancestor-level N = N blocks UP from the line (0=innermost/default, 1=parent). The usual one.
+#             --level N          = absolute depth from the file TOP (1=outermost). With --outline: caps shown depth.
+#             (raw --level -N still works, == --ancestor-level N)
+#   focus:    --outline --line N [--level K] = expand ONE block (the K-ancestor of line N) as its own map.
 # ============================================================
 
-# Python (memohood): default (level+bounds) / level -1 / query
+# Python (memohood): map -> ladder -> parent -> pull
 
-py get_codeblock.py --file "_engine/backends/__init__.py" --line 50 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --outline
 
-py get_codeblock.py --file "_engine/backends/__init__.py" --line 50 --level -1 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --line 50
 
-py get_codeblock.py --file "_engine/backends/__init__.py" --line 50 --query --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --line 50 --ancestor-level 1
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --line 50 --query
 
 # TypeScript (ts-prune)
 
-py get_codeblock.py --file "src/analyzer.ts" --line 100 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --outline
 
-py get_codeblock.py --file "src/analyzer.ts" --line 100 --level -2 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --line 100
 
-py get_codeblock.py --file "src/analyzer.ts" --line 100 --query --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --line 100 --ancestor-level 2
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --line 100 --query
 
 # C# (CoreSharp)
 
-py get_codeblock.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp" --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --outline
 
-py get_codeblock.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --level -1 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp" --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30
 
-py get_codeblock.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --query --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp" --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --ancestor-level 1
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp" --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --query
 
 # C# (SWARM_SRC)
 
-py get_codeblock.py --file "Backends/BackendHandler.cs" --line 50 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Backends/BackendHandler.cs" --line 50
 
-py get_codeblock.py --file "Accounts/User.cs" --line 80 --level -1 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Accounts/User.cs" --line 80 --ancestor-level 1
 
-py get_codeblock.py --file "Accounts/User.cs" --line 80 --query --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Accounts/User.cs" --line 80 --query
 
 # C# (Unity)
 
-py get_codeblock.py --file "Code/Core/Common/Commands/HttpCmd.cs" --line 100 --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity"
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity" --file "Code/Core/Common/Commands/HttpCmd.cs" --line 100
 
-python get_codeblock.py --file test/Edge/Edge.cs --line 9
+# focus outline — expand ONE block (monster-class drill-down): the block at --line, then a K-ancestor
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Backends/BackendHandler.cs" --outline --line 50
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Backends/BackendHandler.cs" --outline --line 50 --level 1
+
+# local fixtures (relative to cwd = __HQ/tools/ — no --project-root needed)
+
+python get_codeblock.py --file test/Edge/Edge.cs --line 51        # staircase ladder (4 rungs)
 
 python get_codeblock.py --file test/Edge/Edge.cs --outline
 
-python get_codeblock.py --file test/Edge/Edge.py 
+python get_codeblock.py --file test/Edge/Edge.py --outline
+
+python get_codeblock.py --file test/Edge/Edge.py --line 45 --query
 
 # ============================================================
 # SESSION 2026-08-13 — card stamp / validate / graph pipeline (target = memohood)
