@@ -175,24 +175,27 @@ def _is_focus_block(spec, node):
     return spec.unwrap_def(node) is not None or spec.unwrap_frame(node) is not None
 
 
-def _owning_block(spec, children, line):
+def _owning_block(spec, children, line, want_glue=False):
     """Focus-блок среди `children`, которому принадлежит `line` — С УЧЁТОМ ПРЕАМБУЛЫ:
     если строка попала на doc/коммент прямо над блоком (только комменты/пусто между),
-    она принадлежит этому блоку (как в склейке). Иначе — блок, чей диапазон её содержит."""
+    она принадлежит этому блоку (как в склейке). Иначе — блок, чей диапазон её содержит.
+
+    want_glue=True → вернуть (node, glued_start) где glued_start (1-based) поднят над
+    коммент-преамбулой блока (как старый `_bounds` через `_preamble_start`). Иначе — node."""
     pre = None   # начало непрерывного коммент-рана перед текущим focus-блоком
     for ch in children:
         s, e = ch.start_row + 1, ch.end_row + 1
         if _is_focus_block(spec, ch):
             lo = pre if pre is not None else s     # диапазон + его преамбула
             if lo <= line <= e:
-                return ch
+                return (ch, lo) if want_glue else ch
             pre = None
         elif ch.type == 'comment':
             if pre is None:
                 pre = s                            # старт коммент-рана (преамбула следующего блока)
         else:
             pre = None                             # код рвёт преамбулу
-    return None
+    return (None, None) if want_glue else None
 
 
 def _containing_chain(root, spec, line):

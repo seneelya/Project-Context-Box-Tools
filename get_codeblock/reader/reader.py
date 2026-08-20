@@ -56,9 +56,18 @@ class Reader:
         return rows
 
     def get_blocks(self, file_path, line):
+        """Адресация через reader (Vision04) для brace-языков — ОДИН структурный движок
+        (границы совпадают с outline). Python/Markdown (отступной/бesparser) пока
+        делегируются своим хендлерам, до обёртки в backend (CONTEXT_RESTORE ⭐)."""
+        from . import address
+        if address.supports(file_path):
+            return address.get_blocks(file_path, line)
         return self.handler.get_blocks(file_path, line)
 
     def line_level(self, lines, idx):
+        from . import address
+        if address.supports(self.path):
+            return address.line_level(self.path, idx)
         return self.handler.line_level(lines, idx)
 
     def declarations(self, lines):
