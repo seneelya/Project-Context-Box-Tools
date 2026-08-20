@@ -224,8 +224,15 @@ class TreeSitterBlockHandler:
         }
 
     # -- public API (mirrors PythonHandler) -------------------------------
+    #
+    # ⚠ SUSPECT-DEAD (Vision03/04 migration) — весь этот public API + его хелперы
+    # (_outline_nodes/_ladder_nodes/_bounds/_nearest) вытеснены reader-слоем:
+    # outline → reader/classify.py (.0), get_blocks/line_level (brace) → reader/address.py.
+    # Приложение (core.py) ходит через `Reader`, НЕ сюда. Единственный оставшийся вызыватель —
+    # test/parity/golden_capture.py (снимок старого поведения для паритета). НЕ РЕЗАТЬ пока —
+    # сперва решить судьбу golden_capture. LangSpec/SPEC-константы ниже/выше — ЖИВЫЕ (импортят профили).
 
-    def outline(self, lines, max_level=None):
+    def outline(self, lines, max_level=None):   # ⚠ SUSPECT-DEAD → reader/classify.outline_rows
         source = _source_bytes(lines)
         root = self._root(source)
         bodies = self._bodies(root)
@@ -246,13 +253,13 @@ class TreeSitterBlockHandler:
             out.append(b)
         return out
 
-    def line_level(self, lines, idx):
+    def line_level(self, lines, idx):   # ⚠ SUSPECT-DEAD → reader/address.line_level (brace)
         if idx < 0 or idx >= len(lines):
             return 1
         root = self._root(_source_bytes(lines))
         return self._level_of_row(idx, self._bodies(root))
 
-    def get_blocks(self, file_path, target_line):
+    def get_blocks(self, file_path, target_line):   # ⚠ SUSPECT-DEAD → reader/address.get_blocks (brace)
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         if not lines or target_line < 1 or target_line > len(lines):

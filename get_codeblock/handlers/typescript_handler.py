@@ -98,6 +98,8 @@ class TypeScriptHandler(TreeSitterBlockHandler):
 
     # -- outline: named blocks + name-bound arrow/function expressions --------------------
 
+    # ⚠ SUSPECT-DEAD (Vision03/04) — TS/JS outline теперь reader/classify (.0) c промоушеном
+    # name-bound arrows в профиле typescript.py; сюда приложение не ходит. Вызыватель — golden_capture.py.
     def outline(self, lines, max_level=None):
         """Base named outline PLUS the JS/TS idiom the base can't see: an arrow or
         function EXPRESSION bound to a name — `const Foo = () => {…}` (React
@@ -325,6 +327,7 @@ def get_indent(line):
     return len(indent_str.replace('\t', '    '))
 
 
+# ⚠ DEAD (grep: 0 references in whole tree) — pre-migration brace nav, kept only for reference.
 class _LegacyBraceNav:
     """(legacy, disconnected) Original brace-matching navigation for TS/JS.
 

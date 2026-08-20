@@ -97,6 +97,9 @@ class MarkdownHandler:
             for j in chain
         ]
 
+    # ⚠ SUSPECT-DEAD (Vision03/04) — .md outline идёт через reader/classify (markdown backend),
+    # НЕ сюда; единственный вызыватель — golden_capture.py. ВНИМАНИЕ: get_blocks/line_level ВЫШЕ и
+    # _headings/_section_end — ЖИВЫЕ (Reader делегирует .md-адресацию; backend переиспользует их).
     def outline(self, lines, max_level=None):
         """Table of contents: [{level, text, start, end}] for every heading."""
         hs = _headings(lines)

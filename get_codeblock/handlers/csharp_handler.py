@@ -543,6 +543,7 @@ class CSharpHandler(TreeSitterBlockHandler):
                 for t in types]
 
 
+# ⚠ DEAD (grep: 0 references in whole tree) — pre-migration brace nav, kept only for reference.
 class _LegacyBraceNav:
     """LEGACY brace-heuristic navigation -- SUPERSEDED by the tree-sitter engine
     (CSharpHandler above, via CS_SPEC). Kept unused for reference / possible

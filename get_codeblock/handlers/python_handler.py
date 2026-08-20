@@ -378,6 +378,9 @@ class PythonHandler:
     def __init__(self):
         pass
 
+    # ⚠ SUSPECT-DEAD (Vision03/04) — .py outline теперь идёт через reader/classify (.0 на
+    # tree-sitter-python / ast-фолбек), НЕ сюда. Единственный вызыватель — golden_capture.py.
+    # ВНИМАНИЕ: get_blocks/line_level НИЖЕ — ЖИВЫЕ (Reader делегирует .py-адресацию им). Не путать.
     def outline(self, lines, max_level=None):
         """Named-definition skeleton: def/class only (control blocks excluded),
         hierarchical (class=1, its methods=2, ...). Label = the header line.
