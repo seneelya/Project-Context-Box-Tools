@@ -7,34 +7,47 @@
 
 ## Схема потока
 
+ОДИН фасад (`Reader`) → ОДНО дерево (`RNode` от backend'а) → ДВА потребителя дерева:
+**КАРТА** (Classifier→IR→outline/`.0`/focus, Vision02/03) и **АДРЕСАЦИЯ** (`address.py`→get_blocks/
+line_level→ladder/query/resolve, Vision04). Оба питаются одним ПРОФИЛЕМ языка — его `LangSpec`
+(наборы node-типов) обслуживает и классификатор, и адресацию.
+
 ```mermaid
-flowchart LR
-  F["file (.py .ts .md …)"] --> R["Reader · registry.resolve(ext)"]
-  R --> P["PROFILE (плагин языка)<br/>profiles/&lt;lang&gt;.py"]
-  P -->|backend| TS["tree-sitter backend<br/>(core1)"]
-  R -->|.md| MD["markdown backend<br/>(core2)"]
-  R -->|.py без грамматики| AST["python ast backend<br/>(фолбек)"]
-  TS --> N["RNode<br/>(адаптер узла)"]
+flowchart TB
+  F["file (.py .ts .cs .md …)"] --> R["Reader (reader.py) · registry.resolve(ext)"]
+  R --> P["PROFILE — плагин языка · profiles/LANG.py<br/>LangSpec: named_def / control / body_types / transparent_parents"]
+  P -->|backend| TS["tree-sitter backend (core1)"]
+  R -->|.md| MD["markdown backend (core2)"]
+  R -->|".py без грамматики"| AST["python ast backend (фолбек)"]
+  TS --> N["RNode — адаптер узла"]
   MD --> N
   AST --> N
-  P -->|"role/name/label"| SP["Spec-движок"]
+
   N --> C["Classifier (backend-agnostic)"]
-  SP -. "промоушен + label(band)" .-> C
+  P -. "role/name/label + промоушен" .-> C
   C --> IR["IR: дерево Block"]
-  IR --> OUT["render · outline · query · .0"]
-  IR -. "опц., пост-IR" .-> AN["Analyzer<br/>→ block.description"]
-  AN -. "смысл" .-> OUT
+  IR --> OUTMAP["КАРТА: render · outline · .0 · focus"]
+  IR -. "опц. пост-IR" .-> AN["Analyzer → block.description"]
+  AN -. "смысл" .-> OUTMAP
+
+  N --> ADDR["АДРЕСАЦИЯ: address.py (brace)<br/>get_blocks · line_level"]
+  P -. "LangSpec-наборы (control/body_types/named_def)" .-> ADDR
+  R -. ".py/.md → делегация" .-> DEL["handlers/*_handler<br/>(отступной / беsparser)"]
+  ADDR --> ADDROUT["ladder · query · resolve · staircase"]
+  DEL --> ADDROUT
 ```
 
-Профиль (backend + Spec-правила) — единственное языко/формато-зависимое место. Общее (`label(band)`
-в `label.py`, классификатор, рендеры) правее — backend-agnostic.
+Профиль (backend + `LangSpec` + Spec-правила) — единственное языко/формато-зависимое место, и он
+кормит ОБА потребителя. Общее (Classifier, `address.py`, `label.py`, рендеры) — backend-agnostic.
 
 ## Карта файлов
 
 ```
-ir.py         — Block (IR: то, что потребляют рендеры) + Role + description(для Analyzer)
+reader.py     — Reader: ФАСАД (единый вход из core.py). Роутит: outline/.0 → classify;
+                get_blocks/line_level → address.py (brace) ИЛИ делегация хендлеру (.py/.md)
+ir.py         — Block (IR: то, что потребляют рендеры карты) + Role + description(для Analyzer)
 protocol.py   — контракты: RNode, Backend, Spec, Analyzer
-registry.py   — resolve(ext) → (Backend, Spec)   ← ЕДИНЫЙ вход
+registry.py   — resolve(ext) → (Backend, Spec)   ← ЕДИНЫЙ вход по расширению
 profiles/     — плагины языков (Vision03), по файлу на язык:
   base.py       — TSProfile (данные плагина: langspec + extra_frames + binders)
   typescript.py, cpp.py, csharp.py, css.py, python.py — сами профили
@@ -43,8 +56,11 @@ profiles/     — плагины языков (Vision03), по файлу на �
 backends/
   treesitter.py — core1: TSNode-адаптер + TSBackend + TreeSitterSpec (движок над профилем)
   markdown.py   — core2: свой разбор заголовков, БЕЗ tree-sitter (образец не-TS кора)
+  python_ast.py — фолбек .py без грамматики (громкий нотис; только для .0, не для адресации)
 label.py      — backend-agnostic лейблер filler-полосы: band → список имён (оглавление)
-classify.py   — backend-agnostic .0-классификатор + render + CLI
+classify.py   — backend-agnostic .0-классификатор (КАРТА) + focus + render + CLI
+address.py    — backend-agnostic АДРЕСАЦИЯ brace-языков (Vision04): get_blocks/line_level на
+                RNode+LangSpec. Порт handlers/_treesitter_blocks; те же границы, что у .0-outline
 ```
 
 ## Контракт (4 роли + IR)
@@ -74,6 +90,34 @@ classify.py   — backend-agnostic .0-классификатор + render + CLI
 Точка — маркер уровня, НЕ признак рамки как таковой (рамка тоже точка, но точка ≠ только рамка).
 Реализация — `classify.render()`.
 
+## Адресация (Vision04) — «какой блок на строке N»
+
+Второй потребитель дерева (`address.py`), рядом с картой. Отвечает `core.py`-режимам ladder/query
+(`--line`) и функциям `get_codeblock()`/`get_line_levels()`. Вход — `Reader.get_blocks(path,line)` /
+`Reader.line_level(path,idx)`.
+
+- **get_blocks(path, line) → [{level,start,end,label}]** — лестница объемлющих блоков, внешний→
+  внутренний. `resolve(blocks, level)` (в `core.py`) адресует по уровню: `0`=внутренний, `+N`=от
+  верха, `-N`=вверх. `query` = get_blocks + resolve + срез текста.
+- **line_level(path, idx) → int** — глубина строки: `1 + число НЕпрозрачных тел, строго её содержащих`.
+
+**Набор узлов адресации ≠ набор карты (важно!).** `.0`/focus показывает landmark+frame (это ОГЛАВЛЕНИЕ).
+Адресация БОГАЧЕ: рунги = **named_def + braced-control (`for`/`if`/`while`/`try`/`with`) + standalone-
+тела (arrow/`{…}`/object/array)** — их берут из тех же `LangSpec`-наборов (`named_def`/`control`/
+`body_types`). Прозрачные рамки (`transparent_parents`: namespace/extern "C") НЕ добавляют уровень
+(`_level_of_row` не считает transparent-тела), как и в карте frame-дети идут на том же level.
+
+**Конвенция границ (единая для всех движков):** блок кончается на ПОСЛЕДНЕЙ СОДЕРЖАТЕЛЬНОЙ строке
+(brace — у `}`; tree-sitter — у последнего стейтмента). Хвостовые пустые/комменты — во внешнем
+скоупе или (по правилу «коммент клеится к блоку ПОД ним») в преамбуле следующего блока. Так карта и
+адресация дают ОДИН `[start-end]` для одного блока.
+
+**Backend'ы без brace-модели делегируют.** `.py` (отступной) и `.md` (беsparser) идут своим хендлером
+(`Reader` ветвит по `address.supports(path)` — whitelist `_BRACE_EXTS`). Отступной `python_handler`
+уже приведён к той же конвенции границ (обрезка хвоста в `find_body_end`), поэтому карта (tree-sitter)
+и адресация (отступная) согласованы. Форс `.py` через brace-`address.py` ОТВЕРГНУТ: python-`block`
+начинается на строке 1-го стейтмента → строгий `_level_of_row` врёт уровнем.
+
 ## ⚠️ Инварианты (нарушать нельзя)
 
 1. **Рендеры и classify — backend-agnostic.** Новый формат НЕ трогает `classify.py`/рендер.
@@ -83,13 +127,28 @@ classify.py   — backend-agnostic .0-классификатор + render + CLI
 4. **Analyzer опционален и чист.** Его отсутствие/падение не ломает пайплайн.
 5. **Общие `LangSpec` (в `handlers/`) не менять** — на них завязан рабочий outline/query (оракул
    88/88). Языковые «добавки» ридера держать в профиле (`profiles/<lang>.py`: `extra_frames`, binders).
+6. **Карта и адресация согласованы (Vision04).** Один вопрос «какой блок на строке N» — один ответ.
+   Границы блока совпадают в `.0`-outline и в `get_blocks` (единая конвенция «конец = последняя
+   содержательная строка»). Никаких параллельных реализаций адресации в обход `Reader`.
 
 ## Рецепт A — новый язык на tree-sitter
 
 Новый файл-профиль `profiles/<lang>.py` + одна строка в `profiles/__init__.py`. Профиль несёт
 `LangSpec` (наборы node-типов: `named_def`→landmark, `transparent_parents`/`extra_frames`→frame,
-`body_types`→тело) и, при нужде, binder/value-типы промоушена. Движок, classify, рендер, `label.py`
-— НЕ трогаем. Общие label-наборы (если правило делит несколько языков) — в `profiles/presets.py`.
+`body_types`→тело, `control`→управляющие блоки) и, при нужде, binder/value-типы промоушена. Движок,
+classify, `address.py`, рендер, `label.py` — НЕ трогаем. Общие label-наборы (если правило делит
+несколько языков) — в `profiles/presets.py`.
+
+**Один `LangSpec` → и КАРТА, и АДРЕСАЦИЯ бесплатно.** Те же наборы (`named_def`/`control`/`body_types`/
+`transparent_parents`) читают ОБА потребителя: `.0`-классификатор строит карту, `address.py` —
+ladder/query/line_level. Новый brace-язык — ДВА касания, и получаешь outline + `.0` + focus +
+get_blocks + query + staircase:
+1. `profiles/<lang>.py` (`LangSpec`) + строка в `profiles/__init__.py` — включает КАРТУ.
+2. расширение в `address._BRACE_EXTS` — включает АДРЕСАЦИЮ на reader-движке.
+
+Без шага 2 карта работает, но `Reader` уведёт адресацию в делегацию к языковому хендлеру
+(`handlers/`) — которого у нового языка нет. Оба шага — просто ДАННЫЕ, ни движок, ни рендеры не
+трогаем (Vision03: «новый язык = запись данных»).
 
 ```python
 # profiles/rust.py
