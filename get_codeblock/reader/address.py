@@ -142,6 +142,10 @@ def _block_label(node, parent, spec):
 
 
 def _bounds(node, parent, bodies, comment_rows, lines, spec):
+    """ЕДИНЫЙ калькулятор диапазона рунга (порт `_treesitter_blocks._bounds`): один и
+    тот же [start-end] в любом режиме (ladder/query/nearest). level = глубина ЗАГОЛОВКА
+    (строгое вложение тел); start поднят над коммент-преамблой; end = последняя строка
+    узла. 1-based, end inclusive."""
     return {
         'level': _level_of_row(node.start_row, bodies),
         'start': _preamble_start(node.start_row, comment_rows, lines) + 1,
@@ -158,6 +162,12 @@ def _read_lines(path):
 # -- публичный API (зеркалит хендлер) ---------------------------------------
 
 def get_blocks(path, target_line):
+    """Лестница объемлющих блоков строки `target_line` (1-based), внешний→внутренний,
+    каждый — {level,start,end,label}. Порт `_treesitter_blocks.get_blocks` на RNode:
+    рунги = все addressable-блоки (def/class + braced-control + standalone-тела),
+    содержащие строку; тычок в коммент-преамблу → её блок (`_preamble_owner`); если ни
+    в один не попали — ближайший (`_nearest`). Контракт наружу совпадает с хендлером
+    (его ест `core.resolve`/query/staircase). Внутренний вход: `Reader.get_blocks`."""
     lines = _read_lines(path)
     if not lines or target_line < 1 or target_line > len(lines):
         return []
@@ -182,6 +192,8 @@ def get_blocks(path, target_line):
 
 
 def _nearest(blocks, row, bodies, comment_rows, lines, spec):
+    """Фолбек (порт `_treesitter_blocks._nearest`): строка вне всех блоков (пусто/гэп) →
+    ближайший блок сверху ИЛИ снизу по расстоянию строк (ничья → верхний). [] если блоков нет."""
     below = [(n, p) for n, p in blocks if n.start_row >= row]
     above = [(n, p) for n, p in blocks if n.end_row <= row]
     chosen = None
@@ -198,6 +210,8 @@ def _nearest(blocks, row, bodies, comment_rows, lines, spec):
 
 
 def line_level(path, idx):
+    """Глубина строки `idx` (0-based) = `_level_of_row`: 1 + число НЕпрозрачных тел, строго
+    её содержащих. Порт `_treesitter_blocks.line_level`. Вход: `Reader.line_level`."""
     lines = _read_lines(path)
     if idx < 0 or idx >= len(lines):
         return 1
