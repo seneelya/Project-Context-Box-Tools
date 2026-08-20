@@ -161,7 +161,7 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
 LADDER = [
     # (1,*) glued to 89: the '# chat ...' banner above `def chat` (94) is its preamble
     # — every ladder rung now reports the same glued range as a direct query (tool-verified).
-    {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 161), (1, 89, 172)]},
+    {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 160), (1, 89, 166)]},
     {"file": 'mdSRC/capture.py.md', "line": 12, "expect": [(4, 12, 15), (3, 10, 27), (2, 4, 27), (1, 1, 56)]},
     # namespace is transparent -> not a ladder entry; enclosing blocks one level shallower.
     {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(2, 10, 17), (1, 8, 26)]},
@@ -172,10 +172,10 @@ LADDER = [
     # Inner glues its line-44 ///; Widget its line-3 /// — outer rungs glued too.
     {"file": 'Edge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 44, 54), (1, 3, 55)]},
     # Python Bug A: landing on `async def ws_reader` gives that def + its parent.
-    {"file": 'Edge/Edge.py', "line": 37, "expect": [(2, 35, 54), (1, 17, 67)]},
+    {"file": 'Edge/Edge.py', "line": 37, "expect": [(2, 35, 51), (1, 17, 67)]},
     # try/except siblings: line 45 (in the inner `except`) must NOT report the sibling
     # `try` (41) as a deeper container — clean monotonic chain, no phantom rung.
-    {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 44, 47), (5, 41, 49), (4, 40, 49), (3, 39, 49), (2, 35, 54), (1, 17, 67)]},
+    {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 44, 46), (5, 41, 49), (4, 40, 49), (3, 39, 49), (2, 35, 51), (1, 17, 67)]},
     # CSS nested at-rules: a rule inside @media inside @supports — 3 real rungs.
     {"file": 'cssSRC/ChatViewer.css', "line": 214, "expect": [(3, 213, 219), (2, 212, 220), (1, 210, 221)]},
     # TS one-truth: line 71 (inside an arrow that is a property value in an object
@@ -186,7 +186,7 @@ LADDER = [
 
 QUERY = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 0, "expect": (3, 139, 145)},
-    {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 1, "expect": (1, 89, 172)},  # glued to '# chat' banner
+    {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 1, "expect": (1, 89, 166)},  # ends at last content (return None)
     {"file": 'mdSRC/capture.py.md', "line": 4, "level": 0, "expect": (2, 4, 27)},
     # --- preamble-comment regression: landing on a comment returns the block it documents ---
     {"file": 'Edge/Edge.cs', "line":  9, "level": 0, "expect": (2,  8, 17)},  # /// doc  -> ctor
@@ -207,11 +207,11 @@ QUERY = [
 
     # --- Python handler fixes ---
     # Bug B: the FIRST line of a multi-line comment preamble still reaches the def below.
-    {"file": 'Edge/Edge.py', "line": 35, "level": 0, "expect": (2, 35, 54)},  # 1st comment -> ws_reader
-    {"file": 'Edge/Edge.py', "line": 36, "level": 0, "expect": (2, 35, 54)},  # 2nd comment -> ws_reader
+    {"file": 'Edge/Edge.py', "line": 35, "level": 0, "expect": (2, 35, 51)},  # 1st comment -> ws_reader
+    {"file": 'Edge/Edge.py', "line": 36, "level": 0, "expect": (2, 35, 51)},  # 2nd comment -> ws_reader
     # Bug A: a def-header line belongs to the block it opens, not the parent.
-    {"file": 'Edge/Edge.py', "line": 37, "level": 0, "expect": (2, 35, 54)},  # `async def ws_reader`
-    {"file": 'Edge/Edge.py', "line": 53, "level": 0, "expect": (2, 53, 63)},  # `async def ws_writer`
+    {"file": 'Edge/Edge.py', "line": 37, "level": 0, "expect": (2, 35, 51)},  # `async def ws_reader`
+    {"file": 'Edge/Edge.py', "line": 53, "level": 0, "expect": (2, 53, 62)},  # `async def ws_writer`
 ]
 
 IMPORTS = {

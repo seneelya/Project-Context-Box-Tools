@@ -252,7 +252,19 @@ def find_body_end(lines, header_idx, respect_siblings=True):
         
         # ind > header_indent → inside the body
         last_line = i
-    
+
+    # A block ends at its last CONTENT line — trailing blank/comment lines belong to
+    # the enclosing scope or (by the comment-glues-below rule) to the next sibling's
+    # preamble, NOT to this block. Trimming them makes indentation ranges agree with
+    # the brace/tree-sitter convention (a block ends at `}` / its last statement), so
+    # addressing and the .0-outline report the same [start-end] for the same block.
+    while last_line > colon_idx:
+        s = lines[last_line].strip()
+        if not s or s.startswith('#'):
+            last_line -= 1
+        else:
+            break
+
     return last_line
 
 
