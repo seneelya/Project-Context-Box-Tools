@@ -62,5 +62,33 @@ py test/check.py --fails    # only mismatches + summary (quick regression run)
 - Golden was seeded from current output; **verify the counts by finger** (e.g. "chat.py
   really uses 4 symbols of `_http`", "line 140 really sits 4 levels deep").
 
+## Fuzz sweep — `sweep_invariants.py`
+
+`check.py` verifies hand-picked lines. `sweep_invariants.py` does the opposite: it pokes
+**every non-blank line** of **every file** in a tree through `get_blocks` (ladder mode) and
+flags any result that breaks a structural invariant. It found four ballooning bugs in the
+indentation heuristic that only surfaced on real code (hanging-indent signatures,
+comprehension `for`/`if`, soft-keyword `match =`, brackets inside string literals).
+
+```bash
+py test/sweep_invariants.py                       # default: sweep test/ fixtures (must be 0 HIGH)
+py test/sweep_invariants.py "Y:\path\to\SRC"      # stress a real tree
+py test/sweep_invariants.py FILE --show 40        # verbose: list each violation for one file
+py test/sweep_invariants.py DIR --step 3          # sample every 3rd line (huge trees)
+py test/sweep_invariants.py DIR --max-lines 800   # cap lines checked per file
+```
+
+- **What it checks** (per line): `CONTAIN` (HIGH) — a rung must span the line (invariant #7);
+  `RANGE` (HIGH) — outer rung must span the inner; `CRASH`/`OPEN` (HIGH); `LEVEL` (LOW) —
+  ranges nest but levels don't strictly increase (the try/catch sibling-wrapper quirk, not a
+  containment break); `EMPTY` (INFO).
+- **Exit code 1 iff any HIGH** — usable as a regression gate. Blank lines are skipped on
+  purpose (a blank between blocks legitimately belongs to no block).
+- **Speed**: the `.py` path is ~O(lines) per line (no parser), so giant files are slow even
+  though the sweep memoizes parse/scan work — reach for `--step` / `--max-lines` on big trees.
+- **When it finds something**: it prints `file → line → the offending rung ranges`. Reproduce
+  with `get_codeblock.py --file F --line N`, look at the source, fix the handler, then add a
+  minimal case to `pythonSRC/hanging_sig.py` + `expected.py` so the oracle guards it forever.
+
 ## Provenance
 Copied from memohood (own), ts-prune (MIT), zod (MIT), CoreSharp, SwarmUI (MIT), a Unity project — for local test fixtures only.
