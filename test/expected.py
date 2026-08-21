@@ -172,10 +172,12 @@ LADDER = [
     # Inner glues its line-44 ///; Widget its line-3 /// — outer rungs glued too.
     {"file": 'Edge/Edge.cs', "line": 51, "expect": [(4, 49, 52), (3, 47, 53), (2, 44, 54), (1, 3, 55)]},
     # Python Bug A: landing on `async def ws_reader` gives that def + its parent.
-    {"file": 'Edge/Edge.py', "line": 37, "expect": [(2, 35, 51), (1, 17, 67)]},
+    # Outer def starts at 16: its `@asynccontextmanager` decorator is part of the block
+    # (addressing now glues decorators, matching the map — same [start-end] both engines).
+    {"file": 'Edge/Edge.py', "line": 37, "expect": [(2, 35, 51), (1, 16, 67)]},
     # try/except siblings: line 45 (in the inner `except`) must NOT report the sibling
     # `try` (41) as a deeper container — clean monotonic chain, no phantom rung.
-    {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 44, 46), (5, 41, 49), (4, 40, 49), (3, 39, 49), (2, 35, 51), (1, 17, 67)]},
+    {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 44, 46), (5, 41, 49), (4, 40, 49), (3, 39, 49), (2, 35, 51), (1, 16, 67)]},
     # CSS nested at-rules: a rule inside @media inside @supports — 3 real rungs.
     {"file": 'cssSRC/ChatViewer.css', "line": 214, "expect": [(3, 213, 219), (2, 212, 220), (1, 210, 221)]},
     # TS one-truth: line 71 (inside an arrow that is a property value in an object

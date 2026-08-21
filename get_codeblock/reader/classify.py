@@ -228,11 +228,16 @@ def _pick_focus(chain, level):
     return chain[min(level - 1, len(chain) - 1)]
 
 
-def _focus_head(spec, node, level):
+def _focus_head(spec, node, level, start_override=None):
     """Block-заголовок цели на её РЕАЛЬНОЙ файловой глубине `level` (не ре-базируем в 1 —
-    иначе хедер/отступ врут о глубине). Тело раскрывается с level+1."""
+    иначе хедер/отступ врут о глубине). Тело раскрывается с level+1.
+
+    start_override (1-based) — начало, поднятое над коммент-преамблой блока, чтобы focus-
+    карта давала тот же [start-end], что полный outline и адресация (иначе focus показывал
+    сырой node.start без склеенного док-коммента → три движка расходились)."""
     frame = spec.unwrap_frame(node)
-    s, e = node.start_row + 1, node.end_row + 1
+    s = start_override if start_override is not None else node.start_row + 1
+    e = node.end_row + 1
     if frame is not None:
         return Block(Role.FRAME, frame.type, s, e, level, name=spec.name(frame))
     return Block(Role.LANDMARK, spec.unwrap_def(node).type, s, e, level, name=spec.name(node))
@@ -257,8 +262,15 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
         if target is None:
             tree = []
         else:
-            base = chain.index(target) + 1     # РЕАЛЬНАЯ глубина цели в файле (не 1)
-            head = _focus_head(spec, target, base)
+            idx = chain.index(target)
+            base = idx + 1                     # РЕАЛЬНАЯ глубина цели в файле (не 1)
+            # Склеить коммент-преамблу цели: спрашиваем want_glue у её РОДИТЕЛЬСКОГО скоупа
+            # (root для верхнего уровня, тело родителя-по-цепочке иначе). Тот же расчёт, что
+            # в полном outline (pending) и в адресации (_preamble_start) — один [start-end].
+            parent_scope = spec.body(chain[idx - 1]) if idx > 0 else root
+            _n, glued = _owning_block(spec, parent_scope.children(), target.start_row + 1,
+                                      want_glue=True)
+            head = _focus_head(spec, target, base, start_override=glued)
             body = spec.body(target)
             if body is not None:
                 head.children = clf.classify(body, level=base + 1, depth=_OUTLINE_FULL_DEPTH,

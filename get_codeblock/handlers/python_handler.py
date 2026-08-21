@@ -379,14 +379,19 @@ def collect_preamble(lines, header_idx):
         
         if is_block_header(lines, i):
             break
-        
-        # Comments and docstrings are preamble
-        if content.startswith('#') or content.startswith('"""') or content.startswith("'''"):
+
+        # Preamble = comments, docstrings, AND decorators. Decorators (`@deco`) are part
+        # of the definition (the tree-sitter map folds them into the def node's span), so
+        # addressing must glue them too or the two engines report different starts for the
+        # same block. NOTE: a multi-line decorator's continuation lines aren't caught here,
+        # only the `@`-leading line — acceptable; single-line decorators are the norm.
+        if (content.startswith('#') or content.startswith('"""')
+                or content.startswith("'''") or content.startswith('@')):
             start = i
             i -= 1
         else:
             break
-    
+
     return start
 
 
