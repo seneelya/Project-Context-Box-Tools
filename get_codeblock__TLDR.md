@@ -72,3 +72,5 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
 - `--query` prints `#File: PATH` as its very first line, before `#Block level:` — so a block
   self-identifies its source when several extractions get concatenated and the call that
   produced them is no longer in view.
+
+## Not Enough info? whats next? - read `get_codeblock__GUIDE.md`

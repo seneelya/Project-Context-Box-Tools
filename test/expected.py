@@ -182,6 +182,13 @@ LADDER = [
     # literal) -> arrow-body [70-73] · object literal [69-74] · function [17-77]. The
     # brace-less `if (...) return true;` on 71 is NOT a block; the object literal IS.
     {"file": 'Edge/Edge.ts', "line": 71, "expect": [(3, 70, 73), (2, 69, 74), (1, 17, 77)]},
+    # INVARIANT regression: a line inside a top-level bracket construct must return a block
+    # that CONTAINS it — the indentation heuristic doesn't model list/dict literals, so this
+    # used to fall through to the nearest def (a block NOT spanning the line). Now the list
+    # literal itself is the container.
+    {"file": 'topLevel/toplevel.py', "line": 44, "expect": [(1, 42, 49)]},
+    # Nested dict inside a top-level dict: full bracket nesting, both rungs contain the line.
+    {"file": 'topLevel/toplevel.py', "line": 174, "expect": [(2, 173, 176), (1, 168, 177)]},
 ]
 
 QUERY = [

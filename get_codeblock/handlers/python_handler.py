@@ -299,8 +299,63 @@ def find_containing_blocks(lines, target_idx):
     
     # Sort by indent ascending (outermost first)
     containing.sort(key=lambda x: get_indent(lines[x[0]])[0])
-    
+
     return containing
+
+
+def enclosing_bracket_spans(lines, idx):
+    """All multi-line bracket groups ``([{ … }])`` that contain line `idx`: opener on an
+    EARLIER line, closer on/after `idx`. Returns ``[(open_row, close_row), …]`` 0-based,
+    OUTERMOST→innermost (empty if none). String/comment-aware (same delimiter tracking as
+    the docstring scanner), so a bracket inside a string or ``#`` comment is ignored.
+
+    WHY THIS EXISTS: the indentation heuristic only models colon-blocks (def/class/if/…).
+    A line inside a top-level list/dict/call literal (e.g. a ``REGISTRY = [ … ]`` table)
+    has no colon-block container, so get_blocks used to fall through to the NEAREST def —
+    a block that does not contain the line (invariant violation). This recovers the real
+    enclosing constructs so the ladder spans the hit line and nests like the brace engine.
+    """
+    stack = []      # open rows of currently-open brackets
+    delim = None    # active triple-quote delimiter carried across lines
+    found = []      # (open_row, close_row) for every group that contains idx
+    for i, line in enumerate(lines):
+        j, n = 0, len(line)
+        while j < n:
+            if delim is not None:
+                if line.startswith(delim, j):
+                    delim = None
+                    j += 3
+                else:
+                    j += 1
+                continue
+            c = line[j]
+            if c == '#':
+                break  # rest of line is a comment
+            if line.startswith('"""', j) or line.startswith("'''", j):
+                delim = line[j:j + 3]
+                j += 3
+                continue
+            if c == '"' or c == "'":
+                j += 1
+                while j < n:
+                    if line[j] == '\\':
+                        j += 2
+                        continue
+                    if line[j] == c:
+                        j += 1
+                        break
+                    j += 1
+                continue
+            if c in '([{':
+                stack.append(i)
+            elif c in ')]}':
+                if stack:
+                    o = stack.pop()
+                    if o < idx <= i:
+                        found.append((o, i))  # opened before the hit line, closes at/after
+            j += 1
+    found.sort(key=lambda s: s[0])  # outermost (smallest open row) first
+    return found
 
 
 def collect_preamble(lines, header_idx):
@@ -445,12 +500,26 @@ class PythonHandler:
         """
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
-        
+
         if not lines or target_line < 1 or target_line > len(lines):
             return []
-        
+
         idx = target_line - 1
-        
+        result = self._ladder(lines, idx)
+
+        # INVARIANT (Vision04): every rung MUST contain the hit line. The indentation
+        # heuristic doesn't model multi-line bracket constructs (list/dict/call), so a
+        # stray path could otherwise report a block that doesn't span target_line (the
+        # old nearest-def fallback did exactly that for a line inside a top-level list).
+        # Drop any non-containing rung; if nothing remains, describe the real container.
+        result = [b for b in result if b['start'] <= target_line <= b['end']]
+        if not result:
+            result = self._orphan(lines, idx)
+        return result
+
+    def _ladder(self, lines, idx):
+        """Enclosing colon-block ladder (outermost→innermost) for line idx. May be empty
+        when the line sits outside every def/class/control block (handled by _orphan)."""
         # If comment attached to block below, resolve effective target
         content = lines[idx].strip()
         if content.startswith('#'):
@@ -472,12 +541,7 @@ class PythonHandler:
             return self._build_hierarchy_for_header(lines, idx)
 
         containing = find_containing_blocks(lines, idx)
-        
-        if not containing:
-            # Fallback mode: line is outside all blocks but blocks exist nearby
-            # Return the nearest block (above or below), ignoring comments
-            return self._find_nearest_block(lines, idx)
-        
+
         result = []
         for i, (h, end) in enumerate(containing):
             # Glue the preamble onto EVERY rung (not just the innermost) so a block
@@ -492,65 +556,27 @@ class PythonHandler:
             })
 
         return result
-    
-    def _find_nearest_block(self, lines, target_idx):
-        """Fallback: find nearest block above or below when line is between blocks."""
-        # If target line itself is a block header, return that block
-        if is_block_header(lines, target_idx):
-            end = find_body_end(lines, target_idx)
-            ps = collect_preamble(lines, target_idx)
-            return [{
-                'level': 1,
-                'start': ps + 1,
-                'end': end + 1,
-                'label': lines[target_idx].strip()[:80],
-            }]
-        
-        # Find nearest block header above (ignoring comments)
-        above_dist = float('inf')
-        above_header = None
-        for i in range(target_idx - 1, -1, -1):
-            if not lines[i].strip() or lines[i].strip().startswith('#'):
-                continue
-            if is_block_header(lines, i):
-                dist = target_idx - find_body_end(lines, i)
-                above_dist = abs(dist)
-                above_header = i
-                break
-        
-        # Find nearest block header below (ignoring comments)
-        below_dist = float('inf')
-        below_header = None
-        for i in range(target_idx + 1, len(lines)):
-            if not lines[i].strip() or lines[i].strip().startswith('#'):
-                continue
-            if is_block_header(lines, i):
-                dist = i - target_idx
-                below_dist = abs(dist)
-                below_header = i
-                break
-        
-        # Return whichever is closer; if tie, prefer above
-        if above_header is None and below_header is None:
-            return []
-        
-        if above_header is None:
-            chosen = below_header
-        elif below_header is None:
-            chosen = above_header
-        else:
-            chosen = above_header if above_dist <= below_dist else below_header
-        
-        end = find_body_end(lines, chosen)
-        ps = collect_preamble(lines, chosen)
 
-        return [{
-            'level': 1,
-            'start': ps + 1,
-            'end': end + 1,
-            'label': lines[chosen].strip()[:80],
-        }]
-    
+    def _orphan(self, lines, idx):
+        """Line outside every colon-block. First try the enclosing multi-line bracket
+        construct (list/dict/call) so we still return a block that CONTAINS the line;
+        failing that, report honest module scope. Never a non-containing 'nearest' guess."""
+        spans = enclosing_bracket_spans(lines, idx)
+        if spans:
+            # colon-block ancestors of the outermost construct + the bracket groups
+            # themselves (outer→inner), so the ladder nests like the brace engine does.
+            rungs = list(find_containing_blocks(lines, spans[0][0])) + spans
+            return [{
+                'level': i + 1,
+                'start': collect_preamble(lines, h) + 1,
+                'end': e + 1,
+                'label': lines[h].strip()[:80],
+            } for i, (h, e) in enumerate(rungs)]
+        # Genuinely top-level line (module gap / bare statement): module scope always
+        # contains it, and stays truthful — no phantom def is invented.
+        return [{'level': 1, 'start': 1, 'end': len(lines), 'label': '<module>'}]
+
+
     def _build_hierarchy_for_header(self, lines, header_idx):
         """Build full hierarchy of blocks containing the given header, plus the header's own block."""
         # find_containing_blocks already returns ALL strict ancestors (outermost-first).
