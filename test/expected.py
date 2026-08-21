@@ -204,6 +204,9 @@ LADDER = [
     {"file": 'pythonSRC/hanging_sig.py', "line": 25, "expect": [(1, 19, 28)]},
     # But a real `if` statement IS still a block (soft/comprehension fixes didn't over-reach).
     {"file": 'pythonSRC/hanging_sig.py', "line": 27, "expect": [(2, 26, 27), (1, 19, 28)]},
+    # Bracket inside a string literal (`if ch == ")":`) must not corrupt the colon scan and
+    # balloon the block — string/comment-aware find_colon_line. Clean 3-rung nest.
+    {"file": 'pythonSRC/hanging_sig.py', "line": 34, "expect": [(3, 34, 35), (2, 33, 35), (1, 31, 36)]},
 ]
 
 QUERY = [

@@ -221,21 +221,56 @@ def find_colon_line(lines, start_idx):
     The old `ind == header_indent` guard missed that and ran on to the next dedented ':'
     lines away, ballooning the block and swallowing sibling defs (a real bug the sweep
     caught). Bracket balance alone is the correct discriminator.
+
+    STRING/COMMENT-AWARE: brackets and ':' inside string literals or comments do NOT count.
+    A naive `stripped.count('(')` breaks on headers like `if ch == ")":` — the ')' lives in
+    a string, drove the depth negative, hid the real colon, and ran the search away (another
+    ballooning bug the sweep caught). We scan characters, skipping strings/comments.
     """
-    paren_depth = 0
+    depth = 0
+    delim = None  # active triple-quote delimiter carried across lines
 
     for i in range(start_idx, len(lines)):
-        stripped = lines[i].strip()
-        if not stripped or stripped.startswith('#'):
-            continue
+        line = lines[i]
+        j, n = 0, len(line)
+        colon_at_top = False
+        while j < n:
+            if delim is not None:
+                if line.startswith(delim, j):
+                    delim = None
+                    j += 3
+                else:
+                    j += 1
+                continue
+            c = line[j]
+            if c == '#':
+                break  # rest of line is a comment
+            if line.startswith('"""', j) or line.startswith("'''", j):
+                delim = line[j:j + 3]
+                j += 3
+                continue
+            if c == '"' or c == "'":
+                j += 1
+                while j < n:
+                    if line[j] == '\\':
+                        j += 2
+                        continue
+                    if line[j] == c:
+                        j += 1
+                        break
+                    j += 1
+                continue
+            if c in '([{':
+                depth += 1
+            elif c in ')]}':
+                depth = max(0, depth - 1)
+            elif c == ':' and depth == 0:
+                colon_at_top = True  # header colon, not a slice/dict/annotation in brackets
+            j += 1
 
-        # Track brackets across the whole (possibly multi-line) signature.
-        paren_depth += stripped.count('(') - stripped.count(')')
-        paren_depth += stripped.count('[') - stripped.count(']')
-        paren_depth += stripped.count('{') - stripped.count('}')
-
-        # Header colon = first line where brackets are balanced and a ':' is present.
-        if paren_depth == 0 and ':' in stripped:
+        # Header colon = first line where, outside strings, brackets are balanced and a
+        # top-level ':' appears (end of a possibly multi-line signature).
+        if delim is None and depth == 0 and colon_at_top:
             return i
 
     return start_idx

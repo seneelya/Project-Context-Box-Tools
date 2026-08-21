@@ -26,3 +26,11 @@ def collect(items):
     if match:
         return match.group(0)
     return names
+
+
+def scan_parens(command: str) -> int:
+    depth = 0
+    for ch in command:
+        if ch == ")":                 # ')' lives in a string — must not corrupt colon scan
+            depth -= 1
+    return depth
