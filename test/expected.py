@@ -193,10 +193,10 @@ LADDER = [
     {"file": 'topLevel/toplevel.py', "line": 174, "expect": [(2, 173, 176), (1, 168, 177)]},
     # Hanging-indent signature: the closing `) -> str:` sits at the continuation column, not
     # the header indent. `beta` must NOT balloon over sibling `alpha` (find_colon_line RANGE
-    # bug, sweep-caught). Line 14 = beta's 2nd signature line.
-    {"file": 'pythonSRC/hanging_sig.py', "line": 14, "expect": [(2, 13, 15), (1, 6, 15)]},
+    # bug, sweep-caught). Line 15 = beta's 2nd signature line.
+    {"file": 'pythonSRC/hanging_sig.py', "line": 15, "expect": [(2, 14, 16), (1, 7, 16)]},
     # Inline body (`...`) after a hanging-indent signature stays inside its own def.
-    {"file": 'pythonSRC/hanging_sig.py', "line": 11, "expect": [(2, 10, 11), (1, 6, 15)]},
+    {"file": 'pythonSRC/hanging_sig.py', "line": 12, "expect": [(2, 11, 12), (1, 7, 16)]},
     # Comprehension `for`/`if` inside `{…}` are NOT loop/statement headers — line 21 sits in
     # the set comprehension; only the enclosing def contains it, no fabricated inner block.
     {"file": 'pythonSRC/hanging_sig.py', "line": 21, "expect": [(1, 19, 28)]},
