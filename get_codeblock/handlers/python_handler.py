@@ -136,30 +136,36 @@ def get_keyword(line):
 
 
 def find_colon_line(lines, start_idx):
-    """Find the line with closing ':' for multi-line headers.
-    
-    Handles type hints containing ':' by tracking bracket depth.
-    Always track brackets while searching; final ':' is when depth==0 at header indent.
+    """Find the line carrying the header's closing ':' (handles multi-line signatures).
+
+    The end of the signature is where all brackets opened by the `(`/`[`/`{` in the header
+    are balanced again AND a ':' appears — tracked by bracket depth. We do NOT require that
+    line to sit at the header's own indent: with a hanging indent the closing
+    `) -> T:` stays at the continuation column, e.g.
+
+        def key(self, keys: str, *,
+                bring_to_front: bool = False) -> ActionResult:   # <- ':' here, deep indent
+
+    The old `ind == header_indent` guard missed that and ran on to the next dedented ':'
+    lines away, ballooning the block and swallowing sibling defs (a real bug the sweep
+    caught). Bracket balance alone is the correct discriminator.
     """
     paren_depth = 0
-    header_indent = get_indent(lines[start_idx])[0]
-    
+
     for i in range(start_idx, len(lines)):
         stripped = lines[i].strip()
         if not stripped or stripped.startswith('#'):
             continue
-        
-        # Always track brackets (signature may span many lines)
+
+        # Track brackets across the whole (possibly multi-line) signature.
         paren_depth += stripped.count('(') - stripped.count(')')
         paren_depth += stripped.count('[') - stripped.count(']')
         paren_depth += stripped.count('{') - stripped.count('}')
-        
-        ind = get_indent(lines[i])[0]
-        
-        # Final ':' is when: all brackets closed AND at header indent level
-        if paren_depth == 0 and ':' in stripped and ind == header_indent:
+
+        # Header colon = first line where brackets are balanced and a ':' is present.
+        if paren_depth == 0 and ':' in stripped:
             return i
-    
+
     return start_idx
 
 

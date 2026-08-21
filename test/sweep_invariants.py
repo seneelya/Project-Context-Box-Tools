@@ -79,6 +79,34 @@ def _speed_up():
     address._collect = _memo_by_root(address._collect)
     address._comment_rows = _memo_by_root(address._comment_rows)
 
+    # The indentation (.py) path re-reads the file on EVERY line via a bare open(). Shadow
+    # that module's `open` with a per-path readlines cache — kills the O(lines) I/O per line.
+    import builtins
+    from get_codeblock.handlers import python_handler
+    read_cache = {}
+
+    class _CachedFile:
+        def __init__(self, lines):
+            self._lines = lines
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def readlines(self):
+            return list(self._lines)
+
+    def cached_open(path, *a, **k):
+        key = os.path.abspath(path)
+        if key not in read_cache:
+            with builtins.open(path, *a, **k) as f:
+                read_cache[key] = f.readlines()
+        return _CachedFile(read_cache[key])
+
+    python_handler.open = cached_open
+
 
 _speed_up()
 
