@@ -166,7 +166,7 @@ def get_blocks(path, target_line):
     каждый — {level,start,end,label}. Порт `_treesitter_blocks.get_blocks` на RNode:
     рунги = все addressable-блоки (def/class + braced-control + standalone-тела),
     содержащие строку; тычок в коммент-преамблу → её блок (`_preamble_owner`); если ни
-    в один не попали — ближайший (`_nearest`). Контракт наружу совпадает с хендлером
+    в один не попали — честный file-scope `[1,N]` (инвариант #7). Контракт наружу совпадает с хендлером
     (его ест `core.resolve`/query/staircase). Внутренний вход: `Reader.get_blocks`."""
     lines = _read_lines(path)
     if not lines or target_line < 1 or target_line > len(lines):
@@ -185,28 +185,15 @@ def get_blocks(path, target_line):
             containing.append(next((n, p) for n, p in blocks if n is owner))
 
     if not containing:
-        return _nearest(blocks, row, bodies, comment_rows, lines, spec)
+        # ИНВАРИАНТ #7 (CONTRACT): строка вне всех addressable-блоков (top-level import/
+        # декларация или гэп) → честный file-scope, который ГАРАНТИРОВАННО её содержит. НЕ
+        # «ближайший» блок — он строку не покрывает (в TS/CSS таких строк много: импорты,
+        # top-level type/const). Зеркалит module-scope отступного `python_handler._orphan`.
+        # Старый `_nearest` (порт `_treesitter_blocks._nearest`) снят: он нарушал инвариант.
+        return [{'level': 1, 'start': 1, 'end': len(lines), 'label': '<file>'}]
 
     containing.sort(key=lambda np: (np[0].start_row, -np[0].end_row))
     return [_bounds(n, p, bodies, comment_rows, lines, spec) for n, p in containing]
-
-
-def _nearest(blocks, row, bodies, comment_rows, lines, spec):
-    """Фолбек (порт `_treesitter_blocks._nearest`): строка вне всех блоков (пусто/гэп) →
-    ближайший блок сверху ИЛИ снизу по расстоянию строк (ничья → верхний). [] если блоков нет."""
-    below = [(n, p) for n, p in blocks if n.start_row >= row]
-    above = [(n, p) for n, p in blocks if n.end_row <= row]
-    chosen = None
-    if below:
-        chosen = min(below, key=lambda np: np[0].start_row - row)
-    if above:
-        a = min(above, key=lambda np: row - np[0].end_row)
-        if chosen is None or (row - a[0].end_row) < (chosen[0].start_row - row):
-            chosen = a
-    if chosen is None:
-        return []
-    n, p = chosen
-    return [_bounds(n, p, bodies, comment_rows, lines, spec)]
 
 
 def line_level(path, idx):
