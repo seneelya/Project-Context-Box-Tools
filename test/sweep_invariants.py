@@ -96,7 +96,10 @@ def _speed_up():
             return False
 
         def readlines(self):
-            return list(self._lines)
+            # Return the SAME list object every time (not a copy): python_handler caches its
+            # in-string mask keyed on `lines is lines`, so a stable object lets that O(lines)
+            # scan run once per file instead of once per probed line.
+            return self._lines
 
     def cached_open(path, *a, **k):
         key = os.path.abspath(path)
@@ -106,6 +109,23 @@ def _speed_up():
         return _CachedFile(read_cache[key])
 
     python_handler.open = cached_open
+
+    # find_body_end / find_containing_blocks are the O(lines) scans get_blocks reruns for the
+    # SAME headers on every probed line — the real O(lines^2) cost. They're pure functions of
+    # (lines content, args); with lines now a stable object we memoize by (id(lines), args).
+    def _memo_by_lines(fn):
+        cache = {}
+
+        @functools.wraps(fn)
+        def wrapper(lines, *rest, **kw):
+            key = (id(lines), rest, tuple(sorted(kw.items())))
+            if key not in cache:
+                cache[key] = fn(lines, *rest, **kw)
+            return cache[key]
+        return wrapper
+
+    python_handler.find_body_end = _memo_by_lines(python_handler.find_body_end)
+    python_handler.find_containing_blocks = _memo_by_lines(python_handler.find_containing_blocks)
 
 
 _speed_up()

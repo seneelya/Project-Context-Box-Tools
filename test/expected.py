@@ -197,6 +197,13 @@ LADDER = [
     {"file": 'pythonSRC/hanging_sig.py', "line": 14, "expect": [(2, 13, 15), (1, 6, 15)]},
     # Inline body (`...`) after a hanging-indent signature stays inside its own def.
     {"file": 'pythonSRC/hanging_sig.py', "line": 11, "expect": [(2, 10, 11), (1, 6, 15)]},
+    # Comprehension `for`/`if` inside `{…}` are NOT loop/statement headers — line 21 sits in
+    # the set comprehension; only the enclosing def contains it, no fabricated inner block.
+    {"file": 'pythonSRC/hanging_sig.py', "line": 21, "expect": [(1, 19, 28)]},
+    # Soft keyword as identifier: `match = _re.search(...)` is an assignment, not a block.
+    {"file": 'pythonSRC/hanging_sig.py', "line": 25, "expect": [(1, 19, 28)]},
+    # But a real `if` statement IS still a block (soft/comprehension fixes didn't over-reach).
+    {"file": 'pythonSRC/hanging_sig.py', "line": 27, "expect": [(2, 26, 27), (1, 19, 28)]},
 ]
 
 QUERY = [

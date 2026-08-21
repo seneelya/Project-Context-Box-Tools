@@ -77,6 +77,69 @@ def _in_string_mask(lines):
     return mask
 
 
+def compute_bracket_depths(lines):
+    """Return list: depths[i] = number of unclosed ([{ brackets at the START of line i.
+
+    String/comment-aware (same delimiter tracking as compute_in_string_mask). Used to reject
+    comprehension/generator/ternary keywords as block headers: a compound-statement header
+    (`for`/`if`/`while`/`with`/…) can NEVER begin inside an open bracket, so a `for`/`if` seen
+    there is a comprehension clause (`{x for x in ...}`) or a ternary (`(a if c else b)`),
+    NOT a block. Without this the heuristic read such a `for` as a loop and fabricated a body
+    running far past the bracket (a real ballooning bug the sweep caught on Hermes source).
+    """
+    depths = [0] * len(lines)
+    depth = 0
+    delim = None
+    for i, line in enumerate(lines):
+        depths[i] = depth
+        j, n = 0, len(line)
+        while j < n:
+            if delim is not None:
+                if line.startswith(delim, j):
+                    delim = None
+                    j += 3
+                else:
+                    j += 1
+                continue
+            c = line[j]
+            if c == '#':
+                break
+            if line.startswith('"""', j) or line.startswith("'''", j):
+                delim = line[j:j + 3]
+                j += 3
+                continue
+            if c == '"' or c == "'":
+                j += 1
+                while j < n:
+                    if line[j] == '\\':
+                        j += 2
+                        continue
+                    if line[j] == c:
+                        j += 1
+                        break
+                    j += 1
+                continue
+            if c in '([{':
+                depth += 1
+            elif c in ')]}':
+                depth = max(0, depth - 1)
+            j += 1
+    return depths
+
+
+_DEPTH_CACHE = {'lines': None, 'depths': None}
+
+
+def _bracket_depths(lines):
+    """Cached accessor for compute_bracket_depths, keyed on lines object identity."""
+    if _DEPTH_CACHE['lines'] is lines:
+        return _DEPTH_CACHE['depths']
+    depths = compute_bracket_depths(lines)
+    _DEPTH_CACHE['lines'] = lines
+    _DEPTH_CACHE['depths'] = depths
+    return depths
+
+
 def get_indent(line):
     """Return (indent_spaces, is_blank). Tabs count as 4."""
     stripped = line.lstrip()
@@ -97,6 +160,8 @@ def is_block_header(lines, idx):
         return False
     if _in_string_mask(lines)[idx]:
         return False
+    if _bracket_depths(lines)[idx] > 0:
+        return False  # inside an open ([{ → comprehension/ternary clause, not a statement
     line = lines[idx]
     stripped = line.strip()
     if not stripped or stripped.startswith('#'):
@@ -107,9 +172,16 @@ def is_block_header(lines, idx):
         return False
     
     first = parts[0].rstrip(':')
+    if first in ('match', 'case'):
+        # SOFT keywords: `match`/`case` double as ordinary identifiers. Only a header in
+        # statement form — `match SUBJECT:` / `case PATTERN:` — i.e. the logical line ends
+        # with ':'. Reject `match = re.search(...)`, `case = 5`, `match(x)` (assignment/
+        # call/expression), which otherwise fabricated a bogus block (sweep-caught).
+        code = stripped.split('#', 1)[0].rstrip()
+        return code.endswith(':')
     if is_keyword(first):
         return True
-    
+
     # Handle lines like "elif:", "else:", etc.
     if stripped.endswith(':') and any(stripped.startswith(kw + ':') or stripped == kw + ':' 
                                        for kw in ['elif', 'else', 'finally', 'except', 'case']):
