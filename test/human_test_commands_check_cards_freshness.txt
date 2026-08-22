@@ -1,0 +1,14 @@
+# ============================================================
+# HUMAN TEST COMMANDS — check_cards_freshness. Run from a __HQ/tools/ directory.
+# These run OUTSIDE the target project, so cwd is NOT the project root:
+# ALWAYS pass --project-root explicitly (never rely on cwd or --cards-dir).
+#
+# Root used below (container SRC/):
+#   memohood = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood
+# ============================================================
+
+# check_cards_freshness: git-based staleness.
+# expect: "mode=git ... total=N fresh=... outdated=... orphan=..."; outdated entries list the commits
+#         that touched the source AFTER the card (so you know what to re-read)
+
+py check_cards_freshness.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"

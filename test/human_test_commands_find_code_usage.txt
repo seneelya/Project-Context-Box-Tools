@@ -1,0 +1,66 @@
+# ============================================================
+# HUMAN TEST COMMANDS — find_code_usage. Run from a __HQ/tools/ directory.
+# These run OUTSIDE the target project, so cwd is NOT the project root:
+# ALWAYS pass --project-root explicitly (never rely on cwd or --cards-dir).
+# --help commands are the only exception (they touch no project).
+#
+# Roots used below (container SRC/):
+#   memohood       = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood
+#   ts-prune       = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune
+#   CoreSharp      = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp
+#   test_SWARM_SRC = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC
+#   test_Unity     = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity
+# ============================================================
+
+# ============================================================
+# find_code_usage — outgoing mode (who this file's symbols are used by)
+# ============================================================
+
+# TypeScript
+
+py find_code_usage.py --file "src/state.ts" --language ts --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+
+py find_code_usage.py --file "src/analyzer.ts" --language typescript --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+
+# Python
+
+py find_code_usage.py --file "_engine/backends/__init__.py" --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+# C#
+
+py find_code_usage.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --language csharp --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+
+
+# ============================================================
+# find_code_usage — incoming mode (upstream dependencies)
+# ============================================================
+
+py find_code_usage.py --incoming --file "_engine/embed.py" --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+py find_code_usage.py --incoming --file "src/analyzer.ts" --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+
+py find_code_usage.py --incoming --file "source/CoreSharp/Utilities/GlobalStopWatchInstance.cs" --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+
+
+# ============================================================
+# find_code_usage — verbose mode (per-symbol line numbers)
+# ============================================================
+
+py find_code_usage.py --file "_engine/backends/__init__.py" --verbose --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+py find_code_usage.py --file "src/state.ts" --verbose --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune"
+
+py find_code_usage.py --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --verbose --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp"
+
+
+# ============================================================
+# find_code_usage — C# test projects (SWARM_SRC, Unity)
+# ============================================================
+
+py find_code_usage.py --file "Backends/BackendHandler.cs" --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC"
+
+py find_code_usage.py --incoming --file "Accounts/User.cs" --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC"
+
+py find_code_usage.py --file "Code/Core/Common/Commands/HttpCmd.cs" --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity"
+
+py find_code_usage.py --incoming --file "Code/Core/Common/Commands/HttpCmd.cs" --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity"

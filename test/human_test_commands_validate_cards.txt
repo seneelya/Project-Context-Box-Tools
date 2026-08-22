@@ -1,0 +1,20 @@
+# ============================================================
+# HUMAN TEST COMMANDS — validate_cards. Run from a __HQ/tools/ directory.
+# These run OUTSIDE the target project, so cwd is NOT the project root:
+# ALWAYS pass --project-root explicitly (never rely on cwd or --cards-dir).
+#
+# Root used below (container SRC/):
+#   memohood = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood
+# ============================================================
+
+# validate_cards: full set; pending (#1) is NOT an error; awaiting-agent is a STATUS, not an error.
+# expect: "checked N cards, 0 with issues"; a dep whose SOURCE exists but card not built yet is
+#         listed under "pending (...)" (exit 0). Cards still holding <|Agent:...|> directives are
+#         listed under "awaiting agent (...)" with the sections that need a pass (exit stays 0).
+#         Only a File Path resolving to NEITHER a card NOR a source is a real issue (exit 1).
+
+py validate_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+# validate_cards: "(none) - reason" tolerance (is_empty fix) — manual mini-check, no command.
+# In any card, set a section body to e.g. "(none) - trivial, no consumers" and re-run validate:
+# expect: still clean (the annotated marker counts as empty; only "(nonexistent)"-like text does not).

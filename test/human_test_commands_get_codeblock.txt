@@ -1,0 +1,122 @@
+# ============================================================
+# HUMAN TEST COMMANDS — get_codeblock. Run from a __HQ/tools/ directory.
+# These run OUTSIDE the target project, so cwd is NOT the project root:
+# ALWAYS pass --project-root explicitly (never rely on cwd or --cards-dir).
+# --help commands are the only exception (they touch no project).
+#
+# Roots used below (container SRC/):
+#   memohood       = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood
+#   ts-prune       = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune
+#   CoreSharp      = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp
+#   test_SWARM_SRC = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC
+#   test_Unity     = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity
+# ============================================================
+
+# ============================================================
+# get_codeblock — Vision03/04 · canonical order: WHERE -> VERB -> ADVERBS
+#   --project-root R  --file F  --line N  (--ancestor-level N | --level N)  (--outline | --dot | --query)  --numbered
+#   Address narrows FIRST (root -> file -> line -> block), THEN the verb acts, THEN adverbs.
+#   (flags are position-INDEPENDENT; this is the writing convention, not a parser rule.)
+#   verbs:    bare/--outline = map (landmarks + file-level filler only) · --dot = same map but
+#             filler shown at EVERY level (diagnostic — see what a grep would actually land in) ·
+#             --line = ladder (staircase) · --query = pull block text
+#   address:  --ancestor-level N = N blocks UP from the line (0=innermost/default, 1=parent). The usual one.
+#             --level N          = absolute depth from the file TOP (1=outermost). With --outline/--dot: caps shown depth.
+#             (raw --level -N still works, == --ancestor-level N)
+#   focus:    (--outline | --dot) --line N [--level K] = expand ONE block (the K-ancestor of
+#             line N) as its own map. With --dot the target itself can be a filler leaf (a
+#             class field, a top-level import run, …) — see invariant #9 examples below.
+# ============================================================
+
+# Python (memohood): map -> ladder -> parent -> pull
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --outline
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --line 50
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --line 50 --ancestor-level 1
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --line 50 --query
+
+# TypeScript (ts-prune)
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --outline
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --line 100
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --line 100 --ancestor-level 2
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --line 100 --query
+
+# C# (CoreSharp)
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp" --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --outline
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp" --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp" --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --ancestor-level 1
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/CoreSharp" --file "source/CoreSharp/Interfaces/IGlobalStopWatch.cs" --line 30 --query
+
+# C# (SWARM_SRC)
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Backends/BackendHandler.cs" --line 50
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Accounts/User.cs" --line 80 --ancestor-level 1
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Accounts/User.cs" --line 80 --query
+
+# C# (Unity)
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_Unity" --file "Code/Core/Common/Commands/HttpCmd.cs" --line 100
+
+# focus outline — expand ONE block (monster-class drill-down): the block at --line, then a K-ancestor
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Backends/BackendHandler.cs" --outline --line 50
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/test_SWARM_SRC" --file "Backends/BackendHandler.cs" --outline --line 50 --level 1
+
+# --dot (deep .0) — filler shown at EVERY level, not just file-top. Same map render, more detail.
+# expect: same tree as --outline but with `.N` filler rows inside function/class bodies too
+#         (assign/if_statement/etc runs) — the honest "what would grep actually land in" view.
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --outline --dot
+
+# invariant #9 — a top-level line with no addressable block (an `import`) resolves to its
+# filler band, not a fabricated "nearest def" and not the whole file. Ladder AND focus --dot
+# agree (same underlying `classify.filler_container_at`).
+# expect: `#1 [50-61] imports: ._http` (both commands)
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --line 50
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --file "_engine/backends/__init__.py" --outline --dot --line 50
+
+# invariant #8 — ambiguous shared-brace-boundary (`} else {` on ONE physical line): `if (p)`
+# and `else` are SIBLINGS at the same level, both legitimately contain the line. The ladder
+# shows both honestly; default --query (no --level) climbs to the unambiguous PARENT instead
+# of arbitrarily picking a side.
+# expect (ladder): `6 [102-105] else` AND `6 [99-102] if (p)` both listed, level 5 `for` below them
+# expect (query, no --level): resolves to the level-5 `for` loop, not either sibling
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --line 102
+
+py get_codeblock.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/ts-prune" --file "src/analyzer.ts" --line 102 --query
+
+# unsupported format — clean error, not a traceback (file must exist to reach the format
+# check; --project-root points at this tools/ checkout so LICENSE resolves; it has no
+# extension, so registry.resolve has nothing to match).
+# expect: "Error: file format '(no extension)' is not supported yet (no reader profile
+#         registered for it)." + exit 1 — swap in a real `.rs`/`.go`/etc. file to check
+#         a genuine unsupported EXTENSION instead of a missing one.
+
+py get_codeblock.py --project-root "T:/AgentsWork/ProjectStarter/__HQ/tools" --file "LICENSE" --line 1
+
+# local fixtures (relative to cwd = __HQ/tools/ — no --project-root needed)
+
+python get_codeblock.py --file test/Edge/Edge.cs --line 51        # staircase ladder (4 rungs)
+
+python get_codeblock.py --file test/Edge/Edge.cs --outline
+
+python get_codeblock.py --file test/Edge/Edge.py --outline
+
+python get_codeblock.py --file test/Edge/Edge.py --line 45 --query

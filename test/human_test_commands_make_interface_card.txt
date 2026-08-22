@@ -1,0 +1,36 @@
+# ============================================================
+# HUMAN TEST COMMANDS — make_interface_card. Run from a __HQ/tools/ directory.
+# These run OUTSIDE the target project, so cwd is NOT the project root:
+# ALWAYS pass --project-root explicitly (never rely on cwd or --cards-dir).
+# --help commands are the only exception (they touch no project).
+#
+# Root used below (container SRC/):
+#   memohood = Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood
+# ============================================================
+
+# ============================================================
+# SESSION 2026-08-13 — card stamp / validate / graph pipeline (target = memohood)
+# ============================================================
+
+# make_interface_card: facts come from AST (#2/#3 fixes).
+# expect: Dependencies Internal lists submodule FILES (config.py, db.py, _engine/embed.py, ...),
+#         NOT everything lumped under __init__.py; External has ONLY real libs
+#         (no docstring garbage like "import weight for it.")
+
+py make_interface_card.py cli.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+# make_interface_card: MERGE on an existing card (re-stamp keeps prose).
+# expect: stderr "[make_interface_card] merged ..." + "prose kept: N entries ...";
+#         facts refreshed, hand-written prose preserved, removed entries go to "## Salvage"
+
+py make_interface_card.py cli.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --out "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood/__map/cli.py.md"
+
+# make_interface_card: --all bulk-stamp the whole tree (maintainer one-shot).
+# expect: "--all: N files -> X new, Y merged, 0 errors"; skips tests/ (TEST_DIRS), __HQ, __map, .git
+
+py make_interface_card.py --all --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+# make_interface_card: --help shows the flags (no project involved -> no --project-root).
+# expect: --all documented; --force = "discard & write a FRESH stamp" (default on existing = MERGE)
+
+py make_interface_card.py --help
