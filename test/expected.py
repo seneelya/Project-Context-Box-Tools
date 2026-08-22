@@ -162,7 +162,13 @@ LADDER = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 160), (1, 89, 166)]},
     {"file": 'mdSRC/capture.py.md', "line": 12, "expect": [(4, 12, 15), (3, 10, 27), (2, 4, 27), (1, 1, 56)]},
     # namespace is transparent -> not a ladder entry; enclosing blocks one level shallower.
-    {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "expect": [(2, 10, 17), (1, 8, 26)]},
+    # Invariant #9 (extended): even inside an addressable rung (the method), a plain
+    # statement that opens no block of its own is a narrower filler one level deeper —
+    # `Stopwatch sw = …;` doesn't merge with its neighbors (each is a DIFFERENT node kind:
+    # local_declaration_statement / expression_statement / return_statement), so it stays
+    # its own single-line rung, matching what `--dot` already shows for this line.
+    {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12,
+     "expect": [(3, 12, 12), (2, 10, 17), (1, 8, 26)]},
     # Preamble comment (line 9 = ctor's /// doc) belongs to the ctor, not the class.
     # Every rung glued: class reports 3-55 (its /// on line 3), same as outline.
     {"file": 'Edge/Edge.cs', "line": 9, "expect": [(2, 8, 17), (1, 3, 55)]},
@@ -176,8 +182,11 @@ LADDER = [
     # try/except siblings: line 45 (in the inner `except`) must NOT report the sibling
     # `try` (41) as a deeper container — clean monotonic chain, no phantom rung.
     {"file": 'Edge/Edge.py', "line": 45, "expect": [(6, 44, 46), (5, 41, 49), (4, 40, 49), (3, 39, 49), (2, 35, 51), (1, 16, 67)]},
-    # CSS nested at-rules: a rule inside @media inside @supports — 3 real rungs.
-    {"file": 'cssSRC/ChatViewer.css', "line": 214, "expect": [(3, 213, 219), (2, 212, 220), (1, 210, 221)]},
+    # CSS nested at-rules: a rule inside @media inside @supports — 3 real rungs. Invariant #9
+    # (extended): the rule's own declaration list [214-218] is a narrower filler one level
+    # deeper than the rule itself (same-kind `declaration` nodes merge into one run).
+    {"file": 'cssSRC/ChatViewer.css', "line": 214,
+     "expect": [(4, 214, 218), (3, 213, 219), (2, 212, 220), (1, 210, 221)]},
     # TS one-truth: line 71 (inside an arrow that is a property value in an object
     # literal) -> arrow-body [70-73] · object literal [69-74] · function [17-77]. The
     # brace-less `if (...) return true;` on 71 is NOT a block; the object literal IS.
@@ -197,13 +206,19 @@ LADDER = [
     # addressing must agree (collect_preamble bug: was gluing the docstring's bare closing
     # `"""` into the class as if it were a fresh one-line comment).
     {"file": 'pythonSRC/hanging_sig.py', "line": 15, "expect": [(2, 14, 16), (1, 10, 16)]},
-    # Inline body (`...`) after a hanging-indent signature stays inside its own def.
-    {"file": 'pythonSRC/hanging_sig.py', "line": 12, "expect": [(2, 11, 12), (1, 10, 16)]},
+    # Inline body (`...`) after a hanging-indent signature stays inside its own def. Invariant
+    # #9 (extended): `...` (Ellipsis) is itself a narrower filler (`~expression_statement`)
+    # one level deeper than `alpha`'s own signature rung.
+    {"file": 'pythonSRC/hanging_sig.py', "line": 12, "expect": [(3, 12, 12), (2, 11, 12), (1, 10, 16)]},
     # Comprehension `for`/`if` inside `{…}` are NOT loop/statement headers — line 21 sits in
     # the set comprehension; only the enclosing def contains it, no fabricated inner block.
-    {"file": 'pythonSRC/hanging_sig.py', "line": 21, "expect": [(1, 19, 28)]},
+    # Invariant #9 (extended): the dict-comprehension assignment (`names = {…}`, lines 20-24)
+    # and the next assignment (`match = …`, line 25) are the SAME node kind (`assignment`) —
+    # they merge into ONE filler run [20-25], same rule as top-level imports/assigns merging.
+    {"file": 'pythonSRC/hanging_sig.py', "line": 21, "expect": [(2, 20, 25), (1, 19, 28)]},
     # Soft keyword as identifier: `match = _re.search(...)` is an assignment, not a block.
-    {"file": 'pythonSRC/hanging_sig.py', "line": 25, "expect": [(1, 19, 28)]},
+    # Same merged assign-run as line 21 (both are inside it).
+    {"file": 'pythonSRC/hanging_sig.py', "line": 25, "expect": [(2, 20, 25), (1, 19, 28)]},
     # But a real `if` statement IS still a block (soft/comprehension fixes didn't over-reach).
     {"file": 'pythonSRC/hanging_sig.py', "line": 27, "expect": [(2, 26, 27), (1, 19, 28)]},
     # Bracket inside a string literal (`if ch == ")":`) must not corrupt the colon scan and
@@ -268,7 +283,10 @@ QUERY = [
     {"file": 'Edge/Edge.cs', "line": 31, "level": 0, "expect": (2, 30, 36)},  # /* ... */ -> Reset
     {"file": 'Edge/Edge.cs', "line":  9, "level": 1, "expect": (1,  3, 55)},  # zoom out -> class (glued)
     # trailing comment INSIDE a body documents nothing below: stays in its own method.
-    {"file": 'Edge/Edge.cs', "line": 41, "level": 0, "expect": (2, 38, 42)},
+    # Invariant #9 (extended): `var x = _count;` is itself a narrower filler than the whole
+    # method — level 0 (innermost/default) now zooms to that one line; `--ancestor-level 1`
+    # still reaches the method.
+    {"file": 'Edge/Edge.cs', "line": 41, "level": 0, "expect": (3, 41, 41)},
     # --- relative addressing (what --ancestor-level N exposes = --level -N) ---
     # From deep line 51: ancestor 0 = for-body, 1 = Deep, 2 = Inner (walking up).
     {"file": 'Edge/Edge.cs', "line": 51, "level":  0, "expect": (4, 49, 52)},  # ancestor-level 0
