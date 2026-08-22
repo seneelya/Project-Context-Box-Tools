@@ -193,10 +193,14 @@ LADDER = [
     {"file": 'topLevel/toplevel.py', "line": 174, "expect": [(2, 173, 176), (1, 168, 177)]},
     # Hanging-indent signature: the closing `) -> str:` sits at the continuation column, not
     # the header indent. `beta` must NOT balloon over sibling `alpha` (find_colon_line RANGE
-    # bug, sweep-caught). Line 15 = beta's 2nd signature line.
-    {"file": 'pythonSRC/hanging_sig.py', "line": 15, "expect": [(2, 14, 16), (1, 7, 16)]},
+    # bug, sweep-caught). Line 15 = beta's 2nd signature line. `class Api` starts at its own
+    # line 10, NOT glued to the module docstring above (lines 1-7): a Python docstring is a
+    # real statement, not a comment — it stays its own filler in the map (`~docstring`), and
+    # addressing must agree (collect_preamble bug: was gluing the docstring's bare closing
+    # `"""` into the class as if it were a fresh one-line comment).
+    {"file": 'pythonSRC/hanging_sig.py', "line": 15, "expect": [(2, 14, 16), (1, 10, 16)]},
     # Inline body (`...`) after a hanging-indent signature stays inside its own def.
-    {"file": 'pythonSRC/hanging_sig.py', "line": 12, "expect": [(2, 11, 12), (1, 7, 16)]},
+    {"file": 'pythonSRC/hanging_sig.py', "line": 12, "expect": [(2, 11, 12), (1, 10, 16)]},
     # Comprehension `for`/`if` inside `{…}` are NOT loop/statement headers — line 21 sits in
     # the set comprehension; only the enclosing def contains it, no fabricated inner block.
     {"file": 'pythonSRC/hanging_sig.py', "line": 21, "expect": [(1, 19, 28)]},
@@ -207,6 +211,11 @@ LADDER = [
     # Bracket inside a string literal (`if ch == ")":`) must not corrupt the colon scan and
     # balloon the block — string/comment-aware find_colon_line. Clean 3-rung nest.
     {"file": 'pythonSRC/hanging_sig.py', "line": 34, "expect": [(3, 34, 35), (2, 33, 35), (1, 31, 36)]},
+    # A function's OWN docstring must not be stolen by its first inner block: `if not env:`
+    # starts at its own line 44, NOT glued to the closing `"""` of the docstring on line 43
+    # (collect_preamble bug — walked onto a docstring's bare closing quote and mistook it
+    # for a fresh one-line comment preamble). Real bug found via docker.py in the wild.
+    {"file": 'pythonSRC/hanging_sig.py', "line": 44, "expect": [(2, 44, 45), (1, 39, 46)]},
     # `} else {` on ONE physical line: `if (p)` must end at 102 (its own body), NOT balloon to
     # 105 (the end of the sibling `else`) — tree-sitter folds else_clause inside if_statement,
     # own-body-end (`_own_end_row`) cuts it. Both siblings are honestly listed at the same

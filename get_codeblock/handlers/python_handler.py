@@ -472,34 +472,42 @@ def enclosing_bracket_spans(lines, idx):
 
 
 def collect_preamble(lines, header_idx):
-    """Find earliest comment/docstring line attached above header.
-    
-    Returns index of first preamble line, or header_idx if none.
-    """
+    # Find earliest #-comment/decorator line attached above header.
+    #
+    # Returns index of first preamble line, or header_idx if none.
+    #
+    # Only #-comments and @-decorators glue -- NOT triple-quoted strings. A Python
+    # docstring is a real STATEMENT (the def/class's own first body line, __doc__), not a
+    # comment; the map (reader/backends/python_ast.py) already keeps it as its own filler,
+    # never gluing it into whatever follows (filler_kind only holds #-comment bands as
+    # pending). Gluing docstring TEXT here as well used to steal a function's own docstring
+    # into the preamble of its first inner if/for (walking upward hits the bare closing
+    # triple-quote and mistakes it for a fresh one-line comment) -- a real bug the fuzzer's
+    # level column caught. Matching the map's rule (comments/decorators only) fixes it and
+    # keeps the two engines consistent (invariant #6).
     if header_idx == 0:
         return header_idx
-    
+
     start = header_idx
     i = header_idx - 1
-    
+
     while i >= 0:
         content = lines[i].strip()
         blank = not content
-        
+
         if blank:
             i -= 1
             continue
-        
+
         if is_block_header(lines, i):
             break
 
-        # Preamble = comments, docstrings, AND decorators. Decorators (`@deco`) are part
-        # of the definition (the tree-sitter map folds them into the def node's span), so
-        # addressing must glue them too or the two engines report different starts for the
-        # same block. NOTE: a multi-line decorator's continuation lines aren't caught here,
-        # only the `@`-leading line — acceptable; single-line decorators are the norm.
-        if (content.startswith('#') or content.startswith('"""')
-                or content.startswith("'''") or content.startswith('@')):
+        # Decorators (`@deco`) are part of the definition (the tree-sitter map folds them
+        # into the def node's span), so addressing must glue them too or the two engines
+        # report different starts for the same block. NOTE: a multi-line decorator's
+        # continuation lines aren't caught here, only the `@`-leading line — acceptable;
+        # single-line decorators are the norm.
+        if content.startswith('#') or content.startswith('@'):
             start = i
             i -= 1
         else:

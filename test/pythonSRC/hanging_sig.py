@@ -34,3 +34,13 @@ def scan_parens(command: str) -> int:
         if ch == ")":                 # ')' lives in a string — must not corrupt colon scan
             depth -= 1
     return depth
+
+
+def normalize(env):
+    """Validate and normalize env.
+
+    Filters out entries with invalid names.
+    """
+    if not env:
+        return {}
+    return dict(env)
