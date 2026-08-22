@@ -21,13 +21,18 @@ Checks per (file, line):
   * EMPTY     (INFO) — no ladder for a non-blank line in a file that has blocks elsewhere.
 
 Usage:
-    py test/sweep_invariants.py [ROOT ...] [--step N] [--max-lines M] [--max-bytes B]
-                                [--show K] [--quiet]
+    py test/sweep_invariants.py [ROOT ...] [--file F] [--step N] [--max-lines M]
+                                [--max-bytes B] [--show K] [--show-info] [--quiet]
+                                [--write-level]
 
 ROOT defaults to this test/ directory (small, fast). Point it at a big checkout (e.g. a
 Hermes source tree) to stress it: `py test/sweep_invariants.py Y:\\Hermess\\...\\SRC`.
---step N samples every Nth line (default 1 = all lines; get_blocks re-reads the file per
-call, so N>1 is the speed knob on huge trees). Exit code 1 if any HIGH violation is found.
+--file F sweeps exactly that one file (shorthand for a single-file ROOT, useful when you
+want to eyeball one specific file without touching the roots list). --step N samples every
+Nth line (default 1 = all lines; get_blocks re-reads the file per call, so N>1 is the speed
+knob on huge trees). --write-level additionally writes an eyeball-review copy of each swept
+file (level-number + flag prefix on every line, see `write_level_map`) into test/ — never
+next to the source. Exit code 1 if any HIGH violation is found.
 """
 import argparse
 import functools
@@ -156,6 +161,44 @@ def iter_files(roots):
                     yield os.path.join(dirpath, f)
 
 
+def _tag(b, lines):
+    """Human-readable stand-in for a rung: its label (`try`, `if (def.coerce)`, …) if it
+    has one, else the raw source text of its own start line. Lets a human judge a finding
+    from the report alone — no need to open the file to see WHAT the colliding rungs are."""
+    lbl = (b.get("label") or "").strip()
+    if lbl:
+        return lbl[:40]
+    return lines[b["start"] - 1].strip()[:40]
+
+
+def line_kinds(blocks, line, lines):
+    """Classify one probed line's ladder into findings: [(kind, detail)]. Shared by the
+    invariant sweep (`sweep_file`) and the eyeball level-map (`write_level_map`) so the two
+    never drift into judging the same ladder differently.
+
+    kinds, worst-first: CONTAIN/RANGE (HIGH, real bugs) — SIBLING (INFO, shared brace
+    boundary, not a bug, see CONTRACT invariant #8) — LEVEL (LOW, try/catch cosmetic tie)."""
+    out = []
+    for b in blocks:
+        if not (b["start"] <= line <= b["end"]):
+            out.append(("CONTAIN", f"rung [{b['start']}-{b['end']}] lvl{b.get('level')} "
+                                    f"{_tag(b, lines)!r} excludes line"))
+    for outer, inner in zip(blocks, blocks[1:]):
+        nests = outer["start"] <= inner["start"] and inner["end"] <= outer["end"]
+        o = f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} {_tag(outer, lines)!r}"
+        i = f"[{inner['start']}-{inner['end']}]/lvl{inner['level']} {_tag(inner, lines)!r}"
+        if not nests:
+            if (outer["level"] == inner["level"]
+                    and outer["end"] == line and inner["start"] == line):
+                out.append(("SIBLING", f"{o} meets {i} at the hit line — shared brace "
+                                        f"boundary, not a nesting break"))
+            else:
+                out.append(("RANGE", f"{o} does not span {i}"))
+        elif outer["level"] >= inner["level"]:
+            out.append(("LEVEL", f"{o} then nested {i} — level not deeper"))
+    return out
+
+
 def sweep_file(path, step, max_lines):
     """Return (checked, [violation]) for one file. violation = (line, kind, detail)."""
     try:
@@ -186,51 +229,54 @@ def sweep_file(path, step, max_lines):
         else:
             viol.append((line, "EMPTY", "no ladder for a non-blank line"))
             continue
-
-        def _tag(b):
-            """Human-readable stand-in for a rung: its label (`try`, `if (def.coerce)`, …)
-            if it has one, else the raw source text of its own start line. Lets a human
-            judge a finding from the report alone — no need to open the file to see WHAT
-            the colliding rungs actually are."""
-            lbl = (b.get("label") or "").strip()
-            if lbl:
-                return lbl[:40]
-            return lines[b["start"] - 1].strip()[:40]
-
-        # invariant #7: every rung contains the line
-        for b in blocks:
-            if not (b["start"] <= line <= b["end"]):
-                viol.append((line, "CONTAIN",
-                             f"rung [{b['start']}-{b['end']}] lvl{b.get('level')} "
-                             f"{_tag(b)!r} excludes line"))
-        # blocks come outermost->innermost. Three relationship shapes, different severity:
-        #   RANGE   (HIGH) — outer does not span inner: the ladder ranges are broken.
-        #   SIBLING (INFO) — same level, no nesting, but the two rungs meet EXACTLY at the
-        #                    hit line (outer.end == line == inner.start): sibling control
-        #                    clauses sharing one physical brace line (`} else {`, `} catch
-        #                    (e) {`). Both legitimately touch `line`; there is no bug, just
-        #                    an inherently ambiguous boundary (see CONTRACT invariant #8).
-        #   LEVEL   (LOW)  — ranges nest fine but levels don't strictly increase (e.g. a
-        #                    try_statement wrapper and its catch branch both land at the same
-        #                    depth). Cosmetic/modeling, not a containment break.
-        for outer, inner in zip(blocks, blocks[1:]):
-            nests = outer["start"] <= inner["start"] and inner["end"] <= outer["end"]
-            o = f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} {_tag(outer)!r}"
-            i = f"[{inner['start']}-{inner['end']}]/lvl{inner['level']} {_tag(inner)!r}"
-            if not nests:
-                if (outer["level"] == inner["level"]
-                        and outer["end"] == line and inner["start"] == line):
-                    viol.append((line, "SIBLING",
-                                 f"{o} meets {i} at the hit line — shared brace boundary, "
-                                 f"not a nesting break"))
-                else:
-                    viol.append((line, "RANGE", f"{o} does not span {i}"))
-            elif outer["level"] >= inner["level"]:
-                viol.append((line, "LEVEL", f"{o} then nested {i} — level not deeper"))
+        for kind, detail in line_kinds(blocks, line, lines):
+            viol.append((line, kind, detail))
     # downgrade EMPTY to noise if the file genuinely has no blocks at all
     if not saw_any_block:
         viol = [v for v in viol if v[1] != "EMPTY"]
     return checked, viol
+
+
+def write_level_map(path, out_dir):
+    """Write an eyeball-review copy of `path` with a fixed `NN<flag>| ` prefix on every
+    line: NN = real depth (`line_level`, right-aligned 2 digits — depth never realistically
+    exceeds 99), flag = ' ' normally, '*' if the sweep would flag this exact line as a
+    SIBLING (shared brace boundary — `} else {`, `} catch (e) {`: two blocks legitimately
+    meet here, expected), '!' if it would flag anything worse (CONTAIN/RANGE/LEVEL — an
+    actual finding to look at). The level number lets a human visually confirm the nesting
+    matches the source's own indentation at a glance; the flag points straight at the one
+    kind of line that's inherently ambiguous, without reading every number.
+
+    Output goes to `out_dir` (not next to the source) so review copies always land in one
+    place — nothing to hunt for afterwards."""
+    try:
+        lines = open(path, encoding="utf-8", errors="replace").readlines()
+    except OSError as e:
+        return None, repr(e)
+    reader = Reader.open(path, lines)
+    n = len(lines)
+    out = []
+    for i in range(1, n + 1):
+        try:
+            blocks = reader.get_blocks(path, i)
+        except Exception:
+            blocks = []
+        level = blocks[-1]["level"] if blocks else 1
+        flag = " "
+        if blocks:
+            kinds = {k for k, _ in line_kinds(blocks, i, lines)}
+            if kinds & {"CONTAIN", "RANGE", "LEVEL", "CRASH"}:
+                flag = "!"
+            elif "SIBLING" in kinds:
+                flag = "*"
+        raw = lines[i - 1]
+        if not raw.endswith("\n"):
+            raw += "\n"
+        out.append(f"{level:>2}{flag}| {raw}")
+    out_path = os.path.join(out_dir, f"LEVELMAP_{os.path.basename(path)}.txt")
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.writelines(out)
+    return out_path, None
 
 
 SEVERITY = {"CONTAIN": "HIGH", "CRASH": "HIGH", "OPEN": "HIGH", "RANGE": "HIGH",
@@ -248,9 +294,15 @@ def main():
     ap.add_argument("--show-info", action="store_true",
                      help="also itemize INFO findings (SIBLING/EMPTY) per file — noisy, "
                           "default output only itemizes HIGH/LOW (the actionable ones)")
+    ap.add_argument("--file", dest="file", help="sweep only this one file (overrides roots)")
+    ap.add_argument("--write-level", action="store_true",
+                     help="also write an eyeball-review copy of each swept file with a "
+                          "level-number/flag prefix on every line (see write_level_map "
+                          "docstring); written next to this script (test/), never next to "
+                          "the source, so nothing to hunt for afterwards")
     args = ap.parse_args()
 
-    roots = args.roots or [_HERE]
+    roots = [args.file] if args.file else (args.roots or [_HERE])
     totals = {"files": 0, "lines": 0}
     counts = {k: 0 for k in SEVERITY}
     bad_files = 0
@@ -266,6 +318,12 @@ def main():
         totals["lines"] += checked
         for _ln, kind, _d in viol:
             counts[kind] = counts.get(kind, 0) + 1
+        if args.write_level:
+            out_path, err = write_level_map(path, _HERE)
+            if err:
+                print(f"  [write-level failed for {path}: {err}]")
+            else:
+                print(f"  level map written: {out_path}")
         # INFO findings (SIBLING/EMPTY) are expected structural noise, not bugs — they'd
         # otherwise bury the HIGH/LOW findings under a wall of text on real codebases full
         # of `} else {`. Itemize only HIGH/LOW by default; --show-info opts into the rest.

@@ -5,3 +5,6 @@ __pycache__/
 # Private test data — real project sources, must NOT be published.
 # Kept locally as test fixtures for get_codeblock etc.
 test/secret/
+
+# Scratch output from sweep_invariants.py --write-level (eyeball review copies).
+test/LEVELMAP_*.txt

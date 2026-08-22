@@ -77,7 +77,20 @@ py test/sweep_invariants.py FILE --show 40        # verbose: list up to 40 actio
 py test/sweep_invariants.py DIR --show-info       # also itemize SIBLING/EMPTY (noisy, for debugging the sweep itself)
 py test/sweep_invariants.py DIR --step 3          # sample every 3rd line (huge trees)
 py test/sweep_invariants.py DIR --max-lines 800   # cap lines checked per file
+py test/sweep_invariants.py --file F --write-level  # eyeball ONE file (see below)
 ```
+
+- **Eyeball review — `--file` + `--write-level`**: when the sweep reports 0 findings but you
+  still want to look with your own eyes, `--file F` scopes the run to exactly that one file, and
+  `--write-level` writes an annotated copy to `test/LEVELMAP_<basename>.txt` (always here, next
+  to this script — never next to the source, so there's nothing to hunt for afterwards). Every
+  line gets a fixed `NN<flag>| ` prefix: `NN` is the real nesting depth (right-aligned, 2 digits
+  — depth never realistically hits 100), `<flag>` is `*` on a `SIBLING` line (two blocks
+  legitimately meet here, e.g. `} else {` — expected, not a bug) or `!` on anything worse
+  (`CONTAIN`/`RANGE`/`LEVEL`). Scanning the number column shows nesting depth tracking the
+  source's own indentation at a glance; `*`/`!` point straight at the lines actually worth a
+  second look, without reading every number. Delete the `LEVELMAP_*.txt` files when done —
+  they're scratch output, not part of the fixture set.
 
 - **What it checks** (per line): `CONTAIN` (HIGH) — a rung must span the line (invariant #7);
   `RANGE` (HIGH) — outer rung must span the inner — a real containment/bounds bug; `CRASH`/`OPEN`
