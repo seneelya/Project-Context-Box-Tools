@@ -208,21 +208,71 @@ def _owning_block(spec, children, line, want_glue=False):
     return (None, None) if want_glue else None
 
 
+def _filler_at(spec, scope, level, line):
+    """Filler-полоса (imports/comments/assign-run/docstring) среди ПРЯМЫХ детей `scope` на
+    глубине `level`, содержащая `line`, или None. Гоняет настоящий `Classifier.classify`
+    (тот же run-группировщик + склейка хвостовых комментов, что и `--outline`/`--dot`) —
+    НЕ повторяет правила группировки отдельно, диапазоны/лейблы гарантированно те же,
+    что в карте."""
+    for b in Classifier(spec).classify(scope, level, depth=0):
+        if b.role is Role.FILLER and b.start <= line <= b.end:
+            return b
+    return None
+
+
 def _containing_chain(root, spec, line):
-    """Цепочка объемлющих ИМЕНОВАННЫХ блоков строки `line`, внешний→внутренний. Спуск по
-    reader-дереву (корректно, в отличие от старого get_blocks). Backend-agnostic."""
-    chain, cur, guard = [], root, 0
+    """Цепочка объемлющих блоков строки `line`, внешний→внутренний: landmark/frame (спуск по
+    reader-дереву, как раньше), а когда НИ ОДИН из них не содержит строку на каком-то скоупе —
+    filler-полоса ТОГО ЖЕ скоупа (`_filler_at`) как ПОСЛЕДНЕЕ звено (у filler нет тела, вглубь
+    не спускаемся). Раньше filler не считался «содержащим блоком» вообще — строка внутри
+    top-level импортов/докстринга/комментария не находила НИЧЕГО (`chain=[]`); теперь она
+    получает свою полосу, тот же принцип, что уже работает для адресации `get_blocks`
+    (invariant #7) — filler = легитимный контейнер на своём уровне («.», «.2», …), не только
+    на уровне файла. Backend-agnostic. Возвращает список из RNode (landmark/frame) и, не более
+    одного, `Block` (filler) в конце."""
+    chain, cur, guard, level = [], root, 0, 1
     while guard < 512:
         guard += 1
         nxt = _owning_block(spec, cur.children(), line)
         if nxt is None:
+            filler = _filler_at(spec, cur, level, line)
+            if filler is not None:
+                chain.append(filler)
             break
         chain.append(nxt)
+        level += 1
         body = spec.body(nxt)
         if body is None:
             break
         cur = body
     return chain
+
+
+def filler_container_at(path, line):
+    """Filler-полоса (imports/comments/assign-run/docstring), содержащая `line`, когда её
+    не содержит НИ ОДИН адресуемый блок (та же посылка, что у invariant #7 fallback) —
+    переиспользует обход focus-цепочки (`_containing_chain`): landmark/frame спускаемся,
+    filler на любом скоупе — легитимный контейнер, не только на уровне файла (инвариант #9).
+
+    Возвращает {'level','start','end','label'} (форма рунга `get_blocks`) или None — если
+    строку на самом деле владеет landmark (не наш случай, вызывающий сам это проверил) или
+    вообще ничего не нашлось (честный file-scope остаётся на вызывающей стороне).
+
+    Используется как fallback в `address.get_blocks` (brace) и `python_handler._orphan`
+    (отступной Python) — ОДИН источник правды с `--outline`/`--dot`, не дублирует группировку."""
+    backend, spec = resolve(os.path.splitext(path)[1])
+    with open(path, 'rb') as f:
+        root = backend.root(f.read())
+    chain = _containing_chain(root, spec, line)
+    if not chain:
+        return None
+    last = chain[-1]
+    if not isinstance(last, Block) or last.role is not Role.FILLER:
+        return None                                      # владеет landmark — не наш случай
+    if any(spec.unwrap_def(n) is not None for n in chain[:-1]):
+        return None                                       # защитно: landmark выше по цепочке
+    label = last.name or ('~' + last.kind + (f' x{last.count}' if last.count > 1 else ''))
+    return {'level': last.level, 'start': last.start, 'end': last.end, 'label': label}
 
 
 def _pick_focus(chain, level):
@@ -271,6 +321,12 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
         target = _pick_focus(chain, focus_level)
         if target is None:
             tree = []
+        elif isinstance(target, Block):
+            # Filler-terminated chain (imports/comments/assign-run/docstring — see
+            # `_containing_chain`): `_filler_at` already built this via the real
+            # Classifier at the right depth/range. It's a leaf (no body to descend into,
+            # nothing to glue — Classifier's own run-grouping already settled its bounds).
+            tree = [target]
         else:
             idx = chain.index(target)
             base = idx + 1                     # РЕАЛЬНАЯ глубина цели в файле (не 1)

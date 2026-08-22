@@ -220,10 +220,20 @@ def get_blocks(path, target_line):
 
     if not containing:
         # ИНВАРИАНТ #7 (CONTRACT): строка вне всех addressable-блоков (top-level import/
-        # декларация или гэп) → честный file-scope, который ГАРАНТИРОВАННО её содержит. НЕ
+        # декларация или гэп) → честный контейнер, который ГАРАНТИРОВАННО её содержит. НЕ
         # «ближайший» блок — он строку не покрывает (в TS/CSS таких строк много: импорты,
-        # top-level type/const). Зеркалит module-scope отступного `python_handler._orphan`.
-        # Старый `_nearest` (порт `_treesitter_blocks._nearest`) снят: он нарушал инвариант.
+        # top-level type/const). Старый `_nearest` (порт `_treesitter_blocks._nearest`) снят:
+        # он нарушал инвариант.
+        #
+        # ИНВАРИАНТ #9: сначала пробуем filler-полосу (`--outline`/`--dot` её УЖЕ показывают
+        # как `imports: …`/`~docstring`/…) — тот же контейнер-концепт, что и у named/control
+        # блоков, просто безымянный. Она ЕСТЬ на любом скоупе (файл, внутри transparent-рамки),
+        # не только на уровне файла. Только если её тоже нет (совсем пустая строка вне всего) —
+        # честный file-scope `[1,N]` как последний рубеж.
+        from .classify import filler_container_at
+        filler = filler_container_at(path, target_line)
+        if filler is not None:
+            return [filler]
         return [{'level': 1, 'start': 1, 'end': len(lines), 'label': '<file>'}]
 
     containing.sort(key=lambda np: (np[0].start_row, -np[0].end_row))

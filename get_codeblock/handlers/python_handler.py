@@ -640,7 +640,7 @@ class PythonHandler:
         # Drop any non-containing rung; if nothing remains, describe the real container.
         result = [b for b in result if b['start'] <= target_line <= b['end']]
         if not result:
-            result = self._orphan(lines, idx)
+            result = self._orphan(file_path, lines, idx)
         return result
 
     def _ladder(self, lines, idx):
@@ -683,10 +683,12 @@ class PythonHandler:
 
         return result
 
-    def _orphan(self, lines, idx):
+    def _orphan(self, file_path, lines, idx):
         """Line outside every colon-block. First try the enclosing multi-line bracket
         construct (list/dict/call) so we still return a block that CONTAINS the line;
-        failing that, report honest module scope. Never a non-containing 'nearest' guess."""
+        then the filler band (imports/comments/assign-run/docstring) the map already shows
+        for this line (invariant #9); failing that, report honest module scope. Never a
+        non-containing 'nearest' guess."""
         spans = enclosing_bracket_spans(lines, idx)
         if spans:
             # colon-block ancestors of the outermost construct + the bracket groups
@@ -698,8 +700,17 @@ class PythonHandler:
                 'end': e + 1,
                 'label': lines[h].strip()[:80],
             } for i, (h, e) in enumerate(rungs)]
-        # Genuinely top-level line (module gap / bare statement): module scope always
-        # contains it, and stays truthful — no phantom def is invented.
+        # Genuinely top-level line (module gap / bare statement): the filler band
+        # `--outline`/`--dot` already show for it (`imports: …`, `~docstring`, `assign: …`)
+        # is the real container here — same concept as named/control blocks, just unnamed.
+        # Uses tree-sitter-python (or the ast fallback) via classify.py — an independent
+        # parse from this indentation engine, but the two are already required to agree
+        # on bounds (CONTRACT invariant #6), so this doesn't introduce a new discrepancy.
+        from ..reader.classify import filler_container_at
+        filler = filler_container_at(file_path, idx + 1)
+        if filler is not None:
+            return [filler]
+        # Module scope always contains it, and stays truthful — no phantom def invented.
         return [{'level': 1, 'start': 1, 'end': len(lines), 'label': '<module>'}]
 
 
