@@ -73,22 +73,30 @@ comprehension `for`/`if`, soft-keyword `match =`, brackets inside string literal
 ```bash
 py test/sweep_invariants.py                       # default: sweep test/ fixtures (must be 0 HIGH)
 py test/sweep_invariants.py "Y:\path\to\SRC"      # stress a real tree
-py test/sweep_invariants.py FILE --show 40        # verbose: list each violation for one file
+py test/sweep_invariants.py FILE --show 40        # verbose: list up to 40 actionable violations
+py test/sweep_invariants.py DIR --show-info       # also itemize SIBLING/EMPTY (noisy, for debugging the sweep itself)
 py test/sweep_invariants.py DIR --step 3          # sample every 3rd line (huge trees)
 py test/sweep_invariants.py DIR --max-lines 800   # cap lines checked per file
 ```
 
 - **What it checks** (per line): `CONTAIN` (HIGH) — a rung must span the line (invariant #7);
-  `RANGE` (HIGH) — outer rung must span the inner; `CRASH`/`OPEN` (HIGH); `LEVEL` (LOW) —
-  ranges nest but levels don't strictly increase (the try/catch sibling-wrapper quirk, not a
-  containment break); `EMPTY` (INFO).
+  `RANGE` (HIGH) — outer rung must span the inner — a real containment/bounds bug; `CRASH`/`OPEN`
+  (HIGH); `LEVEL` (LOW) — ranges nest but levels don't strictly increase (try/catch
+  sibling-wrapper quirk, cosmetic); `SIBLING` (INFO) — same level, no nesting, but the two rungs
+  meet EXACTLY at the hit line (`} else {`, `} catch (e) {`) — both legitimately touch the line,
+  this is invariant #8 (the shared-brace-boundary is inherently ambiguous, not a bug); `EMPTY`
+  (INFO).
+- **Default output only itemizes HIGH/LOW** (the actionable findings) — `SIBLING`/`EMPTY` are
+  expected structural noise on any real codebase full of `if/else`, and would otherwise bury real
+  bugs under a wall of text. Pass `--show-info` to see them itemized when debugging the sweep itself.
 - **Exit code 1 iff any HIGH** — usable as a regression gate. Blank lines are skipped on
   purpose (a blank between blocks legitimately belongs to no block).
 - **Speed**: the `.py` path is ~O(lines) per line (no parser), so giant files are slow even
   though the sweep memoizes parse/scan work — reach for `--step` / `--max-lines` on big trees.
 - **When it finds something**: it prints `file → line → the offending rung ranges`. Reproduce
   with `get_codeblock.py --file F --line N`, look at the source, fix the handler, then add a
-  minimal case to `pythonSRC/hanging_sig.py` + `expected.py` so the oracle guards it forever.
+  minimal case to `pythonSRC/hanging_sig.py` (or the relevant `<lang>SRC` fixture) + `expected.py`
+  so the oracle guards it forever.
 
 ## Provenance
 Copied from memohood (own), ts-prune (MIT), zod (MIT), CoreSharp, SwarmUI (MIT), a Unity project — for local test fixtures only.

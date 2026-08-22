@@ -207,6 +207,16 @@ LADDER = [
     # Bracket inside a string literal (`if ch == ")":`) must not corrupt the colon scan and
     # balloon the block — string/comment-aware find_colon_line. Clean 3-rung nest.
     {"file": 'pythonSRC/hanging_sig.py', "line": 34, "expect": [(3, 34, 35), (2, 33, 35), (1, 31, 36)]},
+    # `} else {` on ONE physical line: `if (p)` must end at 102 (its own body), NOT balloon to
+    # 105 (the end of the sibling `else`) — tree-sitter folds else_clause inside if_statement,
+    # own-body-end (`_own_end_row`) cuts it. Both siblings are honestly listed at the same
+    # level 6, sharing the boundary line (invariant #8 — see `SIBLING` in the fuzz sweep).
+    {"file": 'tsSRC/src/analyzer.ts', "line": 102,
+     "expect": [(6, 102, 105), (6, 99, 102), (5, 97, 106), (4, 95, 108), (3, 93, 109), (2, 69, 120), (1, 52, 123)]},
+    # Line 104 is INSIDE `else` only (not on the shared brace line) — `if (p)` must NOT appear;
+    # own-body-end also fixes the containment filter, not just the reported range.
+    {"file": 'tsSRC/src/analyzer.ts', "line": 104,
+     "expect": [(6, 102, 105), (5, 97, 106), (4, 95, 108), (3, 93, 109), (2, 69, 120), (1, 52, 123)]},
 ]
 
 QUERY = [
@@ -237,6 +247,16 @@ QUERY = [
     # Bug A: a def-header line belongs to the block it opens, not the parent.
     {"file": 'Edge/Edge.py', "line": 37, "level": 0, "expect": (2, 35, 51)},  # `async def ws_reader`
     {"file": 'Edge/Edge.py', "line": 53, "level": 0, "expect": (2, 53, 62)},  # `async def ws_writer`
+
+    # --- ambiguous shared-brace-boundary (invariant #8) ---
+    # Line 102 is `} else {`: `if (p)` and `else` are SIBLINGS at the same level (6), neither
+    # more "inner" than the other. Default resolve (level 0) must NOT arbitrarily pick one —
+    # it climbs past the whole tied level to the parent `for` (level 5), the nearest rung held
+    # by exactly one candidate.
+    {"file": 'tsSRC/src/analyzer.ts', "line": 102, "level": 0, "expect": (5, 97, 106)},
+    # A non-ambiguous line one row inside `else` still resolves to `else` itself (sanity check
+    # that the climb-on-ambiguity logic doesn't over-fire on ordinary unique lines).
+    {"file": 'tsSRC/src/analyzer.ts', "line": 104, "level": 0, "expect": (6, 102, 105)},
 ]
 
 IMPORTS = {

@@ -196,28 +196,44 @@ def read_lines(file_path):
         return f.readlines()
 
 
+def _innermost_unambiguous_idx(blocks):
+    """Index of the innermost rung whose level is held by exactly one entry.
+
+    Sibling control clauses that share one physical brace line (`} else {`,
+    `} catch (e) {`) land at the SAME level — both genuinely touch the hit line,
+    and neither is "more inner" than the other. A duplicate level means "this
+    line sits exactly on the shared boundary of two siblings": there is no single
+    innermost block to name, so climb past the whole tied run to the nearest
+    level held by one rung (their common parent)."""
+    idx = len(blocks) - 1
+    while idx > 0 and sum(1 for b in blocks if b['level'] == blocks[idx]['level']) > 1:
+        idx -= 1
+    return idx
+
+
 def resolve(blocks, level):
     """Resolve block by level address.
 
     blocks: list sorted outermost-first [0=outermost/top-level, N-1=innermost]
 
     Level addressing (Vision contract):
-      0   = current block (innermost, containing the line)
-     -N   = N steps up to parent blocks
+      0   = current block (innermost UNAMBIGUOUS block containing the line;
+            see `_innermost_unambiguous_idx` for the shared-brace-line case)
+     -N   = N steps up from there to parent blocks
       +N  = N-th level from top of hierarchy (1=topmost, 2=next inner...)
     """
     if not blocks:
         return None
 
     n = level
+    base = _innermost_unambiguous_idx(blocks)
 
     if n == 0:
-        # Current block — innermost one containing the line
-        return blocks[-1]
+        return blocks[base]
 
     elif n < 0:
-        # Negative: relative to innermost, going up (-1=parent)
-        idx = len(blocks) - 1 + n
+        # Negative: relative to the unambiguous base, going up (-1=parent)
+        idx = base + n
         return blocks[0] if idx < 0 else blocks[idx]
 
     else:
