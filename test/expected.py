@@ -235,6 +235,29 @@ LADDER = [
     {"file": 'Edge/Edge.ts', "line": 1, "expect": [(1, 1, 3)]},
 ]
 
+FOCUS_OUTLINE = [
+    # `--dot --line N` focus mode never had oracle coverage at all before invariant #9 (it
+    # was newly able to terminate on a bare filler leaf). Two real bugs found via manual
+    # --dot testing on namespaced C# files, both in `_containing_chain`'s level bookkeeping:
+    #
+    # (a) CRASH: when the ENTIRE focus display is a single filler row (no landmark sibling
+    #     at all), core.py's adaptive-depth tally excludes filler from `per_level`, so
+    #     `base_level` defaulted to 1 while the row's real level was deeper — the row got
+    #     filtered out by its own `shown` cap, `labels` ended up empty, `max()` crashed.
+    {"file": 'csharpSRC/Core/GlobalStopWatchInstance.cs', "line": 12, "deep": True,
+     "expect": [(3, 12, 12, '~local_declaration_statement')]},
+    # (b) MISCOUNT: a transparent frame (namespace) in the chain was counted as +1 depth
+    #     (`base = idx + 1`, chain POSITION, not real level) — a field one level inside a
+    #     class one level inside a (transparent) namespace showed level 3 instead of 2.
+    {"file": 'csharpSRC2/Core/Settings.cs', "line": 13, "deep": True,
+     "expect": [(2, 12, 72, 'field: Paths, Metadata, Network, Maintenance, DefaultUser, '
+                            'Backends, IsInstalled, InstallDate, …')]},
+    # Sanity: a top-level filler (invariant #9) focused directly, unaffected by either fix.
+    {"file": 'csharpSRC2/Core/Settings.cs', "line": 4, "deep": True,
+     "expect": [(1, 1, 5, 'imports: FreneticUtilities.FreneticDataSyntax, SwarmUI.Backends, '
+                          'SwarmUI.Media, SwarmUI.Utils, System.Reflection')]},
+]
+
 QUERY = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 0, "expect": (3, 139, 145)},
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 1, "expect": (1, 89, 166)},  # ends at last content (return None)

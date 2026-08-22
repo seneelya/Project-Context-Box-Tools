@@ -57,6 +57,11 @@ def outline_for(fixture, max_level=None):
     return [(r["level"], r["start"], r["end"], r["text"]) for r in rows]
 
 
+def focus_outline_for(fixture, line, level=0, deep=False):
+    rows = _reader(fixture).outline(_read(fixture), deep=deep, focus_line=line, focus_level=level)
+    return [(r["level"], r["start"], r["end"], r["text"]) for r in rows]
+
+
 def ladder_for(fixture, line):
     blocks = _reader(fixture).get_blocks(os.path.join(_HERE, fixture), line)
     return [(b["level"], b["start"], b["end"]) for b in reversed(blocks)]  # innermost→outermost (as CLI)
@@ -186,6 +191,12 @@ def main():
     for fx, want in getattr(exp, "OUTLINE", {}).items():
         line(f"\n[{fx}]")
         check("outline", [tuple(t) for t in want], outline_for(fx))
+
+    line("\n== FOCUS OUTLINE (--outline/--dot --line N; level, start, end, label) ==")
+    for c in getattr(exp, "FOCUS_OUTLINE", []):
+        line(f"\n[{c['file']} :{c['line']} level {c.get('level', 0)} deep={c.get('deep', False)}]")
+        got = focus_outline_for(c["file"], c["line"], c.get("level", 0), c.get("deep", False))
+        check("focus_outline", [tuple(t) for t in c["expect"]], got)
 
     line("\n== LADDER (innermost→outermost) ==")
     for c in getattr(exp, "LADDER", []):
