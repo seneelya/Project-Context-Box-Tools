@@ -238,14 +238,23 @@ def sweep_file(path, step, max_lines):
 
 
 def write_level_map(path, out_dir):
-    """Write an eyeball-review copy of `path` with a fixed `NN<flag>| ` prefix on every
-    line: NN = real depth (`line_level`, right-aligned 2 digits — depth never realistically
-    exceeds 99), flag = ' ' normally, '*' if the sweep would flag this exact line as a
-    SIBLING (shared brace boundary — `} else {`, `} catch (e) {`: two blocks legitimately
-    meet here, expected), '!' if it would flag anything worse (CONTAIN/RANGE/LEVEL — an
-    actual finding to look at). The level number lets a human visually confirm the nesting
-    matches the source's own indentation at a glance; the flag points straight at the one
-    kind of line that's inherently ambiguous, without reading every number.
+    """Write an eyeball-review copy of `path` with a fixed `START-END | LVL<flag>| ` prefix
+    on every line:
+      * START-END — the innermost RUNG containing the line (from `get_blocks`, its ladder
+        entry, NOT the whole file) — so you can see exactly which block get_blocks thinks
+        owns this line, not just a number.
+      * LVL       — real depth (`line_level`: 1 + enclosing bodies). It counts nesting, so
+        a plain statement gets the SAME depth as a sibling `if`/`for` header at the same
+        indent — unlike a rung's own `level` field, which only bumps on lines that open
+        their OWN nested block (a bare assignment right after `if:`/`for:` headers at
+        identical indentation would misleadingly show one level shallower — the real
+        `docker.py` case: `normalized = {}` at the same indent as `if`/`for` siblings).
+      * <flag>    — ' ' normally, '*' if the sweep would flag this line as a SIBLING
+        (shared brace boundary — `} else {`, `} catch (e) {`: two blocks legitimately meet
+        here, expected), '!' if it would flag anything worse (CONTAIN/RANGE/LEVEL).
+
+    Both columns are padded to the widest value actually seen in the file, so every line
+    lines up in one clean table — nothing to eyeball-align by hand.
 
     Output goes to `out_dir` (not next to the source) so review copies always land in one
     place — nothing to hunt for afterwards."""
@@ -255,13 +264,16 @@ def write_level_map(path, out_dir):
         return None, repr(e)
     reader = Reader.open(path, lines)
     n = len(lines)
-    out = []
+    rows = []  # (start, end, level, flag, raw_line)
     for i in range(1, n + 1):
         try:
             blocks = reader.get_blocks(path, i)
         except Exception:
             blocks = []
-        level = blocks[-1]["level"] if blocks else 1
+        try:
+            level = reader.line_level(lines, i - 1)
+        except Exception:
+            level = 1
         flag = " "
         if blocks:
             kinds = {k for k, _ in line_kinds(blocks, i, lines)}
@@ -269,10 +281,19 @@ def write_level_map(path, out_dir):
                 flag = "!"
             elif "SIBLING" in kinds:
                 flag = "*"
-        raw = lines[i - 1]
+        b = blocks[-1] if blocks else None
+        start, end = (b["start"], b["end"]) if b else (i, i)
+        rows.append((start, end, level, flag, lines[i - 1]))
+
+    span_w = max(len(f"{s}-{e}") for s, e, _l, _f, _r in rows) if rows else 1
+    lvl_w = max(len(str(lv)) for _s, _e, lv, _f, _r in rows) if rows else 1
+    out = []
+    for start, end, level, flag, raw in rows:
         if not raw.endswith("\n"):
             raw += "\n"
-        out.append(f"{level:>2}{flag}| {raw}")
+        span = f"{start}-{end}".rjust(span_w)
+        lvl = str(level).rjust(lvl_w)
+        out.append(f"{span} | {lvl}{flag}| {raw}")
     out_path = os.path.join(out_dir, f"LEVELMAP_{os.path.basename(path)}.txt")
     with open(out_path, "w", encoding="utf-8") as f:
         f.writelines(out)
