@@ -8,9 +8,25 @@
 ## Схема потока
 
 ОДИН фасад (`Reader`) → ОДНО дерево (`RNode` от backend'а) → ДВА потребителя дерева:
-**КАРТА** (Classifier→IR→outline/`.0`/focus, Vision02/03) и **АДРЕСАЦИЯ** (`address.py`→get_blocks/
-line_level→ladder/query/resolve, Vision04). Оба питаются одним ПРОФИЛЕМ языка — его `LangSpec`
-(наборы node-типов) обслуживает и классификатор, и адресацию.
+**КАРТА** (Classifier→IR→outline/`.0`/focus, Vision02/03) и **АДРЕСАЦИЯ** (get_blocks/line_level→
+ladder/query/resolve, Vision04). У адресации ТРИ движка на выбор, по языку/формату:
+
+1. **brace-языки** (`address._BRACE_EXTS`: ts/tsx/js/jsx/cs/cpp/css/…) — богатый reader-движок
+   (`address.py`): рунги = named_def + braced-control (`for`/`if`/…) + standalone-тела. Питается
+   `LangSpec`-наборами (`control`/`body_types`/`named_def`) — их у не-кодовых форматов нет.
+2. **`.py`** — отступной хендлер (`handlers/python_handler.py`), сохранён осознанно: работает без
+   грамматики на любом интерпретаторе (CONTEXT_RESTORE_TOOLS.md → «⭐ МИГРАЦИЯ адресации»).
+3. **ЛЮБОЙ другой формат** (markdown сегодня; завтра — новый tree-sitter-язык без своего
+   `_BRACE_EXTS`-входа, или core2/3 docx/pdf) — **generic `classify.ladder_at`/`line_level_at`**:
+   ТА ЖЕ IR (Classifier→Block), что и у карты — landmark/frame-спуск + filler-терминал (инвариант
+   #9), без brace-специфики. Это и есть цель Vision03: на его целевой схеме `ladder` — один из
+   рендереров, питающихся от общего Classifier/IR, наравне с `outline`/`.0`/`query` — сегодняшняя
+   реализация ЗАКРЫВАЕТ этот пункт для non-brace форматов, а не отступает от него.
+
+Диспетчер (`Reader.get_blocks`/`line_level`) решает по РАСШИРЕНИЮ файла, не по `self.language`/
+`_LANG_MAP` — та карта либа неполна для нового формата, либо молча падает на `'python'` по
+умолчанию; расширение — единственный надёжный сигнал (проверено симуляцией: профиль добавлен, а
+`_LANG_MAP`/`_BRACE_EXTS` — забыты, генерик всё равно подхватывает верно).
 
 ```mermaid
 flowchart TB
@@ -27,24 +43,29 @@ flowchart TB
   P -. "role/name/label + промоушен" .-> C
   C --> IR["IR: дерево Block"]
   IR --> OUTMAP["КАРТА: render · outline · .0 · focus"]
+  IR --> GENADDR["generic АДРЕСАЦИЯ: classify.ladder_at/line_level_at<br/>(любой формат без brace-набора)"]
   IR -. "опц. пост-IR" .-> AN["Analyzer → block.description"]
   AN -. "смысл" .-> OUTMAP
 
   N --> ADDR["АДРЕСАЦИЯ: address.py (brace)<br/>get_blocks · line_level"]
   P -. "LangSpec-наборы (control/body_types/named_def)" .-> ADDR
-  R -. ".py/.md → делегация" .-> DEL["handlers/*_handler<br/>(отступной / беsparser)"]
+  R -. ".py → делегация" .-> DEL["python_handler<br/>(отступной, без грамматики)"]
   ADDR --> ADDROUT["ladder · query · resolve · staircase"]
   DEL --> ADDROUT
+  GENADDR --> ADDROUT
 ```
 
 Профиль (backend + `LangSpec` + Spec-правила) — единственное языко/формато-зависимое место, и он
-кормит ОБА потребителя. Общее (Classifier, `address.py`, `label.py`, рендеры) — backend-agnostic.
+кормит ВСЕХ потребителей. Общее (Classifier, `address.py`, `classify.ladder_at`, `label.py`,
+рендеры) — backend-agnostic.
 
 ## Карта файлов
 
 ```
 reader.py     — Reader: ФАСАД (единый вход из core.py). Роутит: outline/.0 → classify;
-                get_blocks/line_level → address.py (brace) ИЛИ делегация хендлеру (.py/.md)
+                get_blocks/line_level → address.py (brace) ИЛИ .py → python_handler ИЛИ
+                (любой другой формат) classify.ladder_at/line_level_at (по РАСШИРЕНИЮ, не
+                self.language — см. «Схема потока»)
 ir.py         — Block (IR: то, что потребляют рендеры карты) + Role + description(для Analyzer)
 protocol.py   — контракты: RNode, Backend, Spec, Analyzer
 registry.py   — resolve(ext) → (Backend, Spec)   ← ЕДИНЫЙ вход по расширению
@@ -55,10 +76,13 @@ profiles/     — плагины языков (Vision03), по файлу на �
   __init__.py   — ts_profile_for_ext(ext) → профиль
 backends/
   treesitter.py — core1: TSNode-адаптер + TSBackend + TreeSitterSpec (движок над профилем)
-  markdown.py   — core2: свой разбор заголовков, БЕЗ tree-sitter (образец не-TS кора)
+  markdown.py   — core2: свой разбор заголовков, БЕЗ tree-sitter (образец не-TS кора).
+                  Адресуется generic'ом (`classify.ladder_at`), не своим хендлером — см. ниже.
   python_ast.py — фолбек .py без грамматики (громкий нотис; только для .0, не для адресации)
 label.py      — backend-agnostic лейблер filler-полосы: band → список имён (оглавление)
-classify.py   — backend-agnostic .0-классификатор (КАРТА) + focus + render + CLI
+classify.py   — backend-agnostic .0-классификатор (КАРТА) + focus + render + CLI + generic
+                АДРЕСАЦИЯ (`ladder_at`/`line_level_at`/`filler_container_at` — Vision04 для
+                НЕ-brace форматов, на той же IR, без параллельной реализации)
 address.py    — backend-agnostic АДРЕСАЦИЯ brace-языков (Vision04): get_blocks/line_level на
                 RNode+LangSpec. Порт handlers/_treesitter_blocks; те же границы, что у .0-outline
 ```
@@ -135,14 +159,22 @@ address.py    — backend-agnostic АДРЕСАЦИЯ brace-языков (Vision
 `_owning_block(want_glue=True)`). У brace tree-sitter декоратор уже внутри `decorated_definition`, у
 отступного Python — клеится вручную.
 
-**Backend'ы без brace-модели делегируют.** `.py` (отступной) и `.md` (беsparser) идут своим хендлером
-(`Reader` ветвит по `address.supports(path)` — whitelist `_BRACE_EXTS`). Отступной `python_handler`
-приведён к тем же конвенциям: конец — обрезка хвоста в `find_body_end`; начало — `collect_preamble`
-клеит декораторы + комменты. Многострочные скобочные конструкции (list/dict/call), которых отступная
-эвристика НЕ моделирует как блок, распознаёт `enclosing_bracket_spans` — иначе строка внутри top-level
-литерала проваливалась бы в «ближайший» def, НЕ содержащий её (нарушение инварианта 7). Форс `.py`
-через brace-`address.py` ОТВЕРГНУТ: python-`block` начинается на строке 1-го стейтмента → строгий
-`_level_of_row` врёт уровнем.
+**`.py` без brace-модели делегирует своему хендлеру** (`Reader` ветвит по расширению — см.
+«Схема потока»). Отступной `python_handler` приведён к тем же конвенциям: конец — обрезка хвоста в
+`find_body_end`; начало — `collect_preamble` клеит декораторы + комменты (НЕ докстринги — см. ниже).
+Многострочные скобочные конструкции (list/dict/call), которых отступная эвристика НЕ моделирует как
+блок, распознаёт `enclosing_bracket_spans` — иначе строка внутри top-level литерала проваливалась бы
+в «ближайший» def, НЕ содержащий её (нарушение инварианта 7). Форс `.py` через brace-`address.py`
+ОТВЕРГНУТ: python-`block` начинается на строке 1-го стейтмента → строгий `_level_of_row` врёт
+уровнем.
+
+**Остальные non-brace форматы (markdown и любой будущий) адресуются generic'ом, НЕ своим хендлером.**
+До этого пункта `.md` тоже делегировал бы `markdown_handler` — но у markdown, в отличие от Python,
+УЖЕ есть полноценный Backend+Spec для карты (`backends/markdown.py`, core2), просто адресация к нему
+не была подключена. `classify.ladder_at`/`line_level_at` — тот же `_containing_chain`, что использует
+focus-outline, только развёрнутый в форму рунга `get_blocks`. Работает для ЛЮБОГО Spec без единой
+строки нового кода (нужен только рабочий backend, per Рецепт B) — именно поэтому markdown НЕ получил
+своего `_orphan`/особого хендлера: это была бы вторая, дублирующая реализация того же самого.
 
 ## ⚠️ Инварианты (нарушать нельзя)
 
@@ -258,6 +290,14 @@ if ext in ('.txt',):
 
 Backend строит `RNode`-дерево так, чтобы `Spec` мог назвать роли: заголовок/раздел → landmark,
 абзац/шум → filler, прозрачная обёртка → frame. Дальше classify/render — общие.
+
+**Адресация (`--line`/ladder/query) — БЕСПЛАТНО, без строчки нового кода.** Не нужно писать
+`get_blocks`/`line_level` для нового формата и не нужно ничего трогать в `Reader` — раз `ext` не
+попадает в `address._BRACE_EXTS` и не `.py`, `Reader` сам роутит на `classify.ladder_at`/
+`line_level_at` (см. «Схема потока»), которые работают через ТОТ ЖЕ `Spec`, что и карта. Единственное
+требование — корректные `unwrap_frame`/`unwrap_def`/`body`/`filler_kind` (то, что уже нужно для
+`--outline`). Добавлять `_BRACE_EXTS`/особый хендлер НЕ нужно, если формат не кодовый (нет
+control-блоков/standalone-тел) — generic-лестница и есть правильный уровень детализации.
 
 ## Рецепт C — новый analyzer (пласт 2, семантика)
 
