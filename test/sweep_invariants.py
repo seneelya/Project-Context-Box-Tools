@@ -186,12 +186,23 @@ def sweep_file(path, step, max_lines):
         else:
             viol.append((line, "EMPTY", "no ladder for a non-blank line"))
             continue
+
+        def _tag(b):
+            """Human-readable stand-in for a rung: its label (`try`, `if (def.coerce)`, …)
+            if it has one, else the raw source text of its own start line. Lets a human
+            judge a finding from the report alone — no need to open the file to see WHAT
+            the colliding rungs actually are."""
+            lbl = (b.get("label") or "").strip()
+            if lbl:
+                return lbl[:40]
+            return lines[b["start"] - 1].strip()[:40]
+
         # invariant #7: every rung contains the line
         for b in blocks:
             if not (b["start"] <= line <= b["end"]):
                 viol.append((line, "CONTAIN",
                              f"rung [{b['start']}-{b['end']}] lvl{b.get('level')} "
-                             f"{(b.get('label') or '')[:50]!r} excludes line"))
+                             f"{_tag(b)!r} excludes line"))
         # blocks come outermost->innermost. Three relationship shapes, different severity:
         #   RANGE   (HIGH) — outer does not span inner: the ladder ranges are broken.
         #   SIBLING (INFO) — same level, no nesting, but the two rungs meet EXACTLY at the
@@ -204,21 +215,18 @@ def sweep_file(path, step, max_lines):
         #                    depth). Cosmetic/modeling, not a containment break.
         for outer, inner in zip(blocks, blocks[1:]):
             nests = outer["start"] <= inner["start"] and inner["end"] <= outer["end"]
+            o = f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} {_tag(outer)!r}"
+            i = f"[{inner['start']}-{inner['end']}]/lvl{inner['level']} {_tag(inner)!r}"
             if not nests:
                 if (outer["level"] == inner["level"]
                         and outer["end"] == line and inner["start"] == line):
                     viol.append((line, "SIBLING",
-                                 f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} meets "
-                                 f"[{inner['start']}-{inner['end']}]/lvl{inner['level']} at the "
-                                 f"hit line — shared brace boundary, not a nesting break"))
+                                 f"{o} meets {i} at the hit line — shared brace boundary, "
+                                 f"not a nesting break"))
                 else:
-                    viol.append((line, "RANGE",
-                                 f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} does not "
-                                 f"span [{inner['start']}-{inner['end']}]/lvl{inner['level']}"))
+                    viol.append((line, "RANGE", f"{o} does not span {i}"))
             elif outer["level"] >= inner["level"]:
-                viol.append((line, "LEVEL",
-                             f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} then nested "
-                             f"[{inner['start']}-{inner['end']}]/lvl{inner['level']} — level not deeper"))
+                viol.append((line, "LEVEL", f"{o} then nested {i} — level not deeper"))
     # downgrade EMPTY to noise if the file genuinely has no blocks at all
     if not saw_any_block:
         viol = [v for v in viol if v[1] != "EMPTY"]
