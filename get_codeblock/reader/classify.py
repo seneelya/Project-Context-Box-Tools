@@ -259,17 +259,25 @@ def _containing_chain(root, spec, line):
 
 
 def filler_container_at(path, line):
-    """Filler-полоса (imports/comments/assign-run/docstring), содержащая `line`, когда её
-    не содержит НИ ОДИН адресуемый блок (та же посылка, что у invariant #7 fallback) —
-    переиспользует обход focus-цепочки (`_containing_chain`): landmark/frame спускаемся,
-    filler на любом скоупе — легитимный контейнер, не только на уровне файла (инвариант #9).
+    """Самая ВНУТРЕННЯЯ filler-полоса (imports/comments/assign-run/docstring/поле класса),
+    содержащая `line` — переиспользует обход focus-цепочки (`_containing_chain`): landmark/
+    frame спускаемся как обычно, а когда НИ ОДИН из них строку дальше не сужает — берём
+    filler ТОГО скоупа. Landmark ЗАКОННО стоит выше по цепочке (класс/функция, внутри
+    которых сидит эта filler-полоса) — это НЕ повод отказаться, это и есть наш случай.
 
     Возвращает {'level','start','end','label'} (форма рунга `get_blocks`) или None — если
-    строку на самом деле владеет landmark (не наш случай, вызывающий сам это проверил) или
-    вообще ничего не нашлось (честный file-scope остаётся на вызывающей стороне).
+    вообще ничего не нашлось (честный file-scope/охватывающий landmark остаётся на
+    вызывающей стороне).
 
-    Используется как fallback в `address.get_blocks` (brace) и `python_handler._orphan`
-    (отступной Python) — ОДИН источник правды с `--outline`/`--dot`, не дублирует группировку."""
+    Два способа применения (оба в `address.get_blocks`/`python_handler._orphan`):
+    1. Инвариант #7 fallback — `containing` вообще пуст (top-level строка без адресуемого
+       блока) — единственный кандидат.
+    2. Инвариант #9 расширение — `containing` НЕ пуст (строка внутри def/class), но внутри
+       ТЕЛА самого внутреннего адресуемого рунга есть более узкая filler-полоса (поле класса,
+       не заводящее свой control/named_def-рунг) — добавляется как ЕЩЁ ОДИН, более внутренний
+       рунг (см. вызывающий код: сравнение диапазонов решает, короче ли она).
+
+    ОДИН источник правды с `--outline`/`--dot`, не дублирует группировку."""
     backend, spec = resolve(os.path.splitext(path)[1])
     with open(path, 'rb') as f:
         root = backend.root(f.read())
@@ -278,9 +286,7 @@ def filler_container_at(path, line):
         return None
     last = chain[-1]
     if not isinstance(last, Block) or last.role is not Role.FILLER:
-        return None                                      # владеет landmark — не наш случай
-    if any(spec.unwrap_def(n) is not None for n in chain[:-1]):
-        return None                                       # защитно: landmark выше по цепочке
+        return None                                      # цепочка кончилась на landmark/frame
     label = last.name or ('~' + last.kind + (f' x{last.count}' if last.count > 1 else ''))
     return {'level': last.level, 'start': last.start, 'end': last.end, 'label': label}
 

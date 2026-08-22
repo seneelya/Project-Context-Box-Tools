@@ -201,6 +201,7 @@ def get_blocks(path, target_line):
     содержащие строку; тычок в коммент-преамблу → её блок (`_preamble_owner`); если ни
     в один не попали — честный file-scope `[1,N]` (инвариант #7). Контракт наружу совпадает с хендлером
     (его ест `core.resolve`/query/staircase). Внутренний вход: `Reader.get_blocks`."""
+    from .classify import filler_container_at
     lines = _read_lines(path)
     if not lines or target_line < 1 or target_line > len(lines):
         return []
@@ -230,14 +231,28 @@ def get_blocks(path, target_line):
         # блоков, просто безымянный. Она ЕСТЬ на любом скоупе (файл, внутри transparent-рамки),
         # не только на уровне файла. Только если её тоже нет (совсем пустая строка вне всего) —
         # честный file-scope `[1,N]` как последний рубеж.
-        from .classify import filler_container_at
         filler = filler_container_at(path, target_line)
         if filler is not None:
             return [filler]
         return [{'level': 1, 'start': 1, 'end': len(lines), 'label': '<file>'}]
 
     containing.sort(key=lambda np: (np[0].start_row, -np[0].end_row))
-    return [_bounds(n, p, bodies, comment_rows, lines, spec) for n, p in containing]
+    result = [_bounds(n, p, bodies, comment_rows, lines, spec) for n, p in containing]
+
+    # ИНВАРИАНТ #9 (расширение): даже когда есть охватывающий адресуемый рунг, ВНУТРИ его
+    # тела может сидеть более узкая filler-полоса — поле класса, топ-левел-подобный член,
+    # который не заводит свой control/named_def-рунг (`--dot` её УЖЕ показывает, `.` на
+    # уровень глубже родителя). Если она строго уже последнего найденного рунга — это
+    # честный ЕЩЁ БОЛЕЕ внутренний контейнер, добавляем его. Тот же путь (`filler_container_at`)
+    # сам себя ограничивает: если внутри innermost сидит ещё один control/named_def-блок,
+    # он там его найдёт как landmark/frame и остановится, не долетев до filler глубже —
+    # не задвоит уже найденный рунг.
+    inner = result[-1]
+    filler = filler_container_at(path, target_line)
+    if (filler is not None and filler['start'] >= inner['start'] and filler['end'] <= inner['end']
+            and (filler['start'], filler['end']) != (inner['start'], inner['end'])):
+        result.append({**filler, 'level': inner['level'] + 1})
+    return result
 
 
 def line_level(path, idx):

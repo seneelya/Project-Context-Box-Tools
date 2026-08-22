@@ -640,7 +640,19 @@ class PythonHandler:
         # Drop any non-containing rung; if nothing remains, describe the real container.
         result = [b for b in result if b['start'] <= target_line <= b['end']]
         if not result:
-            result = self._orphan(file_path, lines, idx)
+            return self._orphan(file_path, lines, idx)
+
+        # ИНВАРИАНТ #9 (расширение): даже когда есть охватывающий адресуемый рунг, внутри его
+        # тела может сидеть более узкая filler-полоса (атрибут класса, обычный стейтмент —
+        # `--dot` её уже показывает на уровень глубже родителя). Строго уже последнего
+        # найденного рунга → честный ещё более внутренний контейнер. См. `address.get_blocks`
+        # (тот же приём, brace-сторона) — единая логика через `filler_container_at`.
+        from ..reader.classify import filler_container_at
+        inner = result[-1]
+        filler = filler_container_at(file_path, target_line)
+        if (filler is not None and filler['start'] >= inner['start'] and filler['end'] <= inner['end']
+                and (filler['start'], filler['end']) != (inner['start'], inner['end'])):
+            result.append({**filler, 'level': inner['level'] + 1})
         return result
 
     def _ladder(self, lines, idx):
