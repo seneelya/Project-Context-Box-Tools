@@ -291,6 +291,56 @@ def filler_container_at(path, line):
     return {'level': last.level, 'start': last.start, 'end': last.end, 'label': label}
 
 
+def ladder_at(path, line):
+    """Generic backend-agnostic `get_blocks`: `_containing_chain` reshaped into the rung
+    format `{level,start,end,label}` (внешний→внутренний), с той же преамбула-склейкой у
+    landmark/frame (`_owning_block(want_glue=True)`, как в `outline_rows`'s focus-ветке) и
+    filler-терминалом (инвариант #9). НЕ содержит brace-специфики (control-блоки,
+    standalone-тела) — тех рунгов, что даёт `address.py`, тут не будет, потому что у
+    non-code форматов (markdown, будущие docx/pdf) им нет аналога в LangSpec.
+
+    Это ДЕФОЛТНАЯ адресация для любого backend'а, который НЕ на `address._BRACE_EXTS`
+    (богаче) и НЕ Python (свой отступной хендлер, сохранён осознанно — см.
+    CONTEXT_RESTORE_TOOLS.md). Новый формат/язык получает работающий `--line` СРАЗУ,
+    без единой строки адресного кода — только Spec (Vision03: «новый язык = данные»).
+    Инвариант #7: ничего не нашлось → честный file-scope `[1, N]`."""
+    backend, spec = resolve(os.path.splitext(path)[1])
+    with open(path, 'rb') as f:
+        src = f.read()
+    root = backend.root(src)
+    n_lines = max(src.count(b'\n') + (0 if src.endswith(b'\n') else 1), 1)
+    chain, levels = _containing_chain(root, spec, line)
+    if not chain:
+        return [{'level': 1, 'start': 1, 'end': n_lines, 'label': '<file>'}]
+    rungs = []
+    parent_scope = root
+    for node, lvl in zip(chain, levels):
+        if isinstance(node, Block):                          # filler-терминал (инвариант #9)
+            label = node.name or ('~' + node.kind + (f' x{node.count}' if node.count > 1 else ''))
+            rungs.append({'level': lvl, 'start': node.start, 'end': node.end, 'label': label})
+            break
+        _n, glued = _owning_block(spec, parent_scope.children(), node.start_row + 1, want_glue=True)
+        head = _focus_head(spec, node, lvl, start_override=glued)
+        rungs.append({'level': head.level, 'start': head.start, 'end': head.end, 'label': head.name})
+        body = spec.body(node)
+        parent_scope = body if body is not None else parent_scope
+    return rungs
+
+
+def line_level_at(path, idx):
+    """Generic `line_level` (0-based `idx`), пара к `ladder_at`: глубина = уровень
+    последнего звена цепочки (`_containing_chain`) — landmark/frame level или, если
+    цепочка кончилась filler'ом, его level. Пустая строка вне всего — 1 (file-scope)."""
+    backend, spec = resolve(os.path.splitext(path)[1])
+    with open(path, 'rb') as f:
+        root = backend.root(f.read())
+    chain, levels = _containing_chain(root, spec, idx + 1)
+    if not chain:
+        return 1
+    last = chain[-1]
+    return last.level if isinstance(last, Block) else levels[-1]
+
+
 def _pick_focus(chain, level):
     """Выбор цели из цепочки по --level (как core.resolve): 0=внутренний, +1=верхний (от файла),
     -N=на N вверх от внутреннего."""

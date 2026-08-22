@@ -11,6 +11,13 @@
 
 from pathlib import Path
 
+# `.py` — единственное расширение с собственным (отступным) адресным хендлером; всё
+# остальное non-brace идёт через generic `classify.ladder_at`. Проверяем РАСШИРЕНИЕ
+# напрямую (не `self.language`/`_LANG_MAP` — та карта на новый формат может не знать и
+# молча упадёт на 'python' по умолчанию, что увело бы адресацию НОВОГО формата на
+# python_handler вместо generic-пути; расширение — единственный надёжный сигнал).
+_PY_EXTS = {'.py'}
+
 # Один маппинг ext -> language (позже вытеснит 3 копии lang_map в core.py).
 _LANG_MAP = {
     '.py': 'python',
@@ -56,19 +63,30 @@ class Reader:
         return rows
 
     def get_blocks(self, file_path, line):
-        """Адресация через reader (Vision04) для brace-языков — ОДИН структурный движок
-        (границы совпадают с outline). Python/Markdown (отступной/бesparser) пока
-        делегируются своим хендлерам, до обёртки в backend (CONTEXT_RESTORE ⭐)."""
+        """Адресация через reader (Vision04). Три пути:
+        1. brace-языки (`address._BRACE_EXTS`) — богатый reader-движок (control-блоки,
+           standalone-тела), границы совпадают с outline.
+        2. `.py` — отступной хендлер, сохранён осознанно (без парсера, CONTEXT_RESTORE ⭐).
+        3. ЛЮБОЙ другой формат (markdown, будущие docx/pdf) — generic `classify.ladder_at`:
+           landmark/frame + filler-терминал (инвариант #9), без brace-специфики. Работает
+           «из коробки» для нового формата — нужен только Spec, ни строчки адресного кода
+           (Vision03: «новый язык/формат = данные»)."""
         from . import address
         if address.supports(file_path):
             return address.get_blocks(file_path, line)
-        return self.handler.get_blocks(file_path, line)
+        if Path(file_path).suffix.lower() in _PY_EXTS:
+            return self.handler.get_blocks(file_path, line)
+        from .classify import ladder_at
+        return ladder_at(file_path, line)
 
     def line_level(self, lines, idx):
         from . import address
         if address.supports(self.path):
             return address.line_level(self.path, idx)
-        return self.handler.line_level(lines, idx)
+        if Path(self.path).suffix.lower() in _PY_EXTS:
+            return self.handler.line_level(lines, idx)
+        from .classify import line_level_at
+        return line_level_at(self.path, idx)
 
     def declarations(self, lines):
         return self.handler.declarations(lines)
