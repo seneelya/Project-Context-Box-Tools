@@ -120,7 +120,17 @@ class Classifier:
 
             if frame is None and defn is None:            # filler
                 kind = self.spec.filler_kind(child)
-                if run is not None and run[0] == kind:
+                if kind == 'comment' and run is not None and s <= run[2]:
+                    # Trailing companion comment on the SAME physical line as the run's
+                    # last line (`x = 1  # note`) — glue it into the block (extend end)
+                    # but do NOT add it to `nodes`: a trailing comment documents the
+                    # statement, it doesn't rename/retype it. Real bug this fixes: a
+                    # `# resolved once, cached` after an assignment used to spawn its OWN
+                    # `~comment [N-N]` filler row, splitting one logical line into two and
+                    # (via band_label's missing-name tally) risked a spurious +multiType
+                    # on the run it interrupted.
+                    run[2] = max(run[2], e)
+                elif run is not None and run[0] == kind:
                     run[2] = e
                     run[3].append(child)
                 else:

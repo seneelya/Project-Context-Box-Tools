@@ -66,19 +66,17 @@ LEVELS = {
 OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регресс-эталон, снят с проверенного вывода)
     'pythonSRC/backends/__init__.py': [
         (1, 1, 41, '~docstring'),
-        (1, 43, 46, 'imports: annotations, logging, time'),
-        (1, 46, 46, '# re-exported so tests can monkeypatch ``backends.time.sleep…'),
-        (1, 47, 47, 'imports: typing'),
+        # Trailing same-line comments (`import time  # note`, `from .chat import x  # noqa`)
+        # glue into the run they annotate — they no longer spawn their own `~comment` row
+        # or poison the run's label with a spurious `+multiType` (real bug: a trailing
+        # `# resolved once, cached` in docker.py split one assign line into two rows).
+        (1, 43, 47, 'imports: annotations, logging, time, typing'),
         (1, 49, 49, '# --- transport floor --------------------------------------…'),
         (1, 50, 61, 'imports: ._http'),
         (1, 63, 63, '# --- config → chains (offline) ----------------------------…'),
         (1, 64, 74, 'imports: .resolve'),
         (1, 76, 76, '# --- per-service network seams ----------------------------…'),
-        (1, 77, 77, 'imports: .chat'),
-        (1, 77, 77, '# noqa: F401 - seam (monkeypatched by tests)'),
-        (1, 78, 78, 'imports: .embed_driver'),
-        (1, 78, 78, '# noqa: F401 - seam'),
-        (1, 79, 84, 'imports: .rerank_driver'),
+        (1, 77, 84, 'imports: .chat, .embed_driver, .rerank_driver'),
         (1, 86, 86, 'assign: logger'),
         (1, 89, 166, 'def chat( cfg: Optional[Dict[str, Any]], role: str, system_prompt: str, user_content: str, *, timeout: Optional[float] = None, max_retries: int = MAX_RETRIES, params: Optional[Dict[str, Any]] = None, messages: Optional[List[Dict[str, Any]]] = None, ) -> Optional[str]  # chat — openai-chat protocol, walk the chain …'),
         (1, 169, 171, '# embed — walk the embedder chain (same-model/dims fallback) …'),
