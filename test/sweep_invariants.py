@@ -55,7 +55,7 @@ def _speed_up():
     memoize (a) resolve by extension and (b) the parse by file content. The computed ladder
     is byte-identical (parsing is deterministic); we only skip redundant work. Production is
     untouched — it calls get_blocks once per invocation, so this lives in the sweep only."""
-    from get_codeblock.reader import address, registry
+    from get_codeblock.reader import address, classify, registry
     orig_resolve = registry.resolve
 
     @functools.lru_cache(maxsize=256)
@@ -72,7 +72,16 @@ def _speed_up():
         backend.root = root
         return backend, spec
 
-    address.resolve = fast_resolve  # address.py did `from .registry import resolve`
+    # Both address.py and classify.py did `from .registry import resolve` — each holds its
+    # OWN name binding, so patching `registry.resolve` alone wouldn't reach either. Point
+    # BOTH at the SAME cached wrapper: filler_container_at (invariant #9's get_blocks
+    # fallback) calls classify.resolve on every top-level/frame-level line with no
+    # addressable rung — without this, that path reparses the WHOLE file from scratch on
+    # every such line (a fresh, unpatched backend each time), turning any file with many
+    # imports/comments/docstring lines back into the O(lines²) blowup this function exists
+    # to kill.
+    address.resolve = fast_resolve
+    classify.resolve = fast_resolve
 
     # get_blocks also re-walks the whole tree per line (_collect, _comment_rows). Those are
     # pure functions of the (now cached, stable) root, so memoize them by id(root).
