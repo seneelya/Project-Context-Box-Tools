@@ -413,6 +413,20 @@ def main():
         print(str(e), file=sys.stderr)
         sys.exit(1)
 
+    # Preflight: is THIS extension registered at all (any profile/backend)? `language`
+    # above is core.py's own best-guess mapping (defaults to 'python' for anything it
+    # doesn't recognize), so it can't catch this — only `registry.resolve(ext)` knows.
+    # Without this check, an unsupported extension (e.g. `.rs`, `.go`, `.yaml`) reached
+    # `registry.resolve` deep inside outline/get_blocks and raised a raw `ValueError`
+    # traceback instead of a clean message.
+    from get_codeblock.reader.registry import resolve as _resolve_format
+    try:
+        _resolve_format(ext)
+    except ValueError:
+        print(f"Error: file format '{ext or '(no extension)'}' is not supported yet "
+              "(no reader profile registered for it).", file=sys.stderr)
+        sys.exit(1)
+
     # Единая точка входа приложения (Vision03): проверенные режимы делегируются
     # хендлеру внутри Reader (паритет), новый .0 — там же. core.py в get_handler
     # напрямую больше не ходит.
