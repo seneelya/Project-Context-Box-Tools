@@ -466,7 +466,12 @@ def main():
                 per_level[r['level']] = per_level.get(r['level'], 0) + 1
         # Базовый уровень = РЕАЛЬНАЯ глубина корня карты: 1 для файла, глубже — в фокусе
         # (напр. метод на глубине 2). Адаптив/хедер считаем ОТ него, а не от жёсткого 1.
-        base_level = min(per_level) if per_level else 1
+        # per_level пуст, когда фокус-цель сама — filler (инвариант #9: строка без landmark
+        # рядом, например топ-левел assign/comment) — единственная строка НЕ landmark, тэлли
+        # её не считает. Тогда база — реальный level этой самой строки, а не «1» (иначе
+        # `rows` ниже отфильтровывает её же и остаётся пустым — падение на max() пустой
+        # последовательности).
+        base_level = min(per_level) if per_level else (rows_all[0]['level'] if rows_all else 1)
         depth = max((r['level'] for r in rows_all if not r.get('filler')), default=base_level)
         nb = per_level.get(base_level, 0)          # «вершины» на базовом уровне
         nb1 = per_level.get(base_level + 1, 0)     # следующий уровень

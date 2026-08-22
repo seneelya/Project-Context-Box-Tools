@@ -228,9 +228,16 @@ def _containing_chain(root, spec, line):
     top-level импортов/докстринга/комментария не находила НИЧЕГО (`chain=[]`); теперь она
     получает свою полосу, тот же принцип, что уже работает для адресации `get_blocks`
     (invariant #7) — filler = легитимный контейнер на своём уровне («.», «.2», …), не только
-    на уровне файла. Backend-agnostic. Возвращает список из RNode (landmark/frame) и, не более
-    одного, `Block` (filler) в конце."""
-    chain, cur, guard, level = [], root, 0, 1
+    на уровне файла. Backend-agnostic.
+
+    Возвращает `(chain, levels)`: `chain` — RNode (landmark/frame) и, не более одного, `Block`
+    (filler) в конце; `levels[i]` — РЕАЛЬНАЯ глубина `chain[i]` (прозрачные рамки — namespace/
+    `extern "C"` — level НЕ увеличивают, как везде в тулзе: `address._level_of_row`, CONTRACT
+    инвариант про прозрачные рамки). Раньше глубину цели пересчитывали снаружи как «позиция в
+    chain + 1» (`outline_rows`) — тот же баг: рамка в цепочке засчитывалась как +1 уровень,
+    депф врал на файлах с namespace (`ValueError: max() arg is an empty sequence`, когда цель
+    оказывалась filler на неверно завышенном уровне — сама себя отфильтровывала в core.py)."""
+    chain, levels, cur, guard, level = [], [], root, 0, 1
     while guard < 512:
         guard += 1
         nxt = _owning_block(spec, cur.children(), line)
@@ -238,14 +245,17 @@ def _containing_chain(root, spec, line):
             filler = _filler_at(spec, cur, level, line)
             if filler is not None:
                 chain.append(filler)
+                levels.append(level)
             break
         chain.append(nxt)
-        level += 1
+        levels.append(level)
+        if spec.unwrap_def(nxt) is not None:            # landmark — углубляет; frame — нет
+            level += 1
         body = spec.body(nxt)
         if body is None:
             break
         cur = body
-    return chain
+    return chain, levels
 
 
 def filler_container_at(path, line):
@@ -263,7 +273,7 @@ def filler_container_at(path, line):
     backend, spec = resolve(os.path.splitext(path)[1])
     with open(path, 'rb') as f:
         root = backend.root(f.read())
-    chain = _containing_chain(root, spec, line)
+    chain, _levels = _containing_chain(root, spec, line)
     if not chain:
         return None
     last = chain[-1]
@@ -317,19 +327,20 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
         root = backend.root(f.read())
     clf = Classifier(spec)
     if focus_line is not None:
-        chain = _containing_chain(root, spec, focus_line)
+        chain, levels = _containing_chain(root, spec, focus_line)
         target = _pick_focus(chain, focus_level)
         if target is None:
             tree = []
         elif isinstance(target, Block):
             # Filler-terminated chain (imports/comments/assign-run/docstring — see
             # `_containing_chain`): `_filler_at` already built this via the real
-            # Classifier at the right depth/range. It's a leaf (no body to descend into,
-            # nothing to glue — Classifier's own run-grouping already settled its bounds).
+            # Classifier at the right depth/range (transparent frames already excluded —
+            # see `levels`). It's a leaf (no body to descend into, nothing to glue —
+            # Classifier's own run-grouping already settled its bounds).
             tree = [target]
         else:
             idx = chain.index(target)
-            base = idx + 1                     # РЕАЛЬНАЯ глубина цели в файле (не 1)
+            base = levels[idx]                 # РЕАЛЬНАЯ глубина цели (рамки не углубляют)
             # Склеить коммент-преамблу цели: спрашиваем want_glue у её РОДИТЕЛЬСКОГО скоупа
             # (root для верхнего уровня, тело родителя-по-цепочке иначе). Тот же расчёт, что
             # в полном outline (pending) и в адресации (_preamble_start) — один [start-end].
