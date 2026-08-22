@@ -9,8 +9,14 @@ breaks. It is read-only.
 Checks per (file, line):
   * CONTAIN   (HIGH) — a returned rung does NOT span the line (start <= line <= end). This
                        is invariant #7: "выданный блок обязан содержать строку".
-  * NEST      (MED)  — ladder is not a clean outer->inner nest (outer must contain inner and
-                       sit at a strictly shallower level).
+  * RANGE     (HIGH) — ladder is not a clean outer->inner nest (outer must span inner). A
+                       real containment/bounds bug.
+  * SIBLING   (INFO) — same level, no nesting, but outer.end == line == inner.start: two
+                       sibling control clauses sharing one physical brace line (`} else {`,
+                       `} catch (e) {`). Both legitimately touch the line — not a bug, an
+                       inherently ambiguous boundary (CONTRACT invariant #8).
+  * LEVEL     (LOW)  — ranges nest fine but levels don't strictly increase (try/catch
+                       sibling-wrapper quirk). Cosmetic, not a containment break.
   * CRASH     (HIGH) — get_blocks raised.
   * EMPTY     (INFO) — no ladder for a non-blank line in a file that has blocks elsewhere.
 
@@ -186,16 +192,29 @@ def sweep_file(path, step, max_lines):
                 viol.append((line, "CONTAIN",
                              f"rung [{b['start']}-{b['end']}] lvl{b.get('level')} "
                              f"{(b.get('label') or '')[:50]!r} excludes line"))
-        # blocks come outermost->innermost. Two failure modes, different severity:
-        #   RANGE (HIGH) — outer does not span inner: the ladder ranges are broken.
-        #   LEVEL (LOW)  — ranges nest fine but levels don't strictly increase (e.g. a
-        #                  try_statement wrapper and its catch branch both land at the same
-        #                  depth). Cosmetic/modeling, not a containment break.
+        # blocks come outermost->innermost. Three relationship shapes, different severity:
+        #   RANGE   (HIGH) — outer does not span inner: the ladder ranges are broken.
+        #   SIBLING (INFO) — same level, no nesting, but the two rungs meet EXACTLY at the
+        #                    hit line (outer.end == line == inner.start): sibling control
+        #                    clauses sharing one physical brace line (`} else {`, `} catch
+        #                    (e) {`). Both legitimately touch `line`; there is no bug, just
+        #                    an inherently ambiguous boundary (see CONTRACT invariant #8).
+        #   LEVEL   (LOW)  — ranges nest fine but levels don't strictly increase (e.g. a
+        #                    try_statement wrapper and its catch branch both land at the same
+        #                    depth). Cosmetic/modeling, not a containment break.
         for outer, inner in zip(blocks, blocks[1:]):
-            if not (outer["start"] <= inner["start"] and inner["end"] <= outer["end"]):
-                viol.append((line, "RANGE",
-                             f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} does not "
-                             f"span [{inner['start']}-{inner['end']}]/lvl{inner['level']}"))
+            nests = outer["start"] <= inner["start"] and inner["end"] <= outer["end"]
+            if not nests:
+                if (outer["level"] == inner["level"]
+                        and outer["end"] == line and inner["start"] == line):
+                    viol.append((line, "SIBLING",
+                                 f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} meets "
+                                 f"[{inner['start']}-{inner['end']}]/lvl{inner['level']} at the "
+                                 f"hit line — shared brace boundary, not a nesting break"))
+                else:
+                    viol.append((line, "RANGE",
+                                 f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} does not "
+                                 f"span [{inner['start']}-{inner['end']}]/lvl{inner['level']}"))
             elif outer["level"] >= inner["level"]:
                 viol.append((line, "LEVEL",
                              f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} then nested "
@@ -207,7 +226,7 @@ def sweep_file(path, step, max_lines):
 
 
 SEVERITY = {"CONTAIN": "HIGH", "CRASH": "HIGH", "OPEN": "HIGH", "RANGE": "HIGH",
-            "LEVEL": "LOW", "EMPTY": "INFO"}
+            "LEVEL": "LOW", "SIBLING": "INFO", "EMPTY": "INFO"}
 
 
 def main():
@@ -218,6 +237,9 @@ def main():
     ap.add_argument("--max-bytes", type=int, default=5_000_000, help="skip files larger than this")
     ap.add_argument("--show", type=int, default=20, help="max violations to print per file")
     ap.add_argument("--quiet", action="store_true", help="only the final summary")
+    ap.add_argument("--show-info", action="store_true",
+                     help="also itemize INFO findings (SIBLING/EMPTY) per file — noisy, "
+                          "default output only itemizes HIGH/LOW (the actionable ones)")
     args = ap.parse_args()
 
     roots = args.roots or [_HERE]
@@ -236,22 +258,28 @@ def main():
         totals["lines"] += checked
         for _ln, kind, _d in viol:
             counts[kind] = counts.get(kind, 0) + 1
-        if viol:
+        # INFO findings (SIBLING/EMPTY) are expected structural noise, not bugs — they'd
+        # otherwise bury the HIGH/LOW findings under a wall of text on real codebases full
+        # of `} else {`. Itemize only HIGH/LOW by default; --show-info opts into the rest.
+        itemizable = viol if args.show_info else [v for v in viol if SEVERITY.get(v[1]) != "INFO"]
+        if itemizable:
             bad_files += 1
             if not args.quiet:
                 rel = os.path.relpath(path, os.path.commonpath(roots) if len(roots) > 1 else roots[0])
                 print(f"\n########## {rel}  ({checked} lines checked)")
-                for line, kind, detail in viol[:args.show]:
+                for line, kind, detail in itemizable[:args.show]:
                     print(f"  [{SEVERITY.get(kind, '?'):4}] {kind:8} line {line}: {detail}")
-                if len(viol) > args.show:
-                    print(f"  … +{len(viol) - args.show} more")
+                if len(itemizable) > args.show:
+                    print(f"  … +{len(itemizable) - args.show} more")
 
     high = counts["CONTAIN"] + counts["CRASH"] + counts["OPEN"] + counts["RANGE"]
     print("\n" + "-" * 50)
-    print(f"swept {totals['files']} files, {totals['lines']} line-probes; {bad_files} files with findings")
+    print(f"swept {totals['files']} files, {totals['lines']} line-probes; "
+          f"{bad_files} files with HIGH/LOW findings")
     print(f"  HIGH  CONTAIN={counts['CONTAIN']} RANGE={counts['RANGE']} CRASH={counts['CRASH']} OPEN={counts['OPEN']}")
     print(f"  LOW   LEVEL={counts['LEVEL']}")
-    print(f"  INFO  EMPTY={counts['EMPTY']}")
+    print(f"  INFO  SIBLING={counts['SIBLING']} EMPTY={counts['EMPTY']}   "
+          "(expected noise -- shared close/open brace boundaries; use --show-info to itemize)")
     sys.exit(1 if high else 0)
 
 
