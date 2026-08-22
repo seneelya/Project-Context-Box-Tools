@@ -101,15 +101,31 @@ def _comment_rows(root):
     return comment_rows - code_rows
 
 
-def _preamble_start(start_row, comment_rows, lines):
-    """Поднять начало над коммент-преамбулой (комменты/пустые прямо над блоком). 0-based."""
+def _closed_before(row, target_start, bodies):
+    """Строка ВНУТРИ тела, которое УЖЕ ЗАКРЫЛОСЬ к моменту начала target (sr < row < er
+    и er <= target_start): комментарий принадлежит ЗАКРЫТОМУ sibling'у (`if (x) { …
+    // note\n } else {`), а не преамбуле target. Тело-ПРЕДОК (ещё открыто на старте target,
+    er > target_start — напр. `namespace { … }` вокруг всего файла) не мешает: комментарий
+    внутри него, но ВЫШЕ target, — легитимная преамбула на его собственном уровне."""
+    return any(sr < row < er and er <= target_start for sr, er, _ in bodies)
+
+
+def _preamble_start(start_row, comment_rows, bodies, lines):
+    """Поднять начало над коммент-преамбулой (комменты/пустые прямо над блоком). 0-based.
+
+    Склейка идёт ЧИСТО по физическим строкам (без учёта AST-вложенности), поэтому обязана
+    сама остановиться на границе ЗАКРЫТОГО sibling-тела (`_closed_before`) — иначе комментарий
+    на строке `} else {` (последняя строка ПРЕДЫДУЩЕГО sibling-блока) утекает в преамбулу
+    следующего, перепрыгивая закрывающую скобку соседа и раздувая начало вглубь его тела —
+    RANGE-баг, пойманный sweep на else-if цепочках (`if/else if/else`, реальный код:
+    json-schema-processors.ts, to-json-schema.ts, schemas.ts)."""
     first = start_row
     r = start_row - 1
     while r >= 0:
         if not lines[r].strip():
             r -= 1
             continue
-        if r in comment_rows:
+        if r in comment_rows and not _closed_before(r, start_row, bodies):
             first = r
             r -= 1
             continue
@@ -117,9 +133,9 @@ def _preamble_start(start_row, comment_rows, lines):
     return first
 
 
-def _preamble_owner(blocks, row, comment_rows, lines):
+def _preamble_owner(blocks, row, comment_rows, bodies, lines):
     owners = [n for n, _ in blocks
-              if _preamble_start(n.start_row, comment_rows, lines) <= row < n.start_row]
+              if _preamble_start(n.start_row, comment_rows, bodies, lines) <= row < n.start_row]
     if not owners:
         return None
     return min(owners, key=lambda n: n.start_row)
@@ -141,15 +157,32 @@ def _block_label(node, parent, spec):
     return "{…} block"
 
 
+def _own_end_row(node, ls):
+    """Конец рунга ПО ЕГО СОБСТВЕННОМУ телу, а не по всему AST-узлу. Грамматика прячет
+    хвостовые sibling-клозы (`else_clause`/`catch_clause`/`finally_clause`) ВНУТРЬ
+    родительского узла (`if_statement` кончается на конце `else`, `try_statement` — на
+    конце `finally`), а мы адресуем эти клозы ОТДЕЛЬНЫМИ рунгами (`_collect` кладёт их
+    в `blocks` по своему типу в `ls.control`). Без этой отсечки `if (p)` раздувался бы
+    до конца чужого `else` — RANGE-баг, пойманный sweep на реальном коде.
+
+    Правило: у control/named-узла берём конец его СОБСТВЕННОГО прямого body_types-
+    ребёнка (там, где он есть) — хвостовые клозы туда не входят, они не body_types.
+    Без такого ребёнка (например, `else if …` без своих скобок) — честный node.end_row."""
+    if node.type not in ls.named_def and node.type not in ls.control:
+        return node.end_row
+    body_ends = [c.end_row for c in node.children() if c.type in ls.body_types]
+    return max(body_ends) if body_ends else node.end_row
+
+
 def _bounds(node, parent, bodies, comment_rows, lines, spec):
     """ЕДИНЫЙ калькулятор диапазона рунга (порт `_treesitter_blocks._bounds`): один и
     тот же [start-end] в любом режиме (ladder/query/nearest). level = глубина ЗАГОЛОВКА
-    (строгое вложение тел); start поднят над коммент-преамблой; end = последняя строка
-    узла. 1-based, end inclusive."""
+    (строгое вложение тел); start поднят над коммент-преамблой; end = конец СОБСТВЕННОГО
+    тела узла, не хвостового sibling-клоза (`_own_end_row`). 1-based, end inclusive."""
     return {
         'level': _level_of_row(node.start_row, bodies),
-        'start': _preamble_start(node.start_row, comment_rows, lines) + 1,
-        'end': node.end_row + 1,
+        'start': _preamble_start(node.start_row, comment_rows, bodies, lines) + 1,
+        'end': _own_end_row(node, spec.ls) + 1,
         'label': _block_label(node, parent, spec),
     }
 
@@ -177,10 +210,11 @@ def get_blocks(path, target_line):
     comment_rows = _comment_rows(root)
     row = target_line - 1
 
-    containing = [(n, p) for n, p in blocks if n.start_row <= row <= n.end_row]
+    containing = [(n, p) for n, p in blocks
+                  if n.start_row <= row <= _own_end_row(n, spec.ls)]
 
     if row in comment_rows:                            # тычок в преамбулу → её блок
-        owner = _preamble_owner(blocks, row, comment_rows, lines)
+        owner = _preamble_owner(blocks, row, comment_rows, bodies, lines)
         if owner is not None and all(owner is not n for n, _ in containing):
             containing.append(next((n, p) for n, p in blocks if n is owner))
 
