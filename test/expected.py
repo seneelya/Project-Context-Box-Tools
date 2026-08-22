@@ -224,6 +224,15 @@ LADDER = [
     # own-body-end also fixes the containment filter, not just the reported range.
     {"file": 'tsSRC/src/analyzer.ts', "line": 104,
      "expect": [(6, 102, 105), (5, 97, 106), (4, 95, 108), (3, 93, 109), (2, 69, 120), (1, 52, 123)]},
+    # Invariant #9: a top-level line with NO addressable block (module docstring — no def/
+    # class contains it) must return the FILLER band `--outline` already shows for it
+    # (`~docstring [1-7]`), not the whole-file fallback `[1, N]`. Real bug: docker.py line 9
+    # (a top-level `import`) used to return `[1-2050] <module>` — the entire file — instead
+    # of the tight `imports: …` band.
+    {"file": 'pythonSRC/hanging_sig.py', "line": 3, "expect": [(1, 1, 7)]},
+    # Same invariant, brace engine: a leading `import` line (no enclosing def/class) returns
+    # the `imports: …` filler band, not `[1, N]`.
+    {"file": 'Edge/Edge.ts', "line": 1, "expect": [(1, 1, 3)]},
 ]
 
 QUERY = [
