@@ -7,7 +7,7 @@ from pathlib import Path
 # Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
 # gcb now has real external consumers (Hermes agents), so the CLI contract is no
 # longer a private implementation detail. See CONTRACT.md for what's covered.
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 
 
 def normalize_path(p):
@@ -416,6 +416,12 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     }
 
 
+def _hits(n):
+    """'1 hit' vs 'N hits' — single --line is a 1-element batch, not a special case,
+    so the header still needs to read right for it."""
+    return f"{n} hit" if n == 1 else f"{n} hits"
+
+
 def _outline_label_index(handler, lines, deep=False):
     """Full-file outline computed ONCE, indexed by (start, end). Ladder/survey rows
     read their label from here instead of the raw truncated header text — one source
@@ -438,12 +444,14 @@ def _render_boxed_rows(rows, emit, c):
        'frame': bool, 'filler': bool}
     `indent` = nesting depth WITHIN this printout (0 = outermost shown), independent
     of the block's real file-depth — real depth can start anywhere (a hit ten levels
-    deep still reads as a 3-row staircase, not ten). Encoded two ways: the marker
-    (level number / '.'+level / arrow) is staircased across the mark column — deeper
-    rows sit closer to the `|`, like nested braces — AND the label itself gets a
-    synthetic `  `-per-level indent, so the block reads almost like the source's own
-    nesting. A single arrow glyph marks hit/error rows: unambiguous "here's the grep
-    hit", never confusable with a block's real depth number.
+    deep still reads as a 3-row staircase, not ten). Block rows encode it twice: the
+    level marker is staircased across the mark column (deeper sits closer to `|`,
+    like nested braces) AND the label gets a synthetic `  `-per-level indent, so the
+    block reads almost like the source's own nesting. Hit/error rows use a single
+    arrow glyph instead of a level number — it means "here's the grep hit", not a
+    depth, so it always sits flush against `|` regardless of that row's own indent
+    (only its LABEL gets the indent) — a depth-shaped position on a non-depth marker
+    would be a lie.
     """
     ARROW = '→'  # →
 
@@ -469,7 +477,8 @@ def _render_boxed_rows(rows, emit, c):
     for r, m, cell in zip(rows, marks, cells):
         text = f"ERROR: {r['msg']}" if r['kind'] == 'error' else r['text']
         indent = r.get('indent', 0)
-        mark_field = (' ' * (indent + 1) + m).ljust(mark_w)
+        mark_field = m.rjust(mark_w) if r['kind'] in ('hit', 'error') \
+            else (' ' * (indent + 1) + m).ljust(mark_w)
         emit(c(f"{mark_field}| {cell.rjust(cw)}| {'  ' * indent}{text}"))
 
 
@@ -480,7 +489,7 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
     comes LAST, nested one level deeper than the block it landed in. Runs of
     consecutive hits that resolve to the identical ladder share ONE printing of it."""
     n = len(line_nums)
-    emit(c(f"File: {file_path} ({len(lines)} lines) · {n} hits"))
+    emit(c(f"File: {file_path} ({len(lines)} lines) · {_hits(n)}"))
 
     outline_index = _outline_label_index(handler, lines)
     all_rows = []
@@ -558,7 +567,7 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
                 order.append(key)
 
     mode_word = '.0' if deep else 'outline'
-    emit(c(f"File: {file_path} · {mode_word} batch · {n} hits"
+    emit(c(f"File: {file_path} · {mode_word} batch · {_hits(n)}"
            + (f", {len(errors)} error(s)" if errors else "")))
 
     error_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'indent': 0, 'msg': err}
@@ -577,7 +586,7 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
     does not crash the batch. Returns a nonzero exit code iff any hit errored."""
     n = len(line_nums)
     ok = errors = 0
-    emit(c(f"File: {file_path} · query batch · {n} hits"))
+    emit(c(f"File: {file_path} · query batch · {_hits(n)}"))
 
     for i, (ln, lvl) in enumerate(zip(line_nums, levels), start=1):
         if ln < 1 or ln > len(lines):
@@ -801,69 +810,18 @@ def main():
             emit(c(f"{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}"))
         return
 
-    if is_batch:
-        emit_legend()
-        if args['query']:
-            exit_code = _run_query_batch(handler, file_path, lines, lines_batch, levels_batch,
-                                          args.get('numbered'), emit, c)
-            if exit_code:
-                sys.exit(exit_code)
-            return
-        else:
-            _run_survey_batch(handler, file_path, lines, lines_batch, emit, c)
-            return
-
-    line_num = args['line']
-    if line_num < 1 or line_num > len(lines):
-        print(f"Error: Line {line_num} out of range (1-{len(lines)})", file=sys.stderr)
-        sys.exit(1)
-
-    blocks = handler.get_blocks(file_path, line_num)
-
-    if not blocks:
-        print("Error: No blocks found", file=sys.stderr)
-        sys.exit(1)
-
+    # Ladder/query: ALWAYS the batch renderer, even for a single --line. Two paths
+    # that render "the same thing" slightly differently is exactly the kind of
+    # inconsistency that reads as a bug to anyone gluing this output downstream —
+    # one --line is just a 1-element array, not a different mode.
+    emit_legend()
     if args['query']:
-        # Extract ONE block (chosen by --level; default 0 = innermost), framed by
-        # anchor comments so several outputs can be concatenated without merging.
-        block = resolve(blocks, args['level'])
-        if not block:
-            print("Error: Level out of range", file=sys.stderr)
-            sys.exit(1)
-        emit_legend()
-        start, end = block["start"], block["end"]  # inclusive
-        # File first: the call that produced this text may not be in view when several
-        # --query extractions get concatenated, so each block must self-identify its source.
-        emit(c(f"File: {file_path}"))
-        _lbl = block.get('label')
-        emit(c(f"Block level: {block['level']} range: {start}-{end}"
-               + (f"  {_lbl}" if _lbl else "")))
-        last = min(end, len(lines))
-        # --numbered: prefix ONLY the code lines with right-aligned absolute numbers;
-        # the frame tags (File/Block level/Block end) stay clean. Off by default so the
-        # raw text is copy/diff-safe.
-        numw = len(str(last)) if args.get('numbered') else 0
-        for i in range(start - 1, last):
-            if numw:
-                sys.stdout.write(f"{i + 1:>{numw}} | ")
-            sys.stdout.write(lines[i])
-        if last >= 1 and not lines[last - 1].endswith("\n"):
-            sys.stdout.write("\n")  # ensure the footer starts on its own line at EOF
-        emit(c(f"Block end: {end}"))
+        exit_code = _run_query_batch(handler, file_path, lines, lines_batch, levels_batch,
+                                      args.get('numbered'), emit, c)
+        if exit_code:
+            sys.exit(exit_code)
     else:
-        # Metadata = the LADDER: every enclosing block, innermost -> outermost, so one
-        # call shows all zoom options (pick a level, then --query it). Рисуем ЛЕСЕНКОЙ:
-        # номер уровня отступает вправо с глубиной (внутренний — правее), диапазоны в
-        # столбец; сразу видно, куда «нырять».
-        emit_legend()
-        ladder = list(reversed(blocks))                 # innermost -> outermost
-        emit(c(f"You hit in block lvl {ladder[0]['level']}:"))
-        marks = [' ' * (b['level'] - 1) + str(b['level']) for b in ladder]
-        mw = max(len(m) for m in marks)
-        for b, m in zip(ladder, marks):
-            lbl = b.get('label') or ''
-            emit(c(f"{m.ljust(mw)} [{b['start']}-{b['end']}] {lbl}".rstrip()))
+        _run_survey_batch(handler, file_path, lines, lines_batch, emit, c)
 
 
 if __name__ == "__main__":
