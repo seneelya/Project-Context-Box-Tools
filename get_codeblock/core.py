@@ -37,8 +37,9 @@ def parse_args():
     tokens = sys.argv[1:]
 
     file_path = None
-    line_num = None
-    level = 0  # default: current block
+    line_list = None       # --line, always a list once given (len 1 == the old scalar)
+    level_list_raw = None  # --level, as given (before array-broadcast against --line)
+    ancestor_list_raw = None  # --ancestor-level, as given (before broadcast; wins over --level)
     query = False  # flag, no value needed
     outline = False  # flag: print the file's structural outline (no --line needed)
     numbered = False  # flag: prefix --query code lines with absolute line numbers
@@ -54,19 +55,20 @@ def parse_args():
             file_path = tokens[i + 1]
             i += 2
         elif token == '--line' and i + 1 < len(tokens):
-            # TODO(deferred): accept a LIST of lines (grep hands you many) so one file
-            # scan can resolve blocks for several candidate lines at once. For now: one.
+            # Batch coordinates: --line 1827,606,867 resolves all of them in one file
+            # parse (grep hands you many at once). A single number is just a 1-element
+            # array — no behavior change for the existing single-line callers.
             try:
-                line_num = int(tokens[i + 1])
+                line_list = [int(t) for t in tokens[i + 1].split(',')]
             except ValueError:
-                print(f"Error: --line requires an integer value", file=sys.stderr)
+                print(f"Error: --line requires an integer or comma-separated integers", file=sys.stderr)
                 sys.exit(1)
             i += 2
         elif token == '--level' and i + 1 < len(tokens):
             try:
-                level = int(tokens[i + 1])
+                level_list_raw = [int(t) for t in tokens[i + 1].split(',')]
             except ValueError:
-                print(f"Error: --level requires an integer value", file=sys.stderr)
+                print(f"Error: --level requires an integer or comma-separated integers", file=sys.stderr)
                 sys.exit(1)
             i += 2
         elif token == '--query':
@@ -91,16 +93,16 @@ def parse_args():
         elif token in ('--ancestor-level', '--ancestor_level') and i + 1 < len(tokens):
             # Self-documenting relative address: N ancestors up from the block at
             # --line (0 = that block itself, 1 = parent, ...). Sugar for --level -N;
-            # the underlying mechanic (negative level) is unchanged.
+            # the underlying mechanic (negative level) is unchanged. Array-capable in
+            # lockstep with --line (see _broadcast below).
             try:
-                a = int(tokens[i + 1])
+                ancestor_list_raw = [int(t) for t in tokens[i + 1].split(',')]
             except ValueError:
-                print("Error: --ancestor-level requires an integer >= 0", file=sys.stderr)
+                print("Error: --ancestor-level requires an integer or comma-separated integers >= 0", file=sys.stderr)
                 sys.exit(1)
-            if a < 0:
+            if any(a < 0 for a in ancestor_list_raw):
                 print("Error: --ancestor-level must be >= 0 (0=self, 1=parent, ...)", file=sys.stderr)
                 sys.exit(1)
-            level = -a
             i += 2
         elif token in ('--project-root', '--project_root') and i + 1 < len(tokens):
             value = tokens[i + 1]
@@ -115,7 +117,7 @@ def parse_args():
             print("Usage:")
             print("  get_codeblock.py --file PATH                          (defaults to --outline)")
             print("  get_codeblock.py --file PATH --outline [--level MAXDEPTH]")
-            print("  get_codeblock.py --file PATH --line N [--ancestor-level N | --level N] [--query]")
+            print("  get_codeblock.py --file PATH --line N[,N,...] [--ancestor-level N | --level N] [--query]")
             print("")
             print("Arguments:")
             print("  --file PATH         Path to file (absolute or relative). Code + Markdown (.md).")
@@ -124,11 +126,16 @@ def parse_args():
             print("                      overview sized to the file; --level N caps depth (high N = all).")
             print("  --dot [--depth N]   Universal .0 map (reader): named landmarks + filler bands +")
             print("                      frames. Works on code AND markdown. --depth N expands N levels.")
-            print("  --line N            Target line number (1-based). Returns the block(s) at that line.")
-            print("  --ancestor-level N  Which block at --line: N ancestors up. 0 = the innermost block")
-            print("                      itself (default), 1 = its parent, 2 = grandparent, ...")
-            print("  --level N           Absolute depth address instead: 1 = file top, 2 = one level in.")
+            print("  --line N[,N,...]    Target line number(s), 1-based. One file parse resolves them")
+            print("                      all. >1 line switches to batch mode: bare = survey (per-hit")
+            print("                      ladder, dedup'd); with --outline = one merged tree; with")
+            print("                      --query = per-hit body, [i/n], one bad hit won't crash the rest.")
+            print("  --ancestor-level N[,N,...]  Which block at --line: N ancestors up. 0 = the innermost")
+            print("                      block itself (default), 1 = its parent, 2 = grandparent, ...")
+            print("  --level N[,N,...]   Absolute depth address instead: 1 = file top, 2 = one level in.")
             print("                      (With --outline, --level N caps the depth shown — not an address.)")
+            print("                      Arrays broadcast against --line: one value replicates to all;")
+            print("                      shorter repeats its last value; longer has its excess ignored.")
             print("  --query             Return the block TEXT (framed by anchors) instead of the ladder.")
             print("  --numbered          With --query: prefix each code line with its absolute line")
             print("                      number ('  92 | ...'). Off by default — raw text stays")
@@ -156,16 +163,16 @@ def parse_args():
     # --file alone (no --line, no --outline) defaults to --outline: it's the primary
     # discovery mode, and requiring the flag explicitly here would be pure friction.
     # The flag itself still works and stays documented for explicit use.
-    if file_path and line_num is None and not outline and not dot:
+    if file_path and line_list is None and not outline and not dot:
         outline = True
 
     # No arguments or missing required ones: show usage hint
-    if not file_path and line_num is None:
+    if not file_path and line_list is None:
         print("Search or query an exact code block from a given line, at a given depth (--level).")
         print("Usage:")
         print("  get_codeblock.py --file PATH                          (defaults to --outline)")
         print("  get_codeblock.py --file PATH --outline [--level MAXDEPTH]")
-        print("  get_codeblock.py --file PATH --line N [--level LEVEL] [--query]")
+        print("  get_codeblock.py --file PATH --line N[,N,...] [--level LEVEL] [--query]")
         print("Run with --help for full options, including --level addressing.")
         print("")
         if default_root:
@@ -173,15 +180,38 @@ def parse_args():
         sys.exit(0)
 
     # --outline / --dot need only --file; every other mode needs --file and --line
-    if not file_path or (line_num is None and not outline and not dot):
+    if not file_path or (line_list is None and not outline and not dot):
         need = "--file" if (outline or dot) else "--file, --line"
         print(f"Error: the following arguments are required: {need}", file=sys.stderr)
         sys.exit(1)
 
+    # Array broadcast (--line 1827,606,867 with --level/--ancestor-level): one number
+    # replicates across the whole array; a shorter array replicates its last value for
+    # the remainder; a longer array has its excess ignored. --ancestor-level wins over
+    # --level when both are given (same precedence as the old scalar code: whichever
+    # was parsed decides `level`; here that's whichever list is non-None).
+    n_lines = len(line_list) if line_list else 1
+
+    def _broadcast(raw, n):
+        if not raw:
+            return None
+        if len(raw) >= n:
+            return raw[:n]
+        return raw + [raw[-1]] * (n - len(raw))
+
+    if ancestor_list_raw is not None:
+        levels = [-a for a in _broadcast(ancestor_list_raw, n_lines)]
+    elif level_list_raw is not None:
+        levels = _broadcast(level_list_raw, n_lines)
+    else:
+        levels = [0] * n_lines
+
     return {
         'file': file_path,
-        'line': line_num,
-        'level': level,
+        'line': line_list[0] if line_list else None,   # back-compat single-value view
+        'lines': line_list,                              # full array (len 1 for scalar calls)
+        'level': levels[0],                               # back-compat single-value view
+        'levels': levels,                                 # full array, broadcast to len(lines)
         'query': query,
         'outline': outline,
         'numbered': numbered,
@@ -371,6 +401,147 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     }
 
 
+def _short_name(label):
+    """Bare identifier out of a rung label ('def foo(x):' -> 'foo'). Falls back to the
+    label itself (colon stripped) for unnamed rungs (if/try/...) — see CONTRACT.md
+    batch section: used only for the survey dedup message, never for addressing."""
+    if not label:
+        return None
+    s = label.strip()
+    for kw in ("async def ", "def ", "class "):
+        if s.startswith(kw):
+            rest = s[len(kw):]
+            for sep in ("(", ":"):
+                if sep in rest:
+                    rest = rest.split(sep, 1)[0]
+            return rest.strip()
+    return s.rstrip(":").strip()
+
+
+def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
+    """Batch survey (CONTRACT.md): per-hit ladder, dedup identical ladders."""
+    n = len(line_nums)
+    emit(c(f"File: {file_path} ({len(lines)} lines) · {n} hits"))
+
+    seen = {}  # ladder signature -> [first_idx, name, count]
+    for i, ln in enumerate(line_nums, start=1):
+        if ln < 1 or ln > len(lines):
+            emit(c(f"[{i}/{n}] hit {ln}: ERROR: Line out of range (1-{len(lines)})"))
+            continue
+        blocks = handler.get_blocks(file_path, ln)
+        if not blocks:
+            emit(c(f"[{i}/{n}] hit {ln}: ERROR: No blocks found"))
+            continue
+
+        ladder = list(reversed(blocks))  # innermost -> outermost
+        key = tuple((b['level'], b['start'], b['end']) for b in ladder)
+
+        if key in seen:
+            first_i, name, count = seen[key]
+            count += 1
+            seen[key] = (first_i, name, count)
+            emit(c(f"[{i}/{n}] hit {ln}: same ladder as [{first_i}/{n}] "
+                   f"— {name} (×{count} hits)"))
+            continue
+
+        name = _short_name(ladder[-1].get('label')) or f"lvl {ladder[-1]['level']}"
+        seen[key] = (i, name, 1)
+
+        suffix = " — top-level, no ladder" if len(ladder) == 1 else ""
+        emit(c(f"[{i}/{n}] hit {ln}{suffix}:"))
+        marks = [' ' * (b['level'] - 1) + str(b['level']) for b in ladder]
+        mw = max(len(m) for m in marks)
+        for b, m in zip(ladder, marks):
+            lbl = b.get('label') or ''
+            emit(c(f"     {m.ljust(mw)} [{b['start']}-{b['end']}] {lbl}".rstrip()))
+
+
+def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit, c):
+    """Batch outline (CONTRACT.md): ONE merged, deduped tree across all hits, each
+    escalated to its own broadcast --level/--ancestor-level."""
+    n = len(line_nums)
+    errors = []
+    merged = {}   # (start, end) -> row (first hit to surface it wins)
+    order = []
+
+    for i, (ln, lvl) in enumerate(zip(line_nums, levels), start=1):
+        if ln < 1 or ln > len(lines):
+            errors.append((i, ln, f"Line out of range (1-{len(lines)})"))
+            continue
+        rows = handler.outline(lines, max_level=None, deep=deep, focus_line=ln, focus_level=lvl)
+        if not rows:
+            errors.append((i, ln, "no block found at that line"))
+            continue
+        for r in rows:
+            key = (r['start'], r['end'])
+            if key not in merged:
+                merged[key] = r
+                order.append(key)
+
+    mode_word = '.0' if deep else 'outline'
+    emit(c(f"File: {file_path} · {mode_word} batch · {n} hits"
+           + (f", {len(errors)} error(s)" if errors else "")))
+    for i, ln, err in errors:
+        emit(c(f"[{i}/{n}] hit {ln}: ERROR: {err}"))
+
+    if not order:
+        return
+
+    rows = sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))
+
+    def _mark(r):
+        if not (r.get('frame') or r.get('filler')):
+            return str(r['level'])
+        return '.' + (str(r['level']) if r['level'] > 1 else '')
+    labels = ["  " * (r['level'] - 1) + _mark(r) for r in rows]
+    width = max(len(s) for s in labels)
+    for r, label in zip(rows, labels):
+        emit(c(f"{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}"))
+
+
+def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emit, c):
+    """Batch query (CONTRACT.md): full block body per hit, [i/n] indexed, one bad hit
+    does not crash the batch. Returns a nonzero exit code iff any hit errored."""
+    n = len(line_nums)
+    ok = errors = 0
+    emit(c(f"File: {file_path} · query batch · {n} hits"))
+
+    for i, (ln, lvl) in enumerate(zip(line_nums, levels), start=1):
+        if ln < 1 or ln > len(lines):
+            emit(c(f"[{i}/{n}] ERROR: Line {ln} out of range (1-{len(lines)})"))
+            errors += 1
+            continue
+        blocks = handler.get_blocks(file_path, ln)
+        if not blocks:
+            emit(c(f"[{i}/{n}] ERROR: No blocks found at line {ln}"))
+            errors += 1
+            continue
+        block = resolve(blocks, lvl)
+        if not block:
+            emit(c(f"[{i}/{n}] ERROR: Level out of range at line {ln}"))
+            errors += 1
+            continue
+
+        start, end = block['start'], block['end']
+        _lbl = block.get('label')
+        emit(c(f"[{i}/{n}] hit {ln}"))
+        emit(c(f"Block level: {block['level']} range: {start}-{end}"
+               + (f"  {_lbl}" if _lbl else "")))
+        last = min(end, len(lines))
+        numw = len(str(last)) if numbered else 0
+        for j in range(start - 1, last):
+            if numw:
+                sys.stdout.write(f"{j + 1:>{numw}} | ")
+            sys.stdout.write(lines[j])
+        if last >= 1 and not lines[last - 1].endswith("\n"):
+            sys.stdout.write("\n")
+        emit(c(f"Block end: {end}"))
+        ok += 1
+
+    emit(c(f"{ok} ok, {errors} error" + ("s" if errors != 1 else "")))
+    return 1 if errors else 0
+
+
 def main():
     # Windows-консоль (cp1251/1252) роняет print на не-ASCII (×, кириллица, emoji).
     # utf-8 + replace: не падаем; на не-utf8 консоли максимум косметический мохито.
@@ -454,12 +625,20 @@ def main():
     #   --outline — чистая карта: landmark'и вглубь, filler только на уровне файла.
     #   --dot     — тот же рендер, но filler на ВСЕХ раскрытых уровнях (диагностика).
     # Глубина адаптивная (по размеру файла); --level N / --depth N — явный потолок.
+    lines_batch = args.get('lines') or []
+    levels_batch = args.get('levels') or []
+    is_batch = len(lines_batch) > 1
+
     if args.get('outline') or args.get('dot'):
         deep = bool(args.get('dot'))
         mode_word = '.0' if deep else 'outline'
         if not hasattr(handler, 'outline'):
             print(f"Error: outline not supported for {language} yet", file=sys.stderr)
             sys.exit(1)
+        if is_batch:
+            _run_outline_batch(handler, file_path, lines, lines_batch, levels_batch,
+                                deep, emit, c)
+            return
         # Map mode does not take --line. If both are given the user meant to inspect a
         # line — карта ТОЛЬКО блока-цели: K-предок строки (K=--level, по умолч. внутренний).
         # Решает монстро-файлы/классы: развернуть один блок как отдельный файл, рекурсивно.
@@ -544,6 +723,17 @@ def main():
         for r, label in zip(rows, labels):
             emit(c(f"{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}"))
         return
+
+    if is_batch:
+        if args['query']:
+            exit_code = _run_query_batch(handler, file_path, lines, lines_batch, levels_batch,
+                                          args.get('numbered'), emit, c)
+            if exit_code:
+                sys.exit(exit_code)
+            return
+        else:
+            _run_survey_batch(handler, file_path, lines, lines_batch, emit, c)
+            return
 
     line_num = args['line']
     if line_num < 1 or line_num > len(lines):
