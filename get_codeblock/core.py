@@ -7,7 +7,7 @@ from pathlib import Path
 # Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
 # gcb now has real external consumers (Hermes agents), so the CLI contract is no
 # longer a private implementation detail. See CONTRACT.md for what's covered.
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 
 
 def normalize_path(p):
@@ -518,12 +518,18 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
                 order.append(key)
 
         innermost = blocks[-1]
-        # A single-line pinpoint rung (e.g. `~return_statement`, start==end==this
-        # very line) IS the hit, not a container around it — no extra nesting then.
-        pinpoint = innermost['start'] == innermost['end'] == ln
+        # Same indent as the innermost rung (not +1) whenever the hit line ISN'T
+        # actually inside that rung's body — covers two different real cases:
+        # a single-line pinpoint filler (`~return_statement`, start==end==this line)
+        # AND a hit landing on the block's own header/preamble (e.g. `async def
+        # foo():` itself, or an attached comment glued above it) rather than inside
+        # it — both have line_level(ln) == the rung's own level, never deeper; a
+        # true body line gets a strictly higher line_level (there'd be one more rung
+        # in `blocks` for it otherwise). Only actually-nested content gets +1.
+        same_level = handler.line_level(lines, ln - 1) <= innermost['level']
         ikey = (innermost['start'], innermost['end'])
         hits_by_block.setdefault(ikey, []).append(
-            {'idx': i, 'line': ln, 'pinpoint': pinpoint, 'text': lines[ln - 1].strip()})
+            {'idx': i, 'line': ln, 'same_level': same_level, 'text': lines[ln - 1].strip()})
 
     all_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'indent': 0, 'msg': msg}
                 for i, ln, msg in error_entries]
@@ -537,7 +543,7 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
                           'frame': r['frame'], 'filler': r['filler']})
         for h in hits_by_block.get((r['start'], r['end']), []):
             all_rows.append({'kind': 'hit', 'idx': h['idx'], 'line': h['line'],
-                              'indent': indent if h['pinpoint'] else indent + 1,
+                              'indent': indent if h['same_level'] else indent + 1,
                               'text': h['text']})
 
     _render_boxed_rows(all_rows, emit, c)
