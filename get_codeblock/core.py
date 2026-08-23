@@ -7,7 +7,7 @@ from pathlib import Path
 # Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
 # gcb now has real external consumers (Hermes agents), so the CLI contract is no
 # longer a private implementation detail. See CONTRACT.md for what's covered.
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 
 def normalize_path(p):
@@ -157,8 +157,17 @@ def parse_args():
                 print(f'Current PROJECT_ROOT="{default_root}"')
             sys.exit(0)
         else:
-            # Unknown argument, skip it
-            i += 1
+            # A silently-skipped stray token used to hide a real bug: PowerShell
+            # expands an unquoted `a,b, c` (comma THEN space) into separate argv
+            # entries (`a`, `b`, `c`) instead of one string — `--line` then only
+            # sees its immediate next token as a 1-element array, and the rest
+            # landed here and vanished, quietly falling back to single-line mode
+            # instead of erroring. Fail loud instead: this token belongs to nothing.
+            hint = (" (PowerShell splits an unquoted 'a,b, c' on the space after the "
+                    "comma into separate arguments — quote the whole list: "
+                    f"--line \"{token}\")") if token[0].isdigit() or token[0] == '-' and token[1:].isdigit() else ""
+            print(f"Error: unrecognized argument: '{token}'{hint}", file=sys.stderr)
+            sys.exit(1)
 
     # Normalize paths
     if file_path:
@@ -505,7 +514,14 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
                          'text': o['text'] if o else (b.get('label') or ''), 'indent': depth,
                          'frame': bool(o and o.get('frame')), 'filler': bool(o and o.get('filler'))})
         key = tuple((r['level'], r['start'], r['end']) for r in rows)
-        hit_row = {'kind': 'hit', 'idx': i, 'line': ln, 'indent': len(rows),
+        # The innermost rung can already be a single-line pinpoint (e.g. a
+        # `~return_statement` filler band whose start==end==the hit line itself) —
+        # then it and the hit ARE the same line, not container-and-content, so the
+        # hit sits at the SAME indent as that rung, not one deeper than it.
+        innermost = rows[-1] if rows else None
+        pinpoint = innermost is not None and innermost['start'] == innermost['end'] == ln
+        hit_indent = len(rows) - 1 if pinpoint else len(rows)
+        hit_row = {'kind': 'hit', 'idx': i, 'line': ln, 'indent': hit_indent,
                    'text': lines[ln - 1].strip()}
 
         if key == group_key:
@@ -672,11 +688,14 @@ def main():
 
     # One-line reminder of the two addressing scales (real depth vs --level). Console-only
     # (is_tty) — external/programmatic callers get bare block lines, nothing extra to parse.
+    # Still wrapped in c() like every other line: a human may paste this straight into a
+    # code file along with the block below it, and an uncommented line would break there.
     def emit_legend():
         if is_tty:
-            print("\033[92m'Block level: K' = real depth (1=file top, deeper=higher). Pick a block: "
-                  "--ancestor-level N = N up from here (0=this block, 1=parent) · "
-                  "--level N = absolute depth from top · --query = its text.\033[0m")
+            legend_text = ("'Block level: K' = real depth (1=file top, deeper=higher). Pick a block: "
+                            "--ancestor-level N = N up from here (0=this block, 1=parent) · "
+                            "--level N = absolute depth from top · --query = its text.")
+            print(f"\033[92m{c(legend_text)}\033[0m")
 
     # --outline / --dot: единый адаптивный рендер поверх `.0` IR (Vision03).
     #   --outline — чистая карта: landmark'и вглубь, filler только на уровне файла.
@@ -755,9 +774,10 @@ def main():
             cap = f"{capflag} caps depth (raise N for the full tree)" if shown < depth \
                   else f"{capflag} caps depth"
             kind = ".0 map (all levels: named + filler)" if deep else "outline (map) mode"
-            print(f"{g}{kind} · {cap}{r}")
-            print(f"{g}to read code, drop the map flag: `--line N` = block bounds at a line "
-                  f"· `--line N --query` = that block's text{r}")
+            hint2 = ("to read code, drop the map flag: `--line N` = block bounds at a line "
+                     "· `--line N --query` = that block's text")
+            print(f"{g}{c(f'{kind} · {cap}')}{r}")
+            print(f"{g}{c(hint2)}{r}")
 
         # Header: total depth + per-level tally + what is shown. This is METADATA
         # (the overview signal) — emitted for every caller, including the API.
