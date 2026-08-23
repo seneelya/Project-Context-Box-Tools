@@ -7,7 +7,7 @@ from pathlib import Path
 # Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
 # gcb now has real external consumers (Hermes agents), so the CLI contract is no
 # longer a private implementation detail. See CONTRACT.md for what's covered.
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 
 def normalize_path(p):
@@ -421,14 +421,20 @@ def _outline_label_index(handler, lines, deep=False):
 
 def _render_boxed_rows(rows, emit, c):
     """CONTRACT.md boxed ladder/tree format — the ONE renderer shared by survey and
-    outline batch, so both look 'дурацки одинаково' (columns computed once across ALL
-    rows passed in, never per-hit). Each row is one of:
-      {'kind': 'hit',   'idx': i, 'line': N, 'text': <raw source line, unenriched>}
-      {'kind': 'error', 'idx': i, 'line': N, 'msg': <error text>}
-      {'kind': 'block', 'level': L, 'start': S, 'end': E, 'text': <label>,
+    outline batch, so both look identical (columns AND indentation computed once
+    across ALL rows passed in, never per-hit/per-group). Each row is one of:
+      {'kind': 'hit',   'idx': i, 'line': N, 'text': <source line>,   'indent': K}
+      {'kind': 'error', 'idx': i, 'line': N, 'msg': <error text>,     'indent': K}
+      {'kind': 'block', 'level': L, 'start': S, 'end': E, 'text': <label>, 'indent': K,
        'frame': bool, 'filler': bool}
-    A single arrow glyph marks hit/error rows so they read unambiguously as
-    "here's the grep hit", never confusable with a block's real depth number.
+    `indent` = nesting depth WITHIN this printout (0 = outermost shown), independent
+    of the block's real file-depth — real depth can start anywhere (a hit ten levels
+    deep still reads as a 3-row staircase, not ten). Encoded two ways: the marker
+    (level number / '.'+level / arrow) is staircased across the mark column — deeper
+    rows sit closer to the `|`, like nested braces — AND the label itself gets a
+    synthetic `  `-per-level indent, so the block reads almost like the source's own
+    nesting. A single arrow glyph marks hit/error rows: unambiguous "here's the grep
+    hit", never confusable with a block's real depth number.
     """
     ARROW = '→'  # →
 
@@ -448,16 +454,21 @@ def _render_boxed_rows(rows, emit, c):
         return
     marks = [_mark(r) for r in rows]
     cells = [_cell(r) for r in rows]
-    mw = max(len(m) for m in marks)
     cw = max(len(x) for x in cells)
+    max_indent = max(r.get('indent', 0) for r in rows)
+    mark_w = max_indent + 2  # staircase field: leading (indent+1) spaces + 1-char marker
     for r, m, cell in zip(rows, marks, cells):
         text = f"ERROR: {r['msg']}" if r['kind'] == 'error' else r['text']
-        emit(c(f"{m.rjust(mw)}| {cell.rjust(cw)}| {text}"))
+        indent = r.get('indent', 0)
+        mark_field = (' ' * (indent + 1) + m).ljust(mark_w)
+        emit(c(f"{mark_field}| {cell.rjust(cw)}| {'  ' * indent}{text}"))
 
 
 def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
     """Batch survey (CONTRACT.md): every hit shows its OWN exact source line (the
-    grep-hit proof, never enriched/reformatted) plus the ladder up to lvl 1; runs of
+    grep-hit proof, never enriched/reformatted) plus the ladder up to lvl 1, printed
+    OUTERMOST FIRST so it reads top-down like the source itself — the hit's own line
+    comes LAST, nested one level deeper than the block it landed in. Runs of
     consecutive hits that resolve to the identical ladder share ONE printing of it."""
     n = len(line_nums)
     emit(c(f"File: {file_path} ({len(lines)} lines) · {n} hits"))
@@ -468,33 +479,34 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
 
     def _flush_group():
         if group_hits:
-            all_rows.extend(group_hits)
             all_rows.extend(group_rows)
+            all_rows.extend(group_hits)
 
     for i, ln in enumerate(line_nums, start=1):
         if ln < 1 or ln > len(lines):
             _flush_group()
             group_key, group_rows, group_hits = None, None, []
-            all_rows.append({'kind': 'error', 'idx': i, 'line': ln,
+            all_rows.append({'kind': 'error', 'idx': i, 'line': ln, 'indent': 0,
                               'msg': f"Line out of range (1-{len(lines)})"})
             continue
 
-        blocks = handler.get_blocks(file_path, ln)
+        blocks = handler.get_blocks(file_path, ln)  # outermost -> innermost
         if not blocks:
             _flush_group()
             group_key, group_rows, group_hits = None, None, []
-            all_rows.append({'kind': 'error', 'idx': i, 'line': ln, 'msg': "No blocks found"})
+            all_rows.append({'kind': 'error', 'idx': i, 'line': ln, 'indent': 0,
+                              'msg': "No blocks found"})
             continue
 
-        ladder = list(reversed(blocks))  # innermost -> outermost
         rows = []
-        for b in ladder:
+        for depth, b in enumerate(blocks):
             o = outline_index.get((b['start'], b['end']))
             rows.append({'kind': 'block', 'level': b['level'], 'start': b['start'], 'end': b['end'],
-                         'text': o['text'] if o else (b.get('label') or ''),
+                         'text': o['text'] if o else (b.get('label') or ''), 'indent': depth,
                          'frame': bool(o and o.get('frame')), 'filler': bool(o and o.get('filler'))})
         key = tuple((r['level'], r['start'], r['end']) for r in rows)
-        hit_row = {'kind': 'hit', 'idx': i, 'line': ln, 'text': lines[ln - 1].rstrip('\n')}
+        hit_row = {'kind': 'hit', 'idx': i, 'line': ln, 'indent': len(rows),
+                   'text': lines[ln - 1].strip()}
 
         if key == group_key:
             group_hits.append(hit_row)
@@ -509,7 +521,7 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
 def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit, c):
     """Batch outline (CONTRACT.md): ONE merged, deduped tree across all hits, each
     escalated to its own broadcast --level/--ancestor-level. Same boxed renderer as
-    survey — same columns, same arrow glyph for error rows."""
+    survey — same columns, same staircase indent, same arrow glyph for error rows."""
     n = len(line_nums)
     errors = []
     merged = {}   # (start, end) -> row (first hit to surface it wins)
@@ -533,10 +545,14 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
     emit(c(f"File: {file_path} · {mode_word} batch · {n} hits"
            + (f", {len(errors)} error(s)" if errors else "")))
 
-    error_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'msg': err} for i, ln, err in errors]
+    error_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'indent': 0, 'msg': err}
+                  for i, ln, err in errors]
+    block_list = sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))
+    base_level = min((r['level'] for r in block_list), default=0)
     block_rows = [{'kind': 'block', 'level': r['level'], 'start': r['start'], 'end': r['end'],
-                   'text': r['text'], 'frame': r.get('frame'), 'filler': r.get('filler')}
-                  for r in sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))]
+                   'text': r['text'], 'indent': r['level'] - base_level,
+                   'frame': r.get('frame'), 'filler': r.get('filler')}
+                  for r in block_list]
     _render_boxed_rows(error_rows + block_rows, emit, c)
 
 
@@ -766,6 +782,7 @@ def main():
         return
 
     if is_batch:
+        emit_legend()
         if args['query']:
             exit_code = _run_query_batch(handler, file_path, lines, lines_batch, levels_batch,
                                           args.get('numbered'), emit, c)
