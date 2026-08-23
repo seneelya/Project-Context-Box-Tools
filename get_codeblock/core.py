@@ -7,7 +7,7 @@ from pathlib import Path
 # Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
 # gcb now has real external consumers (Hermes agents), so the CLI contract is no
 # longer a private implementation detail. See CONTRACT.md for what's covered.
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 
 
 def normalize_path(p):
@@ -483,63 +483,63 @@ def _render_boxed_rows(rows, emit, c):
 
 
 def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
-    """Batch survey (CONTRACT.md): every hit shows its OWN exact source line (the
-    grep-hit proof, never enriched/reformatted) plus the ladder up to lvl 1, printed
-    OUTERMOST FIRST so it reads top-down like the source itself — the hit's own line
-    comes LAST, nested one level deeper than the block it landed in. Runs of
-    consecutive hits that resolve to the identical ladder share ONE printing of it."""
+    """Batch survey (CONTRACT.md): ONE merged map of the file, like outline batch —
+    every hit's ladder gets folded into it by (start, end), so hits sharing an
+    ancestor (even a distant one, even non-adjacent in the --line list) show that
+    ancestor exactly ONCE, not once per hit. Each hit's own exact source line (the
+    grep-hit proof, never enriched/reformatted) is inserted right after the block it
+    actually landed in, nested one level deeper than it."""
     n = len(line_nums)
     emit(c(f"File: {file_path} ({len(lines)} lines) · {_hits(n)}"))
 
     outline_index = _outline_label_index(handler, lines)
-    all_rows = []
-    group_key, group_rows, group_hits = None, None, []
-
-    def _flush_group():
-        if group_hits:
-            all_rows.extend(group_rows)
-            all_rows.extend(group_hits)
+    merged = {}          # (start, end) -> block row
+    order = []
+    hits_by_block = {}   # (start, end) of a hit's OWN innermost block -> [hit info]
+    error_entries = []   # hits that never resolved to any block
 
     for i, ln in enumerate(line_nums, start=1):
         if ln < 1 or ln > len(lines):
-            _flush_group()
-            group_key, group_rows, group_hits = None, None, []
-            all_rows.append({'kind': 'error', 'idx': i, 'line': ln, 'indent': 0,
-                              'msg': f"Line out of range (1-{len(lines)})"})
+            error_entries.append((i, ln, f"Line out of range (1-{len(lines)})"))
             continue
 
         blocks = handler.get_blocks(file_path, ln)  # outermost -> innermost
         if not blocks:
-            _flush_group()
-            group_key, group_rows, group_hits = None, None, []
-            all_rows.append({'kind': 'error', 'idx': i, 'line': ln, 'indent': 0,
-                              'msg': "No blocks found"})
+            error_entries.append((i, ln, "No blocks found"))
             continue
 
-        rows = []
-        for depth, b in enumerate(blocks):
-            o = outline_index.get((b['start'], b['end']))
-            rows.append({'kind': 'block', 'level': b['level'], 'start': b['start'], 'end': b['end'],
-                         'text': o['text'] if o else (b.get('label') or ''), 'indent': depth,
-                         'frame': bool(o and o.get('frame')), 'filler': bool(o and o.get('filler'))})
-        key = tuple((r['level'], r['start'], r['end']) for r in rows)
-        # The innermost rung can already be a single-line pinpoint (e.g. a
-        # `~return_statement` filler band whose start==end==the hit line itself) —
-        # then it and the hit ARE the same line, not container-and-content, so the
-        # hit sits at the SAME indent as that rung, not one deeper than it.
-        innermost = rows[-1] if rows else None
-        pinpoint = innermost is not None and innermost['start'] == innermost['end'] == ln
-        hit_indent = len(rows) - 1 if pinpoint else len(rows)
-        hit_row = {'kind': 'hit', 'idx': i, 'line': ln, 'indent': hit_indent,
-                   'text': lines[ln - 1].strip()}
+        for b in blocks:
+            key = (b['start'], b['end'])
+            if key not in merged:
+                o = outline_index.get(key)
+                merged[key] = {'level': b['level'], 'start': b['start'], 'end': b['end'],
+                                'text': o['text'] if o else (b.get('label') or ''),
+                                'frame': bool(o and o.get('frame')), 'filler': bool(o and o.get('filler'))}
+                order.append(key)
 
-        if key == group_key:
-            group_hits.append(hit_row)
-        else:
-            _flush_group()
-            group_key, group_rows, group_hits = key, rows, [hit_row]
+        innermost = blocks[-1]
+        # A single-line pinpoint rung (e.g. `~return_statement`, start==end==this
+        # very line) IS the hit, not a container around it — no extra nesting then.
+        pinpoint = innermost['start'] == innermost['end'] == ln
+        ikey = (innermost['start'], innermost['end'])
+        hits_by_block.setdefault(ikey, []).append(
+            {'idx': i, 'line': ln, 'pinpoint': pinpoint, 'text': lines[ln - 1].strip()})
 
-    _flush_group()
+    all_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'indent': 0, 'msg': msg}
+                for i, ln, msg in error_entries]
+
+    block_list = sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))
+    base_level = min((r['level'] for r in block_list), default=0)
+    for r in block_list:
+        indent = r['level'] - base_level
+        all_rows.append({'kind': 'block', 'level': r['level'], 'start': r['start'], 'end': r['end'],
+                          'text': r['text'], 'indent': indent,
+                          'frame': r['frame'], 'filler': r['filler']})
+        for h in hits_by_block.get((r['start'], r['end']), []):
+            all_rows.append({'kind': 'hit', 'idx': h['idx'], 'line': h['line'],
+                              'indent': indent if h['pinpoint'] else indent + 1,
+                              'text': h['text']})
+
     _render_boxed_rows(all_rows, emit, c)
 
 
