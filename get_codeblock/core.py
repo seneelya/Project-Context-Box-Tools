@@ -4,6 +4,11 @@ import os
 import sys
 from pathlib import Path
 
+# Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
+# gcb now has real external consumers (Hermes agents), so the CLI contract is no
+# longer a private implementation detail. See CONTRACT.md for what's covered.
+VERSION = "0.2.0"
+
 
 def normalize_path(p):
     """Normalize path separators to forward slashes."""
@@ -112,6 +117,7 @@ def parse_args():
             project_root = value
             i += 2
         elif token == '--help':
+            print(f"get_codeblock (gcb) v{VERSION}")
             print("Search or query an exact code block from a given line, at a given depth (--level).")
             print("")
             print("Usage:")
@@ -401,64 +407,109 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     }
 
 
-def _short_name(label):
-    """Bare identifier out of a rung label ('def foo(x):' -> 'foo'). Falls back to the
-    label itself (colon stripped) for unnamed rungs (if/try/...) — see CONTRACT.md
-    batch section: used only for the survey dedup message, never for addressing."""
-    if not label:
-        return None
-    s = label.strip()
-    for kw in ("async def ", "def ", "class "):
-        if s.startswith(kw):
-            rest = s[len(kw):]
-            for sep in ("(", ":"):
-                if sep in rest:
-                    rest = rest.split(sep, 1)[0]
-            return rest.strip()
-    return s.rstrip(":").strip()
+def _outline_label_index(handler, lines, deep=False):
+    """Full-file outline computed ONCE, indexed by (start, end). Ladder/survey rows
+    read their label from here instead of the raw truncated header text — one source
+    of truth for block labels, shared with outline batch (CONTRACT.md: 'label lines
+    are taken exactly as outline gives them'). Missing entries (no outline support
+    for this language) fall back to the raw ladder label at the call site."""
+    if not hasattr(handler, 'outline'):
+        return {}
+    rows = handler.outline(lines, max_level=None, deep=deep) or []
+    return {(r['start'], r['end']): r for r in rows}
+
+
+def _render_boxed_rows(rows, emit, c):
+    """CONTRACT.md boxed ladder/tree format — the ONE renderer shared by survey and
+    outline batch, so both look 'дурацки одинаково' (columns computed once across ALL
+    rows passed in, never per-hit). Each row is one of:
+      {'kind': 'hit',   'idx': i, 'line': N, 'text': <raw source line, unenriched>}
+      {'kind': 'error', 'idx': i, 'line': N, 'msg': <error text>}
+      {'kind': 'block', 'level': L, 'start': S, 'end': E, 'text': <label>,
+       'frame': bool, 'filler': bool}
+    A single arrow glyph marks hit/error rows so they read unambiguously as
+    "here's the grep hit", never confusable with a block's real depth number.
+    """
+    ARROW = '→'  # →
+
+    def _mark(r):
+        if r['kind'] in ('hit', 'error'):
+            return ARROW
+        if not (r.get('frame') or r.get('filler')):
+            return str(r['level'])
+        return '.' + (str(r['level']) if r['level'] > 1 else '')
+
+    def _cell(r):
+        if r['kind'] in ('hit', 'error'):
+            return f"{r['idx']}> {r['line']}"
+        return f"{r['start']}-{r['end']}"
+
+    if not rows:
+        return
+    marks = [_mark(r) for r in rows]
+    cells = [_cell(r) for r in rows]
+    mw = max(len(m) for m in marks)
+    cw = max(len(x) for x in cells)
+    for r, m, cell in zip(rows, marks, cells):
+        text = f"ERROR: {r['msg']}" if r['kind'] == 'error' else r['text']
+        emit(c(f"{m.rjust(mw)}| {cell.rjust(cw)}| {text}"))
 
 
 def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
-    """Batch survey (CONTRACT.md): per-hit ladder, dedup identical ladders."""
+    """Batch survey (CONTRACT.md): every hit shows its OWN exact source line (the
+    grep-hit proof, never enriched/reformatted) plus the ladder up to lvl 1; runs of
+    consecutive hits that resolve to the identical ladder share ONE printing of it."""
     n = len(line_nums)
     emit(c(f"File: {file_path} ({len(lines)} lines) · {n} hits"))
 
-    seen = {}  # ladder signature -> [first_idx, name, count]
+    outline_index = _outline_label_index(handler, lines)
+    all_rows = []
+    group_key, group_rows, group_hits = None, None, []
+
+    def _flush_group():
+        if group_hits:
+            all_rows.extend(group_hits)
+            all_rows.extend(group_rows)
+
     for i, ln in enumerate(line_nums, start=1):
         if ln < 1 or ln > len(lines):
-            emit(c(f"[{i}/{n}] hit {ln}: ERROR: Line out of range (1-{len(lines)})"))
+            _flush_group()
+            group_key, group_rows, group_hits = None, None, []
+            all_rows.append({'kind': 'error', 'idx': i, 'line': ln,
+                              'msg': f"Line out of range (1-{len(lines)})"})
             continue
+
         blocks = handler.get_blocks(file_path, ln)
         if not blocks:
-            emit(c(f"[{i}/{n}] hit {ln}: ERROR: No blocks found"))
+            _flush_group()
+            group_key, group_rows, group_hits = None, None, []
+            all_rows.append({'kind': 'error', 'idx': i, 'line': ln, 'msg': "No blocks found"})
             continue
 
         ladder = list(reversed(blocks))  # innermost -> outermost
-        key = tuple((b['level'], b['start'], b['end']) for b in ladder)
+        rows = []
+        for b in ladder:
+            o = outline_index.get((b['start'], b['end']))
+            rows.append({'kind': 'block', 'level': b['level'], 'start': b['start'], 'end': b['end'],
+                         'text': o['text'] if o else (b.get('label') or ''),
+                         'frame': bool(o and o.get('frame')), 'filler': bool(o and o.get('filler'))})
+        key = tuple((r['level'], r['start'], r['end']) for r in rows)
+        hit_row = {'kind': 'hit', 'idx': i, 'line': ln, 'text': lines[ln - 1].rstrip('\n')}
 
-        if key in seen:
-            first_i, name, count = seen[key]
-            count += 1
-            seen[key] = (first_i, name, count)
-            emit(c(f"[{i}/{n}] hit {ln}: same ladder as [{first_i}/{n}] "
-                   f"— {name} (×{count} hits)"))
-            continue
+        if key == group_key:
+            group_hits.append(hit_row)
+        else:
+            _flush_group()
+            group_key, group_rows, group_hits = key, rows, [hit_row]
 
-        name = _short_name(ladder[-1].get('label')) or f"lvl {ladder[-1]['level']}"
-        seen[key] = (i, name, 1)
-
-        suffix = " — top-level, no ladder" if len(ladder) == 1 else ""
-        emit(c(f"[{i}/{n}] hit {ln}{suffix}:"))
-        marks = [' ' * (b['level'] - 1) + str(b['level']) for b in ladder]
-        mw = max(len(m) for m in marks)
-        for b, m in zip(ladder, marks):
-            lbl = b.get('label') or ''
-            emit(c(f"     {m.ljust(mw)} [{b['start']}-{b['end']}] {lbl}".rstrip()))
+    _flush_group()
+    _render_boxed_rows(all_rows, emit, c)
 
 
 def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit, c):
     """Batch outline (CONTRACT.md): ONE merged, deduped tree across all hits, each
-    escalated to its own broadcast --level/--ancestor-level."""
+    escalated to its own broadcast --level/--ancestor-level. Same boxed renderer as
+    survey — same columns, same arrow glyph for error rows."""
     n = len(line_nums)
     errors = []
     merged = {}   # (start, end) -> row (first hit to surface it wins)
@@ -481,22 +532,12 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
     mode_word = '.0' if deep else 'outline'
     emit(c(f"File: {file_path} · {mode_word} batch · {n} hits"
            + (f", {len(errors)} error(s)" if errors else "")))
-    for i, ln, err in errors:
-        emit(c(f"[{i}/{n}] hit {ln}: ERROR: {err}"))
 
-    if not order:
-        return
-
-    rows = sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))
-
-    def _mark(r):
-        if not (r.get('frame') or r.get('filler')):
-            return str(r['level'])
-        return '.' + (str(r['level']) if r['level'] > 1 else '')
-    labels = ["  " * (r['level'] - 1) + _mark(r) for r in rows]
-    width = max(len(s) for s in labels)
-    for r, label in zip(rows, labels):
-        emit(c(f"{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}"))
+    error_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'msg': err} for i, ln, err in errors]
+    block_rows = [{'kind': 'block', 'level': r['level'], 'start': r['start'], 'end': r['end'],
+                   'text': r['text'], 'frame': r.get('frame'), 'filler': r.get('filler')}
+                  for r in sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))]
+    _render_boxed_rows(error_rows + block_rows, emit, c)
 
 
 def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emit, c):
