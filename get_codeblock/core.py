@@ -7,7 +7,7 @@ from pathlib import Path
 # Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
 # gcb now has real external consumers (Hermes agents), so the CLI contract is no
 # longer a private implementation detail. See CONTRACT.md for what's covered.
-VERSION = "0.4.2"
+VERSION = "0.4.1"
 
 
 def normalize_path(p):
@@ -588,33 +588,51 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
 
 
 def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emit, c):
-    """Batch query (CONTRACT.md): full block body per hit, [i/n] indexed, one bad hit
-    does not crash the batch. Returns a nonzero exit code iff any hit errored."""
-    n = len(line_nums)
-    ok = errors = 0
-    emit(c(f"File: {file_path} · query batch · {_hits(n)}"))
+    """Batch query: dedupe by the RESOLVED (start, end) — same merge trick as survey/
+    outline batch. Level escalation routinely sends several hits to the exact same
+    ancestor block (very common with --level/--ancestor-level on a shared parent);
+    printing that block's full body once per hit used to duplicate it N times, which
+    on a real (non-fixture-sized) file is not a cosmetic issue — it is the batch
+    silently multiplying its own output. Collecting into an ordered dict first means
+    a range landing there twice costs nothing; only first-seen order survives.
 
-    for i, (ln, lvl) in enumerate(zip(line_nums, levels), start=1):
+    No hit numbers, no hit line-numbers, no repeated block label: this isn't survey
+    (no grep-hit to prove), and the label would just restate the body's own first
+    line one row down — redundant, and a staleness risk if it ever drifted from it.
+    Blocks are numbered by their OWN deduped count, not by how many --line hits fed
+    into them — that count is what actually answers 'how many distinct things did
+    this return', hits are an input, not the unit being reported."""
+    errors = []
+    merged = {}
+    order = []  # preserves --line's given order, not sorted by position — the
+                # caller asked for these ranges in that order for a reason (REQ-001 §3B)
+
+    for ln, lvl in zip(line_nums, levels):
         if ln < 1 or ln > len(lines):
-            emit(c(f"[{i}/{n}] ERROR: Line {ln} out of range (1-{len(lines)})"))
-            errors += 1
+            errors.append(f"line {ln} out of range (1-{len(lines)})")
             continue
         blocks = handler.get_blocks(file_path, ln)
         if not blocks:
-            emit(c(f"[{i}/{n}] ERROR: No blocks found at line {ln}"))
-            errors += 1
+            errors.append(f"no blocks found at line {ln}")
             continue
         block = resolve(blocks, lvl)
         if not block:
-            emit(c(f"[{i}/{n}] ERROR: Level out of range at line {ln}"))
-            errors += 1
+            errors.append(f"level out of range at line {ln}")
             continue
+        key = (block['start'], block['end'])
+        if key not in merged:
+            merged[key] = block
+            order.append(key)
 
+    emit(c(f"File: {file_path}"))
+    for msg in errors:
+        emit(c(f"ERROR: {msg}"))
+
+    n = len(order)
+    for i, key in enumerate(order, start=1):
+        block = merged[key]
         start, end = block['start'], block['end']
-        _lbl = block.get('label')
-        emit(c(f"[{i}/{n}] hit {ln}"))
-        emit(c(f"Block level: {block['level']} range: {start}-{end}"
-               + (f"  {_lbl}" if _lbl else "")))
+        emit(c(f"[{i}/{n}] Block level: {block['level']} range: {start}-{end}"))
         last = min(end, len(lines))
         numw = len(str(last)) if numbered else 0
         for j in range(start - 1, last):
@@ -624,9 +642,7 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
         if last >= 1 and not lines[last - 1].endswith("\n"):
             sys.stdout.write("\n")
         emit(c(f"Block end: {end}"))
-        ok += 1
 
-    emit(c(f"{ok} ok, {errors} error" + ("s" if errors != 1 else "")))
     return 1 if errors else 0
 
 
