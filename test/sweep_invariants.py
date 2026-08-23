@@ -19,11 +19,16 @@ Checks per (file, line):
                        sibling-wrapper quirk). Cosmetic, not a containment break.
   * CRASH     (HIGH) — get_blocks raised.
   * EMPTY     (INFO) — no ladder for a non-blank line in a file that has blocks elsewhere.
+  * QUERY     (HIGH) — only with `--check-query`: `get_codeblock(query=True)` (the CORE API,
+                       what `--query`/other tools actually call) returned text that does NOT
+                       contain the probed line's real content at the right row. Exercises
+                       `resolve()` (the invariant #8 ambiguity climb) and the text slice —
+                       neither is touched by the plain ladder checks above.
 
 Usage:
     py test/sweep_invariants.py [ROOT ...] [--file F] [--step N] [--max-lines M]
                                 [--max-bytes B] [--show K] [--show-info] [--quiet]
-                                [--write-level]
+                                [--check-query] [--write-level]
 
 ROOT defaults to this test/ directory (small, fast). Point it at a big checkout (e.g. a
 Hermes source tree) to stress it: `py test/sweep_invariants.py Y:\\Hermess\\...\\SRC`.
@@ -208,7 +213,34 @@ def line_kinds(blocks, line, lines):
     return out
 
 
-def sweep_file(path, step, max_lines):
+def query_violation(path, line, lines):
+    """Cross-check the CORE API's default `--query` (level 0): `get_codeblock(path, line,
+    query=True)['text']` — the same function other tools will soon call directly (Vision04:
+    get_codeblock as the structural-core provider) — must actually CONTAIN the probed line's
+    real content at the right row. This exercises `resolve()` (the invariant #8 ambiguity
+    climb) and the text slice, neither of which the ladder checks above touch (they only
+    look at raw `get_blocks()` rungs, never the resolved/queried text a caller would get).
+    Returns a detail string, or None if consistent."""
+    from get_codeblock.core import get_codeblock
+    try:
+        result = get_codeblock(path, line_num=line, level=0, query=True)
+    except Exception as e:  # noqa: BLE001
+        return f"get_codeblock(query=True) raised: {e!r}"
+    start, end, text = result["start"], result["end"], result["text"]
+    if not (start <= line <= end):
+        return f"query block [{start}-{end}] does not contain line {line}"
+    rows = text.splitlines(keepends=True)
+    idx = line - start
+    if not (0 <= idx < len(rows)):
+        return f"query block [{start}-{end}] text has {len(rows)} row(s), line {line} is row {idx} (out of range)"
+    got = rows[idx].rstrip("\r\n")
+    want = lines[line - 1].rstrip("\r\n")
+    if got != want:
+        return f"query block [{start}-{end}] row {idx} is {got!r}, real file line {line} is {want!r}"
+    return None
+
+
+def sweep_file(path, step, max_lines, check_query=False):
     """Return (checked, [violation]) for one file. violation = (line, kind, detail)."""
     try:
         lines = open(path, encoding="utf-8", errors="replace").readlines()
@@ -240,6 +272,10 @@ def sweep_file(path, step, max_lines):
             continue
         for kind, detail in line_kinds(blocks, line, lines):
             viol.append((line, kind, detail))
+        if check_query:
+            detail = query_violation(path, line, lines)
+            if detail is not None:
+                viol.append((line, "QUERY", detail))
     # downgrade EMPTY to noise if the file genuinely has no blocks at all
     if not saw_any_block:
         viol = [v for v in viol if v[1] != "EMPTY"]
@@ -309,7 +345,7 @@ def write_level_map(path, out_dir):
     return out_path, None
 
 
-SEVERITY = {"CONTAIN": "HIGH", "CRASH": "HIGH", "OPEN": "HIGH", "RANGE": "HIGH",
+SEVERITY = {"CONTAIN": "HIGH", "CRASH": "HIGH", "OPEN": "HIGH", "RANGE": "HIGH", "QUERY": "HIGH",
             "LEVEL": "LOW", "SIBLING": "INFO", "EMPTY": "INFO"}
 
 
@@ -325,6 +361,11 @@ def main():
                      help="also itemize INFO findings (SIBLING/EMPTY) per file — noisy, "
                           "default output only itemizes HIGH/LOW (the actionable ones)")
     ap.add_argument("--file", dest="file", help="sweep only this one file (overrides roots)")
+    ap.add_argument("--check-query", action="store_true",
+                     help="also cross-check get_codeblock(query=True) (the CORE API `--query` "
+                          "uses/will be embedded by other tools) against the real file text — "
+                          "not just get_blocks()' raw ranges. Slower (one extra full API call "
+                          "per line); off by default")
     ap.add_argument("--write-level", action="store_true",
                      help="also write an eyeball-review copy of each swept file with a "
                           "level-number/flag prefix on every line (see write_level_map "
@@ -343,7 +384,7 @@ def main():
                 continue
         except OSError:
             continue
-        checked, viol = sweep_file(path, max(1, args.step), args.max_lines)
+        checked, viol = sweep_file(path, max(1, args.step), args.max_lines, args.check_query)
         totals["files"] += 1
         totals["lines"] += checked
         for _ln, kind, _d in viol:
@@ -368,11 +409,12 @@ def main():
                 if len(itemizable) > args.show:
                     print(f"  … +{len(itemizable) - args.show} more")
 
-    high = counts["CONTAIN"] + counts["CRASH"] + counts["OPEN"] + counts["RANGE"]
+    high = counts["CONTAIN"] + counts["CRASH"] + counts["OPEN"] + counts["RANGE"] + counts["QUERY"]
     print("\n" + "-" * 50)
     print(f"swept {totals['files']} files, {totals['lines']} line-probes; "
           f"{bad_files} files with HIGH/LOW findings")
-    print(f"  HIGH  CONTAIN={counts['CONTAIN']} RANGE={counts['RANGE']} CRASH={counts['CRASH']} OPEN={counts['OPEN']}")
+    print(f"  HIGH  CONTAIN={counts['CONTAIN']} RANGE={counts['RANGE']} CRASH={counts['CRASH']} "
+          f"OPEN={counts['OPEN']} QUERY={counts['QUERY']}")
     print(f"  LOW   LEVEL={counts['LEVEL']}")
     print(f"  INFO  SIBLING={counts['SIBLING']} EMPTY={counts['EMPTY']}   "
           "(expected noise -- shared close/open brace boundaries; use --show-info to itemize)")

@@ -78,7 +78,16 @@ py test/sweep_invariants.py DIR --show-info       # also itemize SIBLING/EMPTY (
 py test/sweep_invariants.py DIR --step 3          # sample every 3rd line (huge trees)
 py test/sweep_invariants.py DIR --max-lines 800   # cap lines checked per file
 py test/sweep_invariants.py --file F --write-level  # eyeball ONE file (see below)
+py test/sweep_invariants.py DIR --check-query       # also validate get_codeblock(query=True) (see below)
 ```
+
+- **`--check-query`** — a DIFFERENT, deeper check: everything above only pokes `get_blocks()`'s
+  raw ladder (ranges/levels). This additionally calls `get_codeblock(path, line, query=True)` —
+  the CORE API `--query` (and, soon, other tools) actually calls — and verifies its returned
+  TEXT really contains the probed line's real content at the right row. Exercises `resolve()`
+  (the invariant #8 ambiguity climb) and the text slice, neither of which the ladder checks
+  touch. Reported as `QUERY` (HIGH). Off by default — roughly 2x slower (one extra full API
+  call, including its own file read, per line) — turn it on when you want the deeper check.
 
 - **Eyeball review — `--file` + `--write-level`**: when the sweep reports 0 findings but you
   still want to look with your own eyes, `--file F` scopes the run to exactly that one file, and
@@ -98,7 +107,7 @@ py test/sweep_invariants.py --file F --write-level  # eyeball ONE file (see belo
   sibling-wrapper quirk, cosmetic); `SIBLING` (INFO) — same level, no nesting, but the two rungs
   meet EXACTLY at the hit line (`} else {`, `} catch (e) {`) — both legitimately touch the line,
   this is invariant #8 (the shared-brace-boundary is inherently ambiguous, not a bug); `EMPTY`
-  (INFO).
+  (INFO); `QUERY` (HIGH, only with `--check-query`) — see above.
 - **Default output only itemizes HIGH/LOW** (the actionable findings) — `SIBLING`/`EMPTY` are
   expected structural noise on any real codebase full of `if/else`, and would otherwise bury real
   bugs under a wall of text. Pass `--show-info` to see them itemized when debugging the sweep itself.
