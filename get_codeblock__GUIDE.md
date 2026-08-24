@@ -100,6 +100,12 @@ level any tool reports for a symbol all agree — same block boundaries for the 
 
 ---
 
+## Write flags in the same order (convention, not required — flags are position-independent)
+
+`--project-root → --file → --line → --level/--ancestor-level → --outline/--query → --numbered`.
+Address narrows first (root → file → line → block), then the verb acts, then adverbs — e.g.
+`--file PATH --line 49 --ancestor-level 1 --outline`.
+
 ## Know what counts as a block
 
 Count as a block: a **multi-line brace region** (or, in Python, an indented suite) — functions,

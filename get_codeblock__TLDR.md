@@ -20,6 +20,12 @@ table of contents, without reading the whole file.
 | "Give me block N counting from the file top for given `--line N` " | add `--level 1`, `2`, ... |
 | "Big file — cap outline to top 2 levels" | `--file PATH --outline --level 2` |
 
+## Flag order (convention, not a parser rule — flags are position-independent)
+
+`--project-root R → --file F → --line N → --level/--ancestor-level → --outline/--query → --numbered`
+Address narrows first (root → file → line → block), then the verb acts, then adverbs. Reads like
+a sentence: `--file PATH --line 49 --ancestor-level 1 --outline`.
+
 ## Workflow
 
 ```
