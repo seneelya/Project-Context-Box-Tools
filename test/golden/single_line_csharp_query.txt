@@ -1,0 +1,4 @@
+//File: test/csharpSRC/Core/GlobalStopWatchInstance.cs (27 lines)
+//■BLOCK : 12-12
+            Stopwatch sw = Stopwatch.StartNew();
+//■END : 12

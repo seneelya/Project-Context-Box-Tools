@@ -1,0 +1,9 @@
+#outline — depth 1, L1=3, showing 1..1
+#. [1-14] ~docstring
+#. [16-20] imports: annotations, typing, ._http
+#. [22-22] assign: _RERANK_PROVIDERS
+#. [24-25] # Cap chars per document — bounds request size and avoids sh…
+#. [26-26] assign: _RERANK_MAX_DOC_CHARS
+#1 [29-46] def _apply_score_transform(score: float, transform: Optional[str]) -> float
+#1 [49-127] def _rerank_once( backend: Dict[str, Any], query: str, documents: List[str], *, timeout: Optional[float] = None, max_retries: int, ) -> List[Dict[str, Any]]
+#1 [130-151] def _rank_candidates(candidates: List[Dict[str, Any]], results: List[Dict[str, Any]]) -> List[Dict[str, Any]]

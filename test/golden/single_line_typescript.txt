@@ -1,0 +1,4 @@
+//File: test/tsSRC/src/analyzer.ts (298 lines) · 1 hit
+// 1 | 40-42| function handleExportDeclaration(node: SourceFileReferencingNodes)
+//  2| 41-41|   ~return_statement
+//  →| 1> 41|   return (node as ExportDeclaration).getNamedExports().map((n) => n.getName());

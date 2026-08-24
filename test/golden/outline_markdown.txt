@@ -1,0 +1,7 @@
+<!-- outline — depth 4, L1=1 L2=5 L3=2 L4=4, showing 1..2 -->
+<!-- 1   [1-56] capture.py -->
+<!--   2 [4-27] Public API -->
+<!--   2 [28-39] Dependencies Internal -->
+<!--   2 [40-43] How it works -->
+<!--   2 [44-51] Dependencies External -->
+<!--   2 [52-56] ⚠️ Расхождения docstring ↔ код -->

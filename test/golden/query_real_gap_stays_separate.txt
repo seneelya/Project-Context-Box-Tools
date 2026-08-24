@@ -1,0 +1,10 @@
+#File: test/Edge/Edge.py (67 lines)
+#■BLOCK : 44-46
+                    except ValidationError as exc:
+                        await read_stream_writer.send(exc)
+                        continue
+#■END : 46
+#■BLOCK : 50-51
+        except anyio.ClosedResourceError:
+            await websocket.close()
+#■END : 51

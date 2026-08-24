@@ -1,0 +1,9 @@
+//File: test/csharpSRC2/Core/Settings.cs (831 lines) · 3 hits
+// 1   |   9-727| public class Settings : AutoConfiguration  /// <summary>Central default settings list.</summary>
+//  2  |  74-100|   public class ServerMaintenanceData : AutoConfiguration  /// <summary>Settings related to Swarm server maintenance..<…
+//    →|   1> 75|   public class ServerMaintenanceData : AutoConfiguration
+//  2  | 239-300|   public class NetworkData : AutoConfiguration  /// <summary>Settings related to networking and the webserve…
+//    →|  2> 239|   /// <summary>Settings related to networking and the webserver.</summary>
+//   3 | 245-254|     public string GetExternalUrl()  /// <summary>Helper to get the actual current external URL,…
+//    4| 253-253|       ~return_statement
+//    →|  3> 253|       return $"http://{host}:{Port}";

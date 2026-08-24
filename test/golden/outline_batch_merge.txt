@@ -1,0 +1,15 @@
+//File: test/csharpSRC2/Core/Settings.cs (831 lines) · outline batch · 2 hits
+//  3 | 245-254|   public string GetExternalUrl()
+// 2  | 392-670| public class User : AutoConfiguration
+//  3 | 395-406|   public class OutPath : AutoConfiguration
+//  3 | 411-435|   public class FileFormatData : AutoConfiguration
+//  3 | 440-470|   public class UserUIData : AutoConfiguration
+//  3 | 475-479|   public class ParamParsingData : AutoConfiguration
+//  3 | 494-499|   public class ThemesImpl : SettingsOptionsAttribute.AbstractImpl
+//  3 | 525-528|   public enum HintFormatOptions
+//  3 | 540-569|   public class VAEsData : AutoConfiguration
+//  3 | 601-604|   public class LanguagesImpl : SettingsOptionsAttribute.AbstractImpl
+//  3 | 613-632|   public class AudioData : AutoConfiguration  /// <summary>Settings related to audio.</summary>
+//   4| 617-620|     public class AudioImpl : SettingsOptionsAttribute.AbstractImpl
+//  3 | 640-669|   public class AutoCompleteData : AutoConfiguration  /// <summary>Settings related to autocompletions.</summary>
+//   4| 643-646|     public class SourceImpl : SettingsOptionsAttribute.AbstractImpl

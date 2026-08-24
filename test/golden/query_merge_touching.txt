@@ -1,0 +1,20 @@
+#File: test/Edge/Edge.py (67 lines)
+#■BLOCK : 35-51  = ranges :  Level 2  35-51,  Level 5  41-49
+    # =================================================== 
+    # Pump inbound WebSocket text frames into the read stream.
+    # (Comment preamble — must glue to ws_reader below.)
+    async def ws_reader():
+        try:
+            async with read_stream_writer:
+                async for msg in websocket.iter_text():
+                    try:
+                        client_message = types.JSONRPCMessage.model_validate_json(msg)
+                    except ValidationError as exc:
+                        await read_stream_writer.send(exc)
+                        continue
+
+                    session_message = SessionMessage(client_message)
+                    await read_stream_writer.send(session_message)
+        except anyio.ClosedResourceError:
+            await websocket.close()
+#■END : 51
