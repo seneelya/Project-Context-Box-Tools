@@ -588,25 +588,30 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
 
 
 def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emit, c):
-    """Batch query: resolve every hit, then collapse any block fully CONTAINED in an
-    already-kept one — not just exact-duplicate ranges. Level escalation routinely
-    sends several hits into the SAME ancestor, or into an ancestor that already
-    engulfs an earlier hit's (smaller) block; printing that body again on top of
-    itself used to duplicate real file content, which on a real (non-fixture-sized)
-    file is not cosmetic — 5 hits escalating into one 6571-line function would be
-    30000+ lines from one call. Sorted by file position (not --line's input order —
-    positions are what's actually being read, hit order doesn't carry information
-    once resolved), a block is dropped only when its own end doesn't extend past the
-    furthest end already kept — i.e. it is a strict subset of something already
-    printed. Two genuinely separate blocks that merely touch (no gap, no overlap)
-    both survive; only actual containment collapses.
+    """Batch query: resolve every hit, sort by file position, then MERGE any two
+    resolved ranges that touch or overlap — zero-gap adjacency included, not just
+    strict containment. We're returning FILE TEXT: if range A ends at line 46 and
+    range B starts at line 47, there is no real gap in the source between them, so
+    printing them as two separately-framed blocks would insert two comment lines
+    (`Block end:` / `Block level:`) at a point where the file itself has none —
+    a fake seam, and if this output is ever pasted back into code, an actively
+    wrong one. Only a REAL gap (an uncovered line in between) keeps two ranges as
+    separate printed blocks. Containment (one fully inside another) is the same
+    merge with nothing new to extend — level escalation routinely sends several
+    hits into the same ancestor, or into an ancestor that already engulfs an
+    earlier hit's smaller block; printing that body again on top of itself used to
+    duplicate real file content, not cosmetic on a real file (5 hits escalating
+    into one 6571-line function would be 30000+ lines from one call). A merged
+    run reports the OUTERMOST (numerically smallest) level among what it absorbed —
+    the only label that stays true for the whole span once it's spliced from more
+    than one original block.
 
     No hit numbers, no hit line-numbers, no repeated block label: this isn't survey
     (no grep-hit to prove), and the label would just restate the body's own first
     line one row down — redundant, and a staleness risk if it ever drifted from it.
-    Blocks are numbered by their OWN post-collapse count, not by how many --line
-    hits fed into them — that count is what actually answers 'how many distinct
-    things did this return', hits are an input, not the unit being reported."""
+    Blocks are numbered by their OWN post-merge count, not by how many --line hits
+    fed into them — that count is what actually answers 'how many distinct things
+    did this return', hits are an input, not the unit being reported."""
     errors = []
     resolved = {}  # (start, end) -> block; exact duplicates dedupe for free here
 
@@ -625,19 +630,20 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
         resolved[(block['start'], block['end'])] = block
 
     by_position = sorted(resolved.values(), key=lambda b: (b['start'], -b['end']))
-    kept = []
-    max_end = 0
+    merged = []
     for b in by_position:
-        if b['end'] > max_end:
-            kept.append(b)
-            max_end = b['end']
+        if merged and b['start'] <= merged[-1]['end'] + 1:
+            merged[-1]['end'] = max(merged[-1]['end'], b['end'])
+            merged[-1]['level'] = min(merged[-1]['level'], b['level'])
+        else:
+            merged.append(dict(b))
 
     emit(c(f"File: {file_path}"))
     for msg in errors:
         emit(c(f"ERROR: {msg}"))
 
-    n = len(kept)
-    for i, block in enumerate(kept, start=1):
+    n = len(merged)
+    for i, block in enumerate(merged, start=1):
         start, end = block['start'], block['end']
         emit(c(f"[{i}/{n}] Block level: {block['level']} range: {start}-{end}"))
         last = min(end, len(lines))
