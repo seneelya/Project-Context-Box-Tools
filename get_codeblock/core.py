@@ -637,23 +637,30 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
             continue
         resolved[(block['start'], block['end'])] = block
 
+    # Each run keeps the full list of ORIGINAL resolved blocks it absorbed — a merged
+    # run never claims a single 'Block level' for its whole span (that would be a lie
+    # once it's spliced from more than one real block at different depths); instead
+    # its header lists every real constituent, each stating its own true level/range.
     by_position = sorted(resolved.values(), key=lambda b: (b['start'], -b['end']))
-    merged = []
+    runs = []
     for b in by_position:
-        if merged and b['start'] <= merged[-1]['end'] + 1:
-            merged[-1]['end'] = max(merged[-1]['end'], b['end'])
-            merged[-1]['level'] = min(merged[-1]['level'], b['level'])
+        if runs and b['start'] <= runs[-1]['end'] + 1:
+            runs[-1]['end'] = max(runs[-1]['end'], b['end'])
+            runs[-1]['parts'].append(b)
         else:
-            merged.append(dict(b))
+            runs.append({'start': b['start'], 'end': b['end'], 'parts': [b]})
 
     emit(c(_file_header(file_path, lines)))
     for msg in errors:
         emit(c(f"ERROR: {msg}"))
 
-    n = len(merged)
-    for i, block in enumerate(merged, start=1):
-        start, end = block['start'], block['end']
-        emit(c(f"[{i}/{n}] Block level: {block['level']} range: {start}-{end}"))
+    n = len(runs)
+    for i, run in enumerate(runs, start=1):
+        start, end = run['start'], run['end']
+        tag = f"[{i}/{n}] "
+        for j, part in enumerate(run['parts']):
+            prefix = tag if j == 0 else ' ' * len(tag)
+            emit(c(f"{prefix}Block level: {part['level']} range: {part['start']}-{part['end']}"))
         last = min(end, len(lines))
         numw = len(str(last)) if numbered else 0
         for j in range(start - 1, last):
