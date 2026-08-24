@@ -130,18 +130,6 @@ Both pick which block in the ladder you want when using `--line`:
 address runs past the root or the deepest block, the outermost / deepest available block is
 returned.
 
-### Flag order (a writing convention, not a parser rule)
-
-Flags are position-independent — `argparse`-style, order never changes behavior — but commands
-read as one sentence when written in this order:
-
-```
---project-root R  --file F  --line N  (--ancestor-level N | --level N)  (--outline | --query)  --numbered
-```
-
-Address narrows FIRST (root → file → line → block), THEN the verb acts (outline/query), THEN
-adverbs (numbered). Example: `--file PATH --line 49 --ancestor-level 1 --outline`.
-
 ### Fallback Mode (Between Blocks)
 
 When `--line` falls between blocks at file-level scope (no containing block found), the tool returns the nearest neighboring block either above or below. Comments are ignored for this distance calculation so they don't interfere with finding real code blocks.
