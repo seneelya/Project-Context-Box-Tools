@@ -518,6 +518,10 @@ class LicenseAnalyzer:   # protocol.Analyzer
 ## Ссылки на главные правила
 
 - `../../../../__dev/tools/Vision03__get_codeblock.md` — архитектура универсального ридера, швы.
+  Там же, раздел **«Грамматика вызова: команда = предложение»** — канонический порядок флагов
+  (`--project-root → --file → --line → --level/--ancestor-level → --outline/--query/--dot →
+  --numbered → --force`), зафиксирован 2026-08-19. ПЕРЕД тем как менять `--help`/доки get_codeblock,
+  проверить формулировки там — не изобретать заново (уже было потеряно раз в этой же сессии).
 - `../../../../__dev/tools/Vision02__get_codeblock.md` — `.0`-классификатор, роли landmark/filler/frame.
 - `../../../../__dev/tools/Plan__universal-reader.md` — фазы реализации.
 - `protocol.py` — сами контракты (истина в коде).
