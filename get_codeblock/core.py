@@ -588,24 +588,27 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
 
 
 def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emit, c):
-    """Batch query: dedupe by the RESOLVED (start, end) — same merge trick as survey/
-    outline batch. Level escalation routinely sends several hits to the exact same
-    ancestor block (very common with --level/--ancestor-level on a shared parent);
-    printing that block's full body once per hit used to duplicate it N times, which
-    on a real (non-fixture-sized) file is not a cosmetic issue — it is the batch
-    silently multiplying its own output. Collecting into an ordered dict first means
-    a range landing there twice costs nothing; only first-seen order survives.
+    """Batch query: resolve every hit, then collapse any block fully CONTAINED in an
+    already-kept one — not just exact-duplicate ranges. Level escalation routinely
+    sends several hits into the SAME ancestor, or into an ancestor that already
+    engulfs an earlier hit's (smaller) block; printing that body again on top of
+    itself used to duplicate real file content, which on a real (non-fixture-sized)
+    file is not cosmetic — 5 hits escalating into one 6571-line function would be
+    30000+ lines from one call. Sorted by file position (not --line's input order —
+    positions are what's actually being read, hit order doesn't carry information
+    once resolved), a block is dropped only when its own end doesn't extend past the
+    furthest end already kept — i.e. it is a strict subset of something already
+    printed. Two genuinely separate blocks that merely touch (no gap, no overlap)
+    both survive; only actual containment collapses.
 
     No hit numbers, no hit line-numbers, no repeated block label: this isn't survey
     (no grep-hit to prove), and the label would just restate the body's own first
     line one row down — redundant, and a staleness risk if it ever drifted from it.
-    Blocks are numbered by their OWN deduped count, not by how many --line hits fed
-    into them — that count is what actually answers 'how many distinct things did
-    this return', hits are an input, not the unit being reported."""
+    Blocks are numbered by their OWN post-collapse count, not by how many --line
+    hits fed into them — that count is what actually answers 'how many distinct
+    things did this return', hits are an input, not the unit being reported."""
     errors = []
-    merged = {}
-    order = []  # preserves --line's given order, not sorted by position — the
-                # caller asked for these ranges in that order for a reason (REQ-001 §3B)
+    resolved = {}  # (start, end) -> block; exact duplicates dedupe for free here
 
     for ln, lvl in zip(line_nums, levels):
         if ln < 1 or ln > len(lines):
@@ -619,18 +622,22 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
         if not block:
             errors.append(f"level out of range at line {ln}")
             continue
-        key = (block['start'], block['end'])
-        if key not in merged:
-            merged[key] = block
-            order.append(key)
+        resolved[(block['start'], block['end'])] = block
+
+    by_position = sorted(resolved.values(), key=lambda b: (b['start'], -b['end']))
+    kept = []
+    max_end = 0
+    for b in by_position:
+        if b['end'] > max_end:
+            kept.append(b)
+            max_end = b['end']
 
     emit(c(f"File: {file_path}"))
     for msg in errors:
         emit(c(f"ERROR: {msg}"))
 
-    n = len(order)
-    for i, key in enumerate(order, start=1):
-        block = merged[key]
+    n = len(kept)
+    for i, block in enumerate(kept, start=1):
         start, end = block['start'], block['end']
         emit(c(f"[{i}/{n}] Block level: {block['level']} range: {start}-{end}"))
         last = min(end, len(lines))
