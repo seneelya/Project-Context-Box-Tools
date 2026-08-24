@@ -600,26 +600,29 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
     resolved ranges that touch or overlap — zero-gap adjacency included, not just
     strict containment. We're returning FILE TEXT: if range A ends at line 46 and
     range B starts at line 47, there is no real gap in the source between them, so
-    printing them as two separately-framed blocks would insert two comment lines
-    (`Block end:` / `Block level:`) at a point where the file itself has none —
-    a fake seam, and if this output is ever pasted back into code, an actively
-    wrong one. Only a REAL gap (an uncovered line in between) keeps two ranges as
-    separate printed blocks. Containment (one fully inside another) is the same
-    merge with nothing new to extend — level escalation routinely sends several
-    hits into the same ancestor, or into an ancestor that already engulfs an
-    earlier hit's smaller block; printing that body again on top of itself used to
-    duplicate real file content, not cosmetic on a real file (5 hits escalating
-    into one 6571-line function would be 30000+ lines from one call). A merged
-    run reports the OUTERMOST (numerically smallest) level among what it absorbed —
-    the only label that stays true for the whole span once it's spliced from more
-    than one original block.
+    printing them as two separately-framed blocks would insert a fake seam right
+    where the file has none — and if this output is ever pasted back into code,
+    an actively wrong one. Only a REAL gap (an uncovered line in between) keeps
+    two ranges as separate printed blocks. Containment (one fully inside another)
+    is the same merge with nothing new to extend — level escalation routinely
+    sends several hits into the same ancestor, or into an ancestor that already
+    engulfs an earlier hit's smaller block; printing that body again on top of
+    itself used to duplicate real file content, not cosmetic on a real file
+    (5 hits escalating into one 6571-line function would be 30000+ lines from
+    one call).
 
-    No hit numbers, no hit line-numbers, no repeated block label: this isn't survey
-    (no grep-hit to prove), and the label would just restate the body's own first
-    line one row down — redundant, and a staleness risk if it ever drifted from it.
-    Blocks are numbered by their OWN post-merge count, not by how many --line hits
-    fed into them — that count is what actually answers 'how many distinct things
-    did this return', hits are an input, not the unit being reported."""
+    `■BLOCK : A-B` / `■END : B` are the framing numbers — ALWAYS true, exactly the
+    slice printed below, NEVER a claim about depth (a merged run's true constituent
+    levels can differ across its span; one number for the whole thing would lie).
+    `■` marks a line as tool-written framing, never file content — same reasoning
+    as CONTRACT.md's comment-wrapping of TTY hints, just a stronger, single-glyph
+    version of it. When a BLOCK absorbed more than one original resolved range, the
+    same line carries a ` = ranges : ...` tail listing every real constituent
+    (`Level L  A-B`, comma-separated) — auxiliary, always exactly one line so it's
+    trivially deletable, never its own multi-line block. No hit numbers, no [i/n]
+    counter, no repeated block label: this isn't survey (no grep-hit to prove), a
+    counter is redundant with just counting BLOCK lines, and a label would only
+    restate the body's own first line one row down."""
     errors = []
     resolved = {}  # (start, end) -> block; exact duplicates dedupe for free here
 
@@ -654,15 +657,13 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
     for msg in errors:
         emit(c(f"ERROR: {msg}"))
 
-    n = len(runs)
-    for i, run in enumerate(runs, start=1):
+    for run in runs:
         start, end = run['start'], run['end']
-        # BLOCK's own start-end is the framing truth — exactly the slice printed below,
-        # never a claim about depth. 'members' is metadata about what fed into it: one
-        # entry when there was no merge, several (each with its OWN level) when there
-        # was. Neither number ever lies about the other.
-        members = "  ".join(f"L{p['level']} {p['start']}-{p['end']}" for p in run['parts'])
-        emit(c(f"[{i}/{n}] BLOCK : {start}-{end} ; members {members}"))
+        tail = ""
+        if len(run['parts']) > 1:
+            ranges = ",  ".join(f"Level {p['level']}  {p['start']}-{p['end']}" for p in run['parts'])
+            tail = f"  = ranges :  {ranges}"
+        emit(c(f"■BLOCK : {start}-{end}{tail}"))
         last = min(end, len(lines))
         numw = len(str(last)) if numbered else 0
         for j in range(start - 1, last):
@@ -671,7 +672,7 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
             sys.stdout.write(lines[j])
         if last >= 1 and not lines[last - 1].endswith("\n"):
             sys.stdout.write("\n")
-        emit(c(f"END : {end}"))
+        emit(c(f"■END : {end}"))
 
     return 1 if errors else 0
 
