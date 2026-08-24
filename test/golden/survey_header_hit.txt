@@ -1,6 +1,6 @@
 #File: test/Edge/Edge.py (67 lines) · 2 hits
 # 1 | 16-67| @asynccontextmanager # pragma: no cover async def websocket_server(scope: Scope, receive: Receive, send: Send)
 #  2| 35-51|   async def ws_reader()  # Pump inbound WebSocket text frames into the read stream. …
-#  →| 2> 38|   async def ws_reader():
+#  →|  → 38|   async def ws_reader():
 #  2| 53-62|   async def ws_writer()  # Drain the write stream out to the WebSocket as text frames…
-#  →| 1> 54|   # Drain the write stream out to the WebSocket as text frames.
+#  →|  → 54|   # Drain the write stream out to the WebSocket as text frames.

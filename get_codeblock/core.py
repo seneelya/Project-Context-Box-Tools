@@ -446,8 +446,8 @@ def _render_boxed_rows(rows, emit, c):
     """CONTRACT.md boxed ladder/tree format — the ONE renderer shared by survey and
     outline batch, so both look identical (columns AND indentation computed once
     across ALL rows passed in, never per-hit/per-group). Each row is one of:
-      {'kind': 'hit',   'idx': i, 'line': N, 'text': <source line>,   'indent': K}
-      {'kind': 'error', 'idx': i, 'line': N, 'msg': <error text>,     'indent': K}
+      {'kind': 'hit',   'line': N, 'text': <source line>,   'indent': K}
+      {'kind': 'error', 'line': N, 'msg': <error text>,     'indent': K}
       {'kind': 'block', 'level': L, 'start': S, 'end': E, 'text': <label>, 'indent': K,
        'frame': bool, 'filler': bool}
     `indent` = nesting depth WITHIN this printout (0 = outermost shown), independent
@@ -459,7 +459,11 @@ def _render_boxed_rows(rows, emit, c):
     arrow glyph instead of a level number — it means "here's the grep hit", not a
     depth, so it always sits flush against `|` regardless of that row's own indent
     (only its LABEL gets the indent) — a depth-shaped position on a non-depth marker
-    would be a lie.
+    would be a lie. The RANGE column gets the same arrow again (`→ N`, not `A-B`) —
+    a single number preceded by the same glyph reads as "one exact line", never
+    confusable with a start-end span; no index either (which --line position this
+    came from is not information anyone needs once it's resolved — the line number
+    already is), and no `>` (looks like a false numeric comparison, "1 > 41").
     """
     ARROW = '→'  # →
 
@@ -472,7 +476,7 @@ def _render_boxed_rows(rows, emit, c):
 
     def _cell(r):
         if r['kind'] in ('hit', 'error'):
-            return f"{r['idx']}> {r['line']}"
+            return f"{ARROW} {r['line']}"
         return f"{r['start']}-{r['end']}"
 
     if not rows:
@@ -506,14 +510,14 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
     hits_by_block = {}   # (start, end) of a hit's OWN innermost block -> [hit info]
     error_entries = []   # hits that never resolved to any block
 
-    for i, ln in enumerate(line_nums, start=1):
+    for ln in line_nums:
         if ln < 1 or ln > len(lines):
-            error_entries.append((i, ln, f"Line out of range (1-{len(lines)})"))
+            error_entries.append((ln, f"Line out of range (1-{len(lines)})"))
             continue
 
         blocks = handler.get_blocks(file_path, ln)  # outermost -> innermost
         if not blocks:
-            error_entries.append((i, ln, "No blocks found"))
+            error_entries.append((ln, "No blocks found"))
             continue
 
         for b in blocks:
@@ -537,10 +541,10 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
         same_level = handler.line_level(lines, ln - 1) <= innermost['level']
         ikey = (innermost['start'], innermost['end'])
         hits_by_block.setdefault(ikey, []).append(
-            {'idx': i, 'line': ln, 'same_level': same_level, 'text': lines[ln - 1].strip()})
+            {'line': ln, 'same_level': same_level, 'text': lines[ln - 1].strip()})
 
-    all_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'indent': 0, 'msg': msg}
-                for i, ln, msg in error_entries]
+    all_rows = [{'kind': 'error', 'line': ln, 'indent': 0, 'msg': msg}
+                for ln, msg in error_entries]
 
     block_list = sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))
     base_level = min((r['level'] for r in block_list), default=0)
@@ -550,7 +554,7 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
                           'text': r['text'], 'indent': indent,
                           'frame': r['frame'], 'filler': r['filler']})
         for h in hits_by_block.get((r['start'], r['end']), []):
-            all_rows.append({'kind': 'hit', 'idx': h['idx'], 'line': h['line'],
+            all_rows.append({'kind': 'hit', 'line': h['line'],
                               'indent': indent if h['same_level'] else indent + 1,
                               'text': h['text']})
 
@@ -566,13 +570,13 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
     merged = {}   # (start, end) -> row (first hit to surface it wins)
     order = []
 
-    for i, (ln, lvl) in enumerate(zip(line_nums, levels), start=1):
+    for ln, lvl in zip(line_nums, levels):
         if ln < 1 or ln > len(lines):
-            errors.append((i, ln, f"Line out of range (1-{len(lines)})"))
+            errors.append((ln, f"Line out of range (1-{len(lines)})"))
             continue
         rows = handler.outline(lines, max_level=None, deep=deep, focus_line=ln, focus_level=lvl)
         if not rows:
-            errors.append((i, ln, "no block found at that line"))
+            errors.append((ln, "no block found at that line"))
             continue
         for r in rows:
             key = (r['start'], r['end'])
@@ -584,8 +588,8 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
     emit(c(f"{_file_header(file_path, lines)} · {mode_word} batch · {_hits(n)}"
            + (f", {len(errors)} error(s)" if errors else "")))
 
-    error_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'indent': 0, 'msg': err}
-                  for i, ln, err in errors]
+    error_rows = [{'kind': 'error', 'line': ln, 'indent': 0, 'msg': err}
+                  for ln, err in errors]
     block_list = sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))
     base_level = min((r['level'] for r in block_list), default=0)
     block_rows = [{'kind': 'block', 'level': r['level'], 'start': r['start'], 'end': r['end'],
