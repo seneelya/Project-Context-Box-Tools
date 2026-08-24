@@ -53,17 +53,20 @@ Landed on a line (from grep or the outline)? Ask what encloses it:
 python get_codeblock.py --file PATH --line N
 ```
 ```
-//You hit in block lvl 4:
-//   4 [49-52] for (int i = 0; i < 3; i++)
-//  3  [47-53] public void Deep()
-// 2   [44-54] public class Inner
-//1    [3-55] public class Widget
+#File: PATH (67 lines) · 1 hit
+# 1      | 16-67| async def websocket_server(scope, receive, send)
+#  2     | 35-51|   async def ws_reader()
+#   3    | 39-49|     try:
+#    4   | 40-49|       async with read_stream_writer:
+#     5  | 41-49|         async for msg in websocket.iter_text():
+#      6 | 44-46|           except ValidationError as exc:
+#       →|  → 45|             await read_stream_writer.send(exc)
 ```
 
-Read it as a **staircase**: the header names the level you hit; each rung is
-`<level> [start-end] <label>`, innermost at the top → outermost at the bottom, indented so deeper
-nesting steps right. Anonymous brace regions (arrow bodies, object literals) carry a short tag
-(`{…} object`, `() => {…}`). Pick the rung you want, then `--query` it.
+Read it as a **staircase**: outermost first, deeper rungs sit closer to `|`; each row is
+`<level>| <start-end>| <label>`. The LAST row is your own line — a `→` marker, never a level
+number (it's a hit, not a depth), with just the line number behind it (no index — which `--line`
+position it came from stops mattering once it's resolved). Pick a rung's level, then `--query` it.
 
 ### 3. `--query` — pull the block's text
 
@@ -73,16 +76,53 @@ Extract one block byte-for-byte:
 python get_codeblock.py --file PATH --line N --query
 ```
 ```
-//File: PATH
-//Block level: 4 range: 49-52  for (int i = 0; i < 3; i++)
-                for (int i = 0; i < 3; i++)
-                { … byte-for-byte … }
-//Block end: 52
+#File: PATH (67 lines)
+#■BLOCK : 44-46
+                    except ValidationError as exc:
+                        await read_stream_writer.send(exc)
+                        continue
+#■END : 46
 ```
 
-Rely on the `//File:` … `//Block end:` frame to keep several extractions distinct when you
-concatenate them — each still says where it came from. Add `--numbered` to prefix code lines with
-absolute line numbers (off by default — raw text stays copy/paste-safe).
+`■BLOCK : A-B` / `■END : B` are the framing numbers — always true, exactly the slice printed
+below, never a depth claim. `■` marks a line as tool-written, never file content (never occurs at
+the start of a real source line, so a pasted chunk can't be mistaken for a real comment). Rely on
+`#File:` … `■END` to keep several extractions distinct when you concatenate them. Add `--numbered`
+to prefix code lines with absolute line numbers (off by default — raw text stays copy/paste-safe).
+
+---
+
+## `--line` takes an array — same three modes, one call
+
+Grep gives you many hits, not one. `--line 45,54,38` resolves all of them in ONE file parse —
+`--level`/`--ancestor-level` take an array too, broadcast against `--line` (one value replicates
+to all; a shorter array repeats its last value; a longer one has the excess ignored). Same three
+modes as above, each merged instead of repeated:
+
+- **Bare** (survey) — one merged map of the WHOLE batch, sorted by file position: shared ancestors
+  (the same class, the same containing function) print exactly once, not once per hit that landed
+  in them. Each hit's own exact source line still gets its own `→` row, nested where it belongs.
+- **`--outline`** — one merged tree, same idea, sourced from the outline itself.
+- **`--query`** — one `■BLOCK` per RESOLVED range, but ranges that touch (zero gap) or nest COLLAPSE
+  into one. This isn't a formatting choice: printing the same file text twice, or inserting a fake
+  seam where the source has none, is wrong output, not just noisy output. A collapsed block that
+  absorbed more than one real range lists every one of them (`= ranges : Level L  A-B, …`) instead
+  of guessing a single level for the whole span.
+
+```
+python get_codeblock.py --file PATH --line 45,54,38 --query
+```
+```
+#File: PATH (67 lines)
+#■BLOCK : 35-51  = ranges :  Level 2  35-51,  Level 6  44-46
+    async def ws_reader():
+        ... (line 38 AND line 45 both landed inside this one function — printed once)
+#■END : 51
+#■BLOCK : 53-62
+    async def ws_writer():
+        ...
+#■END : 62
+```
 
 ---
 

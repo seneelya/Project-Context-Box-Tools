@@ -19,6 +19,8 @@ table of contents, without reading the whole file.
 | "Give me the parent/grandparent block, not the innermost `--line N` " | add `--ancestor-level 1`, `2`, ... |
 | "Give me block N counting from the file top for given `--line N` " | add `--level 1`, `2`, ... |
 | "Big file — cap outline to top 2 levels" | `--file PATH --level 2 --outline` |
+| "Grep gave me N hits — where do they all live, one call" | `--file PATH --line a,b,c` (batch, one merged map) |
+| "Pull N blocks by line, one call" | `--file PATH --line a,b,c --query` (merges touching/nested ranges) |
 
 ## Workflow
 
@@ -27,10 +29,24 @@ get_codeblock --file PATH                   # outline: find the line you want
 get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-byte
 ```
 
+## Batch — `--line` takes an array
+
+`--line 1827,606,867` — one file parse, not N calls. `--level`/`--ancestor-level` take an array
+too, broadcast against `--line` (one value → replicated; shorter → last value repeats; longer →
+excess ignored). Same three modes as single-line, just merged:
+- bare → survey: one merged map of the whole batch (shared ancestors print once, not per hit).
+- `--outline` → one merged tree (same merge, sourced from the outline itself).
+- `--query` → one `■BLOCK` per resolved range; ranges that touch or nest COLLAPSE into one —
+  returning the same file text twice, or with a fake seam where the source has none, isn't a
+  format quirk, it's wrong output.
+
 ## Level addressing — two flags, one for each direction
 
-- The **level printed in output** (`lvl N` in the ladder header, `Block level: N` under `--query`)
-  = real nesting depth (1 = file top, deeper = higher number).
+- The **level printed in the ladder/outline** (the bare number in front of each row) = real nesting
+  depth (1 = file top, deeper = higher number). `--query`'s own `■BLOCK : A-B` never states a level
+  at all — it's the exact printed range, true by construction; if a query merged >1 resolved block
+  it adds a same-line ` = ranges : Level L  A-B, Level L  A-B, …` tail listing each real constituent
+  instead of one (possibly wrong) number for the whole span.
 - Picking a block at `--line N` — two self-describing flags (don't mix):
   - **`--ancestor-level N`** = relative — walk N blocks **up** from where the line lands
     (`0` = the innermost block itself, the default; `1` = parent; `2` = grandparent). This is
@@ -66,11 +82,14 @@ get_codeblock --file PATH --line N --query  # pull that exact block, byte-for-by
   Python with its grammar installed. Markdown headings are a TOC estimate (line before the next
   same-or-shallower heading); Python's `ast`-fallback (no grammar) is reduced — use `--query` for
   the precise boundary in those.
-- **Piped/programmatic output is clean**: the depth header and `Block level:` lines are
-  comment-prefixed and parseable; only the green human hints (legend, "add --level N") are
-  suppressed off a real terminal (`isatty()`).
-- `--query` prints `#File: PATH` as its very first line, before `#Block level:` — so a block
-  self-identifies its source when several extractions get concatenated and the call that
-  produced them is no longer in view.
+- **Piped/programmatic output is clean**: every metadata line is comment-prefixed and parseable;
+  only the green human hints (legend, "add --level N") are suppressed off a real terminal
+  (`isatty()`).
+- `--query` prints `#File: PATH (N lines)` once, at the very top, before any `■BLOCK` — so the
+  whole call self-identifies its source even with several blocks in one output.
+- **`■` = "this line is ours, not the file's"** — `■BLOCK`/`■END` never occur at the start of a
+  real source line, so a human pasting a chunk of terminal output straight into code can't
+  mistake one for a real comment. Everything else printed (metadata, TTY hints) is still just the
+  language's own comment syntax, no marker.
 
 ## Not Enough info? whats next? - read `get_codeblock__GUIDE.md`
