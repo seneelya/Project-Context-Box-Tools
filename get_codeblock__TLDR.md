@@ -18,7 +18,7 @@ table of contents, without reading the whole file.
 | "Pull the exact text of the section/function at `--line N` " | `--file PATH --line N --query` |
 | "Give me the parent/grandparent block, not the innermost `--line N` " | add `--ancestor-level 1`, `2`, ... |
 | "Give me block N counting from the file top for given `--line N` " | add `--level 1`, `2`, ... |
-| "Big file — cap outline to top 2 levels" | `--file PATH --outline --level 2` |
+| "Big file — cap outline to top 2 levels" | `--file PATH --level 2 --outline` |
 
 ## Workflow
 
