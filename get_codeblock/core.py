@@ -422,6 +422,14 @@ def _hits(n):
     return f"{n} hit" if n == 1 else f"{n} hits"
 
 
+def _file_header(file_path, lines):
+    """The one place that renders 'File: path (N lines)' — every batch mode prints
+    the file path, and every one of them should say how big the file is (useful
+    orientation, e.g. judging how big a --level escalation would be) the same way.
+    Fix it here once, not separately in survey/outline/query."""
+    return f"File: {file_path} ({len(lines)} lines)"
+
+
 def _outline_label_index(handler, lines, deep=False):
     """Full-file outline computed ONCE, indexed by (start, end). Ladder/survey rows
     read their label from here instead of the raw truncated header text — one source
@@ -490,7 +498,7 @@ def _run_survey_batch(handler, file_path, lines, line_nums, emit, c):
     grep-hit proof, never enriched/reformatted) is inserted right after the block it
     actually landed in, nested one level deeper than it."""
     n = len(line_nums)
-    emit(c(f"File: {file_path} ({len(lines)} lines) · {_hits(n)}"))
+    emit(c(f"{_file_header(file_path, lines)} · {_hits(n)}"))
 
     outline_index = _outline_label_index(handler, lines)
     merged = {}          # (start, end) -> block row
@@ -573,7 +581,7 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
                 order.append(key)
 
     mode_word = '.0' if deep else 'outline'
-    emit(c(f"File: {file_path} · {mode_word} batch · {_hits(n)}"
+    emit(c(f"{_file_header(file_path, lines)} · {mode_word} batch · {_hits(n)}"
            + (f", {len(errors)} error(s)" if errors else "")))
 
     error_rows = [{'kind': 'error', 'idx': i, 'line': ln, 'indent': 0, 'msg': err}
@@ -638,7 +646,7 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
         else:
             merged.append(dict(b))
 
-    emit(c(f"File: {file_path}"))
+    emit(c(_file_header(file_path, lines)))
     for msg in errors:
         emit(c(f"ERROR: {msg}"))
 
