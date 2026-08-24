@@ -42,6 +42,9 @@ CASES = [
     ("single_line_typescript", ["--file", "test/tsSRC/src/analyzer.ts", "--line", "41"]),
     ("single_line_csharp_query", ["--file", "test/csharpSRC/Core/GlobalStopWatchInstance.cs",
                                    "--line", "12", "--query"]),
+    ("focus_outline_object", ["--file", "test/Edge/Edge.py", "--line", "38", "--outline"]),
+    ("focus_outline_named_parent", ["--file", "test/Edge/Edge.py", "--line", "45",
+                                     "--ancestor-level", "1", "--outline"]),
 ]
 
 
