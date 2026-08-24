@@ -657,10 +657,12 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
     n = len(runs)
     for i, run in enumerate(runs, start=1):
         start, end = run['start'], run['end']
-        tag = f"[{i}/{n}] "
-        for j, part in enumerate(run['parts']):
-            prefix = tag if j == 0 else ' ' * len(tag)
-            emit(c(f"{prefix}Block level: {part['level']} range: {part['start']}-{part['end']}"))
+        # BLOCK's own start-end is the framing truth — exactly the slice printed below,
+        # never a claim about depth. 'members' is metadata about what fed into it: one
+        # entry when there was no merge, several (each with its OWN level) when there
+        # was. Neither number ever lies about the other.
+        members = "  ".join(f"L{p['level']} {p['start']}-{p['end']}" for p in run['parts'])
+        emit(c(f"[{i}/{n}] BLOCK : {start}-{end} ; members {members}"))
         last = min(end, len(lines))
         numw = len(str(last)) if numbered else 0
         for j in range(start - 1, last):
@@ -669,7 +671,7 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
             sys.stdout.write(lines[j])
         if last >= 1 and not lines[last - 1].endswith("\n"):
             sys.stdout.write("\n")
-        emit(c(f"Block end: {end}"))
+        emit(c(f"END : {end}"))
 
     return 1 if errors else 0
 
