@@ -21,6 +21,8 @@ table of contents, without reading the whole file.
 | "Big file — cap outline to top 2 levels" | `--file PATH --level 2 --outline` |
 | "Grep gave me N hits — where do they all live, one call" | `--file PATH --line a,b,c` (batch, one merged map) |
 | "Pull N blocks by line, one call" | `--file PATH --line a,b,c --query` (merges touching/nested ranges) |
+| "Table of contents of exactly the object I landed on `--line N` " | `--file PATH --line N --outline` (a top-level hit → that object's own map, even in a monster file) |
+| "Table of contents of its immediate (named) parent, one level up" | `--file PATH --line N --ancestor-level 1 --outline` |
 
 ## Workflow
 
