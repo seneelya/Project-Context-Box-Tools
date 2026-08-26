@@ -253,7 +253,16 @@ def _is_ph(line):
 
 def _entry_key(h4_line):
     """'#### `foo(x) -> y`  ← .bar' -> 'foo' (имя записи — ключ merge)."""
-    e = h4_line.strip()[4:].strip().strip("`").strip()
+    e = h4_line.strip()[4:].strip()
+    # Сначала вырезаем код-спан по ЗАКРЫВАЮЩЕМУ бэктику. strip("`") этого не
+    # умеет: он кусает только у самых концов строки, а у ре-экспорта после
+    # закрывающего бэктика стоит "← .module" — и бэктик приклеивался к имени
+    # ('delegate_core`'). Ключ переставал совпадать с эмиссией, и проза такой
+    # записи ТЕРЯЛАСЬ на каждой перештамповке, заменяясь свежей директивой.
+    if e.startswith("`"):
+        rest = e[1:]
+        e = rest.split("`", 1)[0] if "`" in rest else rest
+    e = e.strip().strip("`").strip()
     e = e.lstrip("\\").lstrip("*").lstrip("\\").strip()
     return e.split("(")[0].split("=")[0].split(" ")[0].strip()
 
@@ -279,6 +288,20 @@ def _parse_entries(body, P):
             P["entries"][name] = {"desc": desc, "block": block}
 
 
+def _cells_raw(row):
+    """Как _cells, но БЕЗ снятия бэктиков — для колонок со свободной прозой.
+
+    `_cells` снимает бэктики с каждой ячейки, и для факт-колонок (Import /
+    File Path / Symbols) это верно: они всегда обёрнуты. Но `Why` — проза
+    человека, и она законно НАЧИНАЕТСЯ или ЗАКАНЧИВАЕТСЯ инлайн-кодом
+    (`` `old_string` ``). Прогон merge через _cells съедал этот краевой бэктик,
+    и на каждой перештамповке карточка теряла по одному, пока код-спан не
+    разваливался. graph_from_cards читает только факт-колонки, поэтому там
+    _cells остаётся правильным — чинить надо здесь, а не у него.
+    """
+    return [c.strip() for c in row.strip().strip("|").split("|")]
+
+
 def _parse_why(body, P):
     """Колонка `Why` таблицы Dependencies Internal -> P['why'][import] = текст."""
     data = [r for r in body if r.strip().startswith("|") and not _is_sep(_cells(r))]
@@ -290,10 +313,13 @@ def _parse_why(body, P):
     imp_i, why_i = header.index("Import"), header.index("Why")
     for r in data[1:]:
         cells = _cells(r)
+        raw = _cells_raw(r)
         if max(imp_i, why_i) >= len(cells):
             continue
         imp = cells[imp_i].strip().strip("`").strip()
-        why = cells[why_i].strip()
+        # Индексируем по backtick-снятой версии, а ЗНАЧЕНИЕ берём из сырой:
+        # ключ — факт, значение — проза.
+        why = raw[why_i].strip() if why_i < len(raw) else cells[why_i].strip()
         if imp and why and not _is_ph(why) and why != cf.EMPTY:
             P["why"][imp] = why
 
