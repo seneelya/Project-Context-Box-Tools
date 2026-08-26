@@ -37,6 +37,14 @@ PROJECT_ROOT = _resolve_root([
 # Change this according to your project's primary language.
 # Supported values depend on each tool — find_code_usage supports:
 #   python, typescript (ts), js, csharp (cs)
+#
+# A POLYGLOT project may set a LIST instead of a single string:
+#   LANGUAGE = ["python", "typescript"]
+# make_interface_card --all then stamps both; with a single value it stamps only
+# that language and says nothing about the files it skipped, which is how a
+# python+JS tree quietly gets half a map. Per-file analysis is polyglot either
+# way (the language comes from the file's extension) — this setting only picks
+# what a BULK pass looks at. `--language py,ts` (or `all`) overrides per run.
 # ---------------------------------------------------------------------------
 LANGUAGE = "python"
 

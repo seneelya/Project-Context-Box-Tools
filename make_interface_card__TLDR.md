@@ -11,7 +11,17 @@ complete after reading the source. It analyzes nothing new — it ORCHESTRATES t
 make_interface_card.py <f>.py --project-root . --out __map/<f>.py.md   # stamp → write the card
 make_interface_card.py <f>.py --project-root .                         # preview to stdout (no write)
 make_interface_card.py <f>.py --project-root . --out <card> --force    # overwrite an UNFILLED stamp
+make_interface_card.py --all                                          # bulk: whole tree, CONFIG LANGUAGE
+make_interface_card.py --all --language py,ts                         # bulk: POLYGLOT tree (or 'all')
 ```
+
+**`--all` is single-language unless you say otherwise.** Extensions come from
+`CONFIG__TOOLS.LANGUAGE` (which may itself be a list), so in a `python` project a bulk pass
+used to skip every `.js`/`.ts` file *silently* — a polyglot repo (a python backend and its own
+JS front end in one tree) got a half-built map and nothing said so. `--language` overrides per
+run: comma/space separated, `all` for every known language, short forms `py/ts/js/tsx/cs`
+accepted. The pass now prints the languages and extensions it went by, even on success.
+Per-FILE analysis was always polyglot — only the bulk selection was not.
 
 ## The three facts it fills
 

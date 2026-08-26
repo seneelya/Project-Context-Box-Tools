@@ -358,14 +358,102 @@ def _compute_layers(nodes):
     return layers
 
 
+def components(nodes):
+    """Связные компоненты по НЕОРИЕНТИРОВАННЫМ import-рёбрам, крупные первыми.
+
+    Зачем: в одном дереве законно живут независимые части — второй плагин, или
+    JS-фронтенд к нашему же питон-бэкенду. Между ними НЕТ import-ребра, и его
+    не должно быть: их связь — рантайм-контракт (тип события, REST-путь), а не
+    импорт. Выдумывать такое ребро в графе значило бы показывать догадку как
+    факт. Поэтому мы не соединяем компоненты, а НАЗЫВАЕМ их — чтобы «так и
+    задумано» отличалось от «связь потерялась».
+    """
+    adj = {i: set() for i in nodes}
+    for i, n in nodes.items():
+        for d in n["deps"]:
+            if d in adj:
+                adj[i].add(d)
+                adj[d].add(i)
+    seen, comps = set(), []
+    for start in sorted(nodes):
+        if start in seen:
+            continue
+        stack, comp = [start], []
+        seen.add(start)
+        while stack:
+            cur = stack.pop()
+            comp.append(cur)
+            for nxt in sorted(adj[cur]):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        comps.append(sorted(comp))
+    return sorted(comps, key=lambda c: (-len(c), c[0]))
+
+
+def _comp_label(comp):
+    """Компонент -> 'top_pkg+top_pkg (N)' — по каким верхним пакетам он лежит."""
+    pkgs = []
+    for nid in comp:
+        p = _top_pkg(nid)
+        if p not in pkgs:
+            pkgs.append(p)
+    return f"{'+'.join(pkgs)} ({len(comp)})"
+
+
+def _comp_labels(comps):
+    """Метки компонентов, гарантированно РАЗЛИЧИМЫЕ.
+
+    Два компонента внутри одного пакета дают одинаковую метку
+    ('self_delegate/ (2)' и 'self_delegate/ (1)'), и вывод читается как
+    дубликат. Совпавшим дописываем представителя.
+    """
+    labels = [_comp_label(c) for c in comps]
+    seen = {}
+    for lb in labels:
+        seen[lb] = seen.get(lb, 0) + 1
+    return [f"{lb} [{c[0]}]" if seen[lb] > 1 else lb for lb, c in zip(labels, comps)]
+
+
+def split_components(nodes):
+    """(связные части из >1 модуля, одиночные модули без рёбер).
+
+    Разделение осознанное: НЕСКОЛЬКО СВЯЗНЫХ ЧАСТЕЙ — это про архитектуру
+    (отдельный плагин, JS-фронтенд к этому же бэкенду), а одиночный файл без
+    рёбер — просто ни с чем не связанный файл (скрипт, индекс пакета). Сваливать
+    их в один счётчик значит превращать полезное наблюдение в шум: у нас так
+    вышло «4 компонента» там, где независимых частей две.
+    """
+    comps = components(nodes)
+    multi = [c for c in comps if len(c) > 1]
+    singles = [c[0] for c in comps if len(c) == 1]
+    return multi, singles
+
+
 def _slices(graph, disp_label):
     """Общий хвост всех видов: hotspots + cycles + unresolved."""
     nodes, indeg = graph["nodes"], graph["indeg"]
+    multi, singles = split_components(nodes)
     out = ["", "## hotspots"]
     ep = [f"{i} ← ×{indeg[i]}" for i in sorted(nodes, key=lambda i: (-indeg[i], i)) if indeg[i] > 0][:8]
     out.append("- most depended-on: " + (" · ".join(ep) if ep else "(none)"))
-    leaves = sorted(i for i, n in nodes.items() if not n["deps"])
-    out.append("- leaves (no deps): " + (" · ".join(leaves) if leaves else "(none)"))
+    # Листья — предлагаемый ПОРЯДОК ЧТЕНИЯ, поэтому при нескольких независимых
+    # частях один общий список врёт: он подсовывает файлы чужой части как начало
+    # чтения нашей. Разносим по частям; одиночные файлы идут отдельной строкой,
+    # потому что они и лист, и корень одновременно — в порядке чтения им не место.
+    if len(multi) > 1:
+        labels = _comp_labels(multi)
+        out.append(f"- independent parts: {len(multi)} — " + " · ".join(labels))
+        for c, lb in zip(multi, labels):
+            cl = sorted(i for i in c if not nodes[i]["deps"])
+            out.append(f"- leaves in {lb}: " + (" · ".join(cl) if cl else "(none)"))
+    else:
+        leaves = sorted(i for i, n in nodes.items()
+                        if not n["deps"] and i not in set(singles))
+        out.append("- leaves (no deps): " + (" · ".join(leaves) if leaves else "(none)"))
+    if singles:
+        out.append(f"- isolated files ({len(singles)}, no import edge either way): "
+                   + " · ".join(sorted(singles)))
 
     cycles = find_cycles(nodes)
     out += ["", f"## cycles ({len(cycles)})"]
@@ -523,20 +611,26 @@ _DISCR_KEYS = {
 _DISCR_ORDER = {"orphan": 0, "pending": 1, "unresolved": 2}   # осмысленный порядок вместо алфавита
 
 
-def format_discrepancies(items, group="kind"):
+def format_discrepancies(items, group="kind", note=None):
     kinds = ("orphan", "pending", "unresolved")
     counts = {k: sum(1 for d in items if d.kind == k) for k in kinds}
     head = (f"# discrepancies — {len(items)} total "
             f"({counts['orphan']} orphan · {counts['pending']} pending · {counts['unresolved']} unresolved)")
+    # `note` — НАБЛЮДЕНИЕ, а не расхождение (сейчас: карта из нескольких
+    # независимых компонентов). Осознанно НЕ типизированная находка: несколько
+    # компонентов — законная архитектура, а не дефект, и превращать её в
+    # находку значило бы навсегда убрать «none (map matches reality)» с
+    # здорового полиглотного проекта и раздуть счётчики. Поэтому строка идёт
+    # рядом со сводкой и не участвует в подсчёте.
     if not items:
-        return "# discrepancies — none (map matches reality)"
+        return "# discrepancies — none (map matches reality)" + (f"\n{note}" if note else "")
 
     keyfn = _DISCR_KEYS.get(group, _DISCR_KEYS["kind"])
     grouped = group_by(items, keyfn)
     # порядок групп: для kind — смысловой, иначе алфавит
     gkeys = (sorted(grouped, key=lambda k: _DISCR_ORDER.get(k, 99)) if group == "kind"
              else sorted(grouped))
-    out = [head, _ORIENT_DISCR, ""]
+    out = [head] + ([note] if note else []) + [_ORIENT_DISCR, ""]
     for g in gkeys:
         rows = grouped[g]
         out.append(f"## {g} ({len(rows)})")
@@ -595,10 +689,21 @@ def main():
 
     if args.discrepancies:
         items = collect_discrepancies(graph, resolve_project_root(args.project_root))
+        multi, _singles = split_components(graph["nodes"])
+        # Наблюдение, не находка (см. format_discrepancies). В --json НЕ кладём:
+        # там контракт — плоский список расхождений, и объект другой природы
+        # сломал бы любого читателя. Одиночные файлы этой строки НЕ вызывают:
+        # они не архитектура, а просто несвязанные файлы (см. split_components).
+        note = (f"> note: the map has {len(multi)} independent parts — "
+                + " · ".join(_comp_labels(multi))
+                + ". No import edge between them; if that is by design (a separate "
+                  "plugin, a JS front end to this backend) their link is a runtime "
+                  "contract, not an import — document it and link both cards' Doc links."
+                ) if len(multi) > 1 else None
         if args.json:
             print(json.dumps([d._asdict() for d in items], ensure_ascii=False, indent=2))
         else:
-            print(termstyle.md(format_discrepancies(items, group=args.group_by)))
+            print(termstyle.md(format_discrepancies(items, group=args.group_by, note=note)))
         return
 
     if args.file:

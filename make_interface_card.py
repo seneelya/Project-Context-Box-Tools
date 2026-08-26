@@ -606,17 +606,64 @@ def _config_lang_testdirs():
     return lang, test_dirs
 
 
+def _normalize_langs(value):
+    """LANGUAGE (скаляр ИЛИ список) / --language -> список канонных языков.
+
+    Полиглотный репозиторий — норма, а не край: у нас питон-плагин и его же
+    JS-фронтенд лежат в ОДНОМ дереве. Разбор карточки и так пофайловый
+    (`_lang(file)` смотрит на расширение), одноязычным был только выбор того,
+    ЧТО попадёт в массовый проход. Скаляр продолжает работать как раньше.
+    `"all"` = все известные языки.
+    """
+    if isinstance(value, str):
+        items = [p.strip() for p in value.replace(",", " ").split()]
+    elif isinstance(value, (list, tuple, set)):
+        items = [str(p).strip() for p in value]
+    else:
+        items = []
+    known = set(_LANG.values())
+    out, seen = [], set()
+    for it in items:
+        if not it:
+            continue
+        low = it.lower()
+        if low == "all":
+            return sorted(known)
+        # Синонимы, которыми язык называют в CLI других тулов пакета.
+        low = {"ts": "typescript", "js": "typescript", "tsx": "typescript",
+               "cs": "csharp", "py": "python"}.get(low, low)
+        if low in known and low not in seen:
+            seen.add(low)
+            out.append(low)
+    return out
+
+
 def _lang_extensions(lang):
-    exts = {e for e, l in _LANG.items() if l == lang}
-    return exts or set(_LANG)   # неизвестный язык -> все известные расширения
+    """Расширения одного языка ИЛИ списка языков. Неизвестное -> все известные."""
+    langs = _normalize_langs(lang)
+    if not langs:
+        return set(_LANG)   # неизвестный/пустой язык -> все известные расширения
+    exts = {e for e, l in _LANG.items() if l in langs}
+    return exts or set(_LANG)
 
 
-def _stamp_all(project_root_abs, force):
-    """BULK: штемпелит ВСЕ исходники под project-root (по расширениям LANGUAGE) в __map/."""
+def _stamp_all(project_root_abs, force, language=None):
+    """BULK: штемпелит ВСЕ исходники под project-root в __map/.
+
+    Языки: `language` (CLI) если задан, иначе CONFIG__TOOLS.LANGUAGE — и то и
+    другое принимает список/через запятую/`all`.
+    """
     from find_code_usage.core import collect_files, rel_path
     lang, test_dirs = _config_lang_testdirs()
-    exts = _lang_extensions(lang)
+    selected = language if language else lang
+    langs = _normalize_langs(selected)
+    exts = _lang_extensions(selected)
     files = collect_files(project_root_abs, exts, test_dirs=test_dirs, tests_only=False)
+    # Печатаем ЯЗЫКИ, а не только расширения: молчаливый пропуск JS-файлов в
+    # питон-проекте — ровно то, из-за чего эта опция и появилась. Пусть видно,
+    # по какому набору шли, даже когда всё нашлось.
+    sys.stderr.write(f"[make_interface_card] --all: languages={langs or 'ALL'} "
+                     f"exts={sorted(exts)}\n")
     if not files:
         sys.stderr.write(f"[make_interface_card] --all: no {sorted(exts)} files under {project_root_abs}\n")
         return 0
@@ -651,16 +698,22 @@ def main():
                          "(default on an existing card is MERGE — refresh facts, keep prose)")
     ap.add_argument("--all", action="store_true",
                     help="BULK maintainer pre-stamp: stamp EVERY source file under --project-root "
-                         "(by CONFIG__TOOLS.LANGUAGE extensions) each to __map/<path>.md. Skips "
+                         "(by --language, else CONFIG__TOOLS.LANGUAGE) each to __map/<path>.md. Skips "
                          ".git/__pycache__/__map/__HQ/.venv/node_modules/... and CONFIG__TOOLS.TEST_DIRS. "
                          "Existing cards MERGE (facts refreshed, prose kept); add --force to reset them. "
                          "Ignores <file> and --out. One-shot way to seed/refresh a whole tree's card skeletons.")
+    ap.add_argument("--language", type=str, default=None,
+                    help="--all only: which languages to stamp, overriding CONFIG__TOOLS.LANGUAGE. "
+                         "Comma/space separated, or 'all'. Accepts python/typescript/csharp and the "
+                         "short forms py/ts/js/tsx/cs (js and tsx are the typescript handler). "
+                         "A POLYGLOT repo is the reason this exists: with a scalar LANGUAGE the bulk "
+                         "pass silently skipped every file of the other language.")
     args = ap.parse_args()
 
     project_root_abs = os.path.abspath(args.project_root)
 
     if args.all:
-        return _stamp_all(project_root_abs, args.force)
+        return _stamp_all(project_root_abs, args.force, args.language)
 
     if not args.file:
         ap.error("either a <file> argument or --all is required")
