@@ -524,7 +524,10 @@ def build_card(project_root, file, old_prose=None, report=None):
             lines.extend(op["entries"][nm]["block"])
             report["salvaged"].append(nm)
 
-    return "\n".join(lines) + "\n"
+    # Нумерация — ПОСЛЕДНИМ шагом, над готовым текстом: одна точка вместо счётчика,
+    # протянутого через каждое место emit'а, и по построению покрывает любую
+    # директиву, включая протащенную merge'ем из старой карточки.
+    return cf.number_directives("\n".join(lines) + "\n")
 
 
 def _card_path(project_root_abs, file_rel):

@@ -17,9 +17,44 @@ class ImportInfo:
     resolved_path: Optional[str] # absolute path to source file inside project-root, or None
 
 
-# Directories to skip during project scan
+# Directories to skip during project scan — the built-in, always-on set.
 EXCLUDED_DIRS = {".git", "__pycache__", ".venv", "node_modules", "dist", "build", "__map", "__HQ"}
 EXCLUDED_SUFFIXES = {".egg-info"}
+
+# Per-project additions come from CONFIG__TOOLS.BLACKLIST_DIRS. Matched by NAME
+# (a path COMPONENT), which is the semantics replace_in_files.py already uses for
+# the same key — one config value must not mean two different things depending on
+# which tool read it. Resolved once: the config is a module, re-importing per
+# directory during an os.walk would be pure overhead.
+_config_blacklist_cache = None
+
+
+def config_blacklist_dirs() -> Set[str]:
+    """Directory NAMES from CONFIG__TOOLS.BLACKLIST_DIRS (empty when unavailable).
+
+    The config file is optional by contract, and a project that never set the key
+    must scan exactly as before — so every failure path yields an empty set
+    rather than raising.
+    """
+    global _config_blacklist_cache
+    if _config_blacklist_cache is None:
+        names = set()
+        try:
+            import CONFIG__TOOLS  # noqa: PLC0415 — optional, resolved at first use
+            for entry in getattr(CONFIG__TOOLS, "BLACKLIST_DIRS", None) or []:
+                if not isinstance(entry, str):
+                    continue
+                # Tolerate a path-shaped entry ("tests/temp") by taking its last
+                # component: the match is name-based, so the extra segments carry
+                # no meaning and silently ignoring the whole entry would be worse
+                # than honouring the part we can.
+                name = entry.replace("\\", "/").strip("/").split("/")[-1].strip()
+                if name and name not in (".", ".."):
+                    names.add(name)
+        except Exception:
+            names = set()
+        _config_blacklist_cache = names
+    return _config_blacklist_cache
 
 
 def collect_files(project_root: str, extensions: Set[str], test_dirs: List[str] = None, tests_only: bool = False) -> List[str]:
@@ -59,8 +94,13 @@ def collect_py_files(project_root: str, test_dirs: List[str] = None, tests_only:
 
 
 def should_include_dir(dirname: str) -> bool:
-    """Check whether a directory name is excluded from scanning."""
+    """Check whether a directory name is excluded from scanning.
+
+    Built-in exclusions plus the project's own CONFIG__TOOLS.BLACKLIST_DIRS.
+    """
     if dirname in EXCLUDED_DIRS:
+        return False
+    if dirname in config_blacklist_dirs():
         return False
     for suffix in EXCLUDED_SUFFIXES:
         if dirname.endswith(suffix):
