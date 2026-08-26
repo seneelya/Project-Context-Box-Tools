@@ -82,7 +82,19 @@ class PythonHandler(LanguageHandler):
         if not imports_text.startswith("("):
             return imports_text.rstrip(")").split("#")[0].strip()
 
+        # Names on the OPENING line count too. Collecting from start_idx + 1
+        # silently dropped every name sitting next to the "(", so
+        # `from x import (a, b, c,\n    d)` was read as importing only `d` and
+        # a/b/c looked unused by this file. This also handles the one-line
+        # parenthesised form `from x import (a, b)`, which previously fell into
+        # the loop below and kept eating lines past the import statement.
+        head = imports_text[1:].split("#")[0].strip()
+        if ")" in head:
+            return head.split(")", 1)[0].strip().strip(", ") or None
+
         parts = []
+        if head:
+            parts.append(head)
         in_paren = True
         idx = start_idx + 1
         while idx < len(content_lines) and in_paren:
@@ -94,7 +106,10 @@ class PythonHandler(LanguageHandler):
                 parts.append(l)
             idx += 1
 
-        return ", ".join(parts).strip(", ") or None
+        # Each collected fragment usually still carries its own trailing comma,
+        # so join on the bare names — otherwise the result reads "a,, b" and the
+        # caller only survives it by skipping empty items after the split.
+        return ", ".join(p.rstrip(",").strip() for p in parts if p.strip(", ")).strip(", ") or None
 
     def _get_non_docstring_indices(self, content_lines):
         """Return the set of 0-based line indices that carry real CODE.
@@ -221,7 +236,14 @@ class PythonHandler(LanguageHandler):
             m = self.IMPORT_RE.match(line)
             if m:
                 kind = get_import_kind_generic(line, content_lines, idx, self.BLOCK_PATTERNS)
-                for item in m.group(1).split(","):
+                # Strip a trailing comment BEFORE splitting: without this the
+                # LAST name of `import a, b, c  # type: ignore` came out as
+                # "c  # type: ignore" and matched nothing, so exactly the final
+                # module of a commented multi-name import looked unimported.
+                # Safe unconditionally — an import statement cannot contain a
+                # string literal, so a "#" here is always a comment.
+                # The from-import path above already did this.
+                for item in m.group(1).split("#")[0].split(","):
                     item = item.strip()
                     if not item:
                         continue
