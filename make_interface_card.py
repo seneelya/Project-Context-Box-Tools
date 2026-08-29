@@ -867,8 +867,10 @@ def main():
                     help="BULK maintainer pre-stamp: stamp EVERY source file under --project-root "
                          "(by --language, else CONFIG__TOOLS.LANGUAGE) each to __map/<path>.md. Skips "
                          ".git/__pycache__/__map/__HQ/.venv/node_modules/... and CONFIG__TOOLS.TEST_DIRS. "
-                         "Existing cards MERGE (facts refreshed, prose kept); add --force to reset them. "
-                         "Ignores <file> and --out. One-shot way to seed/refresh a whole tree's card skeletons.")
+                         "Existing cards MERGE (facts refreshed, prose kept); add --force to reset them "
+                         "(cards with prose additionally need --discard-prose, else they're skipped as "
+                         "'blocked' and the run exits 1). Ignores <file> and --out. One-shot way to "
+                         "seed/refresh a whole tree's card skeletons.")
     ap.add_argument("--language", type=str, default=None,
                     help="--all only: which languages to stamp, overriding CONFIG__TOOLS.LANGUAGE. "
                          "Comma/space separated, or 'all'. Accepts python/typescript/csharp and the "
