@@ -225,7 +225,8 @@ def print_short_help(prog):
     """Compact usage scheme printed when run without flags or with invalid flag."""
     YELLOW = "\033[93m"
     RESET = "\033[0m"
-    print(f'''{YELLOW}Usage: {prog} (PATH or .) ("*.md": fileMask) --find "F" --with "W" [--match 'line.startswith("# ")'] (--dry-run or --apply){RESET}
+    print(f'''{YELLOW}Usage: {prog} (PATH or . or @) ("*.md": fileMask) --find "F" --with "W" [--match 'line.startswith("# ")'] (--dry-run or --apply){RESET}
+(PATH/MASK also as --path/--mask flags, same thing; @ = CONFIG__TOOLS.PROJECT_ROOT, only when written explicitly)
 
 Note: Default is DRY-RUN (no writes). Use --apply to make changes. Use --help for full help.''')
 
