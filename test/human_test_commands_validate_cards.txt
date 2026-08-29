@@ -18,3 +18,9 @@ py validate_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/wo
 # validate_cards: "(none) - reason" tolerance (is_empty fix) — manual mini-check, no command.
 # In any card, set a section body to e.g. "(none) - trivial, no consumers" and re-run validate:
 # expect: still clean (the annotated marker counts as empty; only "(nonexistent)"-like text does not).
+
+# validate_cards: card-tool contract (Vision01__path-and-flag-conventions.md).
+# expect: --project-root omitted -> "cards dir not found: <this repo's tools>/__map" (this repo's
+#         own CONFIG__TOOLS.py is neutral, PROJECT_ROOT="." -> resolves to cwd here)
+
+py validate_cards.py

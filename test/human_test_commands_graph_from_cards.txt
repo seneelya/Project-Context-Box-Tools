@@ -61,3 +61,10 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 #         NO "-h, --help" line; NO --paths/flat
 
 py graph_from_cards.py --help
+
+# graph_from_cards: card-tool contract (Vision01__path-and-flag-conventions.md).
+# expect: --project-root omitted -> "cards dir not found: <this repo's tools>/__map" (this repo's
+#         own CONFIG__TOOLS.py is neutral, PROJECT_ROOT="." -> resolves to cwd here, sanity-check
+#         passes trivially, but there's no __map/ in the tools repo itself)
+
+py graph_from_cards.py

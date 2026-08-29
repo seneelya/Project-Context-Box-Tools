@@ -164,9 +164,10 @@ def main():
     ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     ap.add_argument("--cards-dir", type=Path, default=None,
                     help="карточки (по умолч. <project-root>/__map)")
-    ap.add_argument("--project-root", type=Path, default=None,
-                    help="корень проекта (для сирот/pending и для <root>/__map). "
-                         "Приоритет: этот флаг > CONFIG__TOOLS.PROJECT_ROOT > cwd")
+    ap.add_argument("--project-root", type=str, default=None,
+                    help="корень проекта (для сирот/pending и для <root>/__map). Не задан -> "
+                         "неявно CONFIG__TOOLS.PROJECT_ROOT (sanity-checked: должен содержать этот "
+                         "тул). '@' -> то же явно, без проверки. Литерал -> буквально, без проверки.")
     args = ap.parse_args()
 
     # Корень: заданный руками флаг ГЛАВНЕЕ конфига; иначе CONFIG__TOOLS.PROJECT_ROOT; иначе cwd.

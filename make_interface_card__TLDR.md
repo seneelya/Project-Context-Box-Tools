@@ -47,7 +47,7 @@ Per-FILE analysis was always polyglot — only the bulk selection was not.
 * **Identity across a re-stamp** — a symbol's prose survives by its NAME, found by position in the
   signature (before `(`/`=`, else after known language keywords), never by guessing "first word" of
   the signature text (that broke on `function foo(x)`/`async def foo`/`public static void Foo` —
-  see `REQ-004+005_merge-identity-design.md`). Same name, different signature (became `async`, new
+  see `DONE__REQ-004+005_merge-identity-design.md`). Same name, different signature (became `async`, new
   param) → prose kept with a `⚠ поменялась сигнатура -` marker prepended (stacks on repeat drift,
   no counter). No exact name, but a similar one → treated as a rename, prose kept with a
   `⚠ похоже на переименование, было …` marker. Neither → the entry goes to `## Salvage` as before.

@@ -12,3 +12,10 @@
 #         that touched the source AFTER the card (so you know what to re-read)
 
 py check_cards_freshness.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+# check_cards_freshness: card-tool contract (Vision01__path-and-flag-conventions.md).
+# expect: --project-root omitted -> "cards dir not found: <this repo's tools>/__map" (this
+#         repo's own CONFIG__TOOLS.py is neutral, PROJECT_ROOT="." — no such folder here, no
+#         cards to check); this is the sanity-check/neutral-seed working as intended, not a bug
+
+py check_cards_freshness.py

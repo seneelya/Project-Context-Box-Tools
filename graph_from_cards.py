@@ -679,7 +679,9 @@ def main():
     ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <project-root>/__map)")
     ap.add_argument("--project-root", type=Path, default=None,
-                    help="корень проекта для <root>/__map. Приоритет: флаг > CONFIG__TOOLS.PROJECT_ROOT > cwd")
+                    help="корень проекта для <root>/__map. Не задан -> неявно "
+                         "CONFIG__TOOLS.PROJECT_ROOT (sanity-checked: должен содержать этот тул). "
+                         "'@' -> то же явно, без проверки. Литерал -> буквально, без проверки.")
     ap.add_argument("--json", action="store_true", help="выдать граф как JSON вместо плоского текста")
     ap.add_argument("--file", metavar="PATH", default=None,
                     help="фокус-срез вокруг файла: что он тянет (downstream) + кто тянет его (upstream)")
