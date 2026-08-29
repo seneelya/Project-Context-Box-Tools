@@ -47,18 +47,46 @@ _DASH = re.compile(r"\s+[—–-]\s+")   # legacy "# name — summary" separator
 
 
 def resolve_project_root(cli_value):
-    """Корень проекта. Приоритет: CLI-флаг > CONFIG__TOOLS.PROJECT_ROOT > cwd.
-    Руками заданный путь всегда ГЛАВНЕЕ конфига. (Общий резолвер для тулов.)"""
-    if cli_value is not None:
+    """Корень проекта для card-тулов (`__map/` не существует «относительно cwd»).
+    Общий резолвер для тесно связанного семейства `graph_from_cards`/`validate_cards`/
+    `check_cards_freshness` (не для всего пакета — generic-тулы резолвят иначе, см.
+    __dev/vision/Vision01__path-and-flag-conventions.md).
+
+    - не задан -> неявно `CONFIG__TOOLS.PROJECT_ROOT`, со sanity-check: резолвленный корень
+      обязан быть предком папки, где лежит сам тул — иначе это протухший/чужой конфиг, отказ,
+      а не тихая работа не пойми над чем;
+    - `"@"` -> то же самое, явно, БЕЗ проверки — пользователь осознанно так решил;
+    - литеральный путь -> буквально, без проверки.
+    """
+    if cli_value is not None and str(cli_value) != "@":
         return Path(cli_value).resolve()
+
+    cfg_root = None
     try:
         import CONFIG__TOOLS
-        pr = getattr(CONFIG__TOOLS, "PROJECT_ROOT", None)
-        if pr and pr != ".":
-            return Path(pr).resolve()
+        cfg_root = getattr(CONFIG__TOOLS, "PROJECT_ROOT", None) or None
     except Exception:
         pass
-    return Path.cwd()
+
+    if str(cli_value) == "@":
+        if cfg_root is None:
+            sys.stderr.write("Error: --project-root @ requires CONFIG__TOOLS.PROJECT_ROOT, "
+                              "but it isn't set.\n")
+            sys.exit(2)
+        return Path(cfg_root).resolve()
+
+    # cli_value is None: неявный путь — с проверкой на вменяемость.
+    if cfg_root is None:
+        return Path.cwd()
+    root_abs = Path(cfg_root).resolve()
+    here = Path(__file__).resolve().parent
+    if not (here == root_abs or root_abs in here.parents):
+        sys.stderr.write(
+            f"Error: CONFIG__TOOLS.PROJECT_ROOT ({root_abs}) doesn't contain this tool ({here}) "
+            f"— looks like a stale or foreign config. Pass --project-root explicitly "
+            f"(a path, or @ to force this value anyway).\n")
+        sys.exit(2)
+    return root_abs
 
 
 def _cells(row):

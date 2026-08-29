@@ -4,7 +4,10 @@ The project's topology from `__map/` cards — the "second compilation". Load it
 then reason in your head (impact / chain / depth); no need to re-read cards.
 
 **Target:** `graph_from_cards.py [--project-root P] [--view tree|depth] [--edges out|in|inout]`
-— default cards = `<project>/__map/`.
+— default cards = `<project>/__map/`. `--project-root` not given -> implicitly
+`CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked (must contain this tool's own folder — a stale/foreign
+config refuses instead of silently mapping the wrong tree). `@` -> same, explicit, unchecked.
+Literal path -> as given, unchecked.
 
 ## Quick use
 ```

@@ -4,6 +4,10 @@ Which `__map/` cards are **stale** versus their source, and which are **orphans*
 LLM-readable output (no frames/emoji); exit 1 if anything is stale or orphaned.
 
 **Target:** `check_cards_freshness.py [--cards-dir P] [--project-root P]` — defaults: cards = `<project>/__map/`.
+`--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked (must contain
+this tool's own folder) — no longer guessed from `cards_dir.parent`. `@` -> same, explicit,
+unchecked. Literal path -> as given, unchecked. Missing cards dir now says so distinctly from "no
+cards found" (empty dir).
 
 ## Quick use
 ```

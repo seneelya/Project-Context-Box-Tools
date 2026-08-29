@@ -23,6 +23,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from graph_from_cards import resolve_project_root
+
 
 def get_mtime(path):
     return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
@@ -160,16 +162,22 @@ def main():
         pass
     ap = argparse.ArgumentParser(description="Freshness of .py.md cards (LLM-lean output)", add_help=False)
     ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
-    ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <project>/__map/)")
-    ap.add_argument("--project-root", type=Path, default=None, help="корень проекта (по умолч. родитель __map/)")
+    ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <root>/__map/)")
+    ap.add_argument("--project-root", type=str, default=None,
+                     help="корень проекта. Не задан -> неявно CONFIG__TOOLS.PROJECT_ROOT "
+                          "(sanity-checked: должен содержать этот тул). '@' -> то же явно, без "
+                          "проверки. Литерал -> буквально, без проверки.")
     args = ap.parse_args()
 
-    if args.cards_dir:
-        cards_dir = args.cards_dir.resolve()
-    else:
-        # карточки в <project>/__map/ (запускай из корня проекта)
-        cards_dir = Path.cwd() / "__map"
-    project_root = args.project_root.resolve() if args.project_root else cards_dir.parent
+    # REQ-002-B: корень больше НЕ угадывается из cards_dir.parent — тот же card-tool контракт,
+    # что у graph_from_cards/validate_cards (см. __dev/vision/Vision01__path-and-flag-conventions.md).
+    project_root = resolve_project_root(args.project_root)
+    cards_dir = args.cards_dir.resolve() if args.cards_dir else (project_root / "__map")
+    if not cards_dir.exists():
+        # различаем «папки карточек по этому пути нет» от «карточек нет» (см. total==0 ниже) —
+        # раньше эти два случая были неотличимы, оба читались как «карточек нет вообще».
+        print(f"cards dir not found: {cards_dir}", file=sys.stderr)
+        sys.exit(1)
 
     mode = "git" if is_git_repo(project_root) else "mtime"
     result = check_git(cards_dir, project_root) if mode == "git" else check_mtime(cards_dir, project_root)

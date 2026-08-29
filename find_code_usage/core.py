@@ -163,11 +163,10 @@ def resolve_target_names(
 
     # Determine target file and base names
     if file_arg:
-        # Resolve relative paths against project_root first
-        if os.path.isabs(file_arg):
-            file_path = os.path.abspath(file_arg)
-        else:
-            file_path = os.path.abspath(os.path.join(project_root, file_arg))
+        # Addressing is always cwd-relative (abspath resolves absolute paths as-is and
+        # relative ones against cwd) — project_root below is ONLY for deriving the dotted
+        # module path (where the file sits WITHIN the project), never for resolving file_arg.
+        file_path = os.path.abspath(file_arg)
         basename_no_ext = Path(file_arg).stem
 
         is_init = basename_no_ext in {"__init__", "index"}

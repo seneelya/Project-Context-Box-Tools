@@ -3,8 +3,10 @@
 Call-saver: a target card's **full text + only the Public API of its dependencies**, glued into
 one block. Instead of N card reads, the agent makes one call and gets the context it needs.
 
-**Target:** `collect_card_bundle.py <file> [--cards-dir P] [--depth N]` — `<file>` is root-relative
-(e.g. `capture.py`, `_engine/embed.py`).
+**Target:** `collect_card_bundle.py <file> [--project-root P] [--cards-dir P] [--depth N]` —
+`<file>` (also `--file`, same thing) is root-relative (e.g. `capture.py`, `_engine/embed.py`).
+`--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked. `@` -> same,
+explicit, unchecked. Literal path -> as given, unchecked.
 
 ## Quick use
 ```

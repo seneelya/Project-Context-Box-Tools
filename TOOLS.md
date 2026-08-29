@@ -35,7 +35,13 @@ These steps are **mandatory**, not optional:
 1. **Open the tool's TLDR before running it:** `__HQ/tools/<name>__TLDR.md`
    - This is your quick-reference for flags, idiomatic usage, and gotchas.
    - Do NOT rely solely on `--help`; TLDR contains patterns specific to this project workflow.
-2. **Run from project root.** The tools resolve `--project-root` and `__map/` dir from CONFIG__TOOLS or cwd automatically — you do not need to specify it manually unless overriding defaults.
+2. **Run from project root.** Card tools (`make_interface_card`, `validate_cards`,
+   `check_cards_freshness`, `graph_from_cards`, `collect_card_bundle`) resolve `--project-root` and
+   `__map/` from `CONFIG__TOOLS.PROJECT_ROOT` automatically when the flag is omitted (sanity-checked
+   against a stale/foreign config). Generic tools (`find_code_usage`, `get_codeblock`,
+   `show_pyfile_api`) resolve relative paths from **cwd** instead, and only read
+   `CONFIG__TOOLS.PROJECT_ROOT` if you write `--project-root @` explicitly. See
+   `__dev/vision/Vision01__path-and-flag-conventions.md` for the full contract.
 
 This sequence is: TOOLS_RC.md → `<tool>__TLDR.md` → execute tool. Do not skip step 1.
 
@@ -127,8 +133,9 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
 
 ## ENVIRONMENT & DEPENDENCIES
 
-- **Run from project root:** `python __HQ/tools/<name>.py …`. Tools resolve `--project-root` and the
-  `__map/` cards dir from `CONFIG__TOOLS.py` (or cwd) automatically; pass flags only to override.
+- **Run from project root:** `python __HQ/tools/<name>.py …`. See "Getting started" above for how
+  `--project-root` resolves per tool category (card tools vs generic tools) — it isn't the same
+  everywhere on purpose.
 - **Language auto-detected from extension.** Python (indentation, stdlib `ast`); `.ts`/`.js`, `.cs`,
   `.cpp`/`.h`/… (tree-sitter); Markdown (`.md`) for `get_codeblock`.
 - **Dependencies are minimal and OPTIONAL per language.** Python and Markdown work with **zero**

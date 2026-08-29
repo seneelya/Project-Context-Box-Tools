@@ -238,10 +238,11 @@ def print_full_help(prog):
 
 {YELLOW}Usage: {prog} PATH MASK --find "F" --with "W" [--match EXPR] (--dry-run or --apply){RESET}
 
-Arguments (required):
-  PATH                  directory to scan; absolute path, relative path from current dir,
-                        "." for current dir, or @ as alias for project root (from CONFIG__TOOLS)
-  MASK                  file glob pattern (e.g. "*.py", "*.md")
+Arguments (required, positional or as --path/--mask flags — same thing):
+  PATH / --path         directory to scan; absolute path, relative path from current dir,
+                        "." for current dir, or @ as alias for project root (from CONFIG__TOOLS,
+                        read ONLY when you write @ explicitly — never implicitly)
+  MASK / --mask         file glob pattern (e.g. "*.py", "*.md")
    --find X             text/substring to find in matching files (exactly one per invocation)
    --with Y             replacement text for the preceding --find argument
 
@@ -292,25 +293,61 @@ def main():
         print_full_help(prog)
         sys.exit(0)
 
-    # Parse positional args first
-    pos_parser = argparse.ArgumentParser(add_help=False)
-    pos_parser.add_argument("path")
-    pos_parser.add_argument("mask")
+    # PATH/MASK — positional OR --path/--mask flag-aliases (unification with the rest of the
+    # package, see __dev/vision/Vision01__path-and-flag-conventions.md). Extracted by hand, same
+    # style as --find/--with below — an optional (nargs="?") positional mixed with unregistered
+    # flags like --find makes argparse grab the WRONG token (tested, reproduces reliably), so it
+    # isn't safe to hand both forms to one argparse instance at once.
+    argv = sys.argv[1:]
 
-    try:
-        known, rest = pos_parser.parse_known_args()
-    except SystemExit:
-        print(f"Error: Missing required arguments. Need PATH and MASK.", file=sys.stderr)
-        print_short_help(prog)
-        sys.exit(1)
+    def _pop_flag_value(tokens, flag):
+        if flag not in tokens:
+            return None, tokens
+        i = tokens.index(flag)
+        if i + 1 >= len(tokens):
+            print(f"Error: {flag} requires an argument.", file=sys.stderr)
+            sys.exit(1)
+        return tokens[i + 1], tokens[:i] + tokens[i + 2:]
 
-    # Resolve special @ alias to PROJECT_ROOT from CONFIG__TOOLS
-    if known.path == "@":
-        import CONFIG__TOOLS as cfg
-        folder = cfg.PROJECT_ROOT
+    path_opt, argv = _pop_flag_value(argv, "--path")
+    mask_opt, argv = _pop_flag_value(argv, "--mask")
+
+    if path_opt is not None or mask_opt is not None:
+        if path_opt is None or mask_opt is None:
+            print("Error: --path and --mask must be given together (don't mix with positional PATH/MASK).",
+                  file=sys.stderr)
+            print_short_help(prog)
+            sys.exit(1)
+        path_val, mask_val, rest = path_opt, mask_opt, argv
     else:
-        folder = known.path
-    mask = known.mask
+        pos_parser = argparse.ArgumentParser(add_help=False)
+        pos_parser.add_argument("path")
+        pos_parser.add_argument("mask")
+        try:
+            known, rest = pos_parser.parse_known_args(argv)
+        except SystemExit:
+            print(f"Error: Missing required arguments. Need PATH and MASK.", file=sys.stderr)
+            print_short_help(prog)
+            sys.exit(1)
+        path_val, mask_val = known.path, known.mask
+
+    # Resolve special @ alias to PROJECT_ROOT from CONFIG__TOOLS. Generic-tool rule (this tool
+    # has no notion of "the project", it's a universal utility) — never read config silently,
+    # only when explicitly requested via "@"; a missing/incomplete config is a clean error, not
+    # an uncaught traceback.
+    if path_val == "@":
+        try:
+            import CONFIG__TOOLS as cfg
+            folder = getattr(cfg, "PROJECT_ROOT", None)
+        except ImportError:
+            folder = None
+        if not folder:
+            print("Error: --path @ requires CONFIG__TOOLS.PROJECT_ROOT, but CONFIG__TOOLS.py "
+                  "is missing or doesn't define it.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        folder = path_val
+    mask = mask_val
 
     # Parse long-only flags manually to give clear error messages
     find_args = []

@@ -71,11 +71,12 @@ def main():
         default=auto_lang or CFG_LANGUAGE,
         help=f"Language handler/resolver. Auto-detected from extension if omitted. Supported: python, typescript, csharp (default: {CFG_LANGUAGE})"
     )
-    cfg_root = CFG_PROJECT_ROOT if CFG_PROJECT_ROOT else "."
     parser.add_argument(
         "--project-root",
-        default=cfg_root,
-        help=f"Root directory to scan. Defaults from CONFIG__TOOLS.py PROJECT_ROOT or '.' (current: {cfg_root})"
+        default=None,
+        help="Root to scan for consumers/imports, and base for a RELATIVE --file. Not given -> cwd "
+             "(never read from config silently). '@' -> CONFIG__TOOLS.PROJECT_ROOT, explicitly. "
+             f"Literal path -> used as given. (CONFIG__TOOLS.PROJECT_ROOT={CFG_PROJECT_ROOT or 'unset'})"
     )
     parser.add_argument(
         "--tests-only",
@@ -101,8 +102,17 @@ def main():
 
     symbol_filter = {s.strip() for s in args.symbol.split(",") if s.strip()} or None
 
-    # Validate project-root
-    project_root = os.path.abspath(args.project_root)
+    # Resolve --project-root: not given -> cwd; "@" -> CONFIG__TOOLS.PROJECT_ROOT, explicitly;
+    # literal -> as given. Generic tool: config is never read silently (see Vision01).
+    if args.project_root is None:
+        project_root = os.path.abspath(".")
+    elif args.project_root == "@":
+        if not CFG_PROJECT_ROOT:
+            print("Error: --project-root @ requires CONFIG__TOOLS.PROJECT_ROOT, but it isn't set.", file=sys.stderr)
+            sys.exit(1)
+        project_root = os.path.abspath(CFG_PROJECT_ROOT)
+    else:
+        project_root = os.path.abspath(args.project_root)
     if not os.path.isdir(project_root):
         print(f"Error: --project-root is not a directory: {project_root}", file=sys.stderr)
         sys.exit(1)
@@ -110,7 +120,7 @@ def main():
     if not args.file and not args.module:
         print("Find where symbols from a target module are imported or used across the project.")
         print("Usage: find_code_usage.py --file PATH [--module-names N1,N2,...] [--language LNG] [--incoming|--verbose|--tests-only] [--symbol NAME]")
-        print(f"Current PROJECT_ROOT=\"{cfg_root}\"")
+        print(f"--project-root not given -> cwd (\"{project_root}\"); \"@\" -> CONFIG__TOOLS.PROJECT_ROOT (\"{CFG_PROJECT_ROOT or 'unset'}\")")
         print()
         print("Full help with --help")
         sys.exit(1)
@@ -126,11 +136,13 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Validate --file if provided (required for --incoming mode)
+    # Validate --file if provided (required for --incoming mode). Always cwd-relative — abspath()
+    # resolves an absolute path as-is and a relative one against cwd, never against project_root
+    # (REQ-002-A: joining a relative --file to a DIFFERENT project_root could silently match some
+    # other existing file outside the tree the caller actually meant).
     target_path_abs = ""
     if args.file:
-        file_arg = args.file if os.path.isabs(args.file) else os.path.join(project_root, args.file)
-        target_path_abs = os.path.abspath(file_arg)
+        target_path_abs = os.path.abspath(args.file)
         if not os.path.isfile(target_path_abs):
             print(f"Error: --file does not exist or is not a file: {target_path_abs}", file=sys.stderr)
             sys.exit(1)

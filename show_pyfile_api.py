@@ -220,10 +220,19 @@ def main() -> int:
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0
-    if len(args) != 1:
-        print("Использование: python show_pyfile_api.py <путь/к/файлу.py>  (--help для справки)", file=sys.stderr)
+    # --file PATH — алиас позиционного (унификация с find_code_usage/get_codeblock, см.
+    # __dev/vision/Vision01__path-and-flag-conventions.md); позиционный по-прежнему работает.
+    if args and args[0] == "--file":
+        if len(args) != 2:
+            print("Использование: python show_pyfile_api.py --file <путь/к/файлу.py>  (--help для справки)", file=sys.stderr)
+            return 2
+        target = args[1]
+    elif len(args) == 1:
+        target = args[0]
+    else:
+        print("Использование: python show_pyfile_api.py <путь/к/файлу.py>  (или --file <путь>; --help для справки)", file=sys.stderr)
         return 2
-    path = Path(args[0])
+    path = Path(target)
     if not path.exists():
         print(f"[show_pyfile_api] файл не найден: {path}", file=sys.stderr)
         return 2

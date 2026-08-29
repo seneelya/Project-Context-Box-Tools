@@ -4,7 +4,12 @@ The card **STAMP**: ONE command → a ready `.md` card skeleton where the FACT s
 filled deterministically and the prose is left as `<Agent: …>` directive lines for the LLM to
 complete after reading the source. It analyzes nothing new — it ORCHESTRATES three facts.
 
-**Target:** `make_interface_card.py <file> --project-root R [--out PATH] [--force [--discard-prose]]` — multilingual (py/ts/cs).
+**Target:** `make_interface_card.py <file> [--project-root R] [--out PATH] [--force [--discard-prose]]` — multilingual (py/ts/cs). `<file>` also as `--file`, same thing.
+
+**`--project-root`** — card-tool rule (`__map/` has no meaning relative to cwd): not given ->
+implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked (must be an ancestor of where this script
+itself lives — a stale/foreign config REFUSES rather than silently stamping the wrong tree). `@` ->
+same, explicitly, unchecked. Literal path -> used as given, unchecked.
 
 ## Quick use  (copy, tweak, run)
 ```

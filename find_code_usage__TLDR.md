@@ -45,6 +45,10 @@ Note: `--verbose` `levels` are informational **depth** (how nested the call is) 
 
 ## Configuration notes
 
+**`--project-root`** — not given -> cwd (relative `--file` resolves from where you actually stand,
+never silently from config). `@` -> explicitly `CONFIG__TOOLS.PROJECT_ROOT`. Literal path -> used
+as given. Config is never read without writing `@` — see `__dev/vision/Vision01__path-and-flag-conventions.md`.
+
 Language priority: CLI `--language` → file extension → config → `python`.
 Paths in output are always `/`-normalized (cross-platform, joinable with card File Path).
 Configure `TEST_DIRS` (relative paths) to define test directories; excluded from default

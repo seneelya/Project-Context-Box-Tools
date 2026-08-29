@@ -1,7 +1,12 @@
-"""Shared configuration for tools in /project/tools directory.
+"""Shared configuration for the tools in this directory (`__HQ/tools/`).
 
 This file is optional — if missing, tools fall back to hardcoded defaults and print a warning.
 Each project should have its own copy of this file with appropriate paths and language settings.
+`deploy_hq.py --init --apply` seeds a fresh copy with PROJECT_ROOT already set to that deploy's
+own path — this local copy (in the `tools` repo itself, used for developing/testing the tools) is
+deliberately left NEUTRAL: it travels to other people testing this repo, whose paths differ. For
+local dev/testing against real data, prefer an explicit fixture dir passed in code (see
+`test/test_cardstamp.py`'s `_PR`) over editing this file.
 
 Public interface (tools just import these):
     PROJECT_ROOT       -> str  # first existing path from candidates list, or "." as fallback
@@ -26,10 +31,7 @@ def _resolve_root(candidates):
 # If none exist, falls back to current working directory (".").
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = _resolve_root([
-    # Docker container path — memohood project
-    "/workspace/SRC/memohood",
-    # Windows host path — memohood project
-    r"Y:\Hermess\body\sandboxes\docker\default\workspace\SRC\memohood",
+    # "/project/<your-project>", r"C:\path\to\<your-project>"
 ]) or "."
 
 # ---------------------------------------------------------------------------

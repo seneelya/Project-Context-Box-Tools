@@ -764,6 +764,42 @@ def _config_lang_testdirs():
     return lang, test_dirs
 
 
+def _config_project_root():
+    try:
+        import CONFIG__TOOLS
+        return getattr(CONFIG__TOOLS, "PROJECT_ROOT", None) or None
+    except Exception:
+        return None
+
+
+def _resolve_project_root(value):
+    """Card-тул (Vision01__path-and-flag-conventions.md): `__map/` не существует «относительно
+    cwd» — не задан → неявно `CONFIG__TOOLS.PROJECT_ROOT`, НО с проверкой на вменяемость (корень
+    обязан быть предком папки, где лежит сам тул — иначе это протухший/чужой конфиг, откажем, а не
+    тихо отработаем не туда). `@`/литерал — явное решение автора вызова, без проверки."""
+    if value is None:
+        cfg_root = _config_project_root()
+        if cfg_root is None:
+            return os.path.abspath(".")
+        root_abs = os.path.abspath(cfg_root)
+        here = os.path.dirname(os.path.abspath(__file__))
+        if not (here == root_abs or here.startswith(root_abs + os.sep)):
+            sys.stderr.write(
+                f"[make_interface_card] Error: CONFIG__TOOLS.PROJECT_ROOT ({root_abs}) doesn't "
+                f"contain this tool ({here}) — looks like a stale or foreign config. Pass "
+                f"--project-root explicitly (a path, or @ to force this value anyway).\n")
+            sys.exit(2)
+        return root_abs
+    if value == "@":
+        cfg_root = _config_project_root()
+        if cfg_root is None:
+            sys.stderr.write("[make_interface_card] Error: --project-root @ requires "
+                              "CONFIG__TOOLS.PROJECT_ROOT, but it isn't set.\n")
+            sys.exit(2)
+        return os.path.abspath(cfg_root)
+    return os.path.abspath(value)
+
+
 def _normalize_langs(value):
     """LANGUAGE (скаляр ИЛИ список) / --language -> список канонных языков.
 
@@ -852,8 +888,14 @@ def main():
         pass
     ap = argparse.ArgumentParser(description="Card stamp: fact-filled card skeleton for a file", add_help=False)
     ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
-    ap.add_argument("file", nargs="?", help="target source file (root-relative or absolute); omit with --all")
-    ap.add_argument("--project-root", type=str, default=".", help="project root for the reverse index")
+    ap.add_argument("file", nargs="?", help="target source file (or use --file); omit with --all")
+    ap.add_argument("--file", dest="file_opt", type=str, default=None,
+                     help="target source file — alias for the positional <file>, same thing")
+    ap.add_argument("--project-root", type=str, default=None,
+                     help="project root (also base for a relative <file>/--file). Not given -> "
+                          "implicitly CONFIG__TOOLS.PROJECT_ROOT (sanity-checked: must contain "
+                          "this tool's own folder). '@' -> same, explicitly, unchecked. "
+                          "Literal path -> used as given, unchecked.")
     ap.add_argument("--out", type=str, default=None,
                     help="write the card to this file (default: print to stdout)")
     ap.add_argument("--force", action="store_true",
@@ -879,21 +921,22 @@ def main():
                          "pass silently skipped every file of the other language.")
     args = ap.parse_args()
 
-    project_root_abs = os.path.abspath(args.project_root)
+    project_root_abs = _resolve_project_root(args.project_root)
+    target_file = args.file_opt if args.file_opt is not None else args.file
 
     if args.all:
         return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose)
 
-    if not args.file:
-        ap.error("either a <file> argument or --all is required")
+    if not target_file:
+        ap.error("either a <file> argument (or --file), or --all is required")
 
     out = args.out
     if not out:
         # Без --out — просто печать штемпеля в stdout (без merge: файла-цели нет).
-        print(build_card(project_root_abs, args.file, None, {}))
+        print(build_card(project_root_abs, target_file, None, {}))
         return 0
 
-    status, report = _stamp_to_file(project_root_abs, args.file, out, args.force, args.discard_prose)
+    status, report = _stamp_to_file(project_root_abs, target_file, out, args.force, args.discard_prose)
     if status == "blocked":
         n = report["prose_blocks"]
         sys.stderr.write(

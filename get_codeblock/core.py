@@ -114,6 +114,13 @@ def parse_args():
             if ' --' in value or '--line' in value or '--file' in value or '--level' in value or '--query' in value:
                 print(f"Error: --project-root incorrect: {value}", file=sys.stderr)
                 sys.exit(1)
+            if value == "@":
+                # Explicit alias -> CONFIG__TOOLS.PROJECT_ROOT (Vision01__path-and-flag-conventions.md).
+                # Everything else about this tool's resolution is untouched on purpose.
+                if not default_root:
+                    print("Error: --project-root @ requires CONFIG__TOOLS.PROJECT_ROOT, but it isn't set.", file=sys.stderr)
+                    sys.exit(1)
+                value = default_root
             project_root = value
             i += 2
         elif token == '--help':

@@ -4,6 +4,8 @@ Validates cards against the `CARD_FORMAT.py` contract. Lean output that **coache
 exit 1 on any problem (so it gates in a loop). Independent of `make_interface_card.py`.
 
 **Target:** `validate_cards.py [--cards-dir P] [--project-root P]` — defaults: cards = `<project>/__map/`.
+`--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked (must contain
+this tool's own folder). `@` -> same, explicit, unchecked. Literal path -> as given, unchecked.
 
 ## Quick use
 ```
