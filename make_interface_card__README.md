@@ -85,7 +85,7 @@ make_interface_card.py --all --language py,ts                           # bulk: 
 (`foo(x)`), и ломалось на JS/TS/C#/async-Python, где сигнатура НАЧИНАЕТСЯ со служебного слова языка
 (`function`, `async`, `public static void`, …). Хуже: у всех функций файла первое слово одинаковое,
 поэтому все записи схлопывались в ОДИН ключ при разборе старой карточки — выживала проза только
-последней. Полный разбор находки — `__dev/tools/Requests/REQ-004+005_merge-identity-design.md`.
+последней. Полный разбор находки — `__dev/Requests/REQ-004+005_merge-identity-design.md`.
 
 ### Как ищется имя сейчас — по позиции, не угадыванием
 

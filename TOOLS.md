@@ -142,8 +142,9 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
   - Install grammars: `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp tree-sitter-typescript`
     (no numpy/torch cascade). All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
 - **Tests:** `py test/check.py` (full golden report) · `py test/check.py --fails` (regressions only).
-- **The folder is self-contained** and travels with a project by copying — except `__delme/`
-  (dev-only notes, safe to delete when deployed). `CONFIG__TOOLS.py` holds per-project defaults
+- **The folder is self-contained** and travels with a project by copying — except `__delme/` and
+  `__dev/` (dev-only notes/history/vision, safe to delete when deployed — `deploy_hq.py` already
+  excludes both). `CONFIG__TOOLS.py` holds per-project defaults
   (`PROJECT_ROOT`, `LANGUAGE`, `TEST_DIRS`, `DECL_BACKEND`); `CARD_FORMAT.py` is the card-shape contract.
 
 ---

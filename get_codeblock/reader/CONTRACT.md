@@ -3,7 +3,7 @@
 Этот слой превращает get_codeblock в **универсальный ридер**: `open(file) → карта`, движки под
 капотом сменные. Здесь — контракт общения и рецепты расширения. Идеология и правила — в
 `Vision03__get_codeblock.md` (архитектура) и `Vision02__get_codeblock.md` (`.0`-классификатор); оба
-в ProjectStarter `__dev/tools/` (`../../../../__dev/tools/`).
+в этом же репозитории, `../../__dev/vision/`.
 
 ## Схема потока
 
@@ -517,11 +517,13 @@ class LicenseAnalyzer:   # protocol.Analyzer
 
 ## Ссылки на главные правила
 
-- `../../../../__dev/tools/Vision03__get_codeblock.md` — архитектура универсального ридера, швы.
+- `../../__dev/vision/Vision03__get_codeblock.md` — архитектура универсального ридера, швы.
   Там же, раздел **«Грамматика вызова: команда = предложение»** — канонический порядок флагов
   (`--project-root → --file → --line → --level/--ancestor-level → --outline/--query/--dot →
   --numbered → --force`), зафиксирован 2026-08-19. ПЕРЕД тем как менять `--help`/доки get_codeblock,
   проверить формулировки там — не изобретать заново (уже было потеряно раз в этой же сессии).
-- `../../../../__dev/tools/Vision02__get_codeblock.md` — `.0`-классификатор, роли landmark/filler/frame.
-- `../../../../__dev/tools/Plan__universal-reader.md` — фазы реализации.
+  Тот же принцип (адрес слева-направо → глагол → наречия) распространён на весь пакет —
+  `../../__dev/vision/Vision01__path-and-flag-conventions.md`.
+- `../../__dev/vision/Vision02__get_codeblock.md` — `.0`-классификатор, роли landmark/filler/frame.
+- `../../__dev/vision/Plan__universal-reader.md` — фазы реализации.
 - `protocol.py` — сами контракты (истина в коде).

@@ -1,0 +1,35 @@
+@import "~bootstrap/scss/functions";
+@import "~bootstrap/scss/variables";
+@import "~bootstrap/scss/mixins/breakpoints";
+@import "./mixins";
+
+$footerHeight: 180px;
+
+$textMainColor: #161c2d;
+$textSecondColor: #455d7f;
+$accentMainColor: #335eea;
+$accentSecondColor: #ff6584;
+$disableColor: #f3f7ff;
+$iconColor: #869ab8;
+$mutedTextColor: #869ab8;
+$buttonHoverColor: #0e2b8a;
+$buttonActiveColor: #0b2067;
+$inputValidationFailColor: #ff005c;
+$defaultBorderColor: #e0e8f4;
+$disableIconColor: #d3ddf3;
+
+$darkGreen: #28b446;
+
+$breakpoint-mobile: 375px;
+
+$headingFont: Poppins, sans-serif;
+$bodyFont: "Open Sans", sans-serif;
+
+// redefine bootstrap variables
+$red: $inputValidationFailColor;
+$blue: $accentMainColor;
+$black: $textMainColor;
+$green: $darkGreen;
+$indigo: $buttonHoverColor;
+$purple: #af04ff;
+$orange: #f89808;

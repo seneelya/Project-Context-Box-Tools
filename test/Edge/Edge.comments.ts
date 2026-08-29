@@ -1,6 +1,6 @@
 // Edge.comments.ts — регрессионная фикстура для БАГ #1 get_codeblock
 // (glue-обход комментариев затягивал чужой код через ПОДВЕСНЫЕ комментарии).
-// Отчёт: __dev/tools/get_codeblock__BUG_1.md. Проверять: get_codeblock.py --file <this> --line N --query.
+// Отчёт: __dev/get_codeblock__BUG_1.md. Проверять: get_codeblock.py --file <this> --line N --query.
 //
 // Ожидаемые диапазоны (--query по указанной строке -> range):
 //   line 20  gamma   -> 19-21   (НЕ 16-21: подвесные // на стр.16-17 не должны приклеиваться)
