@@ -20,7 +20,9 @@
 """
 
 import argparse
+import difflib
 import os
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -251,8 +253,48 @@ def _is_ph(line):
     return cf.is_agent_directive(line)
 
 
-def _entry_key(h4_line):
-    """'#### `foo(x) -> y`  ← .bar' -> 'foo' (имя записи — ключ merge)."""
+# Слова-обёртки языка, которые могут стоять ПЕРЕД именем в сигнатуре ("function foo",
+# "async def foo", "public static void Foo", "class Widget"). Имя ищем не угадыванием
+# по "первому слову" (ломается на любой обёртке), а по ПОЗИЦИИ: токен перед первой `(`
+# (вызываемое — функция/метод), иначе токен перед первым `=` (присвоение), иначе — то,
+# что останется после отбрасывания слева известных слов этого языка (класс/интерфейс/
+# голый Python). Новый язык — новая копия набора, ничего в логике не меняется.
+_DECORATORS = {
+    "python": ("async",),
+    "typescript": ("export", "default", "declare", "async", "function", "class",
+                   "interface", "enum", "type", "namespace", "abstract", "public",
+                   "private", "protected", "readonly", "static", "const", "let", "var"),
+    "csharp": ("public", "private", "protected", "internal", "static", "virtual",
+               "override", "sealed", "abstract", "async", "readonly", "partial",
+               "new", "class", "interface", "struct", "enum", "record", "const"),
+}
+_IDENT_RE = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
+_TRAILING_IDENT_RE = re.compile(r"([A-Za-z_$][A-Za-z0-9_$]*)\s*$")
+
+
+def _strip_decorators(text, lang):
+    """Срезает слева известные служебные слова ЭТОГО языка, пока не упрёмся в то, что
+    декоратором не является — остаток начинается с настоящего имени объявления."""
+    words = _DECORATORS.get(lang, ())
+    s = text
+    while True:
+        m = _IDENT_RE.match(s)
+        if not m or m.group(0) not in words:
+            return s
+        s = s[m.end():].lstrip()
+
+
+def _name_before(text, sep):
+    """Идентификатор непосредственно перед первым вхождением sep, если он там есть."""
+    i = text.find(sep)
+    if i == -1:
+        return None
+    m = _TRAILING_IDENT_RE.search(text[:i])
+    return m.group(1) if m else None
+
+
+def _h4_raw_text(h4_line):
+    """'#### `foo(x) -> y`  ← .bar' -> 'foo(x) -> y' — сырой текст сигнатуры без decor'а H4."""
     e = h4_line.strip()[4:].strip()
     # Сначала вырезаем код-спан по ЗАКРЫВАЮЩЕМУ бэктику. strip("`") этого не
     # умеет: он кусает только у самых концов строки, а у ре-экспорта после
@@ -263,29 +305,111 @@ def _entry_key(h4_line):
         rest = e[1:]
         e = rest.split("`", 1)[0] if "`" in rest else rest
     e = e.strip().strip("`").strip()
-    e = e.lstrip("\\").lstrip("*").lstrip("\\").strip()
-    return e.split("(")[0].split("=")[0].split(" ")[0].strip()
+    return e.lstrip("\\").lstrip("*").lstrip("\\").strip()
 
 
-def _parse_entries(body, P):
-    """H4-записи Public API -> P['entries'][name] = {'desc':[..], 'block':[全 строки]}."""
-    entries, cur = [], None
+def _entry_key(h4_line, lang=None):
+    """'#### `foo(x) -> y`  ← .bar' -> 'foo' (имя записи — ключ merge).
+
+    Сигнатура — текст ДЛЯ ЧЕЛОВЕКА («function foo(x)», «public static void Foo(x)»,
+    «const X = […]»), не идентификатор сам по себе. Имя ищем по позиции, а не угадыванием
+    по первому слову (то ломается на любой языковой обёртке — см. REQ-004+005 design).
+    """
+    e = _h4_raw_text(h4_line)
+    eq, paren = e.find("="), e.find("(")
+    if eq != -1 and (paren == -1 or eq < paren):
+        name = _name_before(e, "=")
+        if name:
+            return name
+    if paren != -1:
+        name = _name_before(e, "(")
+        if name:
+            return name
+    stripped = _strip_decorators(e, lang)
+    m = _IDENT_RE.match(stripped)
+    if m:
+        return m.group(0)
+    return e.split("(")[0].split("=")[0].split(" ")[0].strip()  # legacy fallback, никогда не падает
+
+
+_SIM_THRESHOLD = 0.6
+_MARK_SIG_CHANGED = "⚠ поменялась сигнатура - "
+
+
+def _mark_renamed(old_name):
+    return f"⚠ похоже на переименование, было `{old_name}` - "
+
+
+def _norm_name(name):
+    return re.sub(r"[^A-Za-z0-9]", "", name).lower()
+
+
+def _similarity(a, b):
+    return difflib.SequenceMatcher(None, _norm_name(a), _norm_name(b)).ratio()
+
+
+def _resolve_entry_identities(new_syms, op, report):
+    """Сопоставляет новые записи (name, group, sig) со старой прозой: сначала точное имя,
+    остаток — по похожести (переименование). Возвращает (resolved, renamed_from):
+    resolved[name] = строки прозы (с маркером при расхождении) или None (директива);
+    renamed_from = имена старых записей, забранные fuzzy-паройой (не в Salvage)."""
+    old_entries = op.get("entries", {})
+    resolved = {}
+    used_old = set()
+
+    for name, _group, sig in new_syms:
+        old = old_entries.get(name)
+        if old is None:
+            resolved[name] = None
+            continue
+        used_old.add(name)
+        desc = old["desc"]
+        if desc and old.get("sig") != sig:
+            desc = [_MARK_SIG_CHANGED + desc[0]] + desc[1:]
+        resolved[name] = desc if desc else None
+
+    leftover_new = [(name, group) for name, group, _sig in new_syms if resolved.get(name) is None]
+    leftover_old = [nm for nm in old_entries if nm not in used_old and old_entries[nm]["desc"]]
+    renamed_from = set()
+
+    for name, group in leftover_new:
+        best, best_score = None, 0.0
+        for onm in leftover_old:
+            if onm in renamed_from or old_entries[onm]["group"] != group:
+                continue
+            score = _similarity(name, onm)
+            if score > best_score:
+                best, best_score = onm, score
+        if best is not None and best_score >= _SIM_THRESHOLD:
+            desc = old_entries[best]["desc"]
+            resolved[name] = [_mark_renamed(best) + desc[0]] + desc[1:]
+            renamed_from.add(best)
+            report["renamed"].append(f"{best} -> {name}")
+
+    return resolved, renamed_from
+
+
+def _parse_entries(body, P, lang=None):
+    """H4-записи Public API -> P['entries'][name] = {'desc','block','sig','group'}."""
+    entries, cur, group = [], None, None
     for ln in body:
         s = ln.strip()
         if s.startswith("### "):
+            group = s[4:].strip()
             cur = None
         elif s.startswith("#### "):
-            cur = [_entry_key(ln), [ln]]
+            cur = {"name": _entry_key(ln, lang), "sig": _h4_raw_text(ln), "group": group, "block": [ln]}
             entries.append(cur)
         elif cur is not None:
-            cur[1].append(ln)
-    for name, block in entries:
+            cur["block"].append(ln)
+    for cur in entries:
+        block = cur["block"]
         desc = [ln for ln in block[1:]
                 if ln.strip() and not _is_ph(ln)
                 and not ln.strip().startswith("consumers ")
                 and not ln.lstrip().startswith("- ")]  # `- ` = метод (факт), не проза
-        if name:
-            P["entries"][name] = {"desc": desc, "block": block}
+        if cur["name"]:
+            P["entries"][cur["name"]] = {"desc": desc, "block": block, "sig": cur["sig"], "group": cur["group"]}
 
 
 def _cells_raw(row):
@@ -324,7 +448,7 @@ def _parse_why(body, P):
             P["why"][imp] = why
 
 
-def _parse_old_prose(text):
+def _parse_old_prose(text, lang=None):
     """Проза человека из существующей карточки, по ключу-имени. -> dict слотов."""
     lines = text.splitlines()
     P = {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {}}
@@ -352,7 +476,7 @@ def _parse_old_prose(text):
     for raw, body in secs:
         name = cf.canon(raw)
         if name == "Public API":
-            _parse_entries(body, P)
+            _parse_entries(body, P, lang)
         elif name == "Dependencies Internal":
             _parse_why(body, P)
         elif name == "Dependencies External":
@@ -387,23 +511,54 @@ def build_card(project_root, file, old_prose=None, report=None):
     declared = _declared(project_root, file, lang)
     target_abs = file if os.path.isabs(file) else os.path.join(project_root, file)
 
-    placed = set()
-    emitted = set()   # все имена записей, вписанных в НОВУЮ карточку (для Salvage)
     op = old_prose or {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {}}
     if report is None:
         report = {}
-    for k in ("preserved_entries", "new_entries", "salvaged", "kept_sections"):
+    for k in ("preserved_entries", "new_entries", "salvaged", "renamed"):
         report.setdefault(k, [])
+    report.setdefault("kept_sections", [])
     report.setdefault("merged", old_prose is not None)
+
+    # ---- Public API: собрать ВСЕ новые записи (имя/группа/сигнатура) ДО рендера строк —
+    # identity-resolution (точное имя -> fuzzy на переименование, REQ-004+005 design) должна
+    # видеть картину целиком, а не решать по одной записи за раз в порядке вывода. -----------
+    by_h3 = defaultdict(list)
+    for e in declared["exports"]:
+        by_h3[_KIND_H3.get(e["kind"], "Objects")].append(e)
+
+    new_syms = [(e["name"], h3, e["signature"])
+                for h3 in _H3_ORDER + ["Objects"] for e in by_h3.get(h3, [])]
+    placed = {name for name, _, _ in new_syms}
+
+    reexport_sigs = {}
+    if is_pkg:
+        for r in declared["reexports"]:
+            sig = None
+            if lang == "python" and "module" in r:
+                sig = _resolve_sibling_signature(target_abs, r["module"], r["level"], r["name"])
+            reexport_sigs[r["name"]] = sig if sig else r["name"]
+            new_syms.append((r["name"], "Re-exports", reexport_sigs[r["name"]]))
+            placed.add(r["name"])
+
+    # Consumed internals: symbols DEFINED here that other files really import but that are
+    # not part of the declared/exported surface — the leaked interface. Intersecting with
+    # "defined here" drops reverse-index false-positives.
+    defined_here = set(declared["all_defs"])
+    leftover = sorted(s for s in consumers if s not in placed and s in defined_here)
+    leftover_sigs = {sym: (declared["all_defs"].get(sym) or sym) for sym in leftover}
+    new_syms += [(sym, cf.CONSUMED_SUBSECTION, leftover_sigs[sym]) for sym in leftover]
+
+    resolved_desc, renamed_from = _resolve_entry_identities(new_syms, op, report)
+    emitted = set()   # все имена записей, вписанных в НОВУЮ карточку (для Salvage)
 
     lines = [f"# {fname}", ""]
 
     def emit_desc(name):
-        """Однострочник записи: старая проза по имени, иначе директива (+учёт для отчёта)."""
+        """Однострочник записи: старая проза по имени/похожести, иначе директива (+отчёт)."""
         emitted.add(name)
-        ent = op["entries"].get(name)
-        if ent and ent["desc"]:
-            lines.extend(ent["desc"])
+        desc = resolved_desc.get(name)
+        if desc:
+            lines.extend(desc)
             report["preserved_entries"].append(name)
         else:
             lines.append(DIRECTIVE_DESC)
@@ -450,10 +605,6 @@ def build_card(project_root, file, old_prose=None, report=None):
     lines.append("## Public API")
     lines.append("")
 
-    # exported declarations, grouped by kind -> H3
-    by_h3 = defaultdict(list)
-    for e in declared["exports"]:
-        by_h3[_KIND_H3.get(e["kind"], "Objects")].append(e)
     for h3 in _H3_ORDER + ["Objects"]:
         group = by_h3.get(h3)
         if not group:
@@ -465,32 +616,21 @@ def build_card(project_root, file, old_prose=None, report=None):
             emit_desc(e["name"])
             for m in e.get("methods", []):
                 lines.append(f"    - `{m['signature']}`")
-            placed.add(e["name"])
         lines.append("")
 
     # Re-exports (facade only): names surfaced onward from sibling modules.
     if is_pkg and declared["reexports"]:
         lines.append("### Re-exports")
         for r in declared["reexports"]:
-            sig = None
-            if lang == "python" and "module" in r:
-                sig = _resolve_sibling_signature(target_abs, r["module"], r["level"], r["name"])
-            lines.append(f"#### `{sig if sig else r['name']}`  ← {r['source']}")
+            lines.append(f"#### `{reexport_sigs.get(r['name'], r['name'])}`  ← {r['source']}")
             lines.append(_consumers_fact(r["name"], consumers))
             emit_desc(r["name"])
-            placed.add(r["name"])
         lines.append("")
 
-    # Consumed internals: symbols DEFINED here that other files really import but that are
-    # not part of the declared/exported surface — the leaked interface. Intersecting with
-    # "defined here" drops reverse-index false-positives.
-    defined_here = set(declared["all_defs"])
-    leftover = sorted(s for s in consumers if s not in placed and s in defined_here)
     if leftover:
         lines.append(f"### {cf.CONSUMED_SUBSECTION}")
         for sym in leftover:
-            sig = declared["all_defs"].get(sym)
-            lines.append(f"#### `{sig if sig else sym}`")
+            lines.append(f"#### `{leftover_sigs[sym]}`")
             lines.append(_consumers_fact(sym, consumers))
             emit_desc(sym)
         lines.append("")
@@ -539,7 +679,8 @@ def build_card(project_root, file, old_prose=None, report=None):
 
     # ---- Salvage: проза записей, которых в коде больше нет (не теряем молча) ----
     old_salv = op["sections"].get("Salvage", [])
-    orphans = [nm for nm, e in op["entries"].items() if nm not in emitted and e["desc"]]
+    orphans = [nm for nm, e in op["entries"].items()
+               if nm not in emitted and nm not in renamed_from and e["desc"]]
     if old_salv or orphans:
         lines.append("")
         lines.append(f"## {_SALVAGE_H2}")
@@ -561,16 +702,22 @@ def _card_path(project_root_abs, file_rel):
     return os.path.join(project_root_abs, "__map", file_rel + ".md")
 
 
-def _stamp_to_file(project_root_abs, file_rel, out_path, force):
+def _stamp_to_file(project_root_abs, file_rel, out_path, force, discard_prose=False):
     """Штемпелит один файл В out_path. На существующей карточке — MERGE (если не --force).
-    Возвращает (status, report): status ∈ {'new','merged','forced'}."""
+    `--force` на карточке с непустой прозой без `discard_prose` НЕ пишет — возвращает 'blocked'
+    (REQ-004: force — дешёвый флаг из мышечной памяти, а стирает дорогую человеческую прозу).
+    Возвращает (status, report): status ∈ {'new','merged','forced','blocked'}."""
     old_prose = None
     existed = os.path.exists(out_path)
-    if existed and not force:
+    if existed:
         try:
-            old_prose = _parse_old_prose(open(out_path, encoding="utf-8").read())
+            old_prose = _parse_old_prose(open(out_path, encoding="utf-8").read(), _lang(file_rel))
         except OSError:
             old_prose = None
+    if force and old_prose and not discard_prose and _prose_blocks(old_prose):
+        return "blocked", {"prose_blocks": _prose_blocks(old_prose)}
+    if force:
+        old_prose = None  # настоящий force: не мерджим, даже если распарсили выше для guard'а
     report = {}
     card = build_card(project_root_abs, file_rel, old_prose, report)
     out_dir = os.path.dirname(os.path.abspath(out_path))
@@ -582,17 +729,28 @@ def _stamp_to_file(project_root_abs, file_rel, out_path, force):
 
 
 def _print_merge_delta(out, report):
-    """stderr-дельта merge: что сохранено / что дописать / что разобрать."""
+    """stderr-дельта merge: что сохранено / что переименовано / что дописать / что разобрать."""
     ne, sv, pe, ks = (report["new_entries"], report["salvaged"],
                       report["preserved_entries"], report["kept_sections"])
+    rn = report.get("renamed", [])
     sys.stderr.write(f"[make_interface_card] merged {out}\n")
     sys.stderr.write(f"  prose kept: {len(pe)} entries" + (f" + {', '.join(ks)}" if ks else "") + "\n")
+    if rn:
+        sys.stderr.write(f"  RENAMED — matched by similarity, verify: {', '.join(rn)}\n")
     if ne:
         sys.stderr.write(f"  NEW — fill prose: {', '.join(ne)}\n")
     if sv:
         sys.stderr.write(f"  SALVAGED — removed from code, moved to '## Salvage': {', '.join(sv)}\n")
-    if not ne and not sv:
+    if not ne and not sv and not rn:
         sys.stderr.write("  facts refreshed; no new or removed entries\n")
+
+
+def _prose_blocks(op):
+    """Сколько прозных блоков реально заполнено (не пусто, не директива) — считает guard --force."""
+    n = sum(1 for e in op.get("entries", {}).values() if e["desc"])
+    if op.get("summary"):
+        n += 1
+    return n + len(op.get("why", {})) + len(op.get("sections", {}))
 
 
 def _config_lang_testdirs():
@@ -647,7 +805,7 @@ def _lang_extensions(lang):
     return exts or set(_LANG)
 
 
-def _stamp_all(project_root_abs, force, language=None):
+def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
     """BULK: штемпелит ВСЕ исходники под project-root в __map/.
 
     Языки: `language` (CLI) если задан, иначе CONFIG__TOOLS.LANGUAGE — и то и
@@ -667,19 +825,24 @@ def _stamp_all(project_root_abs, force, language=None):
     if not files:
         sys.stderr.write(f"[make_interface_card] --all: no {sorted(exts)} files under {project_root_abs}\n")
         return 0
-    counts = {"new": 0, "merged": 0, "forced": 0, "error": 0}
+    counts = {"new": 0, "merged": 0, "forced": 0, "blocked": 0, "error": 0}
     for abs_path in files:
         rel = rel_path(abs_path, project_root_abs)
         try:
-            status, _ = _stamp_to_file(project_root_abs, rel, _card_path(project_root_abs, rel), force)
+            status, rep = _stamp_to_file(project_root_abs, rel, _card_path(project_root_abs, rel),
+                                          force, discard_prose)
             counts[status] += 1
+            if status == "blocked":
+                sys.stderr.write(f"  BLOCKED {rel}: has prose ({rep['prose_blocks']} blocks); "
+                                  f"add --discard-prose to confirm --force here\n")
         except Exception as e:  # один битый файл не должен валить весь проход
             counts["error"] += 1
             sys.stderr.write(f"  ERROR {rel}: {e}\n")
     sys.stderr.write(
         f"[make_interface_card] --all: {len(files)} files -> {counts['new']} new, "
-        f"{counts['merged']} merged, {counts['forced']} forced, {counts['error']} errors\n")
-    return 1 if counts["error"] else 0
+        f"{counts['merged']} merged, {counts['forced']} forced, {counts['blocked']} blocked, "
+        f"{counts['error']} errors\n")
+    return 1 if (counts["error"] or counts["blocked"]) else 0
 
 
 def main():
@@ -695,7 +858,11 @@ def main():
                     help="write the card to this file (default: print to stdout)")
     ap.add_argument("--force", action="store_true",
                     help="discard the existing card and write a FRESH stamp "
-                         "(default on an existing card is MERGE — refresh facts, keep prose)")
+                         "(default on an existing card is MERGE — refresh facts, keep prose). "
+                         "On a card that already has prose, also requires --discard-prose.")
+    ap.add_argument("--discard-prose", action="store_true",
+                    help="confirms --force on a card that already has filled-in prose "
+                         "(without it, --force on such a card is REFUSED, exit 2 — see REQ-004)")
     ap.add_argument("--all", action="store_true",
                     help="BULK maintainer pre-stamp: stamp EVERY source file under --project-root "
                          "(by --language, else CONFIG__TOOLS.LANGUAGE) each to __map/<path>.md. Skips "
@@ -713,7 +880,7 @@ def main():
     project_root_abs = os.path.abspath(args.project_root)
 
     if args.all:
-        return _stamp_all(project_root_abs, args.force, args.language)
+        return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose)
 
     if not args.file:
         ap.error("either a <file> argument or --all is required")
@@ -724,8 +891,15 @@ def main():
         print(build_card(project_root_abs, args.file, None, {}))
         return 0
 
-    status, report = _stamp_to_file(project_root_abs, args.file, out, args.force)
-    if status == "merged":
+    status, report = _stamp_to_file(project_root_abs, args.file, out, args.force, args.discard_prose)
+    if status == "blocked":
+        n = report["prose_blocks"]
+        sys.stderr.write(
+            f"[make_interface_card] REFUSED: {out} has prose ({n} filled blocks); "
+            f"--force would discard it silently. Merge is the default — drop --force. "
+            f"To reset anyway: --force --discard-prose\n")
+        return 2
+    elif status == "merged":
         _print_merge_delta(out, report)
     elif status == "forced":
         sys.stderr.write(f"[make_interface_card] wrote {out} (--force: fresh stamp, prior prose discarded)\n")

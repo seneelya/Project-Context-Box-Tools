@@ -11,6 +11,7 @@ Exit 0 = всё ок, 1 = есть провал.
 """
 
 import os
+import re
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -46,12 +47,20 @@ def check(name, cond):
         sys.stdout.write(f"\nFAIL: {name}\n")
 
 
+def _directive_re(directive):
+    """build_card прогоняет вывод через cf.number_directives — «<|Agent: xxx |>» становится
+    «<|Agent:07 xxx |>». Точное совпадение с сырой DIRECTIVE_* строкой поэтому никогда не находится
+    (само число между ':' и текстом — единственная разница), матчим с учётом опционального номера."""
+    prefix, _, rest = directive.partition(":")
+    return re.compile(re.escape(prefix + ":") + r"\d*\s*" + re.escape(rest.lstrip()))
+
+
 def _fill(text):
     """Впечатать «человеческую» прозу в свежий штемпель (как это делает агент)."""
-    text = text.replace(mic.DIRECTIVE_SUMMARY, "SUMMARY_MARK")
-    text = text.replace(mic.DIRECTIVE_DESC, "DESC_MARK", 1)
-    text = text.replace(mic.DIRECTIVE_WHY, "WHY_MARK", 1)
-    text = text.replace(mic.DIRECTIVE_HOWITWORKS, "HOWITWORKS_MARK")
+    text = _directive_re(mic.DIRECTIVE_SUMMARY).sub("SUMMARY_MARK", text)
+    text = _directive_re(mic.DIRECTIVE_DESC).sub("DESC_MARK", text, count=1)
+    text = _directive_re(mic.DIRECTIVE_WHY).sub("WHY_MARK", text, count=1)
+    text = _directive_re(mic.DIRECTIVE_HOWITWORKS).sub("HOWITWORKS_MARK", text)
     return text
 
 
@@ -117,8 +126,139 @@ def test_merge_salvage():
 
 def test_fresh_has_no_salvage_and_placeholders():
     fresh = mic.build_card(_PR, _FILE)
-    check("fresh has summary placeholder", mic.DIRECTIVE_SUMMARY in fresh)
+    check("fresh has summary placeholder", _directive_re(mic.DIRECTIVE_SUMMARY).search(fresh) is not None)
     check("fresh has no salvage", "## Salvage" not in fresh)
+
+
+# --- REQ-004+005: устойчивая идентичность записи (не угадывание по первому слову) ------
+# Найденный баг: имя записи вычислялось разрезанием ТЕКСТА сигнатуры («первое слово»).
+# Работает только для голого Python (`foo(x)`) — у JS/TS/C#/async-Python сигнатура НАЧИНАЕТСЯ
+# со служебного слова языка («function», «async», «public static void», …), и «первое слово» —
+# это обёртка, не имя. Хуже: у ВСЕХ функций файла обёртка одинаковая («function»), поэтому при
+# разборе старой карточки все записи схлопывались в ОДИН ключ — выживала проза только последней.
+
+def test_entry_key_survives_language_decorators():
+    """Имя ищем по ПОЗИЦИИ (перед `(`/`=`, иначе после известных слов языка), не угадыванием."""
+    check("js function", mic._entry_key("#### `function isOurTool(name)`", "typescript") == "isOurTool")
+    check("js async function", mic._entry_key("#### `async function loadIt(x)`", "typescript") == "loadIt")
+    check("js const", mic._entry_key("#### `const OUR_TOOLS = ['a', 'b']`", "typescript") == "OUR_TOOLS")
+    check("js class", mic._entry_key("#### `class Widget`", "typescript") == "Widget")
+    check("python async def", mic._entry_key("#### `async load_it(x)`", "python") == "load_it")
+    check("csharp modifiers+type", mic._entry_key("#### `public static void Foo(x)`", "csharp") == "Foo")
+    check("csharp async modifiers", mic._entry_key("#### `public async Task Bar(x)`", "csharp") == "Bar")
+
+
+_TS_PR = os.path.join(_HERE, "tsSRC")
+_TS_FILE = "src/analyzer.ts"
+_CS_PR = os.path.join(_HERE, "unitySRC")
+_CS_FILE = "Services/Analytics/AnalyticsEvents.cs"
+
+
+def _fill_all_descs(text):
+    """Как _fill, но заполняет КАЖДОЕ описание записи уникальным текстом (не только первое) —
+    нужно, чтобы после merge проверить, что переживает каждая запись, а не только одна."""
+    counter = [0]
+
+    def repl(_m):
+        counter[0] += 1
+        return f"DESC_{counter[0]}."
+
+    return _directive_re(mic.DIRECTIVE_DESC).sub(repl, text)
+
+
+def test_merge_ts_multi_const_no_collision():
+    """analyzer.ts: несколько `export const foo = (...) => …` — сигнатура каждой НАЧИНАЕТСЯ
+    с одного и того же слова 'const'. До фикса все такие записи схлопывались в ключ 'const'
+    при разборе старой карточки, и merge на реальном re-stamp терял прозу у всех, кроме одной."""
+    fresh = mic.build_card(_TS_PR, _TS_FILE)
+    filled = _fill_all_descs(fresh)
+    op = mic._parse_old_prose(filled, "typescript")
+    const_like = [n for n, e in op["entries"].items() if e["group"] == "Constants" and e["desc"]]
+    check("multiple const-like keys parsed distinctly (no collision)", len(const_like) >= 3)
+    report = {}
+    mic.build_card(_TS_PR, _TS_FILE, op, report)
+    check("no new entries on unchanged re-stamp", report["new_entries"] == [])
+    check("every const-like entry survived merge", all(n in report["preserved_entries"] for n in const_like))
+
+
+def test_merge_csharp_multi_class_no_collision():
+    """AnalyticsEvents.cs: два top-level класса, ОБА начинаются с 'public static class' —
+    тот же класс бага, что и у JS 'function', только на C#-модификаторах."""
+    fresh = mic.build_card(_CS_PR, _CS_FILE)
+    filled = _fill_all_descs(fresh)
+    op = mic._parse_old_prose(filled, "csharp")
+    check("AnalyticsEvents key correct", "AnalyticsEvents" in op["entries"])
+    check("AnalyticsParams key correct (not collapsed with sibling)", "AnalyticsParams" in op["entries"])
+    report = {}
+    mic.build_card(_CS_PR, _CS_FILE, op, report)
+    check("both csharp classes survived merge",
+          "AnalyticsEvents" in report["preserved_entries"]
+          and "AnalyticsParams" in report["preserved_entries"])
+
+
+def test_merge_marker_on_signature_change_and_rename():
+    """Имя то же, сигнатура другая -> проза с маркером-предупреждением (не потеряна, но
+    отмечена «не проверено»). Имени вообще нет, но есть похожее -> перенос с др. маркером."""
+    card = (
+        "# plugin.js\n\nSummary.\n\n## Public API\n\n### Functions\n"
+        "#### `function isOurTool(name)`\nconsumers 0\nA.\n"
+        "\n### Constants\n#### `const OUR_TOOLS = ['a']`\nconsumers 0\nB.\n"
+        "\n## Dependencies Internal\n\n(none)\n\n## Dependencies External\n\n(none)\n\n"
+        "## How it works\n\nH.\n\n## Doc links\n\n(none)\n\n## Discrepancies\n\n(none)\n"
+    )
+    op = mic._parse_old_prose(card, "typescript")
+
+    new_syms_sig_changed = [("isOurTool", "Functions", "async function isOurTool(name)")]
+    report = {"new_entries": [], "preserved_entries": [], "salvaged": [], "renamed": []}
+    resolved, renamed_from = mic._resolve_entry_identities(new_syms_sig_changed, op, report)
+    check("sig-changed keeps prose", resolved["isOurTool"][0].endswith("A."))
+    check("sig-changed gets warn marker", resolved["isOurTool"][0].startswith(mic._MARK_SIG_CHANGED))
+
+    new_syms_renamed = [("ALLOWED_TOOLS", "Constants", "const ALLOWED_TOOLS = ['a']")]
+    report2 = {"new_entries": [], "preserved_entries": [], "salvaged": [], "renamed": []}
+    resolved2, renamed_from2 = mic._resolve_entry_identities(new_syms_renamed, op, report2)
+    check("renamed keeps prose", resolved2["ALLOWED_TOOLS"][0].endswith("B."))
+    check("renamed gets a different marker than sig-change",
+          resolved2["ALLOWED_TOOLS"][0].startswith("⚠ похоже на переименование")
+          and "OUR_TOOLS" in resolved2["ALLOWED_TOOLS"][0])
+    check("renamed old name reported", "OUR_TOOLS -> ALLOWED_TOOLS" in report2["renamed"])
+    check("renamed old entry excluded from Salvage", "OUR_TOOLS" in renamed_from2)
+
+    # стопка маркеров: снова не совпадает -> ещё одна копия спереди, без счётчика
+    op_marked = {"entries": {"isOurTool": {
+        "desc": resolved["isOurTool"], "sig": "async function isOurTool(name)", "group": "Functions"}}}
+    new_syms_sig_changed_again = [("isOurTool", "Functions", "async function isOurTool(name, strict)")]
+    resolved3, _ = mic._resolve_entry_identities(
+        new_syms_sig_changed_again, op_marked, {"new_entries": [], "preserved_entries": [], "salvaged": [], "renamed": []})
+    check("marker stacks on repeated drift, no counter needed",
+          resolved3["isOurTool"][0].count(mic._MARK_SIG_CHANGED) == 2)
+    check("stable case does not re-add marker",
+          mic._resolve_entry_identities(
+              [("isOurTool", "Functions", "async function isOurTool(name)")], op_marked,
+              {"new_entries": [], "preserved_entries": [], "salvaged": [], "renamed": []}
+          )[0]["isOurTool"][0].count(mic._MARK_SIG_CHANGED) == 1)
+
+
+def test_force_guard_refuses_on_prose_then_discard_prose_works():
+    """REQ-004: --force на карточке с прозой отказывает (exit-статус 'blocked'), не пишет
+    ничего; --force + --discard-prose работает как раньше (фича, не регресс)."""
+    root = Path(tempfile.mkdtemp(prefix="forceguard_"))
+    (root / "m.py").write_text('"""Mod."""\ndef foo(x):\n    return x\n', encoding="utf-8")
+    out = root / "__map" / "m.py.md"
+    status, _ = mic._stamp_to_file(str(root), "m.py", str(out), force=False)
+    check("first stamp is new", status == "new")
+    filled = _directive_re(mic.DIRECTIVE_DESC).sub("REAL PROSE.", out.read_text(encoding="utf-8"), count=1)
+    out.write_text(filled, encoding="utf-8")
+
+    before = out.read_text(encoding="utf-8")
+    status, report = mic._stamp_to_file(str(root), "m.py", str(out), force=True)
+    check("force without discard-prose is blocked", status == "blocked")
+    check("blocked reports prose block count", report.get("prose_blocks", 0) >= 1)
+    check("blocked write does not touch the file", out.read_text(encoding="utf-8") == before)
+
+    status, _ = mic._stamp_to_file(str(root), "m.py", str(out), force=True, discard_prose=True)
+    check("force + discard-prose proceeds", status == "forced")
+    check("prose actually discarded", "REAL PROSE." not in out.read_text(encoding="utf-8"))
 
 
 # --- validate_cards: File Path на исходник-без-карточки = pending, не ошибка ------
@@ -255,7 +395,8 @@ def test_stamp_all_recursive():
           made == ["pkg/__init__.py.md", "pkg/a.py.md", "pkg/b.py.md", "pkg/sub/deep.py.md"])
     # проза сохраняется, а __map сам себя не штемпелит (EXCLUDED_DIRS)
     card = root / "__map" / "pkg" / "a.py.md"
-    card.write_text(card.read_text(encoding="utf-8").replace(mic.DIRECTIVE_SUMMARY, "KEPT"), encoding="utf-8")
+    card.write_text(_directive_re(mic.DIRECTIVE_SUMMARY).sub("KEPT", card.read_text(encoding="utf-8"), count=1),
+                     encoding="utf-8")
     check("stamp_all rerun exit 0", mic._stamp_all(str(root), force=False) == 0)
     check("stamp_all rerun keeps prose", "KEPT" in card.read_text(encoding="utf-8"))
     check("stamp_all does not card the __map dir",
@@ -417,6 +558,11 @@ def main():
     test_merge_signature_refresh()
     test_merge_salvage()
     test_fresh_has_no_salvage_and_placeholders()
+    test_entry_key_survives_language_decorators()
+    test_merge_ts_multi_const_no_collision()
+    test_merge_csharp_multi_class_no_collision()
+    test_merge_marker_on_signature_change_and_rename()
+    test_force_guard_refuses_on_prose_then_discard_prose_works()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
 

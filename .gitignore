@@ -8,3 +8,7 @@ test/secret/
 
 # Scratch output from sweep_invariants.py --write-level (eyeball review copies).
 test/LEVELMAP_*.txt
+
+# Scratch output from run_restamp_fixtures.py — the re-stamped copies, for eyeballing.
+# The pristine `before` fixtures next to them ARE committed.
+test/restamp_fixtures/*/.actual/
