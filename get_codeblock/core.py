@@ -206,11 +206,13 @@ def parse_args():
 
     # No arguments or missing required ones: show usage hint
     if not file_path and line_list is None:
+        _y = "\033[93m" if sys.stdout.isatty() else ""
+        _r = "\033[0m" if sys.stdout.isatty() else ""
         print("Search or query an exact code block from a given line, at a given depth (--level).")
-        print("Usage:")
+        print(f"{_y}Usage:")
         print("  get_codeblock.py --file PATH                          (defaults to --outline)")
         print("  get_codeblock.py --file PATH [--level MAXDEPTH] --outline")
-        print("  get_codeblock.py --file PATH --line N[,N,...] [--level LEVEL] [--query]")
+        print(f"  get_codeblock.py --file PATH --line N[,N,...] [--level LEVEL] [--query]{_r}")
         print("Run with --help for full options, including --level addressing.")
         print("")
         if default_root:
