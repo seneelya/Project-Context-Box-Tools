@@ -136,13 +136,14 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Validate --file if provided (required for --incoming mode). Always cwd-relative — abspath()
-    # resolves an absolute path as-is and a relative one against cwd, never against project_root
-    # (REQ-002-A: joining a relative --file to a DIFFERENT project_root could silently match some
-    # other existing file outside the tree the caller actually meant).
+    # Validate --file if provided (required for --incoming mode). Joins against project_root,
+    # which is exactly cwd when --project-root wasn't given (generic-tool rule) — so this is
+    # cwd-relative in the common case (REQ-002-A: no more silent fallback to a config-supplied,
+    # possibly unrelated root) and root-relative when the caller explicitly asked for that root.
     target_path_abs = ""
     if args.file:
-        target_path_abs = os.path.abspath(args.file)
+        file_arg = args.file if os.path.isabs(args.file) else os.path.join(project_root, args.file)
+        target_path_abs = os.path.abspath(file_arg)
         if not os.path.isfile(target_path_abs):
             print(f"Error: --file does not exist or is not a file: {target_path_abs}", file=sys.stderr)
             sys.exit(1)

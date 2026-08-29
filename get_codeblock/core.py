@@ -50,7 +50,13 @@ def parse_args():
     numbered = False  # flag: prefix --query code lines with absolute line numbers
     dot = False  # flag: reader .0 universal map (IR: landmarks + filler-полосы + frames)
     depth = 0    # for --dot: how many landmark levels to expand
-    project_root = default_root
+    # Generic-tool rule (Vision01__path-and-flag-conventions.md): --project-root omitted -> no
+    # root at all (relative --file falls through to plain cwd-relative open() below); config is
+    # read ONLY on an explicit "@" (handled at the --project-root token itself). Previously this
+    # silently defaulted to CONFIG__TOOLS.PROJECT_ROOT, which — softened only by an existence
+    # check, not eliminated — could let a coincidentally-existing file under that root silently
+    # outrank the file the caller actually meant relative to where they stood (REQ-002-A class).
+    project_root = None
 
     i = 0
     while i < len(tokens):
@@ -134,7 +140,9 @@ def parse_args():
             print("  get_codeblock.py --file PATH --line N[,N,...] [--ancestor-level N | --level N] [--query]")
             print("")
             print("Arguments:")
-            print("  --project-root PATH Root for relative paths (CLI overrides config)")
+            print("  --project-root PATH Base to try first for a relative --file, before falling back to")
+            print("                      cwd. Not given -> pure cwd, config is never read implicitly.")
+            print("                      '@' -> explicitly CONFIG__TOOLS.PROJECT_ROOT.")
             print("  --file PATH         Path to file (absolute or relative). Code + Markdown (.md).")
             print("  --line N[,N,...]    Target line number(s), 1-based. One file parse resolves them")
             print("                      all. >1 line switches to batch mode: bare = survey (one merged")
@@ -169,7 +177,7 @@ def parse_args():
             print("  Output 'Block level: K' is the block's real depth (1 = file top, deeper = higher).")
             print("")
             if default_root:
-                print(f'Current PROJECT_ROOT="{default_root}"')
+                print(f'CONFIG__TOOLS.PROJECT_ROOT="{default_root}" (use --project-root @ to apply it)')
             sys.exit(0)
         else:
             # A silently-skipped stray token used to hide a real bug: PowerShell
@@ -206,7 +214,7 @@ def parse_args():
         print("Run with --help for full options, including --level addressing.")
         print("")
         if default_root:
-            print(f"PROJECT_ROOT={default_root}")
+            print(f"CONFIG__TOOLS.PROJECT_ROOT={default_root} (use --project-root @ to apply it)")
         sys.exit(0)
 
     # --outline / --dot need only --file; every other mode needs --file and --line

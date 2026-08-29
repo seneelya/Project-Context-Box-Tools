@@ -1,30 +1,39 @@
 # replace_in_files
 
 Batch find-and-replace across files matching a glob mask — the migration/maintenance hand.
-`<mask>` = which files (e.g. `*.py`); the replace is the action.
+`<mask>` = which files (e.g. `*.py`); the replace is the action. Universal utility — no notion
+of "the project", works on any folder you point it at.
+
+**Target:** `replace_in_files.py PATH MASK --find "F" --with "W" [--match EXPR] (--dry-run or --apply)`
+— `PATH`/`MASK` also as `--path`/`--mask` flags, same thing (don't mix the two forms for the same run).
 
 ## Quick use  (copy, tweak, run — no need to read further)
 ```
-# preview first — count replacements, write NOTHING:
-replace_in_files.py <folder> "*.md" -R -n -r "OLD" "NEW"
-# then apply (drop -n):
-replace_in_files.py <folder> "*.md" -R -r "OLD" "NEW"
-# several file types = one run per mask:
-replace_in_files.py . "*.py" -R -r "OLD" "NEW"
+# preview first — default is dry-run, writes NOTHING:
+replace_in_files.py <folder> "*.md" --find "OLD" --with "NEW"
+# then apply:
+replace_in_files.py <folder> "*.md" --find "OLD" --with "NEW" --apply
+# recurse into subfolders:
+replace_in_files.py . "*.py" --recurse --find "OLD" --with "NEW" --apply
 # guarded — replace only on lines where a Python expr is true (spare the prose):
-replace_in_files.py __map "*.md" -R -m 'line.strip()=="## X"' "X" "Y"
+replace_in_files.py __map "*.md" --find "old heading" --with "new heading" --match 'line.startswith("## ")' --apply
+# --path/--mask flag form (identical to the positional form above):
+replace_in_files.py --path . --mask "*.py" --find "OLD" --with "NEW" --apply
+# @ = CONFIG__TOOLS.PROJECT_ROOT, only when written explicitly (never implicit):
+replace_in_files.py --path @ --mask "*.md" --find "OLD" --with "NEW" --dry-run
 ```
-
-**Target:** `replace_in_files.py <folder> <mask> [-r FIND WITH | -m EXPR FIND WITH] [-R] [-n]`
 
 ## Rules
 
-* **`-n` / `--dry-run`** — write nothing; per file print the replacement count + the **line numbers**
-  where it fired (`[lines: 9, 17]`) + a total. The line list shows how a `-m` guard actually landed
-  (verify it hit headings, not prose) before you apply.
-* **`-r FIND WITH`** — plain substring replace.
-* **`-m EXPR FIND WITH`** — replace only on lines where the Python **`EXPR`** is true (env: `line`,
-  `re`) — a guard against touching prose. Safe eval: string/number/type builtins only.
-* Multiple `-r`/`-m` allowed; applied **in command-line order**.
-* **`-R`** — recurse into subfolders.
-* In `FIND`/`WITH`, escapes `\n \t \r \\` are decoded (the `-m` expression is left raw). Line endings preserved.
+* **Default is DRY-RUN** — nothing is written unless you pass `--apply` explicitly.
+* **`--find X --with Y`** — exactly one replacement rule per invocation (not a list of pairs).
+* **`--match EXPR`** — guarded replace: only on lines where the Python expression `EXPR` is true
+  (`line`, `re` module, basic builtins available) — a guard against touching prose, not just headings.
+* **`--recurse`** — recurse into subfolders (bare run is top-level only).
+* **`--verbose`** — shows the changed lines with their line numbers, not just a count.
+* Masks `*`/`*.*` are refused for `--apply` (too broad) — forced to dry-run regardless.
+* Dangerous system paths (`/etc/`, `C:\Windows`, …) and binary extensions are refused outright.
+* Escapes `\n \t \r \\` in `--find`/`--with` are decoded (insert real newlines/tabs); `--match` is
+  left as raw Python, not escape-decoded.
+
+Full flag contract (exact list, edge cases) — `replace_in_files.py --help`.
