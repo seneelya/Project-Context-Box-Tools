@@ -18,7 +18,7 @@ Format: `- <decision> — <one-line why>`
 - Paths in tool output are always `/` (POSIX), regardless of OS — stable, greppable output.
 - All CLI tools force UTF-8 stdout — cards/commits are often Cyrillic; a cp1251 Windows console would crash otherwise.
 - `get_codeblock` levels: `level = 1 + enclosing block bodies`, file root = 1; **`0` is never a real depth** — it is reserved for `--level` addressing (the code line itself). Full ideology in `Vision01__get_codeblock.md`.
-- Card tools default their cards dir to `./__map` (CWD-relative) — a hand finds the map in whatever project it is run in, independent of where the script lives.
+- Card tools' `--project-root` (and so their `__map` dir) resolves per `Vision01__path-and-flag-conventions.md`: not given → implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked against a stale/foreign config; `@`/literal → explicit, unchecked. NOT plain cwd (superseded 2026-08-30 — cwd has no meaning for `__map/`, that was the original bug). Generic fact-fetchers (`find_code_usage`/`get_codeblock`/`show_pyfile_api`) DO default to cwd — the two categories resolve differently on purpose.
 
 ## Card stamp (make_interface_card)
 
@@ -30,3 +30,9 @@ Format: `- <decision> — <one-line why>`
 ## Tests
 
 - Golden oracle = **human hand-count** (independent of the code's author); lock/verify at semantic-change moments. Run `py test/check.py` green through every change; a FAIL names the exact file/line/case.
+
+## Merge identity (make_interface_card) — 2026-08-29/30
+
+- Entry-name matching for merge is by POSITION in the signature (before `(`/`=`, else after known per-language keywords), never by guessing the "first word" of the signature text — that broke on any JS/TS/C#/async-Python file (see `__dev/Requests/DONE__REQ-004+005_merge-identity-design.md`).
+- `--force` on a card that already has prose REFUSES without `--discard-prose` (exit 2) — force is a muscle-memory flag, prose is expensive; the two must not collide silently.
+- No shared resolver module across the 9 CLI tools (deliberate — see path/flag conventions below); a shared helper WITHIN the closely-coupled card family (`graph_from_cards.resolve_project_root`, reused by `validate_cards`/`check_cards_freshness`) is fine — that coupling already existed.
