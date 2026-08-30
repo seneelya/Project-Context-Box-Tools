@@ -1,11 +1,41 @@
 """Python language handler for find_code_usage."""
 
 import io
+import os
 import re
 import tokenize
+from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from ..core import LanguageHandler, resolve_relative_import
+
+
+def _relative_import_root_dir(filepath: str, dots: int) -> Path:
+    """The directory a RELATIVE import (`dots` leading dots) is anchored to — walking up
+    `dots - 1` parents from the importing file's own directory. Pure filesystem walk, no
+    `__init__.py` check: Python's relative-import level is defined by directory nesting, not by
+    which ancestors happen to be declared packages (see REQ-003 — the old dotted-name resolver
+    stopped at the first ancestor lacking `__init__.py`, truncating the path for a target nested
+    under an undeclared intermediate directory)."""
+    d = Path(filepath).parent
+    for _ in range(dots - 1):
+        d = d.parent
+    return d
+
+
+def _dotted_to_dir(root_dir: Path, dotted: str) -> Path:
+    return root_dir.joinpath(*dotted.split(".")) if dotted else root_dir
+
+
+def _module_file_candidates(module_dir: Path) -> List[Path]:
+    """A dotted module path can resolve to either a plain `.py` file or a package
+    `__init__.py` — check both."""
+    return [module_dir.with_suffix(".py"), module_dir / "__init__.py"]
+
+
+def _same_file(candidates: List[Path], target_abs: str) -> bool:
+    tgt = os.path.normcase(os.path.abspath(target_abs))
+    return any(os.path.normcase(os.path.abspath(str(c))) == tgt for c in candidates)
 
 
 class PythonHandler(LanguageHandler):
@@ -202,7 +232,15 @@ class PythonHandler(LanguageHandler):
                 dots = len(dots_str)
 
                 resolved_base = resolve_relative_import(filepath, from_module, dots) if dots > 0 else from_module
-                if not resolved_base:
+                # Path-based anchor for the SAME relative import, computed independently of the
+                # dotted-name resolver above (REQ-003): that resolver walks up collecting
+                # `__init__.py`-bearing ancestor names and stops at the first one that isn't a
+                # declared package, silently truncating the path for a target nested under an
+                # undeclared intermediate directory (or one with a name that isn't a valid Python
+                # identifier, e.g. a hyphen). `_relative_import_root_dir` is a pure directory walk
+                # keyed only on dot-count, so it can't be thrown off by either.
+                rel_root_dir = _relative_import_root_dir(filepath, dots) if dots > 0 else None
+                if not resolved_base and rel_root_dir is None:
                     continue
 
                 imports_text = self._collect_from_import_items(content_lines, idx)
@@ -219,8 +257,15 @@ class PythonHandler(LanguageHandler):
                     local_name = parts[1].strip() if len(parts) > 1 else original_name
 
                     full_module_path = f"{resolved_base}.{original_name}" if resolved_base else original_name
-                    base_matches = self.matches_target(resolved_base, target_names)
-                    full_matches = self.matches_target(full_module_path, target_names)
+                    base_matches = bool(resolved_base) and self.matches_target(resolved_base, target_names)
+                    full_matches = bool(resolved_base) and self.matches_target(full_module_path, target_names)
+
+                    if rel_root_dir is not None and target_file_path:
+                        base_dir_for_module = _dotted_to_dir(rel_root_dir, from_module)
+                        base_matches = base_matches or _same_file(
+                            _module_file_candidates(base_dir_for_module), target_file_path)
+                        full_matches = full_matches or _same_file(
+                            _module_file_candidates(base_dir_for_module / original_name), target_file_path)
 
                     if base_matches or full_matches:
                         kind = get_import_kind_generic(line, content_lines, idx, self.BLOCK_PATTERNS)

@@ -491,6 +491,13 @@ CONSUMERS = {
                    'Services/Analytics/Adapters/NullAnalyticsAdapter.cs',
                    'Services/Analytics/AnalyticsService.cs'],
     },
+    # REQ-003: nested package (parent dir 'plugin' undeclared, own dir hyphenated) —
+    # `from . import delegate_core` used to resolve to a truncated/wrong dotted name and miss
+    # the consumer entirely; path-based resolution fixes it regardless of __init__.py chain.
+    'py nested hyphenated package (self-delegate)': {
+        "root": 'pythonSRC2', "file": 'self_delegate/plugin/self-delegate/delegate_core.py',
+        "expect": ['self_delegate/plugin/self-delegate/__init__.py'],
+    },
 }
 
 # INCOMING_SOURCES: the target's own imports resolved to sibling files (locks ESM .js -> .ts).
