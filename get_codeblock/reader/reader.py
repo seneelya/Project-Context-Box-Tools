@@ -28,6 +28,7 @@ _LANG_MAP = {
     '.hpp': 'cpp', '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
     '.scss': 'css', '.sass': 'css', '.css': 'css',
     '.md': 'markdown', '.markdown': 'markdown',
+    '.txt': 'text',
 }
 
 

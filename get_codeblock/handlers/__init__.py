@@ -24,6 +24,8 @@ def get_handler(language: str):
         "sass": _make_css_handler,
         "markdown": _make_markdown_handler,
         "md": _make_markdown_handler,
+        "text": _make_text_handler,
+        "txt": _make_text_handler,
     }
 
     factory = handlers.get(language.lower())
@@ -69,3 +71,13 @@ def _make_css_handler():
 def _make_markdown_handler():
     from .markdown_handler import MarkdownHandler
     return MarkdownHandler()
+
+
+def _make_text_handler():
+    """Plain-text has no declared-API concept (outline/get_blocks/line_level go through
+    the reader-native generic path, see reader.py) — this stub exists only so
+    `Reader.open`'s eager `get_handler(language)` has something to construct."""
+    class _TextHandler:
+        def declarations(self, lines):
+            return []
+    return _TextHandler()

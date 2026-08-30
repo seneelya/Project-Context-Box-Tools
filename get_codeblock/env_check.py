@@ -29,6 +29,7 @@ LANGUAGE_MODULES = {
     "css": ["tree_sitter", "tree_sitter_css"],
     "python": [],
     "markdown": [],
+    "text": [],
 }
 
 

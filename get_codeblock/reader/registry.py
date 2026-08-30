@@ -36,6 +36,9 @@ def resolve(ext):
     if ext in ('.md', '.markdown'):                    # core2 — НЕ tree-sitter
         from .backends.markdown import MarkdownBackend, MarkdownSpec
         return MarkdownBackend(), MarkdownSpec()
+    if ext == '.txt':                                   # core2 — plain prose, no markup
+        from .backends.plaintext import PlainTextBackend, PlainTextSpec
+        return PlainTextBackend(), PlainTextSpec()
     if ext == '.py':                                   # tree-sitter-python или ast-фолбек
         return _python_backend_spec()
     prof = profiles.ts_profile_for_ext(ext)            # core1 — tree-sitter, плагин языка

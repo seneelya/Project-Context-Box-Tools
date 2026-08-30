@@ -321,7 +321,7 @@ def make_comment_delims(language):
     """
     return {"python": ("#", ""), "typescript": ("//", ""), "tsx": ("//", ""),
             "csharp": ("//", ""), "cpp": ("//", ""), "css": ("//", ""),
-            "markdown": ("<!-- ", " -->")}.get(language, ("#", ""))
+            "markdown": ("<!-- ", " -->"), "text": ("#", "")}.get(language, ("#", ""))
 
 
 def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool = False) -> dict:
@@ -359,7 +359,7 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
                 '.scss': 'css', '.sass': 'css', '.css': 'css',
-                '.md': 'markdown', '.markdown': 'markdown'}
+                '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text'}
     language = lang_map.get(ext, 'python')
 
     # Get blocks via handler
@@ -426,7 +426,7 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
                 '.scss': 'css', '.sass': 'css', '.css': 'css',
-                '.md': 'markdown', '.markdown': 'markdown'}
+                '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text'}
     language = lang_map.get(ext, 'python')
 
     # Per-line logical level: level = 1 + enclosing block BODIES (a block header sits
@@ -736,7 +736,7 @@ def main():
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
                 '.scss': 'css', '.sass': 'css', '.css': 'css',
-                '.md': 'markdown', '.markdown': 'markdown'}
+                '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text'}
     language = lang_map.get(ext, 'python')
 
     # Preflight: if this language needs tree-sitter packages that aren't installed,

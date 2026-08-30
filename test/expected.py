@@ -167,6 +167,29 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
         (1, 8, 8, '~js_comment'),
         (1, 9, 15, '.footer  /*$red: $accentMainCo*/ …'),
     ],
+    # Plain-text experiment: no markup at all, structure purely from blank-line runs.
+    # SECTION (2+ blank lines apart) contains PARAGRAPH (single-blank-line apart);
+    # trailing `---` is its own top-level `~rule` filler, not swallowed. Names are each
+    # node's own first ~60 chars (no headings exist to read a name from).
+    'nonCode/text1_smal.txt': [
+        (1, 1, 8, 'The user is testing me on this. They want me to think…'),
+        (2, 1, 1, 'The user is testing me on this. They want me to think…'),
+        (2, 3, 3, 'Let me actually do some substantial thinking here — pick an…'),
+        (2, 5, 6, 'Wait — important nuance. If the reasoning budget is set and…'),
+        (2, 8, 8, 'Actually, let me think carefully: the user said "давай…'),
+        (1, 11, 26, 'Let me think deeply about the topic. Topic choice:…'),
+        (2, 11, 14, 'Let me think deeply about the topic. Topic choice:…'),
+        (2, 16, 16, 'This is perfect — it directly relates to our conversation…'),
+        (2, 18, 18, '1. **Storage model**: KV pairs vs graph vs append-only log.…'),
+        (2, 20, 20, '2. **Write policy**: The hardest part. Write too much →…'),
+        (2, 22, 26, 'Let me write the response in Russian: 1. One line: picked a…'),
+        (1, 30, 39, '**Concluded:**'),
+        (2, 30, 30, '**Concluded:**'),
+        (2, 32, 33, '1. **Хранение**: оптимальна гибридная схема — append-only…'),
+        (2, 35, 35, '**Still needed:**'),
+        (2, 37, 39, '1. Как эмпирически измерить *ценность* записи памяти (для…'),
+        (1, 41, 41, '~rule'),
+    ],
 }
 
 LADDER = [
@@ -261,6 +284,8 @@ LADDER = [
     # Same invariant, brace engine: a leading `import` line (no enclosing def/class) returns
     # the `imports: …` filler band, not `[1, N]`.
     {"file": 'Edge/Edge.ts', "line": 1, "expect": [(1, 1, 3)]},
+    # Plain-text: block (section) -> paragraph, 2 real rungs.
+    {"file": 'nonCode/text1_smal.txt', "line": 33, "expect": [(2, 32, 33), (1, 30, 39)]},
 ]
 
 # cursor_feedback__gcb.md #1 — labels only (LADDER above checks ranges, not text). A
@@ -274,6 +299,9 @@ LADDER_LABEL = [
      "expect": ["() => {…}",
                 "export const getPotentiallyUnused = ( file: SourceFile, skipper?: RegExp ): "
                 "IAnalysedResult =>"]},
+    {"file": 'nonCode/text1_smal.txt', "line": 33,
+     "expect": ["1. **Хранение**: оптимальна гибридная схема — append-only…",
+                "**Concluded:**"]},
 ]
 
 FOCUS_OUTLINE = [
