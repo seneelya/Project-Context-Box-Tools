@@ -137,10 +137,11 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
   `--project-root` resolves per tool category (card tools vs generic tools) — it isn't the same
   everywhere on purpose.
 - **Language auto-detected from extension.** Python (indentation, stdlib `ast`); `.ts`/`.js`, `.cs`,
-  `.cpp`/`.h`/… (tree-sitter); Markdown (`.md`) for `get_codeblock`.
-- **Dependencies are minimal and OPTIONAL per language.** Python and Markdown work with **zero**
-  third-party packages. The tree-sitter languages need grammar packages — see
-  `get_codeblock/requirements.txt`.
+  `.cpp`/`.h`/…, `.yaml`/`.yml` (tree-sitter); Markdown (`.md`) and plain text (`.txt`,
+  experimental) for `get_codeblock`.
+- **Dependencies are minimal and OPTIONAL per language.** Python, Markdown and plain text work
+  with **zero** third-party packages. The tree-sitter languages (incl. YAML) need grammar
+  packages — see `get_codeblock/requirements.txt`.
   - `get_codeblock` **preflights**: if a language you use needs a package that isn't installed, it
     prints the exact `pip install` command for the current interpreter (no traceback) — run it and retry.
   - `make_interface_card` on TS/JS & C#: backend `CONFIG__TOOLS.DECL_BACKEND` = `auto` (tree-sitter if

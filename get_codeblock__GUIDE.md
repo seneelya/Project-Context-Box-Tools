@@ -9,7 +9,8 @@ boundaries where grep and brace-counting fail.
 "what is this, and where are its edges", then pull just that region.
 
 Languages: Python `.py` · C/C++ `.cpp .cc .cxx .h .hpp .c` · C# `.cs` · TypeScript/JS/TSX
-`.ts .js .tsx .jsx` · CSS/SCSS `.css .scss` · Markdown `.md`.
+`.ts .js .tsx .jsx` · CSS/SCSS `.css .scss` · Markdown `.md` · YAML `.yaml .yml` · plain text
+`.txt` (experimental).
 
 ---
 
@@ -159,9 +160,10 @@ comment.
 
 ## Install grammars on demand
 
-Run Python and Markdown with nothing extra. For the tree-sitter languages, don't pre-install: run
-the tool, and if a grammar package is missing it prints the exact `pip install …` command **for
-the interpreter that ran it** (no traceback) — run that, retry. Nothing fails silently.
+Run Python, Markdown and plain text with nothing extra. For the tree-sitter languages
+(including YAML), don't pre-install: run the tool, and if a grammar package is missing it prints
+the exact `pip install …` command **for the interpreter that ran it** (no traceback) — run that,
+retry. Nothing fails silently.
 
 ---
 
@@ -191,7 +193,11 @@ Stop there — outline to locate, one `--line`/`--query` to extract — instead 
   Python's `ast`-fallback (no grammar) is reduced. For a precise boundary in those, `--query`.
 - **SCSS caveat**: nested rule sets, `&` nesting, `@media`/`@supports` are solid; parameterized
   `@mixin($x)` / `@include(...)` / unquoted `url(../x)` parse imperfectly (css grammar) but don't
-  derail the surrounding structure.
+  derail the surrounding structure. A top-level `$var: value;` used to blow up the whole file's
+  parse — now masked into a comment before parsing, so the rest of the file recovers.
+- **Plain text (`.txt`) is experimental**: no real language understanding, just blank-line
+  paragraphs/sections and list-marker splitting — the cheapest structural guess that's still more
+  useful than reading the file linearly, not a claim of real prose parsing.
 
 See `get_codeblock__TLDR.md` for the one-screen version, `get_codeblock__README.md` for the full
 reference (every flag, edge cases, architecture).

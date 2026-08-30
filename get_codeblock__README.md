@@ -144,14 +144,17 @@ When `--line` falls between blocks at file-level scope (no containing block foun
 | C# | `.cs` | tree-sitter (`tree_sitter_c_sharp`) | Real syntax tree: multi-line signatures, `record` types, file-scoped namespaces, nested types. Namespaces are **transparent**. |
 | CSS / SCSS / Sass | `.css` `.scss` `.sass` | tree-sitter (`tree_sitter_css`) | A block is a rule set `selector { … }`; nested rules (`&::before`), `@media`/`@supports`/`@keyframes`/`@font-face` nest; label = the selector list. SCSS-only syntax (parameterized `@mixin`/`@include`, unquoted `url(../x)`) parses imperfectly but doesn't derail structure. |
 | Markdown | `.md`, `.markdown` | Heading hierarchy | Sections by ATX headings (`#`..`######`); level = heading depth. Fenced code skipped so `#` inside code isn't a heading. |
+| YAML | `.yaml`, `.yml` | tree-sitter (`tree_sitter_yaml`) | A `key: value` line and a `- item` line are both blocks; one whose value is itself a nested mapping/sequence has a body (one level deeper), a scalar-valued one is a leaf. Comments glue onto the block below them, same as everywhere else. Multiple `---`-separated documents in one file have their top-level entries flattened together. |
+| Plain text | `.txt` | Blank-line heuristics (no markup) | No headings to key off, so structure comes from whitespace alone: a paragraph is a run of non-blank lines; 2+ blank lines (or a `---`/`===`/`***` rule line) starts a new section grouping the paragraphs between two such breaks. A paragraph with 2+ list-marker lines (`1.`/`1)`/`-`/`*`/`•`) splits one level deeper into list items. No title text exists, so a block's name is its own first ~60 chars (word-trimmed). Experimental — the cheapest structural guess that still gives a useful outline/ladder, not a claim of real prose understanding. |
 
 Language detection happens automatically from the file extension — no need to specify it explicitly.
 
-> **tree-sitter dependency.** C/C++, C#, TypeScript/JS/TSX and CSS/SCSS parse a real syntax tree,
-> so they need grammars: `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp
-> tree-sitter-typescript tree-sitter-css` (see `get_codeblock/requirements.txt`). You don't have
-> to pre-install — if a needed package is missing the tool prints the exact `pip install` command
-> for the interpreter that ran it (no traceback). Python and Markdown stay zero-dependency.
+> **tree-sitter dependency.** C/C++, C#, TypeScript/JS/TSX, CSS/SCSS and YAML parse a real syntax
+> tree, so they need grammars: `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp
+> tree-sitter-typescript tree-sitter-css tree-sitter-yaml` (see `get_codeblock/requirements.txt`).
+> You don't have to pre-install — if a needed package is missing the tool prints the exact
+> `pip install` command for the interpreter that ran it (no traceback). Python, Markdown and
+> plain text stay zero-dependency.
 
 ## Importable API for Other Tools
 

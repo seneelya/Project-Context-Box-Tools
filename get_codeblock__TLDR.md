@@ -1,14 +1,15 @@
 # get_codeblock — TLDR
 
 Returns a self-contained structural block containing a line — for code
-(`.py` · `.ts .js .tsx .jsx` · `.cs` · `.cpp .cc .cxx .h .hpp .c` · `.css .scss`) AND Markdown
-(`.md`: heading sections). Lets an agent get precise context around any location, or a file's
-table of contents, without reading the whole file.
+(`.py` · `.ts .js .tsx .jsx` · `.cs` · `.cpp .cc .cxx .h .hpp .c` · `.css .scss`), Markdown
+(`.md`: heading sections), YAML (`.yaml .yml`: key/list nesting), and plain text (`.txt`:
+paragraphs/sections, experimental). Lets an agent get precise context around any location, or a
+file's table of contents, without reading the whole file.
 
-> **Dependencies:** Python (`.py`) and Markdown (`.md`) are zero-dependency. C/C++, C#,
-> TypeScript/JS/TSX and CSS/SCSS use tree-sitter grammars — see `get_codeblock/requirements.txt`.
-> If a needed package is missing, the tool prints the exact `pip install` command for the
-> interpreter that ran it (no traceback) — just run it and retry.
+> **Dependencies:** Python (`.py`), Markdown (`.md`) and plain text (`.txt`) are zero-dependency.
+> C/C++, C#, TypeScript/JS/TSX, CSS/SCSS and YAML use tree-sitter grammars — see
+> `get_codeblock/requirements.txt`. If a needed package is missing, the tool prints the exact
+> `pip install` command for the interpreter that ran it (no traceback) — just run it and retry.
 
 ## Route yourself
 
@@ -65,10 +66,12 @@ excess ignored). Same three modes as single-line, just merged:
   so you know there's more. Add `--level N` for an EXACT depth cap (high N = everything).
 - Transparent frames (a C#/C++ `namespace`, `extern "C"`) render with a `.` marker
   instead of a level number — they're a wrapper, not a nesting level.
-- `--outline` works for Python (indentation), Markdown (headings), and the tree-sitter
-  languages C/C++, C#, TypeScript/JS/TSX (`.ts .js .tsx .jsx`), and CSS/SCSS
-  (`.css .scss`). SCSS note: `@mixin`/`@include`/`@function` WITH parameters parse
-  imperfectly (css grammar), but nested rule sets, `&` nesting and `@media`/`@supports` are solid.
+- `--outline` works for Python (indentation), Markdown (headings), plain text (blank-line
+  paragraphs/sections, experimental), YAML (key/list nesting), and the tree-sitter languages
+  C/C++, C#, TypeScript/JS/TSX (`.ts .js .tsx .jsx`), and CSS/SCSS (`.css .scss`). SCSS note:
+  `@mixin`/`@include`/`@function` WITH parameters parse imperfectly (css grammar), but nested
+  rule sets, `&` nesting and `@media`/`@supports` are solid; a TOP-LEVEL `$var: value;` used to
+  blow up the whole file's parse and is now masked into a comment before parsing.
 - Outline **numbers named blocks** (functions/classes/methods/rules). In JS/TS that includes
   name-bound arrows/functions (`const Foo = () => {…}`, `value: () => {…}`, class fields) — React
   components show up; expression-bodied arrows and anonymous inline callbacks stay out by design.

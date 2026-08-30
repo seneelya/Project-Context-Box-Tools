@@ -16,8 +16,9 @@ ladder/query/resolve, Vision04). У адресации ТРИ движка на 
    `LangSpec`-наборами (`control`/`body_types`/`named_def`) — их у не-кодовых форматов нет.
 2. **`.py`** — отступной хендлер (`handlers/python_handler.py`), сохранён осознанно: работает без
    грамматики на любом интерпретаторе (CONTEXT_RESTORE_TOOLS.md → «⭐ МИГРАЦИЯ адресации»).
-3. **ЛЮБОЙ другой формат** (markdown сегодня; завтра — новый tree-sitter-язык без своего
-   `_BRACE_EXTS`-входа, или core2/3 docx/pdf) — **generic `classify.ladder_at`/`line_level_at`**:
+3. **ЛЮБОЙ другой формат** (markdown/YAML/plain-text сегодня — YAML тоже tree-sitter-парсер, но
+   свой Spec, не `_BRACE_EXTS`-профиль, ниже структура другая; завтра — docx/pdf) —
+   **generic `classify.ladder_at`/`line_level_at`**:
    ТА ЖЕ IR (Classifier→Block), что и у карты — landmark/frame-спуск + filler-терминал (инвариант
    #9), без brace-специфики. Это и есть цель Vision03: на его целевой схеме `ladder` — один из
    рендереров, питающихся от общего Classifier/IR, наравне с `outline`/`.0`/`query` — сегодняшняя
@@ -30,13 +31,17 @@ ladder/query/resolve, Vision04). У адресации ТРИ движка на 
 
 ```mermaid
 flowchart TB
-  F["file (.py .ts .cs .md …)"] --> R["Reader (reader.py) · registry.resolve(ext)"]
+  F["file (.py .ts .cs .css .md .yaml .txt …)"] --> R["Reader (reader.py) · registry.resolve(ext)"]
   R --> P["PROFILE — плагин языка · profiles/LANG.py<br/>LangSpec: named_def / control / body_types / transparent_parents"]
   P -->|backend| TS["tree-sitter backend (core1)"]
   R -->|.md| MD["markdown backend (core2)"]
+  R -->|.yaml .yml| YML["yaml backend (core2 — reuses TSNode, own Spec)"]
+  R -->|.txt| TXT["plain-text backend (core2, experimental)"]
   R -->|".py без грамматики"| AST["python ast backend (фолбек)"]
   TS --> N["RNode — адаптер узла"]
   MD --> N
+  YML --> N
+  TXT --> N
   AST --> N
 
   N --> C["Classifier (backend-agnostic)"]
@@ -75,10 +80,15 @@ profiles/     — плагины языков (Vision03), по файлу на �
   presets.py    — общие наборы (HUMAN_KIND/IMPORT_KINDS/…), чтобы C-подобные не копипастить
   __init__.py   — ts_profile_for_ext(ext) → профиль
 backends/
-  treesitter.py — core1: TSNode-адаптер + TSBackend + TreeSitterSpec (движок над профилем)
-  markdown.py   — core2: свой разбор заголовков, БЕЗ tree-sitter (образец не-TS кора).
-                  Адресуется generic'ом (`classify.ladder_at`), не своим хендлером — см. ниже.
-  python_ast.py — фолбек .py без грамматики (громкий нотис; только для .0, не для адресации)
+  treesitter.py  — core1: TSNode-адаптер + TSBackend + TreeSitterSpec (движок над профилем)
+  markdown.py    — core2: свой разбор заголовков, БЕЗ tree-sitter (образец не-TS кора).
+                   Адресуется generic'ом (`classify.ladder_at`), не своим хендлером — см. ниже.
+  yaml_backend.py — core2: реальная грамматика (tree_sitter_yaml) + СВОЙ Spec — переиспользует
+                   только TSNode из treesitter.py, а не LangSpec/TreeSitterSpec (brace-модель
+                   body_types не ложится на YAML-вложенность через mapping/sequence-обёртки).
+  plaintext.py   — core2: эвристика по пустым строкам, БЕЗ парсера вообще (эксперимент —
+                   абзац/секция/список-пункт из отступов/маркеров, не реальное понимание прозы).
+  python_ast.py  — фолбек .py без грамматики (громкий нотис; только для .0, не для адресации)
 label.py      — backend-agnostic лейблер filler-полосы: band → список имён (оглавление)
 classify.py   — backend-agnostic .0-классификатор (КАРТА) + focus + render + CLI + generic
                 АДРЕСАЦИЯ (`ladder_at`/`line_level_at`/`filler_container_at` — Vision04 для
@@ -346,12 +356,15 @@ REQ-001/этот файл фиксируют состояние решения �
 ОТВЕРГНУТ: python-`block` начинается на строке 1-го стейтмента → строгий `_level_of_row` врёт
 уровнем.
 
-**Остальные non-brace форматы (markdown и любой будущий) адресуются generic'ом, НЕ своим хендлером.**
-До этого пункта `.md` тоже делегировал бы `markdown_handler` — но у markdown, в отличие от Python,
-УЖЕ есть полноценный Backend+Spec для карты (`backends/markdown.py`, core2), просто адресация к нему
-не была подключена. `classify.ladder_at`/`line_level_at` — тот же `_containing_chain`, что использует
-focus-outline, только развёрнутый в форму рунга `get_blocks`. Работает для ЛЮБОГО Spec без единой
-строки нового кода (нужен только рабочий backend, per Рецепт B) — именно поэтому markdown НЕ получил
+**Остальные non-brace форматы (markdown, YAML, plain-text и любой будущий) адресуются generic'ом,
+НЕ своим хендлером.** До этого пункта `.md` тоже делегировал бы `markdown_handler` — но у markdown,
+в отличие от Python, УЖЕ есть полноценный Backend+Spec для карты (`backends/markdown.py`, core2),
+просто адресация к нему не была подключена. `classify.ladder_at`/`line_level_at` — тот же
+`_containing_chain`, что использует focus-outline, только развёрнутый в форму рунга `get_blocks`.
+Работает для ЛЮБОГО Spec без единой строки нового кода (нужен только рабочий backend, per Рецепт
+B) — подтверждено на практике: `yaml_backend.py` и `backends/plaintext.py` заработали (outline
++ ladder + query + `--ancestor-level`) БЕЗ единой правки в `address.py`/`classify.py` — именно
+поэтому markdown НЕ получил
 своего `_orphan`/особого хендлера: это была бы вторая, дублирующая реализация того же самого.
 
 ## ⚠️ Инварианты (нарушать нельзя)
@@ -470,9 +483,14 @@ RUST = TSProfile(LangSpec("Rust", _load_rust, body_types={'block','declaration_l
 # profiles/__init__.py:  if ext == '.rs': from .rust import RUST; return RUST
 ```
 
-## Рецепт B — новый backend (не tree-sitter: plain-text, docx, pdf…)
+## Рецепт B — новый backend (не brace-модель: plain-text, YAML, docx, pdf…)
 
-Реализовать три вещи и подключить в `resolve`. Образец — `backends/markdown.py`.
+Реализовать три вещи и подключить в `resolve`. Образцы (оба реальные, не гипотетика):
+`backends/markdown.py` (свой парсер заголовков) и `backends/plaintext.py` (эвристика по пустым
+строкам, свой узел `TxtNode` — ни один парсер не участвует). Третий вариант, когда ЕСТЬ реальная
+грамматика, но её узлы не ложатся на brace-модель (`body_types`/`named_def`/`control`) — как
+`backends/yaml_backend.py`: парсер настоящий (tree-sitter), но `Spec` свой, переиспользует только
+универсальную обёртку узла `TSNode` из `treesitter.py`, не `LangSpec`/`TreeSitterSpec`.
 
 ```python
 class MyNode:            # RNode: type,start_row,end_row,children(),text(),field()
