@@ -105,6 +105,7 @@ def collect(path: Path) -> dict:
     except SyntaxError as exc:
         return {"ok": False, "error": str(exc), "docstring_first": None,
                 "functions": [], "classes": [], "all_defs": {},
+                "module_globals": [], "constants": [],
                 "import_froms": [], "internal_imports": [], "external_imports": []}
 
     doc = ast.get_docstring(tree)
@@ -113,7 +114,20 @@ def collect(path: Path) -> dict:
     functions: list[dict] = []
     classes: list[dict] = []
     all_defs: dict[str, str] = {}
-    module_globals: list[str] = []           # top-level assigned names (logger, CONSTS, …)
+    module_globals: list[dict] = []          # ALL top-level assigned names+source (logger, CONSTS, …)
+    constants: list[dict] = []               # PUBLIC subset of the above (REQ-006 — Public API surface)
+
+    def _global(name, node):
+        raw = (ast.get_source_segment(src, node) or name).strip()
+        # H4 headings are ONE markdown line — collapse a multi-line/huge literal to its
+        # first line, truncated, rather than dumping the whole value into the heading.
+        first_line = raw.splitlines()[0].strip()
+        limit = 120
+        sig = first_line if len(raw.splitlines()) == 1 and len(first_line) <= limit \
+            else (first_line[:limit].rstrip() + " …")
+        module_globals.append({"name": name, "signature": sig})
+        if _is_public(name):
+            constants.append({"name": name, "signature": sig})
 
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -132,9 +146,9 @@ def collect(path: Path) -> dict:
         elif isinstance(node, ast.Assign):
             for tgt in node.targets:
                 if isinstance(tgt, ast.Name):
-                    module_globals.append(tgt.id)
+                    _global(tgt.id, node)
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            module_globals.append(node.target.id)
+            _global(node.target.id, node)
 
     # Re-exports live in TOP-LEVEL relative imports only — a `from .. import x` nested
     # inside a function is a lazy dependency, NOT a re-export, so scan tree.body (not walk).
@@ -158,7 +172,8 @@ def collect(path: Path) -> dict:
 
     return {"ok": True, "error": None, "docstring_first": docstring_first,
             "functions": functions, "classes": classes, "all_defs": all_defs,
-            "module_globals": module_globals, "import_froms": import_froms,
+            "module_globals": module_globals, "constants": constants,
+            "import_froms": import_froms,
             "internal_imports": internal_imports, "external_imports": external_imports}
 
 

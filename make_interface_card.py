@@ -189,9 +189,11 @@ def _declared(project_root, file, lang):
                    for f in c["functions"]]
         exports += [{"name": cl["name"], "kind": "class", "signature": cl["name"], "methods": cl["methods"]}
                     for cl in c["classes"]]
+        exports += [{"name": g["name"], "kind": "const", "signature": g["signature"], "methods": []}
+                    for g in c["constants"]]
         all_defs = dict(c["all_defs"])
         for g in c["module_globals"]:
-            all_defs.setdefault(g, g)
+            all_defs.setdefault(g["name"], g["signature"])
         reexports = [{"name": nm, "source": "." * imp["level"] + imp["module"],
                       "module": imp["module"], "level": imp["level"]}
                      for imp in c["import_froms"] if imp["level"] >= 1 for nm in imp["names"]]

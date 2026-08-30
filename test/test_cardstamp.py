@@ -148,6 +148,29 @@ def test_entry_key_survives_language_decorators():
     check("csharp async modifiers", mic._entry_key("#### `public async Task Bar(x)`", "csharp") == "Bar")
 
 
+def test_python_public_constant_declared_private_not():
+    """REQ-006: module-level `KNOWN_SEAMS = (...)` must reach the card as a Constants entry;
+    `_PRIVATE_LIMIT` (leading underscore, not consumed externally) must not leak into Public API."""
+    fresh = mic.build_card(_PR, "consts.py")
+    check("public constant present", "KNOWN_SEAMS" in fresh)
+    check("public constant under Constants H3", "### Constants" in fresh)
+    check("private constant absent from Public API", "_PRIVATE_LIMIT" not in fresh)
+
+
+def test_python_constant_merge_preserves_prose():
+    """Re-stamp must keep prose on a constant entry (same merge machinery as functions/classes).
+    Uses _fill_all_descs (not _fill) — consts.py has TWO desc directives (public_fn, KNOWN_SEAMS)
+    and _fill only fills the first."""
+    fresh = mic.build_card(_PR, "consts.py")
+    filled = _fill_all_descs(fresh)
+    op = mic._parse_old_prose(filled, "python")
+    check("KNOWN_SEAMS parsed as an entry with prose", op["entries"].get("KNOWN_SEAMS", {}).get("desc"))
+    report = {}
+    merged = mic.build_card(_PR, "consts.py", op, report)
+    check("KNOWN_SEAMS survived merge", "KNOWN_SEAMS" in report["preserved_entries"])
+    check("its prose kept in merged output", "DESC_2." in merged)
+
+
 _TS_PR = os.path.join(_HERE, "tsSRC")
 _TS_FILE = "src/analyzer.ts"
 _CS_PR = os.path.join(_HERE, "unitySRC")
@@ -559,6 +582,8 @@ def main():
     test_merge_salvage()
     test_fresh_has_no_salvage_and_placeholders()
     test_entry_key_survives_language_decorators()
+    test_python_public_constant_declared_private_not()
+    test_python_constant_merge_preserves_prose()
     test_merge_ts_multi_const_no_collision()
     test_merge_csharp_multi_class_no_collision()
     test_merge_marker_on_signature_change_and_rename()
