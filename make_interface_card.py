@@ -30,7 +30,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import CARD_FORMAT as cf
-from graph_from_cards import _cells, _is_sep
+from graph_from_cards import _cells, _is_sep, load_config_at
 
 
 _LANG = {".py": "python", ".ts": "typescript", ".tsx": "typescript",
@@ -124,13 +124,11 @@ def _resolve_sibling_signature(target_abs, module, level, name):
 
 # --- declared surface (single source, per language) --------------------------
 
-def _decl_backend():
-    """DECL_BACKEND from CONFIG__TOOLS: 'auto' | 'treesitter' | 'regex' (default 'auto')."""
-    try:
-        import CONFIG__TOOLS
-        return getattr(CONFIG__TOOLS, "DECL_BACKEND", "auto")
-    except Exception:
-        return "auto"
+def _decl_backend(project_root):
+    """DECL_BACKEND from the TARGET project's CONFIG__TOOLS (REQ-007 — not the one next to this
+    script): 'auto' | 'treesitter' | 'regex' (default 'auto')."""
+    mod = load_config_at(project_root)
+    return getattr(mod, "DECL_BACKEND", "auto") if mod else "auto"
 
 
 # Per-language tree-sitter backend module + the pip package that supplies its grammar.
@@ -154,13 +152,13 @@ def _warn_fallback(lang, pkg, forced):
     )
 
 
-def _declarations(lang, src):
+def _declarations(lang, src, project_root):
     """Declared surface for a brace language via DECL_BACKEND (tree-sitter or regex).
 
     Emits a one-time stderr WARNING when `auto`/`treesitter` wanted tree-sitter but the
     grammar isn't installed, so an agent knows results are the lower-fidelity fallback.
     """
-    backend = _decl_backend()
+    backend = _decl_backend(project_root)
     mod_name, pkg = _TS_BACKEND[lang]
     if backend in ("treesitter", "auto"):
         try:
@@ -205,7 +203,7 @@ def _declared(project_root, file, lang):
             src = open(target_abs, encoding="utf-8", errors="replace").read()
         except OSError:
             return empty
-        decls = _declarations("typescript", src)
+        decls = _declarations("typescript", src, project_root)
         exports, all_defs, reexports = [], {}, []
         for d in decls:
             if d["kind"] == "reexport":
@@ -223,7 +221,7 @@ def _declared(project_root, file, lang):
         except OSError:
             return empty
         exports, all_defs = [], {}
-        for d in _declarations("csharp", src):
+        for d in _declarations("csharp", src, project_root):
             all_defs[d["name"]] = d["signature"]
             if d["exported"]:
                 exports.append({"name": d["name"], "kind": d["kind"],
@@ -753,14 +751,14 @@ def _prose_blocks(op):
     return n + len(op.get("why", {})) + len(op.get("sections", {}))
 
 
-def _config_lang_testdirs():
-    lang, test_dirs = "python", []
-    try:
-        import CONFIG__TOOLS
-        lang = getattr(CONFIG__TOOLS, "LANGUAGE", "python") or "python"
-        test_dirs = list(getattr(CONFIG__TOOLS, "TEST_DIRS", []) or [])
-    except Exception:
-        pass
+def _config_lang_testdirs(project_root):
+    """LANGUAGE/TEST_DIRS from the TARGET project's CONFIG__TOOLS (REQ-007), not from whatever
+    `CONFIG__TOOLS.py` happens to sit next to this script."""
+    mod = load_config_at(project_root)
+    if mod is None:
+        return "python", []
+    lang = getattr(mod, "LANGUAGE", "python") or "python"
+    test_dirs = list(getattr(mod, "TEST_DIRS", []) or [])
     return lang, test_dirs
 
 
@@ -848,7 +846,7 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
     другое принимает список/через запятую/`all`.
     """
     from find_code_usage.core import collect_files, rel_path
-    lang, test_dirs = _config_lang_testdirs()
+    lang, test_dirs = _config_lang_testdirs(project_root_abs)
     selected = language if language else lang
     langs = _normalize_langs(selected)
     exts = _lang_extensions(selected)

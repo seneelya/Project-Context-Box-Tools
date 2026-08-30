@@ -89,6 +89,27 @@ def resolve_project_root(cli_value):
     return root_abs
 
 
+def load_config_at(root):
+    """Load `<root>/__HQ/tools/CONFIG__TOOLS.py` directly by file path (REQ-007) — a card-tool
+    that already resolved a target `--project-root` R must read R's own settings (TEST_DIRS,
+    LANGUAGE, DECL_BACKEND...), not whatever `CONFIG__TOOLS.py` happens to sit next to the
+    running script via `import CONFIG__TOOLS`/sys.path (a bulk `--all` run from a dev checkout
+    against a foreign project silently used the dev checkout's own TEST_DIRS otherwise).
+    Returns the loaded module, or None if `R` has no such file / it fails to import."""
+    import importlib.util
+
+    path = Path(root) / "__HQ" / "tools" / "CONFIG__TOOLS.py"
+    if not path.is_file():
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location("_target_config_tools", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:
+        return None
+
+
 def _cells(row):
     """'| a | b | c |' -> ['a','b','c'] (снятые бэктики/пробелы)."""
     return [c.strip().strip("`").strip() for c in row.strip().strip("|").split("|")]
