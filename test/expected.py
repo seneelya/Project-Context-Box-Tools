@@ -250,6 +250,19 @@ LADDER = [
     {"file": 'Edge/Edge.ts', "line": 1, "expect": [(1, 1, 3)]},
 ]
 
+# cursor_feedback__gcb.md #1 — labels only (LADDER above checks ranges, not text). A
+# standalone arrow/function body bound to a name must show that name (outline-identical),
+# NOT the generic anonymous tag; one bound to nothing keeps the honest generic tag.
+LADDER_LABEL = [
+    {"file": 'tsSRC/src/analyzer.ts', "line": 60,
+     "expect": ["const: clause, namespaceImport, source, uses, symbols",
+                "export const trackWildcardUses = (node: ImportDeclaration) =>"]},
+    {"file": 'tsSRC/src/analyzer.ts', "line": 234,
+     "expect": ["() => {…}",
+                "export const getPotentiallyUnused = ( file: SourceFile, skipper?: RegExp ): "
+                "IAnalysedResult =>"]},
+]
+
 FOCUS_OUTLINE = [
     # `--dot --line N` focus mode never had oracle coverage at all before invariant #9 (it
     # was newly able to terminate on a bare filler leaf). Two real bugs found via manual

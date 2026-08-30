@@ -11,6 +11,12 @@
 """
 
 
+_LABEL_CAP = 350   # max chars in a landmark/frame header label (cursor_feedback__gcb.md #4) —
+                   # above the longest real multi-kwarg Python signature in the golden fixtures
+                   # (267 chars), comfortably below a "many DI params" C# primary-constructor
+                   # header (300-800+ chars), which is what the complaint was about.
+
+
 class TSNode:
     """Обёртка tree-sitter-узла под RNode. Дополнительно несёт start_byte/helpers
     для нарезки заголовка — TreeSitterSpec ими пользуется (RNode это не требует)."""
@@ -41,6 +47,10 @@ class TSNode:
     def field(self, name):
         c = self._n.child_by_field_name(name)
         return TSNode(c, self._src) if c is not None else None
+
+    def parent(self):
+        p = self._n.parent
+        return TSNode(p, self._src) if p is not None else None
 
     # -- TS-специфичные helper'ы (вне минимального RNode) ------------------
 
@@ -140,7 +150,14 @@ class TreeSitterSpec:
     def name(self, node):
         body = self.body(node)
         raw = node.head_before(body) if body is not None else node.first_line()
-        return " ".join(raw.split()).rstrip('{').rstrip(':').rstrip()
+        text = " ".join(raw.split()).rstrip('{').rstrip(':').rstrip()
+        # A header can run to hundreds of chars (C# primary-constructor DI param lists are
+        # the reported case, but any language can produce one) — cap it for outline/ladder
+        # display. Display-only: `--query` on the SAME range still returns the untruncated
+        # source, so nothing is actually lost, just not dumped into a landmark label.
+        if len(text) > _LABEL_CAP:
+            text = text[:_LABEL_CAP].rstrip() + ' …'
+        return text
 
     def filler_kind(self, node):
         from ..profiles.presets import IMPORT_KINDS

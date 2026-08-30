@@ -143,6 +143,39 @@ def _preamble_owner(blocks, row, comment_rows, bodies, lines):
 
 # -- label ------------------------------------------------------------------
 
+def _same_node(a, b):
+    """Identity by (type, exact row-span) rather than Python `is` — `spec.unwrap_def()`
+    re-wraps the underlying tree-sitter node into a FRESH TSNode on every call (via
+    `.children()`/`.field()`), so two TSNode instances pointing at the identical node are
+    never `is`-equal even though they address the same source range."""
+    return (a is not None and b is not None
+            and a.type == b.type and a.start_row == b.start_row and a.end_row == b.end_row)
+
+
+def _bound_ancestor_label(value_node, spec):
+    """cursor_feedback__gcb.md #1 — a standalone function/arrow body (`const foo = () =>
+    {...}`, a class field, an object property) is addressed as a ladder rung by its BODY
+    node, whose immediate parent is the anonymous value (`arrow_function`/`function`) —
+    that parent carries no name of its own, only its BINDER ancestor does (`const foo =`).
+    Outline already resolves this via `unwrap_def`'s downward binder search (Vision03
+    const-promotion); this walks the SAME relationship from the value side, upward through
+    up to 3 wrapper levels (`variable_declarator` -> `lexical_declaration` -> `export_statement`,
+    the deepest realistic nesting), and reuses `spec.name()` so ladder and outline render the
+    IDENTICAL label for the same block. None if no such binder is found (a bare unnamed
+    arrow passed as a callback argument, for instance — nothing to recover)."""
+    anc = value_node.parent()
+    best = None   # OUTERMOST ancestor that still resolves to value_node, not the nearest —
+                  # `const foo = ...` under `export` must show "export const foo =", not just
+                  # "foo =" from stopping at the innermost `variable_declarator`.
+    for _ in range(3):
+        if anc is None:
+            break
+        if _same_node(spec.unwrap_def(anc), value_node):
+            best = anc
+        anc = anc.parent()
+    return spec.name(best) if best is not None else None
+
+
 def _block_label(node, parent, spec):
     ls = spec.ls
     if node.type in ls.named_def or node.type in ls.control:
@@ -152,6 +185,10 @@ def _block_label(node, parent, spec):
         return "{…} object"
     if node.type in ('array', 'array_pattern'):
         return "[…] array"
+    if parent is not None and parent.type in spec.profile.value_types:
+        bound = _bound_ancestor_label(parent, spec)
+        if bound is not None:
+            return bound
     if 'arrow' in ptype:
         return "() => {…}"
     return "{…} block"

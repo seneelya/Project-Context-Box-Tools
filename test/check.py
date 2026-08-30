@@ -67,6 +67,14 @@ def ladder_for(fixture, line):
     return [(b["level"], b["start"], b["end"]) for b in reversed(blocks)]  # innermost→outermost (as CLI)
 
 
+def ladder_labels_for(fixture, line):
+    """Labels only (innermost→outermost) — cursor_feedback__gcb.md #1: an arrow/function
+    bound to a name (`const foo = () => {...}`) must show that name in the ladder, matching
+    outline; an unbound callback arrow keeps the honest generic `() => {…}`."""
+    blocks = _reader(fixture).get_blocks(os.path.join(_HERE, fixture), line)
+    return [b["label"] for b in reversed(blocks)]
+
+
 def query_bounds(fixture, line, level):
     from get_codeblock.core import resolve
     blocks = _reader(fixture).get_blocks(os.path.join(_HERE, fixture), line)
@@ -202,6 +210,11 @@ def main():
     for c in getattr(exp, "LADDER", []):
         line(f"\n[{c['file']} :{c['line']}]")
         check("ladder", [tuple(t) for t in c["expect"]], ladder_for(c["file"], c["line"]))
+
+    line("\n== LADDER LABEL (innermost→outermost, text only) ==")
+    for c in getattr(exp, "LADDER_LABEL", []):
+        line(f"\n[{c['file']} :{c['line']}]")
+        check("ladder label", list(c["expect"]), ladder_labels_for(c["file"], c["line"]))
 
     line("\n== QUERY bounds (level, start, end) ==")
     for c in getattr(exp, "QUERY", []):
