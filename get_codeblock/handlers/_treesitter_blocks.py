@@ -22,7 +22,7 @@ class LangSpec:
     """Node-type configuration for one brace language."""
 
     def __init__(self, name, load_language, *, body_types, transparent_parents,
-                 named_def, container, control, scope_body, cut_extra=()):
+                 named_def, container, control, scope_body, cut_extra=(), preprocess=None):
         self.name = name
         self._load_language = load_language
         self.body_types = frozenset(body_types)
@@ -34,6 +34,11 @@ class LangSpec:
         self.cut_at = self.body_types | frozenset(cut_extra)
         self.body_owners = self.named_def | self.control
         self._parser = None
+        # Optional bytes->bytes source rewrite run BEFORE parsing, same length in/out (byte
+        # offsets/line numbers must stay valid) — a language-owned escape hatch for syntax
+        # its grammar can't parse at all (see css_handler.py's SCSS top-level `$var:` mask).
+        # None for every language that doesn't need one (default, zero behavior change).
+        self.preprocess = preprocess
 
     def parser(self):
         if self._parser is None:
@@ -72,6 +77,8 @@ class TreeSitterBlockHandler:
     # -- tree helpers -----------------------------------------------------
 
     def _root(self, source_bytes):
+        if self.SPEC.preprocess is not None:
+            source_bytes = self.SPEC.preprocess(source_bytes)
         return self.SPEC.parser().parse(source_bytes).root_node
 
     def _bodies(self, root):

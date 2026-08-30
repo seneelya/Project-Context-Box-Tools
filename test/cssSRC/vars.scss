@@ -1,0 +1,15 @@
+@import "~bootstrap/scss/functions";
+@import "./mixins";
+
+$footerHeight: 180px;
+$textMainColor: #161c2d;
+$accentMainColor: #335eea;
+
+// redefine bootstrap variables
+$red: $accentMainColor;
+$blue: $accentMainColor;
+
+.footer {
+  height: 100px;
+  color: black;
+}

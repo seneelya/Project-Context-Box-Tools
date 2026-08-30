@@ -70,6 +70,8 @@ class TSBackend:
         self._langspec = langspec
 
     def root(self, source):
+        if self._langspec.preprocess is not None:
+            source = self._langspec.preprocess(source)
         node = self._langspec.parser().parse(source).root_node
         return TSNode(node, source)
 

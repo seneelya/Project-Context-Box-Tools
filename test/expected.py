@@ -154,6 +154,19 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
         (2, 49, 52, 'Dependencies External'),
         (2, 53, 55, '⚠️ Расхождения docstring ↔ код'),
     ],
+    # cursor_feedback__gcb.md #5 — top-level SCSS `$var: value;` used to blow up the WHOLE
+    # file's parse (root itself came back typed 'ERROR', everything downstream fragmented
+    # into single-token noise: `~ERROR x16`). Masked into real comments before parsing
+    # (css_handler._mask_scss_top_level_vars) so the surrounding real content — the `//`
+    # comment, the `.footer` rule — parses cleanly again; the masked comments glue onto
+    # `.footer` as its preamble (same rule as any real comment directly above a landmark),
+    # extending its range up to 9 rather than its own line 12 — expected, not a bug.
+    'cssSRC/vars.scss': [
+        (1, 1, 2, '~import x2'),
+        (1, 4, 6, '/*$footerHeight: 18*/ …'),
+        (1, 8, 8, '~js_comment'),
+        (1, 9, 15, '.footer  /*$red: $accentMainCo*/ …'),
+    ],
 }
 
 LADDER = [
