@@ -29,6 +29,7 @@ _LANG_MAP = {
     '.scss': 'css', '.sass': 'css', '.css': 'css',
     '.md': 'markdown', '.markdown': 'markdown',
     '.txt': 'text',
+    '.yaml': 'yaml', '.yml': 'yaml',
 }
 
 

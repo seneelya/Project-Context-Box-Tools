@@ -15,6 +15,7 @@ tree-sitter-cpp>=0.23    # C / C++   (.cpp .cc .cxx .c++ .hpp .hh .hxx .h .c)
 tree-sitter-c-sharp>=0.23 # C#        (.cs)
 tree-sitter-typescript>=0.23 # TypeScript / JavaScript (.ts .js .tsx .jsx)
 tree-sitter-css>=0.23    # CSS / SCSS / Sass (.css .scss .sass)
+tree-sitter-yaml>=0.6    # YAML (.yaml .yml)
 
 # tree-sitter-scss — выделенная SCSS-грамматика (`@mixin`/`@function`/`$var` без ~ERROR).
 # ОТКЛЮЧЕНО намеренно: единственный релиз на PyPI (1.0.0) отдаёт старый-ABI language(),

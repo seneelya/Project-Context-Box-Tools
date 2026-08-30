@@ -251,6 +251,29 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
         (3, 12, 12, '2. Second numbered item, single blank line apart from the…'),
         (1, 15, 15, '~rule'),
     ],
+    # YAML (real grammar, tree-sitter-yaml): key:value pair / list item are landmarks;
+    # a comment directly above `database:` glues on as its trailing label (existing
+    # generic preamble mechanic, no YAML-specific code needed for that).
+    'yamlSRC/config.yaml': [
+        (1, 1, 1, 'name: myapp'),
+        (1, 2, 2, 'version: 1.2.3'),
+        (1, 4, 10, 'database:  # database connection settings'),
+        (2, 6, 6, 'host: localhost'),
+        (2, 7, 7, 'port: 5432'),
+        (2, 8, 10, 'credentials:'),
+        (3, 9, 9, 'user: admin'),
+        (3, 10, 10, 'password: secret'),
+        (1, 12, 16, 'servers:'),
+        (2, 13, 14, '- name: web1'),
+        (3, 13, 13, 'name: web1'),
+        (3, 14, 14, 'ip: 10.0.0.1'),
+        (2, 15, 16, '- name: web2'),
+        (3, 15, 15, 'name: web2'),
+        (3, 16, 16, 'ip: 10.0.0.2'),
+        (1, 18, 21, 'flags:'),
+        (2, 19, 19, '- debug'),
+        (2, 20, 20, '- verbose'),
+    ],
 }
 
 LADDER = [
@@ -353,6 +376,9 @@ LADDER = [
      "expect": [(3, 7, 7), (2, 5, 8), (1, 1, 8)]},
     {"file": 'nonCode/edge_cases.txt', "line": 8,
      "expect": [(3, 8, 8), (2, 7, 9), (1, 3, 12)]},
+    # YAML: mapping -> nested mapping -> pair, 3 real rungs.
+    {"file": 'yamlSRC/config.yaml', "line": 9,
+     "expect": [(3, 9, 9), (2, 8, 10), (1, 4, 10)]},
 ]
 
 # cursor_feedback__gcb.md #1 — labels only (LADDER above checks ranges, not text). A
@@ -370,6 +396,8 @@ LADDER_LABEL = [
      "expect": ["4. **Ключевое открытие** (самый ценный вывод): чекпоинты из…",
                 "1. **Хранение**: оптимальна гибридная схема — append-only…",
                 "**Concluded:**"]},
+    {"file": 'yamlSRC/config.yaml', "line": 9,
+     "expect": ["user: admin", "credentials:", "database:"]},
 ]
 
 FOCUS_OUTLINE = [

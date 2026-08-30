@@ -1,0 +1,20 @@
+name: myapp
+version: 1.2.3
+
+# database connection settings
+database:
+  host: localhost
+  port: 5432
+  credentials:
+    user: admin
+    password: secret
+
+servers:
+  - name: web1
+    ip: 10.0.0.1
+  - name: web2
+    ip: 10.0.0.2
+
+flags:
+  - debug
+  - verbose

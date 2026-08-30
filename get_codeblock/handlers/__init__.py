@@ -26,6 +26,8 @@ def get_handler(language: str):
         "md": _make_markdown_handler,
         "text": _make_text_handler,
         "txt": _make_text_handler,
+        "yaml": _make_text_handler,
+        "yml": _make_text_handler,
     }
 
     factory = handlers.get(language.lower())

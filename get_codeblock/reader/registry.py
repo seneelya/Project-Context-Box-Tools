@@ -39,6 +39,9 @@ def resolve(ext):
     if ext == '.txt':                                   # core2 — plain prose, no markup
         from .backends.plaintext import PlainTextBackend, PlainTextSpec
         return PlainTextBackend(), PlainTextSpec()
+    if ext in ('.yaml', '.yml'):                        # core2 — real grammar, own Spec
+        from .backends.yaml_backend import YamlBackend, YamlSpec
+        return YamlBackend(), YamlSpec()
     if ext == '.py':                                   # tree-sitter-python или ast-фолбек
         return _python_backend_spec()
     prof = profiles.ts_profile_for_ext(ext)            # core1 — tree-sitter, плагин языка

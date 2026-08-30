@@ -27,6 +27,7 @@ LANGUAGE_MODULES = {
     "typescript": ["tree_sitter", "tree_sitter_typescript"],
     "tsx": ["tree_sitter", "tree_sitter_typescript"],
     "css": ["tree_sitter", "tree_sitter_css"],
+    "yaml": ["tree_sitter", "tree_sitter_yaml"],
     "python": [],
     "markdown": [],
     "text": [],

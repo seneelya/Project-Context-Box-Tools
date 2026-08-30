@@ -29,7 +29,7 @@ _LANG = {".py": "python", ".ts": "typescript", ".js": "typescript",
          ".cs": "csharp", ".md": "markdown", ".markdown": "markdown",
          ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".c++": "cpp",
          ".hpp": "cpp", ".hh": "cpp", ".hxx": "cpp", ".h": "cpp", ".c": "cpp",
-         ".txt": "text"}
+         ".txt": "text", ".yaml": "yaml", ".yml": "yaml"}
 
 
 def _lang(file):
