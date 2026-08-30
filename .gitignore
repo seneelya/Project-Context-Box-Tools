@@ -2,6 +2,11 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Outer-repo-only note (ProjectStarter's own __HQ/tools/ folder before this repo is
+# cloned into it) — never part of this repo's own content, sits at this path only when
+# both repos coexist on disk during development.
+/CLONE_TOOLS_HERE.md
+
 # Private test data — real project sources, must NOT be published.
 # Kept locally as test fixtures for get_codeblock etc.
 test/secret/
