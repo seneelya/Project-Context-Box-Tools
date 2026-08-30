@@ -6,8 +6,8 @@
 2. **Хвост `__dev/TRACKER.md`** (последние строки `✅`) — где мы по времени, что было только что.
 3. **`__dev/vision/Vision01__path-and-flag-conventions.md`** — контракт путей/флагов, патч сделан
    (см. чеклист там же, весь `[x]`).
-4. **`__dev/Requests/`** — `DONE__*` закрыты, без префикса = открыто. Сейчас открыт **REQ-003**
-   (не трогали) и свежие **REQ-006**/**REQ-007** (см. ниже).
+4. **`__dev/Requests/`** — `DONE__*` закрыты, без префикса = открыто. На 2026-08-30 открытых нет —
+   REQ-003/006/007 (см. ниже, были параллельно с этим доком) все закрыты в ту же сессию.
 
 ## Что это за репозиторий
 
@@ -40,18 +40,28 @@
 
 ## Открыто, ждёт следующей сессии
 
-- **REQ-003** — nested-package identity в `find_code_usage` (нашлось раньше, не трогали).
-- **REQ-006** — Python-константы модуля (`KNOWN_SEAMS = (...)`) вообще не попадают в карточку ни
-  как факт, ни в Salvage — `_declared()` для Python берёт exports только из functions/classes.
-- **REQ-007** — `CONFIG__TOOLS` резолвится по расположению СКРИПТА (`sys.path`), не по
-  `--project-root` — `--all --project-root <чужой проект>` из этого чекаута читает ЧУЖОЙ
-  `TEST_DIRS`/`LANGUAGE`. Найдено живьём (наштамповало 43 лишних карточки в memohood, откачено).
+Пусто — REQ-003/006/007 закрыты в этой же сессии (2026-08-30, после первой версии этого файла):
+
+- **REQ-007** — `CONFIG__TOOLS` резолвился по расположению СКРИПТА, не по `--project-root`.
+  Фикс: `graph_from_cards.load_config_at(root)` грузит `<root>/__HQ/tools/CONFIG__TOOLS.py` по
+  файловому пути; `make_interface_card._decl_backend`/`_config_lang_testdirs` теперь берут
+  конфиг ЦЕЛЕВОГО корня. Живой прогон на memohood подтверждён (`tests/` больше не штампуется).
+- **REQ-006** — Python-константы модуля не попадали в карточку. Фикс: `show_pyfile_api.collect()`
+  возвращает `constants` (публичные top-level присваивания) → `make_interface_card` кладёт их в
+  `exports` с `kind="const"`, рендерится в уже существующий `### Constants` H3.
+- **REQ-003** — nested-package identity в `find_code_usage`. Фикс: путь-based сверка (по
+  реальным директориям через dots, независимо от `__init__.py`-цепочки) добавлена РЯДОМ со старой
+  dotted-name проверкой в `python_handler.py`, не заменяя её.
+
+Все три — `DONE__REQ-{003,006,007}_*.md` в `__dev/Requests/`, детали фикса — хвост
+`__dev/TRACKER.md`. Регресс на момент закрытия: golden 107/0, test_cardstamp 109/0,
+run_restamp_fixtures 21/0.
 
 ## Регресс (прогнать после любой правки)
 
 ```bash
-py test/check.py --fails            # 106/0 — общий оракул пакета
-py test/test_cardstamp.py           # 103/0 — merge/salvage/зона/discrepancies
+py test/check.py --fails            # 107/0 — общий оракул пакета
+py test/test_cardstamp.py           # 109/0 — merge/salvage/зона/discrepancies
 py test/run_restamp_fixtures.py     # 21/0 — ручной полигон merge-идентичности
 ```
 
