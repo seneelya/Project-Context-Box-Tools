@@ -1,0 +1,15 @@
+===
+
+A file that opens with a rule line above, immediately followed by a short paragraph.
+
+No.
+
+- Only a bullet list here, no lead-in line before the first marker.
+- Second bullet.
+* Third bullet, different marker character, still counts.
+
+1. First numbered item right after a blank-only gap.
+2. Second numbered item, single blank line apart from the paragraph before, so this whole thing is ONE paragraph split into two items.
+
+
+***

@@ -13,11 +13,18 @@ name is its own first ~60 chars, trimmed to a word boundary with a trailing `…
 — a cheap proxy for "the first half of its first sentence" without real sentence-
 boundary detection (which is locale/abbreviation-fragile). A section's name is its
 first paragraph's name.
+
+A paragraph that turns out to be a LIST (2+ of its lines start with a `1.`/`1)` or
+`-`/`*`/`•` marker) is split one level deeper: each marker line (through the lines
+before the next marker) becomes its own ITEM landmark; a lead-in line before the first
+marker (`Consider:` before a bullet list) becomes an unmarked ITEM too. An ordinary
+prose paragraph (no marker lines, or just one) is untouched — still one flat leaf.
 """
 
 import re
 
 _RULE_RE = re.compile(r'^[ \t]*([-=_*])\1{2,}[ \t]*$')
+_ITEM_RE = re.compile(r'^\s*(?:\d+[.)]|[-*•])\s+')
 _LABEL_CAP = 60
 
 
@@ -93,6 +100,34 @@ def _runs(lines):
     return runs
 
 
+def _list_item_ranges(lines, s, e):
+    """Split paragraph [s,e] into list items if 2+ of its lines start with a marker.
+    Returns None (not a list — keep the paragraph flat) or [(start,end), ...] ranges
+    covering [s,e] exactly: an optional unmarked lead-in range, then one range per
+    marker line running up to (not including) the next marker line."""
+    marker_rows = [i for i in range(s, e + 1) if _ITEM_RE.match(lines[i].rstrip('\r\n'))]
+    if len(marker_rows) < 2:
+        return None
+    ranges = []
+    if marker_rows[0] > s:
+        ranges.append((s, marker_rows[0] - 1))
+    for idx, row in enumerate(marker_rows):
+        end = (marker_rows[idx + 1] - 1) if idx + 1 < len(marker_rows) else e
+        ranges.append((row, end))
+    return ranges
+
+
+def _paragraph_node(lines, s, e):
+    text = "".join(lines[s:e + 1])
+    label = _short_label(text)
+    items = _list_item_ranges(lines, s, e)
+    if items is None:
+        return TxtNode('paragraph', s, e, label=label)
+    kids = [TxtNode('item', a, b, label=_short_label("".join(lines[a:b + 1])))
+            for a, b in items]
+    return TxtNode('paragraph', s, e, label=label, kids=kids)
+
+
 def _build(lines):
     nodes = []
     section_paras = []
@@ -117,8 +152,7 @@ def _build(lines):
             flush_section()
             nodes.append(TxtNode('rule', s, e, label=lines[s].rstrip()))
             continue
-        text = "".join(lines[s:e + 1])
-        para = TxtNode('paragraph', s, e, label=_short_label(text))
+        para = _paragraph_node(lines, s, e)
         if section_start[0] is None:
             section_start[0] = s
         section_paras.append(para)
@@ -135,20 +169,20 @@ class PlainTextBackend:
 
 
 class PlainTextSpec:
-    """SECTION/PARAGRAPH are landmarks; RULE is filler; no frames, no `.name()` of its
-    own (there is nothing structural to be transparent about in plain prose)."""
+    """SECTION/PARAGRAPH/ITEM are landmarks; RULE is filler; no frames (there is nothing
+    structural to be transparent about in plain prose)."""
 
     def unwrap_frame(self, node):
         return None
 
     def unwrap_def(self, node):
-        return node if node.type in ('section', 'paragraph') else None
+        return node if node.type in ('section', 'paragraph', 'item') else None
 
     def role(self, node):
-        return 'landmark' if node.type in ('section', 'paragraph') else 'filler'
+        return 'landmark' if node.type in ('section', 'paragraph', 'item') else 'filler'
 
     def body(self, node):
-        return node if node.type == 'section' and node.children() else None
+        return node if node.type in ('section', 'paragraph') and node.children() else None
 
     def name(self, node):
         return node.label

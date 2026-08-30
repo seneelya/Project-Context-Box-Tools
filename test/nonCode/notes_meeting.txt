@@ -1,0 +1,23 @@
+Weekly sync notes, planning track. Attendees: Dana, Marcus, and the on-call rotation for this sprint.
+
+Dana opened with a status update on the migration. The old queue consumer is still running in shadow mode alongside the new one, and error rates look flat so far.
+
+Decisions made today:
+1. Cut over the primary queue consumer on Thursday, not Friday — avoids a weekend page if something breaks.
+2. Keep the old consumer running read-only for one more week as a safety net.
+3. Marcus owns the rollback runbook, due before Thursday's cutover.
+
+
+Open questions for next week, in priority order:
+- Who owns the alerting thresholds after cutover?
+- Does the shadow-mode data need to be archived or can it be dropped?
+- Should the on-call rotation change once the new consumer is the only one running?
+
+---
+
+Action items, assigned:
+1) Marcus: write the rollback runbook.
+2) Dana: draft the alerting threshold proposal.
+3) On-call: monitor error rates through Thursday.
+
+Closing note from Dana: this is the last blocker before the Q3 migration can be marked complete, so treat Thursday's cutover as the critical path for the rest of the quarter.

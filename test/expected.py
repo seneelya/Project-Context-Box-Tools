@@ -170,7 +170,9 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
     # Plain-text experiment: no markup at all, structure purely from blank-line runs.
     # SECTION (2+ blank lines apart) contains PARAGRAPH (single-blank-line apart);
     # trailing `---` is its own top-level `~rule` filler, not swallowed. Names are each
-    # node's own first ~60 chars (no headings exist to read a name from).
+    # node's own first ~60 chars (no headings exist to read a name from). A paragraph
+    # with 2+ marker lines (`1.`/`-`) splits one level deeper into ITEMs — a lead-in
+    # line before the first marker becomes its own unmarked item.
     'nonCode/text1_smal.txt': [
         (1, 1, 8, 'The user is testing me on this. They want me to think…'),
         (2, 1, 1, 'The user is testing me on this. They want me to think…'),
@@ -179,16 +181,75 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
         (2, 8, 8, 'Actually, let me think carefully: the user said "давай…'),
         (1, 11, 26, 'Let me think deeply about the topic. Topic choice:…'),
         (2, 11, 14, 'Let me think deeply about the topic. Topic choice:…'),
+        (3, 11, 11, 'Let me think deeply about the topic. Topic choice:…'),
+        (3, 12, 12, '- What to store (facts vs procedures vs episodic)'),
+        (3, 13, 13, '- Conflict resolution between memories'),
+        (3, 14, 14, '- Token budget for memory injection'),
         (2, 16, 16, 'This is perfect — it directly relates to our conversation…'),
         (2, 18, 18, '1. **Storage model**: KV pairs vs graph vs append-only log.…'),
         (2, 20, 20, '2. **Write policy**: The hardest part. Write too much →…'),
         (2, 22, 26, 'Let me write the response in Russian: 1. One line: picked a…'),
+        (3, 22, 22, 'Let me write the response in Russian:'),
+        (3, 23, 23, '1. One line: picked a topic (agent memory system — meta,…'),
+        (3, 24, 24, '2. **Concluded:** 3–5 items with real substance'),
+        (3, 25, 25, '3. **Still needed:** open questions + exact next steps…'),
+        (3, 26, 26, '4. Short synthesis/answer'),
         (1, 30, 39, '**Concluded:**'),
         (2, 30, 30, '**Concluded:**'),
         (2, 32, 33, '1. **Хранение**: оптимальна гибридная схема — append-only…'),
+        (3, 32, 32, '1. **Хранение**: оптимальна гибридная схема — append-only…'),
+        (3, 33, 33, '4. **Ключевое открытие** (самый ценный вывод): чекпоинты из…'),
         (2, 35, 35, '**Still needed:**'),
         (2, 37, 39, '1. Как эмпирически измерить *ценность* записи памяти (для…'),
+        (3, 37, 37, '1. Как эмпирически измерить *ценность* записи памяти (для…'),
+        (3, 38, 38, '2. Частота компакции: по таймеру, по объёму журнала, или по…'),
+        (3, 39, 39, '3. Разрешение конфликтов: новая запись противоречит старой…'),
         (1, 41, 41, '~rule'),
+    ],
+    # Own fixture #1: a "clean" realistic case — mixed marker styles (`1.` and `1)`),
+    # a paragraph whose SECOND half is a list (lead-in item + numbered items), a rule
+    # in the middle as a section break, and a final paragraph with no list at all.
+    'nonCode/notes_meeting.txt': [
+        (1, 1, 8, 'Weekly sync notes, planning track. Attendees: Dana, Marcus,…'),
+        (2, 1, 1, 'Weekly sync notes, planning track. Attendees: Dana, Marcus,…'),
+        (2, 3, 3, 'Dana opened with a status update on the migration. The old…'),
+        (2, 5, 8, 'Decisions made today: 1. Cut over the primary queue…'),
+        (3, 5, 5, 'Decisions made today:'),
+        (3, 6, 6, '1. Cut over the primary queue consumer on Thursday, not…'),
+        (3, 7, 7, '2. Keep the old consumer running read-only for one more…'),
+        (3, 8, 8, "3. Marcus owns the rollback runbook, due before Thursday's…"),
+        (1, 11, 14, 'Open questions for next week, in priority order: - Who owns…'),
+        (2, 11, 14, 'Open questions for next week, in priority order: - Who owns…'),
+        (3, 11, 11, 'Open questions for next week, in priority order:'),
+        (3, 12, 12, '- Who owns the alerting thresholds after cutover?'),
+        (3, 13, 13, '- Does the shadow-mode data need to be archived or can it…'),
+        (3, 14, 14, '- Should the on-call rotation change once the new consumer…'),
+        (1, 16, 16, '~rule'),
+        (1, 18, 23, 'Action items, assigned: 1) Marcus: write the rollback…'),
+        (2, 18, 21, 'Action items, assigned: 1) Marcus: write the rollback…'),
+        (3, 18, 18, 'Action items, assigned:'),
+        (3, 19, 19, '1) Marcus: write the rollback runbook.'),
+        (3, 20, 20, '2) Dana: draft the alerting threshold proposal.'),
+        (3, 21, 21, '3) On-call: monitor error rates through Thursday.'),
+        (2, 23, 23, 'Closing note from Dana: this is the last blocker before the…'),
+    ],
+    # Own fixture #2: edge cases — file OPENS with a rule (`===`), a paragraph that is
+    # ENTIRELY a list with no lead-in, a mixed-marker list (`-`/`*`), a 2-item list
+    # separated from its neighbor by only ONE blank line (stays in the SAME section),
+    # and a final double-blank + rule (`***`) at EOF.
+    'nonCode/edge_cases.txt': [
+        (1, 1, 1, '~rule'),
+        (1, 3, 12, 'A file that opens with a rule line above, immediately…'),
+        (2, 3, 3, 'A file that opens with a rule line above, immediately…'),
+        (2, 5, 5, 'No.'),
+        (2, 7, 9, '- Only a bullet list here, no lead-in line before the first…'),
+        (3, 7, 7, '- Only a bullet list here, no lead-in line before the first…'),
+        (3, 8, 8, '- Second bullet.'),
+        (3, 9, 9, '* Third bullet, different marker character, still counts.'),
+        (2, 11, 12, '1. First numbered item right after a blank-only gap. 2.…'),
+        (3, 11, 11, '1. First numbered item right after a blank-only gap.'),
+        (3, 12, 12, '2. Second numbered item, single blank line apart from the…'),
+        (1, 15, 15, '~rule'),
     ],
 }
 
@@ -284,8 +345,14 @@ LADDER = [
     # Same invariant, brace engine: a leading `import` line (no enclosing def/class) returns
     # the `imports: …` filler band, not `[1, N]`.
     {"file": 'Edge/Edge.ts', "line": 1, "expect": [(1, 1, 3)]},
-    # Plain-text: block (section) -> paragraph, 2 real rungs.
-    {"file": 'nonCode/text1_smal.txt', "line": 33, "expect": [(2, 32, 33), (1, 30, 39)]},
+    # Plain-text: section -> paragraph -> list item, 3 real rungs (line 33 is a marker
+    # line inside a 2-item list paragraph with no lead-in — see LADDER_LABEL for names).
+    {"file": 'nonCode/text1_smal.txt', "line": 33,
+     "expect": [(3, 33, 33), (2, 32, 33), (1, 30, 39)]},
+    {"file": 'nonCode/notes_meeting.txt', "line": 7,
+     "expect": [(3, 7, 7), (2, 5, 8), (1, 1, 8)]},
+    {"file": 'nonCode/edge_cases.txt', "line": 8,
+     "expect": [(3, 8, 8), (2, 7, 9), (1, 3, 12)]},
 ]
 
 # cursor_feedback__gcb.md #1 — labels only (LADDER above checks ranges, not text). A
@@ -300,7 +367,8 @@ LADDER_LABEL = [
                 "export const getPotentiallyUnused = ( file: SourceFile, skipper?: RegExp ): "
                 "IAnalysedResult =>"]},
     {"file": 'nonCode/text1_smal.txt', "line": 33,
-     "expect": ["1. **Хранение**: оптимальна гибридная схема — append-only…",
+     "expect": ["4. **Ключевое открытие** (самый ценный вывод): чекпоинты из…",
+                "1. **Хранение**: оптимальна гибридная схема — append-only…",
                 "**Concluded:**"]},
 ]
 
