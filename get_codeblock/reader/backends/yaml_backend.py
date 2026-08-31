@@ -84,6 +84,11 @@ class _RootNode:
 
 class YamlBackend:
     def root(self, source):
+        # Грамматика опциональна (requirements.txt). Без гарда голый ImportError уходил
+        # трейсбеком мимо штатного сообщения с готовой командой установки — тем самым,
+        # что CLI печатает через core.py. Остальные языки прикрыты LangSpec.parser().
+        from ...env_check import ensure_language
+        ensure_language("yaml")
         import tree_sitter_yaml
         from tree_sitter import Language, Parser
         lang = Language(tree_sitter_yaml.language())

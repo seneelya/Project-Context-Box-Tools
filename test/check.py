@@ -10,6 +10,7 @@ Compares live tool output on the `test/` fixtures against the oracle in `test/ex
 Exit code 0 = all match, 1 = at least one mismatch.
 """
 
+import functools
 import os
 import sys
 
@@ -49,25 +50,54 @@ def _reader(fixture):
     return Reader.open(os.path.join(_HERE, fixture), _read(fixture), _lang(fixture))
 
 
+class _Skipped:
+    """Кейс не проверен: языку нужна грамматика, которой нет в ЭТОМ интерпретаторе."""
+
+    def __init__(self, why):
+        self.why = why
+
+
+def _optional_grammar(fn):
+    """Грамматики tree-sitter опциональны by design (`get_codeblock/requirements.txt`):
+    Python/Markdown/текст работают без них, остальные языки просят пакет. Поэтому
+    отсутствие грамматики — SKIP этого кейса, а не падение всего прогона: иначе один
+    неустановленный пакет уносит и те 100 проверок, которые к нему не относятся."""
+    @functools.wraps(fn)
+    def wrap(*a, **kw):
+        try:
+            return fn(*a, **kw)
+        except Exception as e:
+            from get_codeblock.env_check import EnvError
+            if isinstance(e, EnvError) or (isinstance(e, ImportError) and "tree-sitter" in str(e)):
+                return _Skipped(str(e).splitlines()[0])
+            raise
+    return wrap
+
+
+@_optional_grammar
 def levels_for(fixture, lines):
     return get_line_levels(os.path.join(_HERE, fixture), list(lines))
 
 
+@_optional_grammar
 def outline_for(fixture, max_level=None):
     rows = _reader(fixture).outline(_read(fixture), max_level=max_level)
     return [(r["level"], r["start"], r["end"], r["text"]) for r in rows]
 
 
+@_optional_grammar
 def focus_outline_for(fixture, line, level=0, deep=False):
     rows = _reader(fixture).outline(_read(fixture), deep=deep, focus_line=line, focus_level=level)
     return [(r["level"], r["start"], r["end"], r["text"]) for r in rows]
 
 
+@_optional_grammar
 def ladder_for(fixture, line):
     blocks = _reader(fixture).get_blocks(os.path.join(_HERE, fixture), line)
     return [(b["level"], b["start"], b["end"]) for b in reversed(blocks)]  # innermost→outermost (as CLI)
 
 
+@_optional_grammar
 def ladder_labels_for(fixture, line):
     """Labels only (innermost→outermost) — cursor_feedback__gcb.md #1: an arrow/function
     bound to a name (`const foo = () => {...}`) must show that name in the ladder, matching
@@ -76,6 +106,7 @@ def ladder_labels_for(fixture, line):
     return [b["label"] for b in reversed(blocks)]
 
 
+@_optional_grammar
 def query_bounds(fixture, line, level):
     from get_codeblock.core import resolve
     blocks = _reader(fixture).get_blocks(os.path.join(_HERE, fixture), line)
@@ -159,6 +190,7 @@ def incoming_sources(root, file):
     return sorted(incoming_detail(root, file)["resolved"].keys())
 
 
+@_optional_grammar
 def declarations_regex(root, file):
     """Declared surface (name, kind, exported, n_members) через фасад Reader
     (делегирует REGEX-хендлеру — детерминизм, не зависит от tree-sitter)."""
@@ -173,14 +205,18 @@ def main():
     only_fails = "--fails" in sys.argv
     import expected as exp
 
-    passed = failed = 0
+    passed = failed = skipped = 0
 
     def line(s=""):
         if not only_fails:
             print(s)
 
     def check(name, want, got):
-        nonlocal passed, failed
+        nonlocal passed, failed, skipped
+        if isinstance(got, _Skipped):
+            skipped += 1
+            print(f"  SKIP {name}   # {got.why}")
+            return
         ok = want == got
         passed += ok
         failed += not ok
@@ -194,7 +230,8 @@ def main():
         got = levels_for(fx, [ln for ln, _w, _s in cases])
         line(f"\n[{fx}]")
         for ln, want, snip in cases:
-            check(f"line {ln} = {want}   # {snip}", want, got.get(ln))
+            check(f"line {ln} = {want}   # {snip}", want,
+                  got if isinstance(got, _Skipped) else got.get(ln))
 
     line("\n== OUTLINE (level, start, end, label) ==")
     for fx, want in getattr(exp, "OUTLINE", {}).items():
@@ -262,7 +299,8 @@ def main():
         line(f"\n[{name}]  {spec['file']}")
         check("declarations", [tuple(t) for t in spec["expect"]], got)
 
-    print(f"\n{'-'*50}\n{passed} passed, {failed} failed")
+    tail = f", {skipped} skipped (grammar missing)" if skipped else ""
+    print(f"\n{'-'*50}\n{passed} passed, {failed} failed{tail}")
     sys.exit(1 if failed else 0)
 
 
