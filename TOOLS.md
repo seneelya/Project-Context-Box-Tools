@@ -147,9 +147,12 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
   - `make_interface_card` on TS/JS & C#: backend `CONFIG__TOOLS.DECL_BACKEND` = `auto` (tree-sitter if
     present, else regex) · `treesitter` (force) · `regex` (force zero-dep fallback). A missing grammar
     prints a one-time stderr WARNING naming the pip package, then falls back to regex.
-  - Install grammars: `pip install tree-sitter tree-sitter-cpp tree-sitter-c-sharp tree-sitter-typescript`
-    (no numpy/torch cascade). All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
-- **Tests:** `py test/check.py` (full golden report) · `py test/check.py --fails` (regressions only).
+  - Install grammars: `<python> -m pip install -r get_codeblock/requirements.txt` (no numpy/torch
+    cascade; needs Python >= 3.10). All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
+- **Tests:** run with the reference interpreter `T:\AgentsWork\venv` — the only one carrying every
+  grammar. `<venv>/Scripts/python.exe test/check.py` (full golden report) · `--fails` (regressions
+  only; expect `120 passed, 0 failed` — a `skipped` tail means a grammar is missing and the run was
+  incomplete).
 - **The folder is self-contained** and travels with a project by copying — except `__delme/` and
   `__dev/` (dev-only notes/history/vision, safe to delete when deployed — `deploy_hq.py` already
   excludes both). `CONFIG__TOOLS.py` holds per-project defaults

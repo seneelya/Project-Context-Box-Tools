@@ -59,10 +59,16 @@ run_restamp_fixtures 21/0.
 
 ## Регресс (прогнать после любой правки)
 
+Эталонный интерпретатор — `T:\AgentsWork\venv` (3.12; пакет требует Python >= 3.10). Только в нём
+стоят ВСЕ грамматики из `get_codeblock/requirements.txt`. У `py` их нет, и прогон выйдет неполным:
+хвост `N skipped (grammar missing)` — это не «ок», а «столько кейсов не проверялось».
+
 ```bash
-py test/check.py --fails            # 107/0 — общий оракул пакета
-py test/test_cardstamp.py           # 109/0 — merge/salvage/зона/discrepancies
-py test/run_restamp_fixtures.py     # 21/0 — ручной полигон merge-идентичности
+T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails         # 120/0 — общий оракул пакета
+T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py        # 109/0 — merge/salvage/зона/discrepancies
+T:/AgentsWork/venv/Scripts/python.exe test/run_restamp_fixtures.py  # 21/0 — ручной полигон merge-идентичности
+T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py          # 12/12 — реальный CLI-вывод (subprocess)
+T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py      # HIGH=0 (LOW LEVEL=5 на TS try/catch — известный шум)
 ```
 
 ## get_codeblock — отдельный, активно развивающийся подпоток

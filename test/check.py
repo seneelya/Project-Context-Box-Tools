@@ -50,6 +50,11 @@ def _reader(fixture):
     return Reader.open(os.path.join(_HERE, fixture), _read(fixture), _lang(fixture))
 
 
+def _has(module):
+    import importlib.util
+    return importlib.util.find_spec(module) is not None
+
+
 class _Skipped:
     """Кейс не проверен: языку нужна грамматика, которой нет в ЭТОМ интерпретаторе."""
 
@@ -81,6 +86,12 @@ def levels_for(fixture, lines):
 
 @_optional_grammar
 def outline_for(fixture, max_level=None):
+    # Питон — единственный язык с МОЛЧАЛИВЫМ фолбеком (stdlib `ast`, см. registry):
+    # он не бросает, а отдаёт огрублённую карту (без комментариев и файловых полос).
+    # OUTLINE-эталоны сняты С грамматикой, поэтому без неё сравнивать не с чем —
+    # это SKIP, а не FAIL: «регресс» тут был бы ложным.
+    if _lang(fixture) == "python" and not _has("tree_sitter_python"):
+        return _Skipped("tree_sitter_python is not installed (ast fallback is coarser)")
     rows = _reader(fixture).outline(_read(fixture), max_level=max_level)
     return [(r["level"], r["start"], r["end"], r["text"]) for r in rows]
 
