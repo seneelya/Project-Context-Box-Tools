@@ -149,10 +149,6 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
     prints a one-time stderr WARNING naming the pip package, then falls back to regex.
   - Install grammars: `<python> -m pip install -r get_codeblock/requirements.txt` (no numpy/torch
     cascade; needs Python >= 3.10). All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
-- **Tests:** run with the reference interpreter `T:\AgentsWork\venv` — the only one carrying every
-  grammar. `<venv>/Scripts/python.exe test/check.py` (full golden report) · `--fails` (regressions
-  only; expect `120 passed, 0 failed` — a `skipped` tail means a grammar is missing and the run was
-  incomplete).
 - **The folder is self-contained** and travels with a project by copying — except `__delme/` and
   `__dev/` (dev-only notes/history/vision, safe to delete when deployed — `deploy_hq.py` already
   excludes both). `CONFIG__TOOLS.py` holds per-project defaults
