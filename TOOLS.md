@@ -1,4 +1,4 @@
-# TOOLS_RC — Agent Router Directive
+# TOOLS — Agent Router Directive
 
 **THIS IS NOT DOCUMENTATION. THIS IS YOUR ROUTER.**
 
@@ -43,7 +43,7 @@ These steps are **mandatory**, not optional:
    `CONFIG__TOOLS.PROJECT_ROOT` if you write `--project-root @` explicitly. See
    `__dev/vision/Vision01__path-and-flag-conventions.md` for the full contract.
 
-This sequence is: TOOLS_RC.md → `<tool>__TLDR.md` → execute tool. Do not skip step 1.
+This sequence is: TOOLS.md → `<tool>__TLDR.md` → execute tool. Do not skip step 1.
 
 ---
 
