@@ -149,10 +149,6 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
     prints a one-time stderr WARNING naming the pip package, then falls back to regex.
   - Install grammars: `<python> -m pip install -r get_codeblock/requirements.txt` (no numpy/torch
     cascade; needs Python >= 3.10). All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
-- **The folder is self-contained** and travels with a project by copying — except `__delme/` and
-  `__dev/` (dev-only notes/history/vision, safe to delete when deployed — `deploy_hq.py` already
-  excludes both). `CONFIG__TOOLS.py` holds per-project defaults
-  (`PROJECT_ROOT`, `LANGUAGE`, `TEST_DIRS`, `DECL_BACKEND`); `CARD_FORMAT.py` is the card-shape contract.
 
 ---
 
