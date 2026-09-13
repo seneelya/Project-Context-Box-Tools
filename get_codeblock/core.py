@@ -804,6 +804,7 @@ def main():
     # хендлеру внутри Reader (паритет), новый .0 — там же. core.py в get_handler
     # напрямую больше не ходит.
     from get_codeblock.reader.reader import Reader
+    from get_codeblock.jsx_note import flat_block_note
     handler = Reader.open(file_path, lines, language)
     _copen, _cclose = make_comment_delims(language)
     is_tty = sys.stdout.isatty()
@@ -916,6 +917,12 @@ def main():
                + (f", {tally}" if tally else "")
                + f", showing levels {base_level}..{min(shown, depth)}"))
 
+        jsx_start, jsx_end = (rows_all[0]['start'], rows_all[0]['end']) if focus_line else (1, total_lines)
+        jsx_note = flat_block_note(language, ext, lines, jsx_start, jsx_end,
+                                    depth=depth, base_level=base_level)
+        if jsx_note:
+            emit(c(jsx_note))
+
         # Pad each "<indent><marker>" so ranges line up. Named block = bare level number;
         # unnamed (frame/filler) = '.'+level ('.3' = «уровень 3, без имени»), чтобы глубина
         # была видна, но было ясно: имени тут нет, в оглавление не тащим. На уровне 1 номер
@@ -954,6 +961,13 @@ def main():
                 # this session's own subprocess stdout is not a tty, so TTY-only would hide it
                 # from exactly the audience it matters most to).
                 emit(c(escalation_note))
+        if runs:
+            jsx_note = flat_block_note(language, ext, lines,
+                                        min(r['start'] for r in runs),
+                                        max(r['end'] for r in runs),
+                                        handler=handler)
+            if jsx_note:
+                emit(c(jsx_note))
         exit_code = _render_query_runs(file_path, lines, runs, errors, args.get('numbered'), emit, c)
         if exit_code:
             sys.exit(exit_code)
