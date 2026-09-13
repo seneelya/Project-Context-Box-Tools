@@ -1,4 +1,4 @@
-#parameters escalated: --line 51,45 -> --line 51,45,42 (result was 5 non-blank line(s), below the informative floor) — use --force for the exact requested range without escalation
+#parameters escalated: --line 51,45 -> --line 51,45,42 (result was 5 non-blank line(s), below the informative floor)
 #File: test/Edge/Edge.py (67 lines)
 #■BLOCK : 42-46  = ranges :  Level 6  42-43,  Level 6  44-46
                     try:

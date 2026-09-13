@@ -97,7 +97,7 @@ lines. It pulls in neighboring blocks until the result is actually informative, 
 
 ```
 #parameters escalated: --line 1 -> --line 1,4 (result was 2 non-blank line(s), below the
-informative floor) — use --force for the exact requested range without escalation
+informative floor)
 ```
 
 Wanted exactly what you asked for, no more? Add `--force`. Same flag also gets you the literal

@@ -87,7 +87,7 @@ cosmetic, so it's always announced with an unconditional metadata line:
 
 ```
 #parameters escalated: --line 1 -> --line 1,4 (result was 2 non-blank line(s), below the
-informative floor) — use --force for the exact requested range without escalation
+informative floor)
 ```
 
 Add `--force` to skip this and get exactly the literal range you asked for, however small.

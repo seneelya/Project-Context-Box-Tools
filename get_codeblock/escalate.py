@@ -160,6 +160,5 @@ def maybe_escalate(handler, resolve_fn, file_path, lines, line_nums, levels, run
     old_desc = ",".join(str(x) for x in line_nums)
     new_desc = ",".join(str(x) for x in new_lines)
     note = (f"parameters escalated: --line {old_desc} -> --line {new_desc} "
-            f"(result was {seed_total} non-blank line(s), below the informative floor) "
-            f"— use --force for the exact requested range without escalation")
+            f"(result was {seed_total} non-blank line(s), below the informative floor)")
     return new_lines, new_levels, note
