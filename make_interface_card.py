@@ -480,8 +480,12 @@ def _parse_old_prose(text, lang=None):
         elif name == "Dependencies Internal":
             _parse_why(body, P)
         elif name == "Dependencies External":
+            # "(none)" is kept here too (not filtered like it used to be): the note's own
+            # directive now says "else write (none)" (REQ-009 — "DELETE this line" left no
+            # trace, so merge couldn't tell "agent said nothing applies" from "agent never
+            # looked" and kept reinserting the directive on every re-stamp).
             note = [ln for ln in body if ln.strip() and not _is_ph(ln)
-                    and ln.strip() not in (cf.EMPTY, "external imports:")
+                    and ln.strip() != "external imports:"
                     and not ln.strip().startswith(("import ", "from "))]
             if note:
                 P["ext_note"] = note
@@ -670,7 +674,7 @@ def build_card(project_root, file, old_prose=None, report=None):
             lines.extend(op["ext_note"])
             report["kept_sections"].append("Dependencies External")
         else:
-            lines.append(cf.agent("optional — one line ONLY if a lib above is non-obvious; else DELETE this line (do NOT edit the import list)"))
+            lines.append(cf.agent("one line ONLY if a lib above is non-obvious; else write (none) (do NOT edit the import list)"))
     else:
         lines.append(cf.EMPTY)
     lines.append("")
