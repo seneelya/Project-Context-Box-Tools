@@ -27,14 +27,15 @@
                                    number_directives().
 
     Тот же приём («одно значение — одна строка», Plan02 pt.1+2) — в `Package layout`
-    (`known submodules (re-exported from):` + `- modname` построчно) и в `Dependencies
-    Internal` (таблица `Import | File Path | Symbols | Kind` — ОДНА СТРОКА НА СИМВОЛ,
-    не на файл; факт без прозы). Проза `Why` вынесена из таблицы в отдельный bullet-
-    список НИЖЕ неё, по одному импорту на строку — `Why` больше не смешана с фактом в
-    одной физической строке, LLM правит только свою строку, не переписывая факты
-    (Plan02 pt.3):
+    (`known submodules (re-exported from):` + `- modname` построчно) и в `In-Project
+    Dependencies` (переименована из `Dependencies Internal`, Plan03 pt.0 — старое
+    "Internal" читалось как «внутри файла», не «внутри проекта»; таблица `Import |
+    File Path | Symbols | Kind` — ОДНА СТРОКА НА СИМВОЛ, не на файл; факт без прозы).
+    Проза `Why` вынесена из таблицы в отдельный bullet-список НИЖЕ неё, по одному
+    импорту на строку — `Why` больше не смешана с фактом в одной физической строке,
+    LLM правит только свою строку, не переписывая факты (Plan02 pt.3):
 
-        ## Dependencies Internal
+        ## In-Project Dependencies
 
         | Import | File Path | Symbols | Kind |
         |---|---|---|---|
@@ -43,6 +44,19 @@
 
         ### Why these imports are used (one line per import — free text)
         - `utils` — <прозу пишет LLM>
+
+    ## Runtime seams                ОПЦИОНАЛЬНАЯ секция (Plan03/Vision07, как
+                                   `## Salvage` — появляется, только если есть что
+                                   описывать; штамп не создаёт её пустой и не трогает
+                                   существующую, кроме строки-контракта):
+
+        ## Runtime seams
+
+        Contract: `python __HQ/tools/make_interface_card.py --help-seams` (columns, Kind/Shape vocab, examples).
+
+        | Target | Symbol | Kind | Shape | Why |
+        |---|---|---|---|---|
+        | `promo_engine.py` | `apply_discount` | by-path | dependent | loaded by feature flag |
 
     <!-- card-format: X.Y.Z -->    ПОСЛЕДНЯЯ строка файла (см. VERSION ниже) — какой
                                    версией контракта проштампована ЭТА карточка.
@@ -67,10 +81,13 @@ import re
 # заголовков допустимы — контракт подогнан под ЛЛМ-паттерн «пустая строка после ## »).
 
 # Обязательные  ## (H2)  для МОДУЛЬНОЙ карточки, в этом порядке. Секция не обнаружена -> тело EMPTY.
+# "Dependencies Internal/External" переименованы в "In-Project/External Dependencies" (Plan03
+# pt.0) — старое "Internal" читалось как "внутри файла", а не "внутри проекта". Старые заголовки
+# остаются читаемыми через ALIASES (canon()), карточки со старым именем не ломаются при чтении.
 H2_SECTIONS = [
     "Public API",
-    "Dependencies Internal",
-    "Dependencies External",
+    "In-Project Dependencies",
+    "External Dependencies",
     "How it works",
     "Doc links",
     "Discrepancies",
@@ -109,6 +126,62 @@ DEPS_COLUMNS = ["Import", "File Path", "Symbols", "Kind"]
 EDGE_COLUMN = "File Path"     # из какой колонки берём рёбра графа (root-relative путь к файлу)
 IMPORT_KINDS = ["normal", "lazy", "conditional", "type"]
 
+# "## Runtime seams" — ОПЦИОНАЛЬНАЯ H2-секция (Plan03/Vision07): связи, которых не видно из
+# импортов (динамическая загрузка по пути, отдельный процесс, общий файл, шина событий). НЕ
+# входит в H2_SECTIONS/H2_SECTIONS_PACKAGE — как "## Salvage", появляется только если есть что
+# описывать, штамп никогда не создаёт её пустой. Таблица `SEAM_COLUMNS` пишется целиком ЛЛМ
+# (штамп её не трогает, кроме строки-контракта — см. make_interface_card.py); Kind/Shape — два
+# НЕЗАВИСИМЫХ закрытых словаря, любая комбинация валидна.
+RUNTIME_SEAMS_SECTION = "Runtime seams"
+SEAM_COLUMNS = ["Target", "Symbol", "Kind", "Shape", "Why"]
+
+# Kind (канал): по какому механизму существует связь. file/event неоднозначны по направлению
+# без явной пометки — допускают суффикс через ":". by-path/process/http однозначны конвенцией
+# "строку пишет инициатор/загрузчик", суффикс для них не предусмотрен.
+SEAM_KIND_BASE = ["by-path", "process", "http", "file", "event"]
+SEAM_KIND_SUFFIXES = {
+    "file": ["reads", "writes", "reads+writes"],
+    "event": ["emits", "listens"],
+}
+
+# Shape (форма связи): ломается ли что-то, если цель исчезнет — у зависимой стороны (dependent),
+# у обеих (equal) или ни у кого (reference, чисто справочная связь).
+SEAM_SHAPE = ["dependent", "equal", "reference"]
+
+
+def is_valid_seam_kind(s):
+    """True, если `s` — валидное значение Kind, с учётом суффиксов направления у file/event."""
+    s = s.strip()
+    if s in SEAM_KIND_BASE:
+        return s not in SEAM_KIND_SUFFIXES  # file/event без суффикса недопустимы — направление обязательно
+    if ":" in s:
+        base, _, suffix = s.partition(":")
+        return base in SEAM_KIND_SUFFIXES and suffix in SEAM_KIND_SUFFIXES[base]
+    return False
+
+
+def is_valid_seam_shape(s):
+    """True, если `s` — одно из трёх значений Shape."""
+    return s.strip() in SEAM_SHAPE
+
+
+# Строка-контракт над таблицей Runtime seams — ФАКТ, не проза (Vision07): штамп пишет и
+# перезаписывает её на КАЖДОМ проходе, как строку версии (см. version_comment() выше), агент её
+# не редактирует и не удаляет. Узнаётся по фиксированному префиксу "Contract:" (Plan03 pt.2).
+_SEAM_CONTRACT_TEXT = ("Contract: `python __HQ/tools/make_interface_card.py --help-seams` "
+                       "(columns, Kind/Shape vocab, examples).")
+
+
+def seam_contract_line():
+    """Render the Runtime seams contract-note line (always current, refreshed every stamp)."""
+    return _SEAM_CONTRACT_TEXT
+
+
+def is_seam_contract_line(line):
+    """True, если `line` — строка-контракт Runtime seams (по префиксу, не по точному тексту —
+    переживает будущую правку формулировки)."""
+    return line.strip().startswith("Contract:")
+
 # Маркер пустой секции/ячейки. Парсер принимает и вариант в бэктиках: `(none)`.
 EMPTY = "(none)"
 
@@ -120,7 +193,7 @@ EMPTY = "(none)"
 # into every card as its LAST line (see version_comment()/is_version_comment() below) so
 # an already-written card carries its own provenance — a version number that only lives
 # in this file tells you nothing about files stamped by an older copy of the tool.
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 _VERSION_RE = re.compile(r"^<!--\s*card-format:\s*(\S+)\s*-->\s*$")
 
@@ -199,10 +272,12 @@ def number_directives(text, start=1):
 ALIASES = {
     # секции
     "Публичный API": "Public API",
-    "Зависимости (внутренние)": "Dependencies Internal",
-    "Internal dependencies": "Dependencies Internal",
-    "Внешние зависимости": "Dependencies External",
-    "External dependencies": "Dependencies External",
+    "Dependencies Internal": "In-Project Dependencies",
+    "Зависимости (внутренние)": "In-Project Dependencies",
+    "Internal dependencies": "In-Project Dependencies",
+    "Dependencies External": "External Dependencies",
+    "Внешние зависимости": "External Dependencies",
+    "External dependencies": "External Dependencies",
     "Принцип работы": "How it works",
     "Расхождения docstring ↔ код": "Discrepancies",
     "Docstring ↔ code discrepancies": "Discrepancies",

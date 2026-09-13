@@ -6,10 +6,10 @@ Adds one to the input and returns it.
 #### `run(x) -> int`
 Returns x plus one.
 
-## Dependencies Internal
+## In-Project Dependencies
 (none)
 
-## Dependencies External
+## External Dependencies
 (none)
 
 ## How it works

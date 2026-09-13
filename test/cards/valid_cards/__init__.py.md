@@ -8,10 +8,10 @@ Package index: re-exports the widget API and dispatches to submodules.
 ### Re-exports
 from `ok`: `run`
 
-## Dependencies Internal
+## In-Project Dependencies
 (none)
 
-## Dependencies External
+## External Dependencies
 (none)
 
 ## How it works

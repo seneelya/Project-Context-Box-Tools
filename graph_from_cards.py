@@ -119,16 +119,26 @@ def _is_sep(cells):
     return bool(cells) and all(c and set(c) <= set("-: ") for c in cells)
 
 
+def _row_cell(cells, cols, name):
+    i = cols.get(name)
+    return cells[i].strip() if i is not None and i < len(cells) else ""
+
+
 def parse_card(path, cards_dir):
-    """-> {'id', 'summary', 'deps_raw': [<File Path строки>]}. Держит и новую форму
-    (сводка на 2-й строке), и легаси (`# name — summary`)."""
+    """-> {'id', 'summary', 'deps_raw': [<File Path строки>], 'seams_raw': [{Target/Symbol/
+    Kind/Shape/Why}, ...]}. Держит и новую форму (сводка на 2-й строке), и легаси
+    (`# name — summary`). Runtime seams (Plan03/Vision07) — ОТДЕЛЬНАЯ таблица, читается тем же
+    построчным проходом, но в свой собственный список: связи оттуда не смешиваются с import-
+    рёбрами (deps_raw), а резолвятся отдельно в build_graph()."""
     node_id = path.relative_to(cards_dir).as_posix()[:-3]  # без '.md'
     summary = ""
     name_seen = False
     deps_raw = []
-    in_deps = False
+    seams_raw = []
+    in_deps = in_seams = False
     col_idx = 1
-    header_seen = False
+    header_seen = seam_header_seen = False
+    seam_cols = {}
 
     for line in path.read_text(encoding="utf-8").splitlines():
         s = line.strip()
@@ -141,8 +151,11 @@ def parse_card(path, cards_dir):
         if name_seen and not summary and s and not s.startswith("#"):
             summary = s                                  # новая форма: сводка на след. строке
         if s.startswith("## "):
-            in_deps = cf.canon(s[3:].strip()) == "Dependencies Internal"
+            title = cf.canon(s[3:].strip())
+            in_deps = title == "In-Project Dependencies"
+            in_seams = title == cf.RUNTIME_SEAMS_SECTION
             header_seen = False
+            seam_header_seen = False
             continue
         if in_deps and s.startswith("|"):
             cells = _cells(line)
@@ -159,11 +172,46 @@ def parse_card(path, cards_dir):
                 val = cells[col_idx]
                 if val and not cf.is_empty(val):
                     deps_raw.append(val)
-    return {"id": node_id, "summary": summary, "deps_raw": deps_raw}
+        if in_seams and s.startswith("|"):
+            cells = _cells(line)
+            if _is_sep(cells):
+                continue
+            if not seam_header_seen:                     # строка заголовка таблицы
+                seam_header_seen = True
+                seam_cols = {cf.canon(c): i for i, c in enumerate(cells)}
+                continue
+            target = _row_cell(cells, seam_cols, "Target")
+            if target and not cf.is_empty(target):
+                seams_raw.append({
+                    "target": target,
+                    "symbol": _row_cell(cells, seam_cols, "Symbol"),
+                    "kind": _row_cell(cells, seam_cols, "Kind"),
+                    "shape": _row_cell(cells, seam_cols, "Shape"),
+                    "why": _row_cell(cells, seam_cols, "Why"),
+                })
+    return {"id": node_id, "summary": summary, "deps_raw": deps_raw, "seams_raw": seams_raw}
+
+
+def _resolve_tok(raw, ids, by_base):
+    """Токен зависимости/seam-цели -> id карточки, ТОЧНО как раньше резолвились File Path
+    (Plan02): отбросить хвост (' (lazy)' и пр.), точное совпадение, иначе уникальный базовый
+    путь. None, если не резолвится (неоднозначно или нет такой карточки) — не ошибка сама по
+    себе, вызывающий код решает, что это значит (unresolved-dep vs free-text seam target)."""
+    tok = raw.split()[0] if raw.split() else raw
+    tok = tok.strip().lstrip("./")
+    if tok in ids:
+        return tok
+    cand = by_base.get(tok.split("/")[-1], [])
+    return cand[0] if len(cand) == 1 else None
 
 
 def build_graph(cards_dir):
-    """-> {'nodes': {id: {summary, deps:[id]}}, 'indeg': {id:int}, 'unresolved': [(id, raw)]}."""
+    """-> {'nodes': {id: {summary, deps:[id], seams:[{target,target_id,symbol,kind,shape,why}]}},
+    'indeg': {id:int}, 'unresolved': [(id, raw)]}.
+
+    `seams` (Plan03/Vision07) — Runtime seams, зарезолвленные ОТДЕЛЬНО от deps: `target_id` —
+    id карточки-цели, если Target похож на путь проекта и резолвится; None, если это свободный
+    текст вне проекта (внешний бинарник/шина/URL — не ошибка, просто без ребра, см. Vision07)."""
     # карточка = '<name>.<ext>.md' (в stem есть точка); отсекает отчёты вроде _cards_summary_report.md
     cards = [p for p in cards_dir.rglob("*.md") if "." in p.stem]
     parsed = {}
@@ -181,18 +229,20 @@ def build_graph(cards_dir):
     for nid, c in parsed.items():
         deps = set()
         for raw in c["deps_raw"]:
-            tok = raw.split()[0] if raw.split() else raw   # отбросить " (lazy)" и пр.
-            tok = tok.strip().lstrip("./")
-            if tok in ids:
-                deps.add(tok)
-                continue
-            cand = by_base.get(tok.split("/")[-1], [])
-            if len(cand) == 1:
-                deps.add(cand[0])
+            resolved = _resolve_tok(raw, ids, by_base)
+            if resolved:
+                deps.add(resolved)
             else:
                 unresolved.append((nid, raw))
         deps.discard(nid)
-        nodes[nid] = {"summary": c["summary"], "deps": sorted(deps)}
+
+        seams = []
+        for row in c["seams_raw"]:
+            target_id = _resolve_tok(row["target"], ids, by_base)
+            if target_id == nid:
+                target_id = None   # self-reference — не ребро, как и в deps (deps.discard(nid))
+            seams.append({**row, "target_id": target_id})
+        nodes[nid] = {"summary": c["summary"], "deps": sorted(deps), "seams": seams}
 
     indeg = {i: 0 for i in nodes}
     for n in nodes.values():
@@ -380,6 +430,17 @@ def _edge_bits(i, nodes, rdeps, pkg, edges):
     return "   ".join(bits)
 
 
+def _seam_bits(i, nodes, pkg):
+    """Строка Runtime seams узла (Plan03/Vision07) — ОТДЕЛЬНЫЙ маркер '⇢', не смешивается с
+    →/← (те — только import-рёбра). Только резолвнутые в карточку цели; свободный текст без
+    ребра сюда не попадает (он есть только в --view seams-mermaid, там как отдельный узел)."""
+    seams = [s for s in nodes[i]["seams"] if s.get("target_id")]
+    if not seams:
+        return ""
+    names = [f"{_rel_to(s['target_id'], pkg)} ({s['kind']} — {s['shape']})" for s in seams]
+    return "⇢ " + " · ".join(names)
+
+
 def _compute_layers(nodes):
     """Слой узла: 0 = лист (нет внутр. deps), выше = ближе к точкам входа.
     Обратные рёбра циклов игнорируются (иначе слои не определены)."""
@@ -408,7 +469,8 @@ def _compute_layers(nodes):
 
 
 def components(nodes):
-    """Связные компоненты по НЕОРИЕНТИРОВАННЫМ import-рёбрам, крупные первыми.
+    """Связные компоненты по НЕОРИЕНТИРОВАННЫМ import-рёбрам + резолвнутым Runtime seams,
+    крупные первыми.
 
     Зачем: в одном дереве законно живут независимые части — второй плагин, или
     JS-фронтенд к нашему же питон-бэкенду. Между ними НЕТ import-ребра, и его
@@ -416,6 +478,11 @@ def components(nodes):
     импорт. Выдумывать такое ребро в графе значило бы показывать догадку как
     факт. Поэтому мы не соединяем компоненты, а НАЗЫВАЕМ их — чтобы «так и
     задумано» отличалось от «связь потерялась».
+
+    Runtime seams — исключение из этого правила (Plan03/Vision07): если карточка
+    ЯВНО заявила связь (не догадка тула, а факт, вписанный агентом/человеком), остров,
+    соединённый швом, СНОВА не остров — но всё равно НЕ считается import-рёбром
+    (`→`/`←` их не рисуют, см. _edge_bits/_seam_bits) — эти два эффекта независимы.
     """
     adj = {i: set() for i in nodes}
     for i, n in nodes.items():
@@ -423,6 +490,11 @@ def components(nodes):
             if d in adj:
                 adj[i].add(d)
                 adj[d].add(i)
+        for s in n.get("seams", ()):
+            t = s.get("target_id")
+            if t in adj:
+                adj[i].add(t)
+                adj[t].add(i)
     seen, comps = set(), []
     for start in sorted(nodes):
         if start in seen:
@@ -518,7 +590,8 @@ def _slices(graph, disp_label):
 # «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
 # Анатомия записи — единая, чтобы не расходилась между видами; строка entry зависит от --verbose.
 _EDGES = ("> edges:  → what it imports · ← what imports it · ×N before (…) = list length "
-          "(shown only when >1) · ⟲ = in a cycle")
+          "(shown only when >1) · ⟲ = in a cycle · ⇢ = Runtime seam (kind — shape), "
+          "NOT an import — see --view seams-mermaid")
 _SEP = "> ---"
 
 
@@ -532,6 +605,7 @@ def _entry_line(verbose):
 _VIEW_OPTS = [
     ("depth", "--view depth (by dependency depth: 0=leaves)"),
     ("tree", "--view tree (group by directory tree)"),
+    ("seams-mermaid", "--view seams-mermaid (Runtime seams as a mermaid diagram)"),
     ("cycles", "--cycles (circular deps)"),
     ("discrepancies", "--discrepancies (map vs source)"),
 ]
@@ -591,6 +665,9 @@ def format_tree(graph, disp, edges, verbose=1):
             eb = _edge_bits(i, nodes, rdeps, pkg, edges)
             if eb:
                 out.append(f"  {eb}")
+            sb = _seam_bits(i, nodes, pkg)
+            if sb:
+                out.append(f"  {sb}")
         out.append("")
     return "\n".join(out + _slices(graph, disp))
 
@@ -608,8 +685,46 @@ def format_depth(graph, disp, edges, verbose=1):
             eb = _edge_bits(i, nodes, rdeps, "(root)", edges)  # слои cross-cutting -> пути полные
             if eb:
                 out.append(f"  {eb}")
+            sb = _seam_bits(i, nodes, "(root)")
+            if sb:
+                out.append(f"  {sb}")
         out.append("")
     return "\n".join(out + _slices(graph, disp))
+
+
+_MERMAID_ID_RE = re.compile(r"[^A-Za-z0-9_]")
+
+
+def _mermaid_id(name):
+    """Mermaid node id — сборка ОДНОРАЗОВАЯ (Plan03/Vision07: мермейд как формат ГЕНЕРАЦИИ, не
+    хранения), поэтому санитизация id не должна пережить между запусками — просто уникальна
+    внутри этого одного вывода."""
+    return "n_" + _MERMAID_ID_RE.sub("_", name)
+
+
+def format_seams_mermaid(graph):
+    """Мермейд-диаграмма ВСЕХ Runtime seams в проекте, собранная из таблиц во всех карточках —
+    отдельный сгенерированный вид (не хранение, см. Vision07), дёшево пересобираемый каждый раз.
+    Свободнотекстовые (нерезолвленные) цели тоже попадают сюда как узлы — это единственное
+    место, где они видны (в --view tree/depth участвуют только резолвленные, см. _seam_bits)."""
+    nodes = graph["nodes"]
+    edges, seen = [], set()
+    for nid in sorted(nodes):
+        for s in nodes[nid]["seams"]:
+            target_label = s["target_id"] or s["target"]
+            key = (nid, target_label, s["kind"], s["shape"])
+            if key in seen:
+                continue
+            seen.add(key)
+            edges.append((nid, target_label, s["kind"], s["shape"]))
+    if not edges:
+        return "# runtime seams — none found in any card"
+    out = ["# runtime seams — mermaid (generated, not stored — see Vision07)", "", "```mermaid", "graph LR"]
+    for a, b, kind, shape in edges:
+        label = f"{kind} — {shape}"
+        out.append(f'    {_mermaid_id(a)}["{a}"] -.->|"{label}"| {_mermaid_id(b)}["{b}"]')
+    out.append("```")
+    return "\n".join(out)
 
 
 # --- discrepancies digest: "map vs reality" ----------------------------------
@@ -715,8 +830,9 @@ def main():
                          "pending (исходник без карточки) + unresolved (ссылка в никуда)")
     ap.add_argument("--group-by", choices=["kind", "package", "card"], default="kind",
                     help="ось группировки свода --discrepancies (по умолч. kind)")
-    ap.add_argument("--view", choices=["tree", "depth"], default="tree",
-                    help="структура карты: tree (по дереву каталогов, дефолт) | depth (0=листья→точки входа)")
+    ap.add_argument("--view", choices=["tree", "depth", "seams-mermaid"], default="tree",
+                    help="структура карты: tree (по дереву каталогов, дефолт) | depth (0=листья→точки входа) | "
+                         "seams-mermaid (Runtime seams всего проекта одной мермейд-диаграммой)")
     ap.add_argument("--edges", choices=["out", "in", "inout"], default="inout",
                     help="какие рёбра печатать: out (только '→') | in (только '←') | "
                          "inout (обе стороны, дефолт)")
@@ -775,6 +891,10 @@ def main():
     if args.json:
         print(json.dumps({"nodes": graph["nodes"], "unresolved": graph["unresolved"]},
                          ensure_ascii=False, indent=2))
+        return
+
+    if args.view == "seams-mermaid":
+        print(format_seams_mermaid(graph))
         return
 
     disp = cards_dir.as_posix()   # полный путь к папке карточек (видно, откуда собрана карта)

@@ -62,4 +62,12 @@ Per-FILE analysis was always polyglot — only the bulk selection was not.
 * Declared-surface backend = `CONFIG__TOOLS.DECL_BACKEND` (`auto|treesitter|regex`); on a
   missing tree-sitter grammar prints a one-time stderr WARNING and falls back to regex.
 
+* **Runtime seams** (connections the import graph can't see — dynamic load, separate process,
+  shared file, event bus): `--help-seams` prints the full contract (columns, Kind/Shape vocab,
+  examples), no file needed. `<file> --info-seams` greps that one file for suspected
+  dynamic-connection patterns and prints the lines — it does not write a card or decide
+  Kind/Shape/Why, that's still the agent's call. The stamp itself never invents the section: an
+  existing `## Runtime seams` is kept byte-for-byte (only its contract-note line refreshes); a
+  missing one only ever gets a one-line hint, never an empty placeholder.
+
 Contract of the format it writes = `CARD_FORMAT.py`. Authoring recipe = `__HQ/guides/Guide__MakeCard.md`.

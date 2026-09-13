@@ -6,10 +6,13 @@
 - сводка (первая непустая строка после H1) не пуста (пустая строка после заголовка — ок);
 - присутствуют ВСЕ секции из H2_SECTIONS (не-канонические/иноязычные заголовки помечаются как
   «мигрировать» через canon());
-- `Dependencies Internal` = `(none)` или таблица с колонками DEPS_COLUMNS; каждый `File Path`
+- `In-Project Dependencies` = `(none)` или таблица с колонками DEPS_COLUMNS; каждый `File Path`
   резолвится в существующую карточку (иначе — ошибка);
 - `Public API` = `(none)` или ≥1 H3; приватные `_x` в Public API запрещены (кроме `Re-exports`);
-- (опц. с --project-root) сироты — карточка без исходника.
+- (опц. с --project-root) сироты — карточка без исходника;
+- `Runtime seams` (опционально, если есть) — `Kind`/`Shape` из закрытых словарей CARD_FORMAT;
+  `Target`, похожий на путь проекта, резолвится тем же pending/unresolved, что File Path;
+  свободный текст (URL/внешняя шина/бинарник) — не резолвится, не ошибка.
 
 Отдельные НЕ-ошибочные статусы (exit не роняют): `pending` — dep на исходник без карточки;
 `awaiting agent` — в карточке ещё остались директивы `<|Agent:…|>`, т.е. её надо пройти агентом.
@@ -38,6 +41,22 @@ def _sections(lines):
     return secs
 
 
+_PATHLIKE_EXTS = (".py", ".js", ".jsx", ".ts", ".tsx", ".cs", ".md", ".json", ".yaml", ".yml")
+
+
+def _looks_pathlike(raw):
+    """Эвристика для Runtime seams' Target (Plan03/Vision07): в отличие от `File Path`
+    (контрактно ВСЕГДА путь проекта), Target может быть и свободным текстом (URL, имя внешней
+    шины/бинарника) — pending/unresolved-проверку применяем, только если похоже на путь
+    (есть '/' или известное расширение исходника) И это НЕ URL (схема 'scheme://' — http(s),
+    postgres, redis, ... — никогда не путь проекта, даже если внутри есть '/'); иначе просто
+    заметка, не ошибка."""
+    tok = raw.split()[0] if raw.split() else raw
+    if "://" in tok:
+        return False
+    return "/" in tok or "\\" in tok or tok.lower().endswith(_PATHLIKE_EXTS)
+
+
 def _entry_name(h4_line):
     """'#### `\\_setup = x`' -> '_setup' (снимает бэктики, экранирование, звёздочки)."""
     e = h4_line.strip()[5:].strip().strip("`").strip()
@@ -45,9 +64,10 @@ def _entry_name(h4_line):
     return e.split("(")[0].split("=")[0].split(" ")[0].strip()
 
 
-def validate_card(path, cards_dir, unresolved_raw, project_root):
+def validate_card(path, cards_dir, unresolved_raw, project_root, seam_rows=None):
     issues = []
     pending = []   # File Path -> исходник есть, карточки пока нет (норм при поштучной сборке)
+    seam_rows = seam_rows or []   # [{target, target_id, symbol, kind, shape, why}, ...] из build_graph()
     summary = ""
     lines = path.read_text(encoding="utf-8").splitlines()
     fname = path.name[:-3]  # 'db.py'
@@ -93,9 +113,9 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
         if sec not in present:
             issues.append(f"missing section: {sec}")
 
-    # Dependencies Internal
-    if "Dependencies Internal" in present:
-        body = present["Dependencies Internal"][1]
+    # In-Project Dependencies
+    if "In-Project Dependencies" in present:
+        body = present["In-Project Dependencies"][1]
         if not cf.is_empty("\n".join(body)):
             hdr = None
             for line in body:
@@ -106,7 +126,7 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
                     hdr = [cf.canon(c) for c in cells]
                     break
             if hdr is None:
-                issues.append("Dependencies Internal: neither (none) nor a table")
+                issues.append("In-Project Dependencies: neither (none) nor a table")
             elif hdr != cf.DEPS_COLUMNS:
                 issues.append(f"deps columns {hdr} != {cf.DEPS_COLUMNS}")
 
@@ -118,6 +138,22 @@ def validate_card(path, cards_dir, unresolved_raw, project_root):
             pending.append(raw)
         else:
             issues.append(f'File Path resolves to neither a card nor a source file: "{raw}"')
+
+    # Runtime seams (опционально — Plan03/Vision07; секция НЕ в H2_SECTIONS, её отсутствие —
+    # не issue). Kind/Shape — закрытые словари; Target — pending/unresolved ТОЛЬКО если похож
+    # на путь проекта (см. _looks_pathlike) — свободный текст вне проекта не резолвится и не
+    # считается ошибкой, это законная форма (внешний бинарник/шина/URL).
+    for row in seam_rows:
+        target = row["target"]
+        if not cf.is_valid_seam_kind(row["kind"]):
+            issues.append(f"Runtime seams: invalid Kind '{row['kind']}' (target \"{target}\")")
+        if not cf.is_valid_seam_shape(row["shape"]):
+            issues.append(f"Runtime seams: invalid Shape '{row['shape']}' (target \"{target}\")")
+        if row.get("target_id") is None and _looks_pathlike(target):
+            if project_root is not None and (project_root / target).exists():
+                pending.append(target)
+            else:
+                issues.append(f'Runtime seams: Target resolves to neither a card nor a source file: "{target}"')
 
     # Public API — приватные вне Re-exports
     if "Public API" in present:
@@ -178,9 +214,10 @@ def main():
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)
 
-    # рёбра/резолв берём из графа один раз
+    # рёбра/резолв берём из графа один раз (deps unresolved + Runtime seams, уже с target_id)
+    graph = build_graph(cards_dir)
     unresolved_by_card = {}
-    for nid, raw in build_graph(cards_dir)["unresolved"]:
+    for nid, raw in graph["unresolved"]:
         unresolved_by_card.setdefault(nid, []).append(raw)
 
     cards = sorted(p for p in cards_dir.rglob("*.md") if "." in p.stem)
@@ -191,7 +228,9 @@ def main():
     awaiting_all = {}
     for p in cards:
         nid = p.relative_to(cards_dir).as_posix()[:-3]
-        issues, pending, awaiting = validate_card(p, cards_dir, unresolved_by_card.get(nid, []), project_root)
+        seam_rows = graph["nodes"].get(nid, {}).get("seams", [])
+        issues, pending, awaiting = validate_card(
+            p, cards_dir, unresolved_by_card.get(nid, []), project_root, seam_rows)
         if issues:
             bad += 1
             report.append((nid, issues))

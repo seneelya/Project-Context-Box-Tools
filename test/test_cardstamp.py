@@ -27,6 +27,7 @@ from pathlib import Path
 import CARD_FORMAT as cf
 import make_interface_card as mic
 import validate_cards as vc
+import seam_scanner
 
 _PR = os.path.join(_HERE, "pythonSRC")
 _FILE = "backends/chat.py"
@@ -171,6 +172,8 @@ def test_migrate_legacy_format():
     check("Why prose migrated out of the table into its own bullet",
           "`sub` — needed for re-export" in merged)
     check("re-export description kept", "REEXPORT_DESC" in merged)
+    check("section renamed on stamp (Plan03 pt.0)",
+          "## In-Project Dependencies" in merged and "## Dependencies Internal" not in merged)
     check("version marker appended as the last line", merged.rstrip().splitlines()[-1] == cf.version_comment())
 
 
@@ -618,6 +621,146 @@ def test_discrepancies():
           format_discrepancies([]) == "# discrepancies — none (map matches reality)")
 
 
+# --- Plan03/Vision07: Runtime seams --------------------------------------------------
+
+def test_seam_section_preserved_and_contract_refreshed():
+    """Существующая секция Runtime seams сохраняется как есть; меняется ТОЛЬКО контракт-строка
+    (перештамповывается заново, как строка версии)."""
+    stale_contract = "Contract: some stale wording from an older tool version"
+    card_text = (
+        "# chat.py\n\nSummary.\n\n"
+        "## Runtime seams\n\n"
+        f"{stale_contract}\n\n"
+        "| Target | Symbol | Kind | Shape | Why |\n"
+        "|---|---|---|---|---|\n"
+        "| `promo_engine.py` | `apply_discount` | by-path | dependent | loaded by feature flag |\n"
+    )
+    op = mic._parse_old_prose(card_text, "python")
+    check("seam section parsed into sections dict", cf.RUNTIME_SEAMS_SECTION in op["sections"])
+    merged = mic.build_card(_PR, _FILE, op, {})
+    check("seam table row preserved byte-for-byte",
+          "| `promo_engine.py` | `apply_discount` | by-path | dependent | loaded by feature flag |"
+          in merged)
+    check("stale contract line replaced", stale_contract not in merged)
+    check("fresh contract line written", cf.seam_contract_line() in merged)
+
+
+def test_seam_hint_when_detected_no_section():
+    """Нет секции, но детектор нашёл подозрительный паттерн -> report['seam_hint']; секция
+    сама НЕ создаётся (никакой пустой директивы, Plan03/Vision07)."""
+    root = Path(tempfile.mkdtemp(prefix="seamhint_"))
+    (root / "dyn.py").write_text(
+        "import importlib\n\n"
+        "def load(name):\n"
+        "    spec = importlib.util.spec_from_file_location(name, name)\n"
+        "    return spec\n",
+        encoding="utf-8")
+    report = {}
+    card = mic.build_card(str(root), "dyn.py", None, report)
+    check("no Runtime seams section created", "## Runtime seams" not in card)
+    check("seam hint flagged", report.get("seam_hint") is True)
+
+    (root / "plain.py").write_text("def f(x):\n    return x + 1\n", encoding="utf-8")
+    report2 = {}
+    mic.build_card(str(root), "plain.py", None, report2)
+    check("no hint on a plain file", not report2.get("seam_hint"))
+
+
+def test_seam_scanner_patterns():
+    """Детектор находит известные паттерны на Python/TS и не шумит на обычном коде."""
+    root = Path(tempfile.mkdtemp(prefix="scan_"))
+    py = root / "a.py"
+    py.write_text("import subprocess\nsubprocess.run(['ls'])\ndef f():\n    return 1\n",
+                  encoding="utf-8")
+    hits = seam_scanner.scan(str(py))
+    check("python subprocess pattern found", any("process: subprocess" in h[1] for h in hits))
+    check("plain def is not itself a hit", not any(h[2].strip().startswith("def f") for h in hits))
+
+    ts = root / "b.ts"
+    ts.write_text("const mod = require('./x');\nfetch('/api');\n", encoding="utf-8")
+    labels = [h[1] for h in seam_scanner.scan(str(ts))]
+    check("ts require pattern found", any("require" in l for l in labels))
+    check("ts fetch pattern found", any("fetch" in l for l in labels))
+
+    plain = root / "c.py"
+    plain.write_text("x = open('config.json').read()\n", encoding="utf-8")
+    check("bare open() is not scanned (file-kind excluded, see Vision07)",
+          seam_scanner.scan(str(plain)) == [])
+
+
+def test_seam_validate_kind_shape_target():
+    """validate_cards: Kind/Shape закрытые словари; Target — pending/unresolved только если
+    похоже на путь проекта; свободный текст (URL) не резолвится и не считается ошибкой."""
+    from graph_from_cards import build_graph
+    root = Path(tempfile.mkdtemp(prefix="seamvc_"))
+    cards = root / "__map"
+    cards.mkdir()
+    (root / "b.py").write_text("def run(): pass\n", encoding="utf-8")
+    (cards / "a.py.md").write_text(
+        "# a.py\n\nsummary a.\n\n## In-Project Dependencies\n\n(none)\n\n"
+        "## Runtime seams\n\nContract: x\n\n"
+        "| Target | Symbol | Kind | Shape | Why |\n|---|---|---|---|---|\n"
+        "| `b.py` | `run` | by-path | dependent | ok row |\n"
+        "| `ghost.py` | `f` | by-path | dependent | missing source too |\n"
+        "| `weird` | `f` | not-a-kind | not-a-shape | bad row |\n"
+        "| `https://api.example.com` | `-` | http | reference | external, free text |\n",
+        encoding="utf-8")
+    graph = build_graph(cards)
+    seam_rows = graph["nodes"]["a.py"]["seams"]
+    issues, pending, _aw = vc.validate_card(cards / "a.py.md", cards, [], root, seam_rows)
+    check("resolved target with existing source -> pending, not issue", "b.py" in pending)
+    check("resolved-looking target with missing source -> issue", any("ghost.py" in i for i in issues))
+    check("invalid Kind flagged", any("invalid Kind" in i for i in issues))
+    check("invalid Shape flagged", any("invalid Shape" in i for i in issues))
+    check("free-text URL target -> not an issue", not any("api.example.com" in i for i in issues))
+
+
+def test_seam_graph_edges_and_islands():
+    """graph_from_cards: seam-ребро резолвится отдельно от deps, рисуется отдельным маркером,
+    и превращает две независимые части в одну связную компоненту (Vision07)."""
+    from graph_from_cards import build_graph, split_components, format_tree
+    root = Path(tempfile.mkdtemp(prefix="seamgraph_"))
+    cards = root / "__map"
+    cards.mkdir()
+    (cards / "a.py.md").write_text(
+        "# a.py\n\nsummary a.\n\n## In-Project Dependencies\n\n(none)\n\n"
+        "## Runtime seams\n\nContract: x\n\n"
+        "| Target | Symbol | Kind | Shape | Why |\n|---|---|---|---|---|\n"
+        "| `b.py` | `run` | by-path | dependent | loaded dynamically |\n",
+        encoding="utf-8")
+    (cards / "b.py.md").write_text(
+        "# b.py\n\nsummary b.\n\n## In-Project Dependencies\n\n(none)\n", encoding="utf-8")
+    g = build_graph(cards)
+    check("seam resolved to b.py", g["nodes"]["a.py"]["seams"][0]["target_id"] == "b.py")
+    multi, singles = split_components(g["nodes"])
+    check("seam merges the two islands into one component",
+          len(multi) == 1 and set(multi[0]) == {"a.py", "b.py"})
+    check("no leftover singles", singles == [])
+    tree = format_tree(g, "__map", "inout")
+    check("seam edge shown with its own marker, not →/←",
+          "⇢ b.py (by-path — dependent)" in tree)
+
+
+def test_seam_legacy_section_rename_via_aliases():
+    """Старая карточка с `## Dependencies Internal`/`## Dependencies External` парсится через
+    ALIASES так же, как раньше — переход на новые имена не ломает существующие карточки."""
+    from graph_from_cards import build_graph
+    root = Path(tempfile.mkdtemp(prefix="seamalias_"))
+    cards = root / "__map"
+    cards.mkdir()
+    (cards / "legacy.py.md").write_text(
+        "# legacy.py\n\nsummary.\n\n"
+        "## Dependencies Internal\n\n"
+        "| Import | File Path | Symbols | Kind |\n|---|---|---|---|\n"
+        "| `x` | `x.py` |  | normal |\n\n"
+        "## Dependencies External\n\n(none)\n",
+        encoding="utf-8")
+    (cards / "x.py.md").write_text("# x.py\n\nsummary.\n\n## In-Project Dependencies\n\n(none)\n",
+                                    encoding="utf-8")
+    g = build_graph(cards)
+    check("legacy header still resolves the dep edge", "x.py" in g["nodes"]["legacy.py"]["deps"])
+
+
 def main():
     test_is_empty()
     test_agent_directive_marker()
@@ -639,6 +782,12 @@ def main():
     test_merge_csharp_multi_class_no_collision()
     test_merge_marker_on_signature_change_and_rename()
     test_force_guard_refuses_on_prose_then_discard_prose_works()
+    test_seam_section_preserved_and_contract_refreshed()
+    test_seam_hint_when_detected_no_section()
+    test_seam_scanner_patterns()
+    test_seam_validate_kind_shape_target()
+    test_seam_graph_edges_and_islands()
+    test_seam_legacy_section_rename_via_aliases()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
 

@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import CARD_FORMAT as cf
+import seam_scanner
 from graph_from_cards import _cells, _is_sep, load_config_at
 
 
@@ -429,7 +430,7 @@ def _cells_raw(row):
 
 
 def _parse_why(body, P):
-    """LEGACY: колонка `Why` таблицы Dependencies Internal -> P['why'][import] = текст.
+    """LEGACY: колонка `Why` таблицы In-Project Dependencies -> P['why'][import] = текст.
 
     Kept as a one-way migration bridge (Plan02 pt.3): a NEW-format table has no `Why`
     column at all, so `"Why" not in header` makes this a safe no-op on already-migrated
@@ -512,10 +513,10 @@ def _parse_old_prose(text, lang=None):
         name = cf.canon(raw)
         if name == "Public API":
             _parse_entries(body, P, lang)
-        elif name == "Dependencies Internal":
+        elif name == "In-Project Dependencies":
             _parse_why(body, P)          # legacy table-Why column (no-op on new-format tables)
             _parse_why_section(body, P)  # new bullet-list Why (no-op on legacy bodies)
-        elif name == "Dependencies External":
+        elif name == "External Dependencies":
             # "(none)" is kept here too (not filtered like it used to be): the note's own
             # directive now says "else write (none)" (REQ-009 — "DELETE this line" left no
             # trace, so merge couldn't tell "agent said nothing applies" from "agent never
@@ -553,6 +554,14 @@ def _parse_old_prose(text, lang=None):
             keep = [ln for ln in body2 if ln.strip() and not _is_ph(ln)]
             if keep:
                 P["sections"]["Package layout"] = keep
+        elif name == cf.RUNTIME_SEAMS_SECTION:
+            # Whole section is human/agent prose (Vision07 — the stamp cannot reconstruct a
+            # runtime connection from source), preserved as-is. The ONE fact line in it — the
+            # contract note — is filtered here and re-stamped fresh on every render, same
+            # treatment as the version marker.
+            keep = [ln for ln in body if ln.strip() and not cf.is_seam_contract_line(ln)]
+            if keep:
+                P["sections"][cf.RUNTIME_SEAMS_SECTION] = keep
         elif name in ("How it works", "Doc links", "Discrepancies"):
             # Discrepancies' own directive instructs "else write (none)" — that literal answer
             # IS the agent's deliberate, filled-in verdict, not an unfilled slot (REQ-009). Every
@@ -713,13 +722,13 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append("(none)")
         lines.append("")
 
-    # ---- Dependencies Internal ----
+    # ---- In-Project Dependencies ----
     # Plan02 pt.3: table is FACT-ONLY now (no Why column) — one row per SYMBOL, not per file,
     # so two branches adding different symbols imported from the same file add two different
     # table LINES instead of both rewriting the same joined-Symbols cell (guaranteed conflict
     # otherwise). Why moves to its own bullet list below, keyed by import — a human's prose
     # never again requires reproducing the whole row (facts) just to append one description.
-    lines.append("## Dependencies Internal")
+    lines.append("## In-Project Dependencies")
     lines.append("")
     if resolved:
         lines.append("| Import | File Path | Symbols | Kind |")
@@ -743,8 +752,8 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append(cf.EMPTY)
     lines.append("")
 
-    # ---- Dependencies External ----
-    lines.append("## Dependencies External")
+    # ---- External Dependencies ----
+    lines.append("## External Dependencies")
     lines.append("")
     det = [d for d in sorted(set(externals)) if "__future__" not in d]  # drop `from __future__ …` noise
     if det:
@@ -752,7 +761,7 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.extend(det)
         if op["ext_note"]:
             lines.extend(op["ext_note"])
-            report["kept_sections"].append("Dependencies External")
+            report["kept_sections"].append("External Dependencies")
         else:
             lines.append(cf.agent("one line ONLY if a lib above is non-obvious; else write (none) (do NOT edit the import list)"))
     else:
@@ -765,6 +774,25 @@ def build_card(project_root, file, old_prose=None, report=None):
     prose_section("Doc links", cf.EMPTY)
     lines.append("")
     prose_section("Discrepancies", cf.agent("docstring vs code contradictions; else write (none)"))
+
+    # ---- Runtime seams (optional; Plan03/Vision07) ----
+    # Never created empty and never carries a directive — the stamp cannot reconstruct a runtime
+    # connection from source, so once written the table is pure human/agent prose, kept as-is
+    # except the contract line (a fact, refreshed like the version marker). If the section is
+    # absent, the detector only ever produces a HINT (report["seam_hint"]) — never a section,
+    # never a directive (same anti-pattern lesson as REQ-009: an empty placeholder that comes
+    # back on every stamp devalues "awaiting agent" as a status).
+    seams = op["sections"].get(cf.RUNTIME_SEAMS_SECTION)
+    if seams:
+        lines.append("")
+        lines.append(f"## {cf.RUNTIME_SEAMS_SECTION}")
+        lines.append("")
+        lines.append(cf.seam_contract_line())
+        lines.append("")
+        lines.extend(seams)
+        report["kept_sections"].append(cf.RUNTIME_SEAMS_SECTION)
+    elif seam_scanner.scan(target_abs):
+        report["seam_hint"] = True
 
     # ---- Salvage: проза записей, которых в коде больше нет (не теряем молча) ----
     old_salv = op["sections"].get("Salvage", [])
@@ -935,6 +963,51 @@ def _lang_extensions(lang):
     return exts or set(_LANG)
 
 
+def _seams_help_text():
+    """Full Runtime seams contract — this is what the card's contract-note line points to
+    (Vision07: the ONE source of truth for the format, not a separate doc file that can rot)."""
+    return "\n".join([
+        "Runtime seams — machine-readable table for connections the import graph can't see",
+        "(dynamic load by path, a separate process, a shared file/store, an event bus).",
+        "",
+        f"Section: '## {cf.RUNTIME_SEAMS_SECTION}' — OPTIONAL, only when there is something to",
+        "describe. The stamp never creates it empty and never edits an existing one, except the",
+        "contract-note line above the table (refreshed every stamp, like the version marker).",
+        "",
+        f"Columns: {' | '.join(cf.SEAM_COLUMNS)}",
+        "",
+        "Kind (channel) — closed vocabulary; direction suffix required only where ambiguous:",
+        "  by-path            dynamic load of a module/file by a COMPUTED path, same process",
+        "                     (spec_from_file_location, require(computed), reflection)",
+        "  process            launches/controls a SEPARATE OS process (subprocess.run, os.system,",
+        "                     child_process.spawn) — a second row on the same target if there's",
+        "                     also a real data exchange after launch",
+        "  http               network call (REST or any transport)",
+        "  file:reads         shared persistent storage (file / db row / in-memory store)",
+        "  file:writes        (direction is NOT implied by whose card this is — state it)",
+        "  file:reads+writes",
+        "  event:emits        pub/sub, event bus, websocket",
+        "  event:listens",
+        "",
+        "Shape (independent axis — any Kind can be any Shape):",
+        "  dependent   disappearance of the target breaks the CONSUMING side",
+        "  equal       breaks BOTH sides (shared contract/format, neither is more \"main\")",
+        "  reference   breaks NOTHING — just loses context/observability for a human",
+        "",
+        "Who writes the row: the dependent/consuming side (same convention as normal imports —",
+        "the graph computes the reverse edge itself; don't hand-write it on the target's card too).",
+        "",
+        "Example:",
+        "| Target | Symbol | Kind | Shape | Why |",
+        "|---|---|---|---|---|",
+        "| `promo_engine.py` | `apply_discount` | by-path | dependent | loaded by feature flag; "
+        "signature must match |",
+        "",
+        "See: <file> --info-seams   — scan one file for suspected dynamic-connection patterns",
+        "     (grep-based hint only; Kind/Shape/Why are always the agent's call, not the tool's).",
+    ])
+
+
 def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
     """BULK: штемпелит ВСЕ исходники под project-root в __map/.
 
@@ -956,6 +1029,7 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
         sys.stderr.write(f"[make_interface_card] --all: no {sorted(exts)} files under {project_root_abs}\n")
         return 0
     counts = {"new": 0, "merged": 0, "forced": 0, "blocked": 0, "error": 0}
+    seam_hints = []
     for abs_path in files:
         rel = rel_path(abs_path, project_root_abs)
         try:
@@ -965,6 +1039,8 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
             if status == "blocked":
                 sys.stderr.write(f"  BLOCKED {rel}: has prose ({rep['prose_blocks']} blocks); "
                                   f"add --discard-prose to confirm --force here\n")
+            if rep.get("seam_hint"):
+                seam_hints.append(rel)
         except Exception as e:  # один битый файл не должен валить весь проход
             counts["error"] += 1
             sys.stderr.write(f"  ERROR {rel}: {e}\n")
@@ -972,12 +1048,17 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
         f"[make_interface_card] --all: {len(files)} files -> {counts['new']} new, "
         f"{counts['merged']} merged, {counts['forced']} forced, {counts['blocked']} blocked, "
         f"{counts['error']} errors\n")
+    if seam_hints:
+        sys.stderr.write(
+            f"[make_interface_card] --all: suspected dynamic connections (grep detector) in: "
+            f"{', '.join(seam_hints)} — see '<file> --info-seams' for detail\n")
     return 1 if (counts["error"] or counts["blocked"]) else 0
 
 
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
         pass
     ap = argparse.ArgumentParser(description="Card stamp: fact-filled card skeleton for a file", add_help=False)
@@ -1013,10 +1094,35 @@ def main():
                          "short forms py/ts/js/tsx/cs (js and tsx are the typescript handler). "
                          "A POLYGLOT repo is the reason this exists: with a scalar LANGUAGE the bulk "
                          "pass silently skipped every file of the other language.")
+    ap.add_argument("--help-seams", action="store_true",
+                    help="print the full Runtime seams contract (columns, Kind/Shape vocab, "
+                         "examples) and exit — no file needed. This is what the card's "
+                         "contract-note line points to.")
+    ap.add_argument("--info-seams", action="store_true",
+                    help="with <file>/--file: scan it for suspected dynamic-connection patterns "
+                         "(grep detector) and print line numbers — does not write a card, does "
+                         "not decide Kind/Shape/Why (that's the agent's call).")
     args = ap.parse_args()
+
+    if args.help_seams:
+        print(_seams_help_text())
+        return 0
 
     project_root_abs = _resolve_project_root(args.project_root)
     target_file = args.file_opt if args.file_opt is not None else args.file
+
+    if args.info_seams:
+        if not target_file:
+            ap.error("--info-seams requires a <file> argument (or --file)")
+        target_abs = target_file if os.path.isabs(target_file) else os.path.join(project_root_abs, target_file)
+        hits = seam_scanner.scan(target_abs)
+        if not hits:
+            print(f"[make_interface_card] --info-seams {target_file}: no suspected dynamic-connection patterns found")
+        else:
+            print(f"[make_interface_card] --info-seams {target_file}: {len(hits)} suspected line(s)")
+            for line_no, label, snippet in hits:
+                print(f"  L{line_no}  {label}  {snippet}")
+        return 0
 
     if args.all:
         return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose)
@@ -1027,7 +1133,11 @@ def main():
     out = args.out
     if not out:
         # Без --out — просто печать штемпеля в stdout (без merge: файла-цели нет).
-        print(build_card(project_root_abs, target_file, None, {}))
+        report = {}
+        print(build_card(project_root_abs, target_file, None, report))
+        if report.get("seam_hint"):
+            sys.stderr.write(
+                f"  suspected dynamic connections (grep detector) — see '{target_file} --info-seams' for detail\n")
         return 0
 
     status, report = _stamp_to_file(project_root_abs, target_file, out, args.force, args.discard_prose)
@@ -1044,6 +1154,9 @@ def main():
         sys.stderr.write(f"[make_interface_card] wrote {out} (--force: fresh stamp, prior prose discarded)\n")
     else:
         sys.stderr.write(f"[make_interface_card] wrote {out}\n")
+    if report.get("seam_hint"):
+        sys.stderr.write(
+            f"  suspected dynamic connections (grep detector) — see '{target_file} --info-seams' for detail\n")
     return 0
 
 
