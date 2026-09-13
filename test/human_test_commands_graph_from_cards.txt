@@ -56,9 +56,26 @@ py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/
 
 py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --discrepancies --group-by package
 
+# graph_from_cards: Runtime seams — tree/depth show seam edges as a SEPARATE marker, not →/←.
+# expect: a card with a "## Runtime seams" table shows "⇢ <target> (<kind> — <shape>)" on its
+#         own line; the TARGET's own line shows the computed reverse "⇠ <from> (<kind> — <shape>)"
+#         (graph computes it — no hand-duplicated row on the target's card).
+#         "N independent parts" (see --discrepancies below) shrinks when a seam connects two
+#         otherwise-disconnected components (e.g. a JS front end talking HTTP to its own backend).
+
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --view depth
+
+# graph_from_cards: VIEW = seams-mermaid (all Runtime seams in the project, ONE mermaid diagram).
+# expect: "# runtime seams" then a ```mermaid fence, "graph LR", one line per distinct
+#         (from, target, kind, shape) edge — free-text (unresolved) targets appear too, as their
+#         own node (this is the ONLY view where they show up at all; tree/depth show only
+#         resolved seam edges). On a project with none: "# runtime seams — none found in any card".
+
+py graph_from_cards.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --view seams-mermaid
+
 # graph_from_cards: --help shows the flags (no project involved -> no --project-root).
 # expect: --view, --edges, --verbose, --file, --hops, --cycles, --discrepancies, --group-by documented;
-#         NO "-h, --help" line; NO --paths/flat
+#         --view choices include seams-mermaid; NO "-h, --help" line; NO --paths/flat
 
 py graph_from_cards.py --help
 

@@ -30,7 +30,36 @@ py make_interface_card.py cli.py --project-root "Y:/Hermess/body/sandboxes/docke
 
 py make_interface_card.py --all --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
 
+# make_interface_card: --help-seams prints the full Runtime seams contract (no file needed).
+# expect: Section/Columns/Kind vocab (by-path, process, http, file:reads|writes|reads+writes,
+#         event:emits|listens)/Shape vocab (dependent, equal, reference)/example table/who-writes-
+#         the-row rule/pointer to --info-seams; no --project-root involved.
+
+py make_interface_card.py --help-seams
+
+# make_interface_card: <file> --info-seams scans ONE file for suspected dynamic-connection
+# patterns (grep detector) — does NOT write a card, does NOT decide Kind/Shape/Why.
+# expect on a file with a by-path load: "N suspected line(s)" + "L<line>  <label>  <snippet>"
+# per hit; on a file with none: "no suspected dynamic-connection patterns found"
+
+py make_interface_card.py cli.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --info-seams
+
+# make_interface_card: --all surfaces a seam hint when the detector finds candidates AND the
+# card has no "## Runtime seams" section yet — one line, file names only, never an empty
+# placeholder section (same anti-pattern lesson as REQ-009).
+# expect (only if such files exist in the tree): "--all: suspected dynamic connections (grep
+# detector) in: a.py, b.js — see '<file> --info-seams' for detail"
+
+py make_interface_card.py --all --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood"
+
+# make_interface_card: re-stamping a card that ALREADY has "## Runtime seams" keeps the table
+# byte-for-byte and only refreshes the "Contract: ..." line above it (like the version marker).
+# expect: stderr "merged ..." lists "Runtime seams" under "prose kept: ... + Runtime seams"
+
+py make_interface_card.py cli.py --project-root "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood" --out "Y:/Hermess/body/sandboxes/docker/default/workspace/SRC/memohood/__map/cli.py.md"
+
 # make_interface_card: --help shows the flags (no project involved -> no --project-root).
-# expect: --all documented; --force = "discard & write a FRESH stamp" (default on existing = MERGE)
+# expect: --all documented; --force = "discard & write a FRESH stamp" (default on existing = MERGE);
+#         --help-seams and --info-seams documented too
 
 py make_interface_card.py --help
