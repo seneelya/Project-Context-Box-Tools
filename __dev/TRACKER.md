@@ -52,3 +52,27 @@ level number). `__dev/Requests/feedback/` raw intake `.md` dupes deleted (fully 
 `__dev/Requests/*.md` already); `feedback/files/` (real external repro sources) gitignored. golden_check
 13/13, check.py 120/0, sweep clean (LOW LEVEL=5 pre-existing noise). → next: nothing queued from this
 session — `Plan__jsx-carve-tsx.md` is the one deliberately parked item, pick up whenever.
+✅ [2026-09-14] REQ-010/Plan03 closed: `## Runtime seams` — connections the import graph can't see
+(dynamic load by path, separate process, shared file, event bus). `CARD_FORMAT.VERSION` 1.0.0 ->
+1.1.0: `Dependencies Internal/External` renamed to `In-Project/External Dependencies` (old headers
+still read via `ALIASES`/`canon()`), new `RUNTIME_SEAMS_SECTION`/`SEAM_COLUMNS`/`SEAM_KIND_BASE`/
+`SEAM_SHAPE` + `seam_contract_line()`. `make_interface_card.py`: preserves an existing seams table
+byte-for-byte except the contract-note line (refreshed like the version marker); `--help-seams`
+(full contract, no file) + `<file> --info-seams` (grep hint only, never decides Kind/Shape/Why);
+new `seam_scanner/` package (detector, NOT a CLI tool — moved out of a flat top-level file per
+owner review) with hint-on-`--all`. `graph_from_cards.py`: seams parsed/resolved separately from
+import deps; rendered with a dedicated marker (`【SEAM⇢】`/`【SEAM⇠】` — went through 3 iterations,
+see Plan03's own retrospective section for why); `components()` stays import-only after a
+mid-implementation correction (seams used to merge islands, which erased the fact they're
+different apps) — `_seam_bridges()`/`_all_seams()` + a `## runtime seams (N)` section report seams
+separately instead; new `--view seams-mermaid`. `validate_cards.py`: closed-vocab Kind/Shape check,
+pending/unresolved for path-like `Target` (URL-scheme targets excluded from that heuristic).
+142 new/updated tests, `check.py`/`sweep_invariants.py` clean. Manual regression + real migration
+on `hermes-filetools` (its own 8 free-text `RUNTIME SEAM` markers rewritten into the new table,
+caught 2 markers that didn't hold up against source — `core.js`/`prompt-mirror.js` weren't actually
+seam participants — and 1 real by-path load the old prose had missed entirely,
+`file_ops/_tool_text.py`); rolled out + re-stamped on `memohood` too (0 issues, 0 discrepancies on
+both). Docs pass: `graph_from_cards__TLDR.md`/`validate_cards__TLDR.md`/
+`make_interface_card__README.md`/`Guide__AuditCards.md`/`Guide__MakeCard.md`. All pushed
+(ProjectStarter outer+tools, hermes-filetools origin). → next: nothing queued from this session —
+open items are the ones Plan03 itself already lists (full detector pattern list grows by findings).

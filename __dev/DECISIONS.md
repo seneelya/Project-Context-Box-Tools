@@ -31,6 +31,28 @@ Format: `- <decision> — <one-line why>`
 
 - Golden oracle = **human hand-count** (independent of the code's author); lock/verify at semantic-change moments. Run `py test/check.py` green through every change; a FAIL names the exact file/line/case.
 
+## Runtime seams (Plan03/Vision07) — 2026-09-14
+
+- Seams are a DIFFERENT edge kind from imports, always — own marker (`【SEAM⇢】`/`【SEAM⇠】`), own
+  report section (`## runtime seams (N)`), never merged into `→`/`←`. A dashed arrow lives INSIDE
+  the marker, never the plain `→`/`←` glyph — a text search for one must never match the other.
+- Seams do NOT redefine what "independent part" means — `components()`/island-count is import-only,
+  full stop. Seam-crossed islands are reported SEPARATELY (`_seam_bridges`), never silently merged
+  into one component — merging erases the exact fact islands exist to surface (these are
+  architecturally different apps, glued at one explicit point, not the same app).
+- The marker applies to EVERY seam, not only ones crossing an island boundary — an app dynamically
+  loading its own sibling is just as real a fact as one talking to a separate app.
+- Declared on the dependent/consuming side ONLY (same convention as imports) — the graph computes
+  the reverse (`【SEAM⇠】`) itself; never hand-duplicate the reverse edge on the target's own card.
+- Kind and Shape are two INDEPENDENT closed-vocabulary axes (not "5 Kinds" collapsing `by-path`/
+  `process` into one — they stay separate, just share the "same channel family" framing).
+- The section is OPTIONAL and the stamp never invents it empty (same anti-pattern lesson as
+  REQ-009) — a detector hit without an existing section produces a one-line HINT only, never a
+  placeholder section or directive.
+- `seam_scanner` is an internal helper module (a package, `seam_scanner/__init__.py`, no `__main__`,
+  no TLDR/README) — imported by `make_interface_card.py`, never a standalone CLI tool in its own
+  right, unlike its sibling tools under `__HQ/tools/`.
+
 ## Merge identity (make_interface_card) — 2026-08-29/30
 
 - Entry-name matching for merge is by POSITION in the signature (before `(`/`=`, else after known per-language keywords), never by guessing the "first word" of the signature text — that broke on any JS/TS/C#/async-Python file (see `__dev/Requests/DONE__REQ-004+005_merge-identity-design.md`).
