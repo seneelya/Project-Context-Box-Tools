@@ -134,8 +134,9 @@ ESCALATE_CEILING = 40
 ESCALATE_K = 1.5
 
 # ---------------------------------------------------------------------------
-# LOGGING: opt-in diagnostic call-logging for individual tools. OFF by default
-# (empty list) — nothing changes until a tool's name is added here.
+# LOGGING: opt-in diagnostic call-logging for individual tools. ON by default
+# for get_codeblock/make_interface_card (2026-09-14) — remove a name to turn it
+# back off for a given project.
 #
 #   LOG_ENABLED_TOOLS -> list of tool names (script stem, e.g. "get_codeblock")
 #                         that should log every invocation. Empty = logging off.
@@ -147,11 +148,21 @@ ESCALATE_K = 1.5
 #                         log files depending on where the caller stood.
 #
 # Format is JSONL (one JSON object per line) — diagnostic only: argv, exit code,
-# duration, error (if any). Never the actual code/text a call returned. A tool's
-# logging call is wrapped so it can never raise — a logging failure must never
-# break or change the tool's own behavior/exit code.
+# duration, error (if any); make_interface_card also logs its own status
+# (new/merged/forced/blocked), seam-hint flags, and --all summary counts. Never
+# the actual code/text a call returned or a card's content. A tool's logging
+# call is wrapped so it can never raise — a logging failure must never break or
+# change the tool's own behavior/exit code.
 # ---------------------------------------------------------------------------
 LOG_ENABLED_TOOLS = [
-    # "get_codeblock",
+    "get_codeblock",
+    "make_interface_card",
 ]
-LOG_DIR = "__HQ/tools/_logs"
+# NOT "__HQ/tools/_logs" here specifically — THIS copy's PROJECT_ROOT is "." (this file is
+# deliberately NEUTRAL, see the module docstring), and every test/doc in this repo already
+# invokes the CLIs with cwd = this `__HQ/tools/` directory itself, so PROJECT_ROOT already IS
+# `__HQ/tools/` — prefixing it again doubled the path (`__HQ/tools/__HQ/tools/_logs`, caught
+# 2026-09-14 when logging was turned on by default). A REAL deployed project's own copy of this
+# file has an absolute PROJECT_ROOT (the outer project root), where "__HQ/tools/_logs" is
+# correct and should NOT be changed to match this one — see memohood/hermes-filetools.
+LOG_DIR = "_logs"

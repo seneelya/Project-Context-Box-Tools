@@ -2,6 +2,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Opt-in diagnostic call-logs (CONFIG__TOOLS.LOG_ENABLED_TOOLS/LOG_DIR) — runtime output,
+# never source; regenerated per-machine, not shared across clones.
+_logs/
+
 # Outer-repo-only note (ProjectStarter's own __HQ/tools/ folder before this repo is
 # cloned into it) — never part of this repo's own content, sits at this path only when
 # both repos coexist on disk during development.

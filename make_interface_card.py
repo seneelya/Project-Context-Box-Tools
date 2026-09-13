@@ -34,6 +34,56 @@ import seam_scanner
 from graph_from_cards import _cells, _is_sep, load_config_at
 
 
+TOOL_NAME = "make_interface_card"
+
+
+def _is_absolute_path(p):
+    """Check if path is absolute (Unix or Windows style) — same helper as get_codeblock's, kept
+    local rather than shared (tools stay independent of each other on purpose, see DECISIONS.md).
+    Matters because this tool and its CONFIG__TOOLS.py routinely run mixed Windows/docker-Linux."""
+    if Path(p).is_absolute():
+        return True
+    return bool(p and len(p) >= 2 and p[1] == ':')
+
+
+def _load_logging_config():
+    """Best-effort read of the opt-in call-logging config from CONFIG__TOOLS.py.
+
+    Returns (enabled, log_dir, project_root). enabled is False whenever CONFIG__TOOLS.py is
+    missing, doesn't list this tool, or anything else about reading it goes wrong — logging
+    must never be why the tool fails to run."""
+    try:
+        from CONFIG__TOOLS import LOG_ENABLED_TOOLS, LOG_DIR, PROJECT_ROOT
+        return TOOL_NAME in (LOG_ENABLED_TOOLS or []), LOG_DIR, PROJECT_ROOT
+    except Exception:
+        return False, None, None
+
+
+def _log_call(record):
+    """Append one JSONL diagnostic line for this invocation (argv/status/exit_code/duration/
+    error — never a card's actual content). No-op unless this tool is listed in
+    CONFIG__TOOLS.LOG_ENABLED_TOOLS. Swallows every error: a logging failure must never affect
+    the tool's real behavior or exit code. Same mechanism as get_codeblock's (see its core.py) —
+    kept as its own copy, not a shared module, for the same independence reason as above."""
+    try:
+        enabled, log_dir, project_root = _load_logging_config()
+        if not enabled:
+            return
+        import json
+        import time as _time
+        log_dir = log_dir or "."
+        # Relative LOG_DIR is anchored to PROJECT_ROOT (CONFIG__TOOLS convention), not the
+        # process's cwd — this tool is routinely invoked from arbitrary directories.
+        base = Path(project_root) if project_root and not _is_absolute_path(log_dir) else None
+        log_path = (base / log_dir if base else Path(log_dir)) / f"{TOOL_NAME}.log.jsonl"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        record.setdefault("ts", _time.strftime("%Y-%m-%dT%H:%M:%S"))
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
 _LANG = {".py": "python", ".ts": "typescript", ".tsx": "typescript",
          ".js": "typescript", ".jsx": "typescript", ".cs": "csharp"}
 
@@ -1008,11 +1058,15 @@ def _seams_help_text():
     ])
 
 
-def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
+def _stamp_all(project_root_abs, force, language=None, discard_prose=False, record=None):
     """BULK: штемпелит ВСЕ исходники под project-root в __map/.
 
     Языки: `language` (CLI) если задан, иначе CONFIG__TOOLS.LANGUAGE — и то и
     другое принимает список/через запятую/`all`.
+
+    `record` (опционально) — dict логирования вызова (см. `_log_call`): если дан, сюда кладутся
+    `all_files`/`all_counts`/`all_seam_hints` — та же сводка, что печатается в stderr, только
+    структурированно, для последующего анализа по накопленным логам, а не для этого одного вызова.
     """
     from find_code_usage.core import collect_files, rel_path
     lang, test_dirs = _config_lang_testdirs(project_root_abs)
@@ -1027,6 +1081,8 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
                      f"exts={sorted(exts)}\n")
     if not files:
         sys.stderr.write(f"[make_interface_card] --all: no {sorted(exts)} files under {project_root_abs}\n")
+        if record is not None:
+            record["all_files"] = 0
         return 0
     counts = {"new": 0, "merged": 0, "forced": 0, "blocked": 0, "error": 0}
     seam_hints = []
@@ -1052,10 +1108,38 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False):
         sys.stderr.write(
             f"[make_interface_card] --all: suspected dynamic connections (grep detector) in: "
             f"{', '.join(seam_hints)} — see '<file> --info-seams' for detail\n")
+    if record is not None:
+        record["all_files"] = len(files)
+        record["all_counts"] = counts
+        record["all_seam_hints"] = seam_hints
     return 1 if (counts["error"] or counts["blocked"]) else 0
 
 
 def main():
+    """Thin logging wrapper around `_main_impl` (the actual CLI, unchanged below). Kept separate
+    on purpose: logging must never touch/risk the real logic, only observe argv in and
+    status/exit_code/error/duration out (never a card's actual content — see `_log_call`)."""
+    import time as _time
+    t0 = _time.time()
+    record = {"tool": TOOL_NAME, "card_format_version": cf.VERSION, "argv": sys.argv[1:]}
+    exit_code = 0
+    try:
+        exit_code = _main_impl(record)
+        return exit_code
+    except SystemExit as e:
+        exit_code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        raise
+    except BaseException as e:
+        exit_code = 1
+        record["error"] = f"{type(e).__name__}: {e}"
+        raise
+    finally:
+        record["exit_code"] = exit_code if isinstance(exit_code, int) else 0
+        record["duration_ms"] = round((_time.time() - t0) * 1000, 2)
+        _log_call(record)
+
+
+def _main_impl(record):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
@@ -1105,6 +1189,7 @@ def main():
     args = ap.parse_args()
 
     if args.help_seams:
+        record["mode"] = "help-seams"
         print(_seams_help_text())
         return 0
 
@@ -1112,10 +1197,12 @@ def main():
     target_file = args.file_opt if args.file_opt is not None else args.file
 
     if args.info_seams:
+        record["mode"] = "info-seams"
         if not target_file:
             ap.error("--info-seams requires a <file> argument (or --file)")
         target_abs = target_file if os.path.isabs(target_file) else os.path.join(project_root_abs, target_file)
         hits = seam_scanner.scan(target_abs)
+        record["info_seams_hits"] = len(hits)
         if not hits:
             print(f"[make_interface_card] --info-seams {target_file}: no suspected dynamic-connection patterns found")
         else:
@@ -1125,7 +1212,8 @@ def main():
         return 0
 
     if args.all:
-        return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose)
+        record["mode"] = "all"
+        return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose, record)
 
     if not target_file:
         ap.error("either a <file> argument (or --file), or --all is required")
@@ -1133,14 +1221,18 @@ def main():
     out = args.out
     if not out:
         # Без --out — просто печать штемпеля в stdout (без merge: файла-цели нет).
+        record["mode"] = "preview"
         report = {}
         print(build_card(project_root_abs, target_file, None, report))
         if report.get("seam_hint"):
+            record["seam_hint"] = True
             sys.stderr.write(
                 f"  suspected dynamic connections (grep detector) — see '{target_file} --info-seams' for detail\n")
         return 0
 
+    record["mode"] = "stamp"
     status, report = _stamp_to_file(project_root_abs, target_file, out, args.force, args.discard_prose)
+    record["status"] = status
     if status == "blocked":
         n = report["prose_blocks"]
         sys.stderr.write(
@@ -1155,6 +1247,7 @@ def main():
     else:
         sys.stderr.write(f"[make_interface_card] wrote {out}\n")
     if report.get("seam_hint"):
+        record["seam_hint"] = True
         sys.stderr.write(
             f"  suspected dynamic connections (grep detector) — see '{target_file} --info-seams' for detail\n")
     return 0
