@@ -490,8 +490,13 @@ def _parse_old_prose(text, lang=None):
             if keep:
                 P["sections"]["Salvage"] = keep
         elif name in ("How it works", "Doc links", "Discrepancies", "Package layout"):
+            # Discrepancies' own directive instructs "else write (none)" — that literal answer
+            # IS the agent's deliberate, filled-in verdict, not an unfilled slot (REQ-009). Every
+            # other section here never gets told to write cf.EMPTY as a real answer, so for them
+            # a bare "(none)" still means "nothing kept" as before.
+            drop_empty_marker = name != "Discrepancies"
             keep = [ln for ln in body if ln.strip() and not _is_ph(ln)
-                    and ln.strip() != cf.EMPTY
+                    and (not drop_empty_marker or ln.strip() != cf.EMPTY)
                     and not ln.strip().startswith("known submodules (re-exported from):")]
             if keep:
                 P["sections"][name] = keep

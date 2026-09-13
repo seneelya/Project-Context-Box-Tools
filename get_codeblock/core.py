@@ -745,7 +745,72 @@ def _render_query_runs(file_path, lines, runs, errors, numbered, emit, c):
     return 1 if errors else 0
 
 
+TOOL_NAME = "get_codeblock"
+
+
+def _load_logging_config():
+    """Best-effort read of the opt-in call-logging config from CONFIG__TOOLS.py.
+
+    Returns (enabled, log_dir, project_root). enabled is False whenever
+    CONFIG__TOOLS.py is missing, doesn't list this tool, or anything else about
+    reading it goes wrong — logging must never be why the tool fails to run."""
+    try:
+        from CONFIG__TOOLS import LOG_ENABLED_TOOLS, LOG_DIR, PROJECT_ROOT
+        return TOOL_NAME in (LOG_ENABLED_TOOLS or []), LOG_DIR, PROJECT_ROOT
+    except Exception:
+        return False, None, None
+
+
+def _log_call(record):
+    """Append one JSONL diagnostic line for this invocation (argv/exit_code/
+    duration/error — never the code text a call returned). No-op unless this
+    tool is listed in CONFIG__TOOLS.LOG_ENABLED_TOOLS. Swallows every error:
+    a logging failure must never affect the tool's real behavior or exit code."""
+    try:
+        enabled, log_dir, project_root = _load_logging_config()
+        if not enabled:
+            return
+        import json
+        import time as _time
+        log_dir = log_dir or "."
+        # A relative LOG_DIR is anchored to PROJECT_ROOT (same convention as the
+        # rest of CONFIG__TOOLS), NOT to the process's cwd — this tool is routinely
+        # invoked from arbitrary directories, and a cwd-relative log dir would
+        # scatter/duplicate log files depending on where the caller stood.
+        base = Path(project_root) if project_root and not is_absolute_path(log_dir) else None
+        log_path = (base / log_dir if base else Path(log_dir)) / f"{TOOL_NAME}.log.jsonl"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        record.setdefault("ts", _time.strftime("%Y-%m-%dT%H:%M:%S"))
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
 def main():
+    """Thin logging wrapper around `_main_impl` (the actual CLI, unchanged below).
+    Kept separate on purpose: logging must never touch/risk the real logic, only
+    observe argv in and exit_code/error/duration out."""
+    import time as _time
+    t0 = _time.time()
+    record = {"tool": TOOL_NAME, "version": VERSION, "argv": sys.argv[1:]}
+    exit_code = 0
+    try:
+        _main_impl()
+    except SystemExit as e:
+        exit_code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        raise
+    except BaseException as e:
+        exit_code = 1
+        record["error"] = f"{type(e).__name__}: {e}"
+        raise
+    finally:
+        record["exit_code"] = exit_code
+        record["duration_ms"] = round((_time.time() - t0) * 1000, 2)
+        _log_call(record)
+
+
+def _main_impl():
     # Windows-консоль (cp1251/1252) роняет print на не-ASCII (×, кириллица, emoji).
     # utf-8 + replace: не падаем; на не-utf8 консоли максимум косметический мохито.
     for _stream in (sys.stdout, sys.stderr):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Актуальность .py.md карточек (__map/) — вывод под чтение ЛЛМ.
+"""Актуальность карточек (__map/, любой язык — .py.md/.js.md/...) — вывод под чтение ЛЛМ.
 
 Режимы:
 - git: карточка устарела, если исходник тронут без обновления карточки — в
@@ -106,7 +106,7 @@ def _rel(path, root):
 def check_git(cards_dir, root):
     fresh, outdated, orphan = [], [], []
     dirty = _dirty_paths(root)
-    for card in sorted(cards_dir.rglob("*.py.md")):
+    for card in sorted(cards_dir.rglob("*.md")):
         source = root / str(card.relative_to(cards_dir)).replace(".md", "")
         if not source.exists():
             orphan.append(card)
@@ -137,7 +137,7 @@ def check_git(cards_dir, root):
 
 def check_mtime(cards_dir, root):
     fresh, outdated, orphan = [], [], []
-    for card in sorted(cards_dir.rglob("*.py.md")):
+    for card in sorted(cards_dir.rglob("*.md")):
         source = root / str(card.relative_to(cards_dir)).replace(".md", "")
         if not source.exists():
             orphan.append(card)
@@ -160,7 +160,7 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")  # пути/сабджекты коммитов бывают с юникодом
     except Exception:
         pass
-    ap = argparse.ArgumentParser(description="Freshness of .py.md cards (LLM-lean output)", add_help=False)
+    ap = argparse.ArgumentParser(description="Freshness of __map/ cards, any language (LLM-lean output)", add_help=False)
     ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <root>/__map/)")
     ap.add_argument("--project-root", type=str, default=None,

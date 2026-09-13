@@ -35,18 +35,34 @@ PROJECT_ROOT = _resolve_root([
 ]) or "."
 
 # ---------------------------------------------------------------------------
-# LANGUAGE: default language handler to use
-# Change this according to your project's primary language.
-# Supported values depend on each tool — find_code_usage supports:
-#   python, typescript (ts), js, csharp (cs)
+# LANGUAGE: default language(s) for tools that support --language / bulk scans.
 #
-# A POLYGLOT project may set a LIST instead of a single string:
+# THREE canonical languages exist right now — "js"/"ts"/"tsx" are NOT separate
+# languages, they're all just spellings for ONE canonical language:
+#
+#   canonical      accepted short forms (any of these, case-insensitive)
+#   ---------      -----------------------------------------------------
+#   "python"       "py"
+#   "typescript"   "ts", "js", "tsx"      <- .js/.jsx/.ts/.tsx are ALL this one
+#   "csharp"       "cs"
+#
+# TypeScript and JavaScript are handled as the exact same language on purpose
+# (one parser/handler covers both) — write "typescript" (or "ts"/"js", they're
+# interchangeable) for a JS-only project too; there is no separate "js" language
+# to pick.
+#
+# Single language (most projects):
+#   LANGUAGE = "python"
+#
+# A POLYGLOT project sets a LIST instead of a single string — this is the
+# two-language example: a Python backend + a JS/TS frontend in the same tree:
 #   LANGUAGE = ["python", "typescript"]
 # make_interface_card --all then stamps both; with a single value it stamps only
 # that language and says nothing about the files it skipped, which is how a
 # python+JS tree quietly gets half a map. Per-file analysis is polyglot either
 # way (the language comes from the file's extension) — this setting only picks
-# what a BULK pass looks at. `--language py,ts` (or `all`) overrides per run.
+# what a BULK pass looks at. `--language py,ts` (or `all`) overrides per run,
+# same short forms as above.
 # ---------------------------------------------------------------------------
 LANGUAGE = "python"
 
@@ -108,3 +124,26 @@ ESCALATE_FLOOR = 12
 ESCALATE_TARGET = 18
 ESCALATE_CEILING = 40
 ESCALATE_K = 1.5
+
+# ---------------------------------------------------------------------------
+# LOGGING: opt-in diagnostic call-logging for individual tools. OFF by default
+# (empty list) — nothing changes until a tool's name is added here.
+#
+#   LOG_ENABLED_TOOLS -> list of tool names (script stem, e.g. "get_codeblock")
+#                         that should log every invocation. Empty = logging off.
+#   LOG_DIR           -> directory each enabled tool writes its log file into
+#                         (one file per tool: "<tool_name>.log.jsonl"). Created
+#                         automatically if missing. A relative path is anchored
+#                         to PROJECT_ROOT above (not the process's cwd) — tools
+#                         get invoked from all over, cwd-relative would scatter
+#                         log files depending on where the caller stood.
+#
+# Format is JSONL (one JSON object per line) — diagnostic only: argv, exit code,
+# duration, error (if any). Never the actual code/text a call returned. A tool's
+# logging call is wrapped so it can never raise — a logging failure must never
+# break or change the tool's own behavior/exit code.
+# ---------------------------------------------------------------------------
+LOG_ENABLED_TOOLS = [
+    # "get_codeblock",
+]
+LOG_DIR = "__HQ/tools/_logs"
