@@ -717,8 +717,11 @@ def test_seam_validate_kind_shape_target():
 
 def test_seam_graph_edges_and_islands():
     """graph_from_cards: seam-ребро резолвится отдельно от deps, рисуется отдельным маркером,
-    и превращает две независимые части в одну связную компоненту (Vision07)."""
-    from graph_from_cards import build_graph, split_components, format_tree
+    НЕ участвует в подсчёте островов (components считает только импорты — ревью 2026-09-14: то,
+    что остров соединён швом, не делает его архитектурно тем же приложением), но отдельно
+    перечисляется как мост (_seam_bridges) и в общей секции "## runtime seams"."""
+    from graph_from_cards import (build_graph, split_components, format_tree, _seam_bridges,
+                                   SEAM_OUT_MARK, SEAM_IN_MARK)
     root = Path(tempfile.mkdtemp(prefix="seamgraph_"))
     cards = root / "__map"
     cards.mkdir()
@@ -733,14 +736,20 @@ def test_seam_graph_edges_and_islands():
     g = build_graph(cards)
     check("seam resolved to b.py", g["nodes"]["a.py"]["seams"][0]["target_id"] == "b.py")
     multi, singles = split_components(g["nodes"])
-    check("seam merges the two islands into one component",
-          len(multi) == 1 and set(multi[0]) == {"a.py", "b.py"})
-    check("no leftover singles", singles == [])
+    check("seam does NOT merge islands — components count only imports",
+          multi == [] and set(singles) == {"a.py", "b.py"})
+    bridges = _seam_bridges(g["nodes"], multi, singles)
+    check("seam reported as a bridge between the two singles",
+          bridges == [("a.py", "b.py", ["by-path"])])
     tree = format_tree(g, "__map", "inout")
     check("seam edge shown with its own marker, not →/←",
-          "seam→ b.py (by-path — dependent)" in tree)
+          f"{SEAM_OUT_MARK} b.py (by-path — dependent)" in tree)
     check("reverse seam computed on the target's own line, not hand-duplicated",
-          "seam← a.py (by-path — dependent)" in tree)
+          f"{SEAM_IN_MARK} a.py (by-path — dependent)" in tree)
+    check("bridging fact reported separately from the island count",
+          "runtime seams bridging parts: 1" in tree)
+    check("dedicated runtime seams section lists the edge",
+          "## runtime seams (1)" in tree and f"a.py {SEAM_OUT_MARK} b.py (by-path — dependent)" in tree)
 
 
 def test_seam_legacy_section_rename_via_aliases():

@@ -443,25 +443,32 @@ def _edge_bits(i, nodes, rdeps, pkg, edges):
     return "   ".join(bits)
 
 
+# Маркер шва — CJK-скобки-тег (плотные, визуально сильные, канонически читаются как «важный
+# лейбл», не как знак препинания) обёртывают ⇢/⇠ (не →/←!): поиск по обычной стрелке импорта
+# НИКОГДА не должен зацепить шов, и наоборот — это два разных символа на уровне кодпоинта, не
+# только оформления. Решение зафиксировано в обсуждении 2026-09-14, не окончательное на все
+# времена («возможно, потом заведём разные стрелки»), но текущее.
+SEAM_OUT_MARK = "【SEAM⇢】"
+SEAM_IN_MARK = "【SEAM⇠】"
+
+
 def _seam_bits(i, nodes, pkg, rseams=None):
     """Строки Runtime seams узла (Plan03/Vision07) — СПИСОК отдельных строк, не одна общая:
-    "seam→" (я объявил связь на цель) / "seam← " (кто-то объявил связь на МЕНЯ как на цель —
-    граф ВЫЧИСЛЯЕТ этот вид, карточка цели его не дублирует руками, см. _reverse_seams).
-
-    Текстовый префикс "seam", не отдельный юникод-глиф (было '⇢'/'⇠') — тусклый спецсимвол в
-    конце длинной строки легко потерять глазами, а для LLM редкий кодпоинт токенизируется хуже
-    обычного слова. Каждая строка — своя, а не слита с →/← и друг с другом: это РЯДОВАЯ связь,
-    не менее заметная, чем импорт, а не приписка мелким шрифтом в конце.
+    SEAM_OUT_MARK (я объявил связь на цель) / SEAM_IN_MARK (кто-то объявил связь на МЕНЯ как на
+    цель — граф ВЫЧИСЛЯЕТ этот вид, карточка цели его не дублирует руками, см. _reverse_seams).
+    На ВСЕХ швах одинаково, не только на межостровных (Plan03 pt.4 ревью 2026-09-14) — приложение,
+    говорящее само с собой через динамическую загрузку, тоже важный факт, не только межпроектная
+    граница. Каждая строка — своя, а не слита с →/← и друг с другом.
     Только резолвнутые в карточку цели; свободный текст без ребра — только в --view seams-mermaid."""
     lines = []
     out = [s for s in nodes[i]["seams"] if s.get("target_id")]
     if out:
         names = [f"{_rel_to(s['target_id'], pkg)} ({s['kind']} — {s['shape']})" for s in out]
-        lines.append("seam→ " + " · ".join(names))
+        lines.append(f"{SEAM_OUT_MARK} " + " · ".join(names))
     inc = (rseams or {}).get(i, [])
     if inc:
         names = [f"{_rel_to(s['from'], pkg)} ({s['kind']} — {s['shape']})" for s in inc]
-        lines.append("seam← " + " · ".join(names))
+        lines.append(f"{SEAM_IN_MARK} " + " · ".join(names))
     return lines
 
 
@@ -493,8 +500,7 @@ def _compute_layers(nodes):
 
 
 def components(nodes):
-    """Связные компоненты по НЕОРИЕНТИРОВАННЫМ import-рёбрам + резолвнутым Runtime seams,
-    крупные первыми.
+    """Связные компоненты по НЕОРИЕНТИРОВАННЫМ import-рёбрам ТОЛЬКО, крупные первыми.
 
     Зачем: в одном дереве законно живут независимые части — второй плагин, или
     JS-фронтенд к нашему же питон-бэкенду. Между ними НЕТ import-ребра, и его
@@ -503,22 +509,18 @@ def components(nodes):
     факт. Поэтому мы не соединяем компоненты, а НАЗЫВАЕМ их — чтобы «так и
     задумано» отличалось от «связь потерялась».
 
-    Runtime seams — исключение из этого правила (Plan03/Vision07): если карточка
-    ЯВНО заявила связь (не догадка тула, а факт, вписанный агентом/человеком), остров,
-    соединённый швом, СНОВА не остров — но всё равно НЕ считается import-рёбром
-    (`→`/`←` их не рисуют, см. _edge_bits/_seam_bits) — эти два эффекта независимы.
-    """
+    Runtime seams НЕ участвуют в этом расчёте (пересмотрено 2026-09-14, было наоборот в первой
+    версии Plan03 pt.4): «остров, соединённый швом — уже не остров» СТИРАЕТ ровно тот факт, ради
+    которого острова вообще считаются — что это архитектурно РАЗНЫЕ приложения, просто состыкованные
+    явной точкой контакта. Правильный ответ — «N честных островов + M швов, которые их соединяют»
+    (см. `_seam_bridges`/`_slices`), а не один смазанный компонент. Швы — по-прежнему видны (маркер
+    на каждой стороне, отдельная секция отчёта), просто не переопределяют, что такое «остров»."""
     adj = {i: set() for i in nodes}
     for i, n in nodes.items():
         for d in n["deps"]:
             if d in adj:
                 adj[i].add(d)
                 adj[d].add(i)
-        for s in n.get("seams", ()):
-            t = s.get("target_id")
-            if t in adj:
-                adj[i].add(t)
-                adj[t].add(i)
     seen, comps = set(), []
     for start in sorted(nodes):
         if start in seen:
@@ -575,10 +577,54 @@ def split_components(nodes):
     return multi, singles
 
 
+def _all_seams(nodes):
+    """-> [(from, target_label, kind, shape, target_id_or_None), ...], ОДИН раз по всем швам
+    проекта, дедуп по (from, target_label, kind, shape). `target_id_or_None` — резолвнутая
+    карточка (None = свободный текст вне проекта, не ошибка — см. Vision07). Общий источник для
+    секции "## runtime seams" и `--view seams-mermaid`, чтобы дедуп не разъезжался в двух местах."""
+    seen, out = set(), []
+    for nid in sorted(nodes):
+        for s in nodes[nid]["seams"]:
+            target_label = s["target_id"] or s["target"]
+            key = (nid, target_label, s["kind"], s["shape"])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append((nid, target_label, s["kind"], s["shape"], s.get("target_id")))
+    return out
+
+
+def _seam_bridges(nodes, multi, singles):
+    """-> [(label_a, label_b, [kinds]), ...] — швы, которые пересекают ГРАНИЦУ import-компонента
+    (пересмотрено 2026-09-14: components() больше не смешивает швы с импортами при подсчёте
+    островов — «остров, соединённый швом» стирал бы ровно тот факт, что это архитектурно РАЗНЫЕ
+    приложения). Дедуп по неупорядоченной паре меток компонентов + собранный по ней набор Kind.
+    Одиночный файл (без единого импорта) — тоже кластер сам по себе, шов до него — тоже мост."""
+    labels = _comp_labels(multi)
+    cluster_of = {}
+    for c, lb in zip(multi, labels):
+        for nid in c:
+            cluster_of[nid] = lb
+    for nid in singles:
+        cluster_of[nid] = nid
+    bridges = {}
+    for nid, n in nodes.items():
+        for s in n["seams"]:
+            t = s.get("target_id")
+            if t is None or nid not in cluster_of or t not in cluster_of:
+                continue
+            ca, cb = cluster_of[nid], cluster_of[t]
+            if ca == cb:
+                continue
+            bridges.setdefault(tuple(sorted((ca, cb))), set()).add(s["kind"])
+    return [(a, b, sorted(kinds)) for (a, b), kinds in sorted(bridges.items())]
+
+
 def _slices(graph, disp_label):
-    """Общий хвост всех видов: hotspots + cycles + unresolved."""
+    """Общий хвост всех видов: hotspots + runtime seams + cycles + unresolved."""
     nodes, indeg = graph["nodes"], graph["indeg"]
     multi, singles = split_components(nodes)
+    bridges = _seam_bridges(nodes, multi, singles)
     out = ["", "## hotspots"]
     ep = [f"{i} ← ×{indeg[i]}" for i in sorted(nodes, key=lambda i: (-indeg[i], i)) if indeg[i] > 0][:8]
     out.append("- most depended-on: " + (" · ".join(ep) if ep else "(none)"))
@@ -599,11 +645,23 @@ def _slices(graph, disp_label):
     if singles:
         out.append(f"- isolated files ({len(singles)}, no import edge either way): "
                    + " · ".join(sorted(singles)))
+    # Отдельный факт от «independent parts» выше (пересмотрено 2026-09-14): части считаются
+    # ТОЛЬКО по импортам, честно; швы, которые их всё же связывают в рантайме, — не переопределяют
+    # счётчик островов, а перечисляются здесь, рядом, чтобы «2 приложения» не терялось за «1 связь».
+    if bridges:
+        blines = [f"{a} {SEAM_OUT_MARK} {b} ({'/'.join(kinds)})" for a, b, kinds in bridges]
+        out.append(f"- runtime seams bridging parts: {len(bridges)} — " + " · ".join(blines))
 
     cycles = find_cycles(nodes)
     out += ["", f"## cycles ({len(cycles)})"]
     out += (["- " + _fmt_cycle(c) for c in sorted(cycles, key=lambda c: (len(c), c))]
             if cycles else ["(none — acyclic)"])
+
+    seams = _all_seams(nodes)
+    out += ["", f"## runtime seams ({len(seams)})"]
+    out += ([f"- {frm} {SEAM_OUT_MARK} {target} ({kind} — {shape})"
+             for frm, target, kind, shape, _tid in seams]
+            if seams else ["(none)"])
 
     if graph["unresolved"]:
         out += ["", "## unresolved from-file refs (normalize to a card path)"]
@@ -614,8 +672,9 @@ def _slices(graph, disp_label):
 # «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
 # Анатомия записи — единая, чтобы не расходилась между видами; строка entry зависит от --verbose.
 _EDGES = ("> edges:  → what it imports · ← what imports it · ×N before (…) = list length "
-          "(shown only when >1) · ⟲ = in a cycle · seam→/seam← = Runtime seam I declared/declared "
-          "on me (kind — shape), own line, NOT an import — see --view seams-mermaid")
+          "(shown only when >1) · ⟲ = in a cycle · " + SEAM_OUT_MARK + "/" + SEAM_IN_MARK +
+          " = Runtime seam I declared/declared on me (kind — shape), own line, NOT an import — "
+          "see \"## runtime seams\" below and --view seams-mermaid")
 _SEP = "> ---"
 
 
@@ -727,24 +786,16 @@ def _mermaid_id(name):
 
 
 def format_seams_mermaid(graph):
-    """Мермейд-диаграмма ВСЕХ Runtime seams в проекте, собранная из таблиц во всех карточках —
-    отдельный сгенерированный вид (не хранение, см. Vision07), дёшево пересобираемый каждый раз.
-    Свободнотекстовые (нерезолвленные) цели тоже попадают сюда как узлы — это единственное
-    место, где они видны (в --view tree/depth участвуют только резолвленные, см. _seam_bits)."""
-    nodes = graph["nodes"]
-    edges, seen = [], set()
-    for nid in sorted(nodes):
-        for s in nodes[nid]["seams"]:
-            target_label = s["target_id"] or s["target"]
-            key = (nid, target_label, s["kind"], s["shape"])
-            if key in seen:
-                continue
-            seen.add(key)
-            edges.append((nid, target_label, s["kind"], s["shape"]))
+    """Мермейд-диаграмма ВСЕХ Runtime seams в проекте (через `_all_seams`, тот же дедуп, что у
+    секции "## runtime seams") — отдельный сгенерированный вид (не хранение, см. Vision07),
+    дёшево пересобираемый каждый раз. Свободнотекстовые (нерезолвленные) цели тоже попадают
+    сюда как узлы — это единственное место, где они видны (в --view tree/depth участвуют
+    только резолвленные, см. _seam_bits)."""
+    edges = _all_seams(graph["nodes"])
     if not edges:
         return "# runtime seams — none found in any card"
     out = ["# runtime seams", "", "```mermaid", "graph LR"]
-    for a, b, kind, shape in edges:
+    for a, b, kind, shape, _tid in edges:
         label = f"{kind} — {shape}"
         out.append(f'    {_mermaid_id(a)}["{a}"] -.->|"{label}"| {_mermaid_id(b)}["{b}"]')
     out.append("```")
@@ -880,17 +931,25 @@ def main():
 
     if args.discrepancies:
         items = collect_discrepancies(graph, resolve_project_root(args.project_root))
-        multi, _singles = split_components(graph["nodes"])
+        multi, singles = split_components(graph["nodes"])
+        bridges = _seam_bridges(graph["nodes"], multi, singles)
         # Наблюдение, не находка (см. format_discrepancies). В --json НЕ кладём:
         # там контракт — плоский список расхождений, и объект другой природы
         # сломал бы любого читателя. Одиночные файлы этой строки НЕ вызывают:
         # они не архитектура, а просто несвязанные файлы (см. split_components).
-        note = (f"> note: the map has {len(multi)} independent parts — "
-                + " · ".join(_comp_labels(multi))
-                + ". No import edge between them; if that is by design (a separate "
-                  "plugin, a JS front end to this backend) their link is a runtime "
-                  "contract, not an import — document it and link both cards' Doc links."
-                ) if len(multi) > 1 else None
+        notes = []
+        if len(multi) > 1:
+            notes.append(f"> note: the map has {len(multi)} independent parts — "
+                          + " · ".join(_comp_labels(multi))
+                          + ". No import edge between them; if that is by design (a separate "
+                            "plugin, a JS front end to this backend) their link is a runtime "
+                            "contract, not an import — document it and link both cards' Doc links.")
+        if bridges:
+            blines = [f"{a} {SEAM_OUT_MARK} {b} ({'/'.join(kinds)})" for a, b, kinds in bridges]
+            notes.append(f"> note: {len(bridges)} Runtime seam(s) bridge otherwise-disconnected "
+                          "parts (still not import edges — parts are counted by import only) — "
+                          + " · ".join(blines) + ".")
+        note = "\n".join(notes) if notes else None
         if args.json:
             print(json.dumps([d._asdict() for d in items], ensure_ascii=False, indent=2))
         else:
