@@ -76,3 +76,17 @@ both). Docs pass: `graph_from_cards__TLDR.md`/`validate_cards__TLDR.md`/
 `make_interface_card__README.md`/`Guide__AuditCards.md`/`Guide__MakeCard.md`. All pushed
 (ProjectStarter outer+tools, hermes-filetools origin). → next: nothing queued from this session —
 open items are the ones Plan03 itself already lists (full detector pattern list grows by findings).
+✅ [2026-09-14] `make_interface_card.py` gets opt-in call-logging, same mechanism get_codeblock
+already had (`CONFIG__TOOLS.LOG_ENABLED_TOOLS`/`LOG_DIR`, thin `main()`/`_main_impl()` split, JSONL
+per invocation — argv/status/exit_code/duration/error, never a card's content). Record adds
+`mode` (preview/stamp/all/info-seams/help-seams), `status` (new/merged/forced/blocked) for single
+stamps, and `all_files`/`all_counts`/`all_seam_hints` for `--all` — same summary already printed to
+stderr, just structured for later analysis. Both tools now ON by default in `CONFIG__TOOLS.py`
+(was opt-in/commented-out). Surfaced a real bug while enabling it here: this repo's own NEUTRAL
+CONFIG__TOOLS.py has `PROJECT_ROOT = "."`, and `LOG_DIR = "__HQ/tools/_logs"` double-nested
+(`__HQ/tools/__HQ/tools/_logs`) because every test/doc here already runs with cwd = `__HQ/tools/`
+itself — fixed by setting THIS copy's `LOG_DIR = "_logs"` (real deployed projects, whose
+PROJECT_ROOT is a genuine absolute path, keep `"__HQ/tools/_logs"` — unaffected, verified live on
+both memohood and hermes-filetools). `_logs/` gitignored. Regression: test_cardstamp 142/0,
+check.py 120/0, golden_check 13/13, sweep clean, run_restamp_fixtures 21/0. Deployed + committed on
+ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
