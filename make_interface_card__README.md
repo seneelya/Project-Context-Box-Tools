@@ -65,7 +65,7 @@ make_interface_card.py --all --language py,ts                           # bulk: 
    (`find_code_usage.core.scan_downstream`). Также ловит «утёкший интерфейс» — `_`-приватные имена,
    которые НЕ в объявленном экспорте, но реально импортируются извне (`### Consumed internals`).
 4. **`deps_of()`** — резолв импортов файла до конкретных файлов проекта (`find_code_usage.core.scan_incoming`)
-   → таблица `## Dependencies Internal` (колонка `File Path` — это и есть рёбра для `graph_from_cards`).
+   → таблица `## In-Project Dependencies` (колонка `File Path` — это и есть рёбра для `graph_from_cards`).
 5. **Пакетные карточки** (`__init__.py` и языковые индексы, `CARD_FORMAT.is_package`) получают
    дополнительно `## Package layout` и `### Re-exports` — что реэкспортируется наружу из соседних
    модулей фасада.
@@ -149,6 +149,30 @@ make_interface_card.py --all --language py,ts                           # bulk: 
 
 ---
 
+## Runtime seams: связи, которых не видно из импортов
+
+`find_code_usage`/`deps_of()` видят только СТАТИЧЕСКИЕ импорты. Динамическая загрузка по
+вычисленному пути, отдельный ОС-процесс, общий файл между процессами, шина событий — для этого
+факта штемпель ничего не выдумывает и НЕ создаёт секцию заранее (тот же урок, что REQ-009: пустая
+директива, которая возвращается на каждый штамп, обесценивает статус «ждёт агента»). Вместо этого:
+
+- **Есть `## Runtime seams`** в существующей карточке → штемпель её НЕ трогает целиком (это проза
+  человека/агента, тул не может восстановить рантайм-связь из источника), кроме строки-контракта
+  над таблицей — она перезаписывается на каждом проходе, как строка версии карточки.
+- **Секции нет**, но `seam_scanner` (отдельный модуль, НЕ часть `_declared()`/`deps_of()`) нашёл в
+  файле известный паттерн (`spec_from_file_location`, `subprocess.run`, `require(...)`, `fetch(...)`,
+  …) → одна строка-хинт в обычном выводе штампа (одиночный файл) или списком имён под `--all`;
+  никогда не пишет ни таблицу, ни директиву сама.
+- **`--help-seams`** — полный контракт секции (колонки, словарь Kind/Shape, пример), без файла.
+- **`<file> --info-seams`** — что́ именно нашёл детектор в ЭТОМ файле (номер строки + паттерн);
+  Kind/Shape/Why из найденного всё равно решает агент, не тул.
+
+Формат самой секции — тоже `CARD_FORMAT.py` (`RUNTIME_SEAMS_SECTION`, `SEAM_COLUMNS`,
+`SEAM_KIND_BASE`/`SEAM_SHAPE`); дизайн и мотивирующий живой инцидент —
+`__dev/vision/Vision07__runtime-seams.md`.
+
+---
+
 ## Формат карточки — контракт, не этот файл
 
 Секции, порядок, обязательность полей, единый маркер директивы — **`CARD_FORMAT.py`**, не здесь.
@@ -164,10 +188,11 @@ flowchart LR
     SPA[show_pyfile_api] --> MIC[make_interface_card]
     GCB[get_codeblock] --> MIC
     FCU[find_code_usage] --> MIC
+    SS[seam_scanner — детектор паттернов] --> MIC
     CF[CARD_FORMAT — контракт] -.задаёт формат.-> MIC
     MIC --> CARD["__map/&lt;file&gt;.md"]
     CARD --> VC[validate_cards — гейт формата]
-    CARD --> GFC[graph_from_cards — топология по Dependencies Internal]
+    CARD --> GFC[graph_from_cards — топология + Runtime seams]
     CARD --> CCB[collect_card_bundle — Public API по требованию]
     CCF[check_cards_freshness] -.сигнал «пора re-stamp».-> MIC
 ```
@@ -177,12 +202,15 @@ flowchart LR
   surface для TS/JS/C#; тот же модуль отвечает за `CONFIG__TOOLS.DECL_BACKEND` фоллбек.
 - **`find_code_usage`** — источник consumed surface (`scan_downstream`) и резолва зависимостей
   (`scan_incoming`); использует те же исключения каталогов и `CONFIG__TOOLS.BLACKLIST_DIRS`.
+- **`seam_scanner`** — отдельный детектор-хинт для `## Runtime seams` (см. выше); НЕ участвует
+  в `_declared()`/`deps_of()`, ничего не решает про Kind/Shape/Why — это задача агента.
 - **`validate_cards`** — гейтует РЕЗУЛЬТАТ этого тула против контракта; независим от него по коду.
 - **`check_cards_freshness`** — говорит, какие карточки **стоит** пере-штемповать (сравнение с git-
   историей/mtime источника); сам штемпель не запускает. Планируется (Vision02 #11, ещё не сделано)
   состыковать с `--all`, чтобы штемповать только устаревшие, не всё дерево заново.
-- **`graph_from_cards`** — строит топологию проекта из таблиц `Dependencies Internal`, которые пишет
-  этот тул; «вторая компиляция» поверх карточек.
+- **`graph_from_cards`** — строит топологию проекта из таблиц `In-Project Dependencies`, которые
+  пишет этот тул, плюс отдельно — Runtime seams из `## Runtime seams`; «вторая компиляция» поверх
+  карточек.
 - **`collect_card_bundle`** — тянет `## Public API` целевой карточки + её зависимостей по рёбрам,
   которые сюда же положил `deps_of()`.
 
@@ -204,6 +232,8 @@ flowchart LR
   Salvage), так и в теории ложный «да» на короткой похожей паре имён в одной группе — маркер
   `⚠ похоже на переименование` существует именно чтобы такое не проходило молча.
 - Динамический доступ (`getattr`, `importlib`) в consumed surface не отслеживается — то же
-  ограничение, что и у `find_code_usage`.
+  ограничение, что и у `find_code_usage`. `seam_scanner`/`--info-seams` смягчает это ЧАСТИЧНО —
+  грепом находит подозрительные паттерны и подсказывает, где посмотреть, но не резолвит их и не
+  решает Kind/Shape/Why сама (см. «Runtime seams» выше).
 - Declared surface для TS/JS/C# без tree-sitter — эвристика по тексту (regex), не парсер; точнее
   него — только установка грамматик (`CONFIG__TOOLS.DECL_BACKEND`).
