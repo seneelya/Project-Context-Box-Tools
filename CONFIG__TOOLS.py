@@ -14,6 +14,14 @@ Public interface (tools just import these):
     TEST_DIRS          -> list # test directories excluded from scanning by default
 """
 
+# CONFIG_SCHEMA_VERSION: bump whenever this template gains a new recognized key/section
+# (a project's own copy never gets these automatically — deploy_hq.py never overwrites
+# CONFIG__TOOLS.py, see HOW_TO_DEPLOY__README.txt). deploy_hq.py reads this constant (by
+# regex, no import) from both the template and the target project's copy; a project whose
+# number is lower gets a STALE-CONFIG signal telling it which settings are missing — it
+# never merges automatically, only flags it. Bump this on any change to what's below.
+CONFIG_SCHEMA_VERSION = 1
+
 
 def _resolve_root(candidates):
     """Return the first directory that exists among candidates."""
