@@ -16,11 +16,41 @@
 
     ### <H3_SUBSECTION>            только в Public API: группировка = H3_API_SUBSECTIONS
     #### `signature | name`        H4: одна запись-символ
-    consumers N: a.py, b.py        строка ФАКТА (машинная: кто реально импортит символ)
+    consumers N:                   строка ФАКТА (машинная: кто реально импортит символ);
+    - a.py                        ПО ОДНОМУ потребителю на строку (Plan02 pt.1) — два
+    - b.py                        независимых добавления правят РАЗНЫЕ строки, не одну
+                                   и ту же (git-мердж сходится сам, не гарантированный
+                                   конфликт).
     <|Agent:07 … |>                строка-ДИРЕКТИВА (ЛЛМ: описание или удалить). Номер
                                    уникален в карточке -> строка адресуема: якорь
                                    `<|Agent:07 ` (с пробелом) не повторяется. См.
                                    number_directives().
+
+    Тот же приём («одно значение — одна строка», Plan02 pt.1+2) — в `Package layout`
+    (`known submodules (re-exported from):` + `- modname` построчно) и в `Dependencies
+    Internal` (таблица `Import | File Path | Symbols | Kind` — ОДНА СТРОКА НА СИМВОЛ,
+    не на файл; факт без прозы). Проза `Why` вынесена из таблицы в отдельный bullet-
+    список НИЖЕ неё, по одному импорту на строку — `Why` больше не смешана с фактом в
+    одной физической строке, LLM правит только свою строку, не переписывая факты
+    (Plan02 pt.3):
+
+        ## Dependencies Internal
+
+        | Import | File Path | Symbols | Kind |
+        |---|---|---|---|
+        | `utils` | `utils.py` | `bar` | normal |
+        | `utils` | `utils.py` | `baz` | normal |
+
+        ### Why these imports are used (one line per import — free text)
+        - `utils` — <прозу пишет LLM>
+
+    <!-- card-format: X.Y.Z -->    ПОСЛЕДНЯЯ строка файла (см. VERSION ниже) — какой
+                                   версией контракта проштампована ЭТА карточка.
+                                   Инвизибл в markdown-превью. Последняя строка, а не
+                                   сразу после H1, чтобы не путаться с summary/прозой
+                                   секций — парсер вычищает её из тела ДО разбора на
+                                   секции (см. is_version_comment()), так что её
+                                   позиция в файле — вопрос читаемости, не разбора.
 
 Привязка «заголовок ↔ переменная» прямая:  `##` → H2_SECTIONS ,  `###` → H3_API_SUBSECTIONS .
 
@@ -72,8 +102,10 @@ CONSUMED_SUBSECTION = "Consumed internals"
 # Подсекции Public API, где приватные `_`-имена легальны (не флагаются валидатором).
 PRIVATE_OK_SUBSECTIONS = {REEXPORT_SUBSECTION, CONSUMED_SUBSECTION}
 
-# Таблица "Dependencies Internal" — колонки в фиксированном порядке.
-DEPS_COLUMNS = ["Import", "File Path", "Symbols", "Why", "Kind"]
+# Таблица "Dependencies Internal" — колонки в фиксированном порядке. `Why` больше не
+# колонка (Plan02 pt.3) — вынесена в отдельный bullet-список "### Why these imports are
+# used" под таблицей, факт и проза больше не в одной физической строке.
+DEPS_COLUMNS = ["Import", "File Path", "Symbols", "Kind"]
 EDGE_COLUMN = "File Path"     # из какой колонки берём рёбра графа (root-relative путь к файлу)
 IMPORT_KINDS = ["normal", "lazy", "conditional", "type"]
 
@@ -82,6 +114,28 @@ EMPTY = "(none)"
 
 # ЕДИНЫЙ маркер директивы агенту: `<|Agent: … |>`. Строй только через agent(); детектируй
 # через is_agent_directive() (поле ЦЕЛИКОМ = директива) / has_agent_directive() (есть где-либо).
+# Bump on any change that affects the card's ON-DISK FORMAT (section names, table
+# columns, list-vs-single-line facts, directive marker) — cards have real external
+# readers (Hermes agents), so this is a public contract, not a private detail. Stamped
+# into every card as its LAST line (see version_comment()/is_version_comment() below) so
+# an already-written card carries its own provenance — a version number that only lives
+# in this file tells you nothing about files stamped by an older copy of the tool.
+VERSION = "1.0.0"
+
+_VERSION_RE = re.compile(r"^<!--\s*card-format:\s*(\S+)\s*-->\s*$")
+
+
+def version_comment(version=None):
+    """Render the card-format version marker line (belongs LAST in the file)."""
+    return f"<!-- card-format: {version or VERSION} -->"
+
+
+def is_version_comment(line):
+    """True if `line` is a card-format version marker (any version, so old stamps
+    from a future/past VERSION are still recognized and stripped correctly)."""
+    return bool(_VERSION_RE.match(line.strip()))
+
+
 AGENT_OPEN = "<|Agent:"
 AGENT_CLOSE = "|>"
 # новую `<|Agent:…|>` и легаси `<Agent:…>` (для терпимого чтения карточек в работе).

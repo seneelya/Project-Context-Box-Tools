@@ -124,6 +124,56 @@ def test_merge_salvage():
     check("salvage persists 2nd merge", "GHOST_PROSE" in merged2)
 
 
+# --- Plan02: legacy format (single-line consumers/submodules, Why-в-таблице, без версии)
+# перештамповывается в новый и не теряет прозу -----------------------------------
+
+def test_migrate_legacy_format():
+    root = Path(tempfile.mkdtemp(prefix="migrate_"))
+    pkg = root / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("from .sub import foo\n", encoding="utf-8")
+    (pkg / "sub.py").write_text("def foo():\n    return 1\n", encoding="utf-8")
+
+    legacy = (
+        "# __init__.py\n\n"
+        "Legacy package summary.\n\n"
+        "## Package layout\n\n"
+        "known submodules (re-exported from): .sub\n"
+        "- .sub — holds foo\n\n"
+        "## Public API\n\n"
+        "### Re-exports\n"
+        "#### `foo()`  ← .sub\n"
+        "consumers 0\n"
+        "REEXPORT_DESC\n\n"
+        "## Dependencies Internal\n\n"
+        "| Import | File Path | Symbols | Why | Kind |\n"
+        "|---|---|---|---|---|\n"
+        "| `sub` | `pkg/sub.py` | `foo` | needed for re-export | normal |\n\n"
+        "## Dependencies External\n\n"
+        "(none)\n\n"
+        "## How it works\n\n"
+        "(none)\n\n"
+        "## Doc links\n\n"
+        "(none)\n\n"
+        "## Discrepancies\n\n"
+        "(none)\n"
+    )
+    check("legacy fixture has no version marker (sanity)", "card-format:" not in legacy)
+
+    op = mic._parse_old_prose(legacy)
+    merged = mic.build_card(str(root), "pkg/__init__.py", op, {})
+
+    check("submodules now bulleted", "known submodules (re-exported from):\n- .sub" in merged)
+    check("package-layout human prose kept (was bullet-shaped itself)", ".sub — holds foo" in merged)
+    check("Dependencies Internal table dropped Why column",
+          "| Import | File Path | Symbols | Kind |" in merged
+          and "| Import | File Path | Symbols | Why | Kind |" not in merged)
+    check("Why prose migrated out of the table into its own bullet",
+          "`sub` — needed for re-export" in merged)
+    check("re-export description kept", "REEXPORT_DESC" in merged)
+    check("version marker appended as the last line", merged.rstrip().splitlines()[-1] == cf.version_comment())
+
+
 def test_fresh_has_no_salvage_and_placeholders():
     fresh = mic.build_card(_PR, _FILE)
     check("fresh has summary placeholder", _directive_re(mic.DIRECTIVE_SUMMARY).search(fresh) is not None)
@@ -580,6 +630,7 @@ def main():
     test_merge_preserves_prose()
     test_merge_signature_refresh()
     test_merge_salvage()
+    test_migrate_legacy_format()
     test_fresh_has_no_salvage_and_placeholders()
     test_entry_key_survives_language_decorators()
     test_python_public_constant_declared_private_not()

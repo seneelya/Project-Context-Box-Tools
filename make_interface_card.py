@@ -236,11 +236,13 @@ def _declared(project_root, file, lang):
 # --- formatting --------------------------------------------------------------
 
 def _consumers_fact(sym, consumers):
-    """A plain, generated fact line: who really imports `sym`."""
+    """Generated fact lines: who really imports `sym` — one consumer per line (Plan02 pt.1),
+    so two branches each adding a different new consumer add two different LINES instead of
+    both rewriting the same single comma-joined line (guaranteed git conflict otherwise)."""
     c = consumers.get(sym)
     if not c:
-        return "consumers 0"
-    return f"consumers {len(c)}: " + ", ".join(f for f, _k, _ln in c)
+        return ["consumers 0"]
+    return [f"consumers {len(c)}:"] + [f"- {f}" for f, _k, _ln in c]
 
 
 # --- merge: сохранить прозу человека, освежить факты -------------------------
@@ -427,7 +429,11 @@ def _cells_raw(row):
 
 
 def _parse_why(body, P):
-    """Колонка `Why` таблицы Dependencies Internal -> P['why'][import] = текст."""
+    """LEGACY: колонка `Why` таблицы Dependencies Internal -> P['why'][import] = текст.
+
+    Kept as a one-way migration bridge (Plan02 pt.3): a NEW-format table has no `Why`
+    column at all, so `"Why" not in header` makes this a safe no-op on already-migrated
+    cards — no need to tell old/new apart before calling it."""
     data = [r for r in body if r.strip().startswith("|") and not _is_sep(_cells(r))]
     if len(data) < 2:
         return
@@ -448,9 +454,38 @@ def _parse_why(body, P):
             P["why"][imp] = why
 
 
+def _parse_why_section(body, P):
+    """NEW: bullet list under '### Why these imports are used...' -> P['why'][import] = текст
+    (Plan02 pt.3). Safe no-op on a legacy body that has no such H3 at all — `in_why` just
+    never turns True. Writes into the SAME dict as `_parse_why`; the two never actually
+    collide in practice, a card is either still table-Why (legacy) or already has this
+    section (migrated), never both meaningfully at once."""
+    in_why = False
+    for ln in body:
+        s = ln.strip()
+        if s.startswith("### "):
+            in_why = s[4:].strip().lower().startswith("why")
+            continue
+        if not in_why or not s.startswith("- "):
+            continue
+        item = s[2:]
+        if " — " not in item:
+            continue
+        key, why = item.split(" — ", 1)
+        key, why = key.strip().strip("`").strip(), why.strip()
+        if key and why and not _is_ph(why) and why != cf.EMPTY:
+            P["why"][key] = why
+
+
 def _parse_old_prose(text, lang=None):
     """Проза человека из существующей карточки, по ключу-имени. -> dict слотов."""
     lines = text.splitlines()
+    # Card-format version marker (Plan02 pt.0) is stamped as the file's LAST line, but
+    # nothing about its POSITION is load-bearing for parsing — strip it out of `lines`
+    # globally, before any section splitting, so no individual section parser (summary,
+    # Discrepancies, Salvage, whichever happens to be physically last) needs its own
+    # special-case to avoid swallowing it as content.
+    lines = [ln for ln in lines if not cf.is_version_comment(ln)]
     P = {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {}}
 
     h1 = next((i for i, ln in enumerate(lines)
@@ -478,7 +513,8 @@ def _parse_old_prose(text, lang=None):
         if name == "Public API":
             _parse_entries(body, P, lang)
         elif name == "Dependencies Internal":
-            _parse_why(body, P)
+            _parse_why(body, P)          # legacy table-Why column (no-op on new-format tables)
+            _parse_why_section(body, P)  # new bullet-list Why (no-op on legacy bodies)
         elif name == "Dependencies External":
             # "(none)" is kept here too (not filtered like it used to be): the note's own
             # directive now says "else write (none)" (REQ-009 — "DELETE this line" left no
@@ -493,15 +529,38 @@ def _parse_old_prose(text, lang=None):
             keep = [ln for ln in body if ln.strip()]
             if keep:
                 P["sections"]["Salvage"] = keep
-        elif name in ("How it works", "Doc links", "Discrepancies", "Package layout"):
+        elif name == "Package layout":
+            # The fact ("known submodules (re-exported from):" + its own "- mod" bullets,
+            # Plan02 pt.2) has to be told apart from human prose that may ALSO be bullet-shaped
+            # (this section's own instructed style is "one line per submodule"), so content
+            # alone can't disambiguate a "- " line. Signal used instead: whether the header
+            # line has content right after its colon — legacy inline ("...from): a, b") does,
+            # new bullet form ("...from):" alone, list follows) doesn't; only in the latter
+            # case do we know it's safe to skip the following "- " run as fact, not prose.
+            body2 = body
+            for i, ln in enumerate(body):
+                s = ln.strip()
+                if s.startswith("known submodules (re-exported from):"):
+                    rest = s[len("known submodules (re-exported from):"):].strip()
+                    if rest:
+                        body2 = body[i + 1:]          # legacy inline — one line, nothing more to skip
+                    else:
+                        j = i + 1
+                        while j < len(body) and body[j].lstrip().startswith("- "):
+                            j += 1
+                        body2 = body[j:]              # new bullet form — skip the whole run
+                    break
+            keep = [ln for ln in body2 if ln.strip() and not _is_ph(ln)]
+            if keep:
+                P["sections"]["Package layout"] = keep
+        elif name in ("How it works", "Doc links", "Discrepancies"):
             # Discrepancies' own directive instructs "else write (none)" — that literal answer
             # IS the agent's deliberate, filled-in verdict, not an unfilled slot (REQ-009). Every
             # other section here never gets told to write cf.EMPTY as a real answer, so for them
             # a bare "(none)" still means "nothing kept" as before.
             drop_empty_marker = name != "Discrepancies"
             keep = [ln for ln in body if ln.strip() and not _is_ph(ln)
-                    and (not drop_empty_marker or ln.strip() != cf.EMPTY)
-                    and not ln.strip().startswith("known submodules (re-exported from):")]
+                    and (not drop_empty_marker or ln.strip() != cf.EMPTY)]
             if keep:
                 P["sections"][name] = keep
     return P
@@ -601,7 +660,13 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append("## Package layout")
         lines.append("")
         if srcs:
-            lines.append("known submodules (re-exported from): " + ", ".join(srcs))
+            lines.append("known submodules (re-exported from):")
+            lines.extend(f"- {s}" for s in srcs)
+            # Blank line is the boundary the parser uses to stop skipping "- " lines as fact
+            # (Plan02 pt.2) — the instructed prose style for this section ("one line per
+            # submodule") is itself bullet-shaped, so content alone can't tell our fact
+            # bullets apart from a human's own; position (before/after this blank) can.
+            lines.append("")
         pl = op["sections"].get("Package layout")
         if pl:
             lines.extend(pl)
@@ -621,7 +686,7 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append(f"### {h3}")
         for e in group:
             lines.append(f"#### `{e['signature']}`")
-            lines.append(_consumers_fact(e["name"], consumers))
+            lines.extend(_consumers_fact(e["name"], consumers))
             emit_desc(e["name"])
             for m in e.get("methods", []):
                 lines.append(f"    - `{m['signature']}`")
@@ -632,7 +697,7 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append("### Re-exports")
         for r in declared["reexports"]:
             lines.append(f"#### `{reexport_sigs.get(r['name'], r['name'])}`  ← {r['source']}")
-            lines.append(_consumers_fact(r["name"], consumers))
+            lines.extend(_consumers_fact(r["name"], consumers))
             emit_desc(r["name"])
         lines.append("")
 
@@ -640,7 +705,7 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append(f"### {cf.CONSUMED_SUBSECTION}")
         for sym in leftover:
             lines.append(f"#### `{leftover_sigs[sym]}`")
-            lines.append(_consumers_fact(sym, consumers))
+            lines.extend(_consumers_fact(sym, consumers))
             emit_desc(sym)
         lines.append("")
 
@@ -649,16 +714,31 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append("")
 
     # ---- Dependencies Internal ----
+    # Plan02 pt.3: table is FACT-ONLY now (no Why column) — one row per SYMBOL, not per file,
+    # so two branches adding different symbols imported from the same file add two different
+    # table LINES instead of both rewriting the same joined-Symbols cell (guaranteed conflict
+    # otherwise). Why moves to its own bullet list below, keyed by import — a human's prose
+    # never again requires reproducing the whole row (facts) just to append one description.
     lines.append("## Dependencies Internal")
     lines.append("")
     if resolved:
-        lines.append("| Import | File Path | Symbols | Why | Kind |")
-        lines.append("|---|---|---|---|---|")
+        lines.append("| Import | File Path | Symbols | Kind |")
+        lines.append("|---|---|---|---|")
+        seen_keys = []  # first-seen order, deduped — drives the Why list below
         for r in resolved:
-            syms = ", ".join(f"`{s}`" for s in r["symbols"]) if r["symbols"] else ""
             key = os.path.basename(r["file"]).rsplit(".", 1)[0]
+            if key not in seen_keys:
+                seen_keys.append(key)
+            if r["symbols"]:
+                for s in r["symbols"]:
+                    lines.append(f"| `{key}` | `{r['file']}` | `{s}` | normal |")
+            else:
+                lines.append(f"| `{key}` | `{r['file']}` |  | normal |")
+        lines.append("")
+        lines.append("### Why these imports are used (one line per import — free text)")
+        for key in seen_keys:
             why = op["why"].get(key, DIRECTIVE_WHY)
-            lines.append(f"| `{key}` | `{r['file']}` | {syms} | {why} | normal |")
+            lines.append(f"- `{key}` — {why}")
     else:
         lines.append(cf.EMPTY)
     lines.append("")
@@ -699,6 +779,11 @@ def build_card(project_root, file, old_prose=None, report=None):
         for nm in orphans:
             lines.extend(op["entries"][nm]["block"])
             report["salvaged"].append(nm)
+
+    # Card-format version — ALWAYS the literal last line (Plan02 pt.0): which contract
+    # version wrote this exact file, readable without opening any other tool's source.
+    lines.append("")
+    lines.append(cf.version_comment())
 
     # Нумерация — ПОСЛЕДНИМ шагом, над готовым текстом: одна точка вместо счётчика,
     # протянутого через каждое место emit'а, и по построению покрывает любую
