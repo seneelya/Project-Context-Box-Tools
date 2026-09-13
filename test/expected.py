@@ -158,14 +158,23 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
     # file's parse (root itself came back typed 'ERROR', everything downstream fragmented
     # into single-token noise: `~ERROR x16`). Masked into real comments before parsing
     # (css_handler._mask_scss_top_level_vars) so the surrounding real content — the `//`
-    # comment, the `.footer` rule — parses cleanly again; the masked comments glue onto
-    # `.footer` as its preamble (same rule as any real comment directly above a landmark),
-    # extending its range up to 9 rather than its own line 12 — expected, not a bug.
+    # comment, the `.footer` rule — parses cleanly again.
+    #
+    # RESIDUAL (found while testing the fix above, fixed later 2026-09-13): a masked
+    # comment used to glue onto `.footer` as its preamble like any real comment would —
+    # but it isn't one, it's a variable declaration in disguise, so that glue silently
+    # swallowed it into `.footer`'s range (start 9 instead of the rule's own line 12).
+    # `LangSpec.is_synthetic_comment` (opt-in, CSS-only) now keeps it out of every
+    # preamble-glue site (`filler_kind`, `classify._owning_block`, `address._comment_rows`)
+    # — `.footer` starts at its own line again; the masked runs show as bare `~masked xN`
+    # (label content lost — `ts_name_of` doesn't know how to name a comment-typed node;
+    # a nicer label is a separate, later polish, not required for correctness).
     'cssSRC/vars.scss': [
         (1, 1, 2, '~import x2'),
-        (1, 4, 6, '/*$footerHeight: 18*/ …'),
+        (1, 4, 6, '~masked x3'),
         (1, 8, 8, '~js_comment'),
-        (1, 9, 15, '.footer  /*$red: $accentMainCo*/ …'),
+        (1, 9, 10, '~masked x2'),
+        (1, 12, 15, '.footer'),
     ],
     # Plain-text experiment: no markup at all, structure purely from blank-line runs.
     # SECTION (2+ blank lines apart) contains PARAGRAPH (single-blank-line apart);

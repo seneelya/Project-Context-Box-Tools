@@ -169,6 +169,14 @@ class TreeSitterSpec:
             kids = node.children()
             if len(kids) == 1 and kids[0].type in ('string', 'concatenated_string'):
                 return 'docstring'
+        # A `preprocess`-masked comment (opt-in, LangSpec.is_synthetic_comment) is NOT a
+        # real comment — it's a statement standing in disguise (css_handler.py's SCSS
+        # `$var:` mask). Give it a kind other than 'comment' so Classifier's preamble-glue
+        # ('comment'-kind runs pend and attach to the NEXT landmark) never absorbs it into
+        # the following rule's range — cursor_feedback__gcb.md #5 residual, fixed 2026-09-13.
+        if (node.type == 'comment' and self.ls.is_synthetic_comment is not None
+                and self.ls.is_synthetic_comment(node.text())):
+            return 'masked'
         return node.type
 
     def filler_label(self, nodes):

@@ -22,7 +22,8 @@ class LangSpec:
     """Node-type configuration for one brace language."""
 
     def __init__(self, name, load_language, *, body_types, transparent_parents,
-                 named_def, container, control, scope_body, cut_extra=(), preprocess=None):
+                 named_def, container, control, scope_body, cut_extra=(), preprocess=None,
+                 is_synthetic_comment=None):
         self.name = name
         self._load_language = load_language
         self.body_types = frozenset(body_types)
@@ -39,6 +40,13 @@ class LangSpec:
         # its grammar can't parse at all (see css_handler.py's SCSS top-level `$var:` mask).
         # None for every language that doesn't need one (default, zero behavior change).
         self.preprocess = preprocess
+        # Opt-in: real `comment`-typed tree-sitter nodes that are actually a SYNTHETIC
+        # stand-in for something `preprocess` masked (see css_handler.py's SCSS `$var:`
+        # mask) — text -> bool. A real comment glues onto the block below it as preamble
+        # (everywhere, by design); a masked one must NOT, or the thing it stood in for
+        # (a variable declaration, not a comment) silently gets absorbed into the next
+        # rule's range. None for every language without a preprocess mask (default).
+        self.is_synthetic_comment = is_synthetic_comment
 
     def parser(self):
         if self._parser is None:

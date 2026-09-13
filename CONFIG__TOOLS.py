@@ -91,3 +91,20 @@ BLACKLIST_DIRS = [
 WHITELIST_DIRS = ["*"]
 
 DECL_BACKEND = "auto"
+
+# ---------------------------------------------------------------------------
+# ESCALATE_*: get_codeblock --query escalation thresholds (Vision05 — expand a
+# too-small/uninformative --query result instead of returning a near-empty
+# block). Only affects --query; --force bypasses escalation for one call.
+#   ESCALATE_FLOOR   -> non-blank lines below this count as "too small"
+#   ESCALATE_TARGET  -> desired size to aim for once escalating
+#   ESCALATE_CEILING -> hard cap; never grows the result past this many lines
+#   ESCALATE_K       -> asymmetry: falling short of TARGET costs K x as much as
+#                       overshooting it by the same amount (K > 1 favors overshoot)
+# If this file (or these names) is missing, get_codeblock/escalate.py falls back
+# to the same numbers hardcoded — editing here just lets you tune per-project.
+# ---------------------------------------------------------------------------
+ESCALATE_FLOOR = 12
+ESCALATE_TARGET = 18
+ESCALATE_CEILING = 40
+ESCALATE_K = 1.5

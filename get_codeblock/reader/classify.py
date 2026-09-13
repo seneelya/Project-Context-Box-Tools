@@ -191,7 +191,15 @@ def _owning_block(spec, children, line, want_glue=False):
     она принадлежит этому блоку (как в склейке). Иначе — блок, чей диапазон её содержит.
 
     want_glue=True → вернуть (node, glued_start) где glued_start (1-based) поднят над
-    коммент-преамбулой блока (как старый `_bounds` через `_preamble_start`). Иначе — node."""
+    коммент-преамбулой блока (как старый `_bounds` через `_preamble_start`). Иначе — node.
+
+    `spec.filler_kind(ch) == 'comment'`, NOT raw `ch.type == 'comment'`: a `preprocess`-
+    masked node (SCSS `$var:` mask, `LangSpec.is_synthetic_comment`) is `type=='comment'`
+    at the tree level but `filler_kind` relabels it — it's a statement in disguise, must
+    NOT glue onto the block below as preamble (cursor_feedback__gcb.md #5 residual, fixed
+    2026-09-13; same distinction the Classifier's own filler-run grouping already makes —
+    this function just re-derives raw node types instead of asking `filler_kind`, so it
+    had drifted out of sync)."""
     pre = None   # начало непрерывного коммент-рана перед текущим focus-блоком
     for ch in children:
         s, e = ch.start_row + 1, ch.end_row + 1
@@ -200,7 +208,7 @@ def _owning_block(spec, children, line, want_glue=False):
             if lo <= line <= e:
                 return (ch, lo) if want_glue else ch
             pre = None
-        elif ch.type == 'comment':
+        elif spec.filler_kind(ch) == 'comment':
             if pre is None:
                 pre = s                            # старт коммент-рана (преамбула следующего блока)
         else:

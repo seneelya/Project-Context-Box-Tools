@@ -1,5 +1,8 @@
+#parameters escalated: --line 51,45 -> --line 51,45,42 (result was 5 non-blank line(s), below the informative floor) — use --force for the exact requested range without escalation
 #File: test/Edge/Edge.py (67 lines)
-#■BLOCK : 44-46
+#■BLOCK : 42-46  = ranges :  Level 6  42-43,  Level 6  44-46
+                    try:
+                        client_message = types.JSONRPCMessage.model_validate_json(msg)
                     except ValidationError as exc:
                         await read_stream_writer.send(exc)
                         continue

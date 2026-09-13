@@ -1,4 +1,4 @@
-#outline — depth 1, L1=3, showing 1..1
+#outline — max depth 1, L1=3, showing levels 1..1
 #. [1-14] ~docstring
 #. [16-20] imports: annotations, typing, ._http
 #. [22-22] assign: _RERANK_PROVIDERS

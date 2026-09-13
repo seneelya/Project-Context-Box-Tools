@@ -102,6 +102,15 @@ def _mask_scss_top_level_vars(source: bytes) -> bytes:
     return "".join(out).encode('utf-8')
 
 
+def _is_masked_var(text: str) -> bool:
+    """True for a comment produced by `_mask_scss_top_level_vars` — always `/*$name...`
+    (real hand-written comments essentially never start with a literal `$` right after
+    the opener). Used to keep a masked variable from gluing onto the NEXT rule as its
+    preamble — it isn't a comment, it's a statement that happens to be disguised as one
+    (cursor_feedback__gcb.md #5 residual finding, fixed 2026-09-13)."""
+    return text.startswith('/*$')
+
+
 def _as_comment(span: str) -> str:
     """Same LENGTH, embedded newlines kept as-is (byte offsets/line numbers stay valid) —
     the trailing `;`/last couple chars are dropped to make room for `/*`+`*/`, never the
@@ -122,6 +131,7 @@ CSS_SPEC = LangSpec(
     control=set(),
     scope_body='block',
     preprocess=_mask_scss_top_level_vars,
+    is_synthetic_comment=_is_masked_var,
 )
 
 

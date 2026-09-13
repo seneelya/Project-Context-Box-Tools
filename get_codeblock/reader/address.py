@@ -20,7 +20,7 @@ from .registry import resolve
 # brace-семейство: reader-нативная адресация. Python (отступной) и Markdown
 # (беsparser) НАМЕРЕННО исключены — идут своим хендлером до обёртки в backend.
 _BRACE_EXTS = frozenset({
-    '.ts', '.js', '.tsx', '.jsx', '.cs',
+    '.ts', '.js', '.mjs', '.tsx', '.jsx', '.cs',
     '.cpp', '.cc', '.cxx', '.c++', '.hpp', '.hh', '.hxx', '.h', '.c',
     '.scss', '.sass', '.css',
 })
@@ -85,15 +85,23 @@ def _level_of_row(row, bodies):
 
 # -- преамбула-склейка (общая семантика с outline) --------------------------
 
-def _comment_rows(root):
-    """Строки, покрытые ИСКЛЮЧИТЕЛЬНО комментами (лист-узлы). Код на строке рвёт склейку."""
+def _comment_rows(root, spec):
+    """Строки, покрытые ИСКЛЮЧИТЕЛЬНО комментами (лист-узлы). Код на строке рвёт склейку.
+
+    A `preprocess`-masked comment (opt-in, `LangSpec.is_synthetic_comment` — SCSS's `$var:`
+    mask) counts as CODE here, not comment: it's a statement in disguise, not a real
+    preamble — must not glue onto the block below it (cursor_feedback__gcb.md #5 residual,
+    fixed 2026-09-13). Same distinction `filler_kind()` makes for the outline/map side —
+    both engines must agree, or map and address diverge (CONTRACT.md invariant #6)."""
     comment_rows, code_rows = set(), set()
+    is_synthetic = getattr(spec.ls, 'is_synthetic_comment', None)
 
     def walk(n):
         ch = n.children()
         if not ch:                                    # лист
             rows = range(n.start_row, n.end_row + 1)
-            (comment_rows if n.type == 'comment' else code_rows).update(rows)
+            is_masked = n.type == 'comment' and is_synthetic is not None and is_synthetic(n.text())
+            (code_rows if (n.type != 'comment' or is_masked) else comment_rows).update(rows)
         for c in ch:
             walk(c)
 
@@ -245,7 +253,7 @@ def get_blocks(path, target_line):
     backend, spec = resolve(os.path.splitext(path)[1])
     root = backend.root("".join(lines).encode("utf-8"))
     blocks, bodies = _collect(root, spec.ls)
-    comment_rows = _comment_rows(root)
+    comment_rows = _comment_rows(root, spec)
     row = target_line - 1
 
     containing = [(n, p) for n, p in blocks

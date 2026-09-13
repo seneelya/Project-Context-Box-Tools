@@ -11,6 +11,11 @@ __pycache__/
 # Kept locally as test fixtures for get_codeblock etc.
 test/secret/
 
+# Real external project sources (Warehub etc.) attached to feedback reports as repro
+# fixtures — same "must NOT be published" reason as test/secret/ above, just a
+# different intake path (feedback reports, not the test suite).
+__dev/Requests/feedback/files/
+
 # Scratch output from sweep_invariants.py --write-level (eyeball review copies).
 test/LEVELMAP_*.txt
 

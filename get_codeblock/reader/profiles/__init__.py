@@ -9,7 +9,7 @@
 def ts_profile_for_ext(ext):
     """TSProfile под расширение, или None (тогда registry решает: markdown/py/ошибка)."""
     ext = ext.lower()
-    if ext in ('.ts', '.js'):
+    if ext in ('.ts', '.js', '.mjs'):
         from .typescript import TS
         return TS
     if ext in ('.tsx', '.jsx'):

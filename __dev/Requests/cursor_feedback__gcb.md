@@ -63,15 +63,56 @@ Entries are fixed over time; append new ones at the top (below this header).
   self-containment rule) and `css_handler._mask_scss_top_level_vars`, which rewrites each
   top-level `$var:` into a same-length real CSS comment before parsing. New fixture
   `test/cssSRC/vars.scss`.
-  **Residual, separate finding (not fixed, not this bug):** a SCSS variable used AS A VALUE
-  inside a real rule (`property: $var;`) is ALSO unparseable and can ALSO cascade to sibling
-  rules — found while testing this fix on a synthetic `.footer { height: $footerHeight; }`
-  case. Distinct from the reported globals.scss case (a vars-only file, no usage) and not
-  addressed here; would need masking every bare `$name` value reference too, a bigger and
-  riskier change. Left for a future request if it turns out to matter in practice.
+  **Residual, separate finding — fixed 2026-09-13** (re-investigated; turned out narrower
+  than first guessed): `property: $var;` as a VALUE parses fine on its own — no `~ERROR`,
+  no cascade to siblings (verified with a synthetic `.footer { height: $footerHeight; }`
+  file). The actual bug was in the MASKING fix above: a masked top-level `$var:` (rewritten
+  into a real comment before parsing) was being treated as a genuine preamble comment and
+  glued onto the NEXT rule, silently extending that rule's range backward to swallow the
+  variable declaration — reproduced live, `.footer` reported `[1-5]` instead of its own
+  `[3-5]`. Root cause: three separate places independently re-derive "is this a real
+  comment" from the raw tree-sitter node type (`address.py::_comment_rows`,
+  `classify.py::_owning_block`, and `TreeSitterSpec.filler_kind`'s callers), so the mask
+  had to be excluded from all three or map/address would disagree (CONTRACT.md invariant
+  #6). Fix: new opt-in `LangSpec.is_synthetic_comment(text)` (`None` for every language
+  without a `preprocess` mask — CSS is currently the only user), consulted by
+  `filler_kind()` (relabels a masked node `'masked'` instead of `'comment'`, so the
+  Classifier's own preamble-glue skips it), `classify._owning_block` (now asks
+  `filler_kind(ch) == 'comment'` instead of the raw node type), and `address._comment_rows`
+  (masked rows counted as code, not comment, for the same reason). `test/cssSRC/vars.scss`
+  oracle (`test/expected.py`) updated — `.footer` now correctly starts at its own line 12,
+  not 9. Side effect, not fixed here: the masked filler bands lost their text-preview label
+  (`~masked xN`, bare) since the generic `ts_name_of` label extractor doesn't know how to
+  name a comment-typed node — left as a separate, later polish, doesn't affect correctness.
 
 ### 2026-08-23 — First evaluation: tool fits agent workflow (positive)
 - **Severity:** note (keep for changelog)
 - **Context:** Warehub FE+BE — outline / ladder / query / MD section extract
 - **Got:** Strong win on C# handlers and multi-function TSX; MD TOC+section pull works; token cost of outline often ~2–20% of full file
 - **Note:** Recommended agent path: outline → line → `--ancestor-level 1 --query`. Session should call `--help` for evolving flags.
+
+### 2026-09-05 — .mjs not supported
+- **Severity:** wish
+- **Cmd:** `python …get_codeblock.py --file …/doctor.mjs --outline`
+- **File:** toolchain/lib/doctor.mjs (.mjs)
+- **Expected:** outline/query like .js
+- **Got:** `file format '.mjs' is not supported yet`
+- **Note:** treat .mjs as JS module profile
+- **Fixed:** 2026-09-13 — `.mjs` is the same JS grammar as `.js` (Node's module-loader marker,
+  not a syntax difference; tree-sitter-javascript doesn't look at the extension). Aliased
+  it onto the existing JS profile in 4 spots: `reader/profiles/__init__.py::ts_profile_for_ext`,
+  `reader/address.py::_BRACE_EXTS`, and the 3 duplicated `lang_map` dicts in `core.py`.
+  Verified against the actual `doctor.mjs` fixture in `feedback/files/toolchain/lib/`.
+
+### 2026-09-08 — wrong help path in skill session start
+- **Severity:** ux
+- **Cmd:** `python "C:\Users\User\.cursor\skills\get-codeblock\get_codeblock.py" --help`
+- **File:** skill path vs tool path
+- **Expected:** skill session-start path works or clearly points to tool
+- **Got:** No such file; real tool is `get_codeblock.py` at the tool's own repo location
+  (SKILL.md's Paths table has the right path — only the session-start example was stale)
+- **Note:** SKILL.md Paths table is correct; session-start example used skill-folder path
+- **Decided:** 2026-09-13 — not our repo. `SKILL.md` doesn't live in this repo at all; it's
+  Cursor's local per-machine skill config (`~/.cursor/skills/get-codeblock/SKILL.md`),
+  regenerated/maintained per install. This report's path (`f:/WORK/ProjectStarter/...`) was a
+  stale copy from a different machine. Nothing to fix in get_codeblock itself — closing here.

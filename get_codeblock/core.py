@@ -1,4 +1,18 @@
-"""Core CLI logic for get_codeblock."""
+"""Core CLI logic for get_codeblock.
+
+KNOWN PERFORMANCE ISSUE (not fixed, deliberately deferred — see escalate.py's module
+docstring for measured numbers): every `handler.get_blocks()`/`line_level()` call
+(and every `reader/classify.py` entry point: `filler_container_at`, `ladder_at`,
+`line_level_at`, `outline_rows`, `classify_file`) re-reads the file from disk and
+re-runs a full tree-sitter parse — nothing is cached across calls within one process.
+A batch `--line a,b,c` already paid for this once per anchor before Vision05 existed;
+Vision05's query-escalation (`escalate.py`) adds more such calls when it probes
+neighbors. Measured: ~0.8ms/call on a 27-line file, ~75ms/call on a 4747-line file —
+noticeable on large files with several escalation steps. The real fix (an in-process
+parse-tree cache keyed by file path, shared across all ~7 entry points in
+`address.py`+`classify.py`) is a separate, later global-optimization pass — out of
+scope here so this change stays reviewable on its own.
+"""
 
 import os
 import sys
@@ -50,6 +64,7 @@ def parse_args():
     numbered = False  # flag: prefix --query code lines with absolute line numbers
     dot = False  # flag: reader .0 universal map (IR: landmarks + filler-полосы + frames)
     depth = 0    # for --dot: how many landmark levels to expand
+    force = False  # flag (Vision05): skip query-escalation, exact requested range only
     # Generic-tool rule (Vision01__path-and-flag-conventions.md): --project-root omitted -> no
     # root at all (relative --file falls through to plain cwd-relative open() below); config is
     # read ONLY on an explicit "@" (handled at the --project-root token itself). Previously this
@@ -100,6 +115,9 @@ def parse_args():
             i += 2
         elif token == '--numbered':
             numbered = True
+            i += 1
+        elif token == '--force':
+            force = True
             i += 1
         elif token in ('--ancestor-level', '--ancestor_level') and i + 1 < len(tokens):
             # Self-documenting relative address: N ancestors up from the block at
@@ -170,6 +188,9 @@ def parse_args():
             print("  --numbered          With --query: prefix each code line with its absolute line")
             print("                      number ('  92 | ...'). Off by default — raw text stays")
             print("                      copy/diff-safe; the range header already gives the numbers.")
+            print("  --force             Guarantees the exact requested range, ignoring context length —")
+            print("                      small (Vision05: --query skips escalating a too-small result)")
+            print("                      or large (Vision04: --outline skips shrinking a huge one).")
             print("")
             print("Two ways to pick a block at --line (don't mix):")
             print("  --ancestor-level N  relative — walk N blocks up from where the line lands (0=here).")
@@ -257,6 +278,7 @@ def parse_args():
         'numbered': numbered,
         'dot': dot,
         'depth': depth,
+        'force': force,
         'project_root': project_root
     }, config
 
@@ -355,7 +377,7 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
 
     # Detect language by extension
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript',
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
@@ -423,7 +445,7 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
 
     # Detect language by extension
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript',
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
@@ -627,34 +649,14 @@ def _run_outline_batch(handler, file_path, lines, line_nums, levels, deep, emit,
     _render_boxed_rows(error_rows + block_rows, emit, c)
 
 
-def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emit, c):
-    """Batch query: resolve every hit, sort by file position, then MERGE any two
-    resolved ranges that touch or overlap — zero-gap adjacency included, not just
-    strict containment. We're returning FILE TEXT: if range A ends at line 46 and
-    range B starts at line 47, there is no real gap in the source between them, so
-    printing them as two separately-framed blocks would insert a fake seam right
-    where the file has none — and if this output is ever pasted back into code,
-    an actively wrong one. Only a REAL gap (an uncovered line in between) keeps
-    two ranges as separate printed blocks. Containment (one fully inside another)
-    is the same merge with nothing new to extend — level escalation routinely
-    sends several hits into the same ancestor, or into an ancestor that already
-    engulfs an earlier hit's smaller block; printing that body again on top of
-    itself used to duplicate real file content, not cosmetic on a real file
-    (5 hits escalating into one 6571-line function would be 30000+ lines from
-    one call).
-
-    `■BLOCK : A-B` / `■END : B` are the framing numbers — ALWAYS true, exactly the
-    slice printed below, NEVER a claim about depth (a merged run's true constituent
-    levels can differ across its span; one number for the whole thing would lie).
-    `■` marks a line as tool-written framing, never file content — same reasoning
-    as CONTRACT.md's comment-wrapping of TTY hints, just a stronger, single-glyph
-    version of it. When a BLOCK absorbed more than one original resolved range, the
-    same line carries a ` = ranges : ...` tail listing every real constituent
-    (`Level L  A-B`, comma-separated) — auxiliary, always exactly one line so it's
-    trivially deletable, never its own multi-line block. No hit numbers, no [i/n]
-    counter, no repeated block label: this isn't survey (no grep-hit to prove), a
-    counter is redundant with just counting BLOCK lines, and a label would only
-    restate the body's own first line one row down."""
+def _resolve_query_runs(handler, file_path, lines, line_nums, levels):
+    """Pure resolve step of batch query (no printing): every hit -> block, sorted by
+    file position, merged on touch/overlap into `runs` (see `_render_query_runs` for
+    why merge-on-touch, not just containment). Split out from the old single
+    `_run_query_batch` (Vision05) so escalation can inspect the resolved SIZE before
+    committing to render — the common (non-escalating) call now resolves exactly
+    once, same cost as before Vision05 existed; only an actually-undersized result
+    pays for a second resolve (with the escalated `--line`/`--level` arrays)."""
     errors = []
     resolved = {}  # (start, end) -> block; exact duplicates dedupe for free here
 
@@ -685,6 +687,38 @@ def _run_query_batch(handler, file_path, lines, line_nums, levels, numbered, emi
         else:
             runs.append({'start': b['start'], 'end': b['end'], 'parts': [b]})
 
+    return runs, errors
+
+
+def _render_query_runs(file_path, lines, runs, errors, numbered, emit, c):
+    """Print step of batch query: takes already-resolved `runs`/`errors` (from
+    `_resolve_query_runs`) and prints them. MERGE any two
+    resolved ranges that touch or overlap — zero-gap adjacency included, not just
+    strict containment. We're returning FILE TEXT: if range A ends at line 46 and
+    range B starts at line 47, there is no real gap in the source between them, so
+    printing them as two separately-framed blocks would insert a fake seam right
+    where the file has none — and if this output is ever pasted back into code,
+    an actively wrong one. Only a REAL gap (an uncovered line in between) keeps
+    two ranges as separate printed blocks. Containment (one fully inside another)
+    is the same merge with nothing new to extend — level escalation routinely
+    sends several hits into the same ancestor, or into an ancestor that already
+    engulfs an earlier hit's smaller block; printing that body again on top of
+    itself used to duplicate real file content, not cosmetic on a real file
+    (5 hits escalating into one 6571-line function would be 30000+ lines from
+    one call).
+
+    `■BLOCK : A-B` / `■END : B` are the framing numbers — ALWAYS true, exactly the
+    slice printed below, NEVER a claim about depth (a merged run's true constituent
+    levels can differ across its span; one number for the whole thing would lie).
+    `■` marks a line as tool-written framing, never file content — same reasoning
+    as CONTRACT.md's comment-wrapping of TTY hints, just a stronger, single-glyph
+    version of it. When a BLOCK absorbed more than one original resolved range, the
+    same line carries a ` = ranges : ...` tail listing every real constituent
+    (`Level L  A-B`, comma-separated) — auxiliary, always exactly one line so it's
+    trivially deletable, never its own multi-line block. No hit numbers, no [i/n]
+    counter, no repeated block label: this isn't survey (no grep-hit to prove), a
+    counter is redundant with just counting BLOCK lines, and a label would only
+    restate the body's own first line one row down."""
     emit(c(_file_header(file_path, lines)))
     for msg in errors:
         emit(c(f"ERROR: {msg}"))
@@ -734,7 +768,7 @@ def main():
         sys.exit(1)
 
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript',
+    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
                 '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
@@ -878,9 +912,9 @@ def main():
         # (the overview signal) — emitted for every caller, including the API.
         tally = " ".join(f"L{lvl}={per_level[lvl]}" for lvl in sorted(per_level))
         focus_tag = f"focus line {focus_line} " if focus_line else ""
-        emit(c(f"{mode_word} — {focus_tag}depth {depth}"
+        emit(c(f"{mode_word} — {focus_tag}max depth {depth}"
                + (f", {tally}" if tally else "")
-               + f", showing {base_level}..{min(shown, depth)}"))
+               + f", showing levels {base_level}..{min(shown, depth)}"))
 
         # Pad each "<indent><marker>" so ranges line up. Named block = bare level number;
         # unnamed (frame/filler) = '.'+level ('.3' = «уровень 3, без имени»), чтобы глубина
@@ -902,8 +936,25 @@ def main():
     # one --line is just a 1-element array, not a different mode.
     emit_legend()
     if args['query']:
-        exit_code = _run_query_batch(handler, file_path, lines, lines_batch, levels_batch,
-                                      args.get('numbered'), emit, c)
+        # Resolve ONCE with the original params first (Vision05) — same cost as before
+        # escalation existed. Only inspect+retry (escalate.maybe_escalate) if THAT result
+        # turns out undersized; the common/already-informative case never pays for a
+        # second resolve. See escalate.py's module docstring for the known, deferred
+        # re-parse-per-call cost this reordering does NOT fix (separate later pass).
+        runs, errors = _resolve_query_runs(handler, file_path, lines, lines_batch, levels_batch)
+        if not args.get('force'):
+            from get_codeblock.escalate import maybe_escalate
+            new_lines, new_levels, escalation_note = maybe_escalate(
+                handler, resolve, file_path, lines, lines_batch, levels_batch, runs)
+            if escalation_note:
+                runs, errors = _resolve_query_runs(handler, file_path, lines, new_lines, new_levels)
+                # Unconditional metadata, NOT TTY-gated like emit_legend/outline hints above:
+                # this changes what range is actually returned, so a piped/programmatic caller
+                # needs it exactly as much as a human does (Vision05 — checked empirically that
+                # this session's own subprocess stdout is not a tty, so TTY-only would hide it
+                # from exactly the audience it matters most to).
+                emit(c(escalation_note))
+        exit_code = _render_query_runs(file_path, lines, runs, errors, args.get('numbered'), emit, c)
         if exit_code:
             sys.exit(exit_code)
     else:
