@@ -52,25 +52,48 @@ steps right — innermost at the top, file-level block at the bottom.
 - Two axes, don't conflate: this DEPTH is what `get_line_levels` reports (and what
   `find_code_usage` prints as `levels=`); the `--level` argument below is NAVIGATION.
 
-### Text mode (with `--query`) — block framed by anchor comments
+### Text mode (with `--query`) — block framed by `■BLOCK`/`■END` anchors
 
 Header + block text byte-for-byte + a footer anchor. The frame lets several extractions
 (possibly from different files) be concatenated without merging, and marks the patch region
 unambiguously. `--level` chooses which block from the ladder (default `0` = innermost).
 
 ```python
-#File: path/to/file.py
-#Block level: 3 range: 71-77
+#File: path/to/file.py (80 lines)
+#■BLOCK : 71-77
         try:
             result = do_something()
             return result
         except ValueError as e:
             logger.error(e)
-#Block end: 77
+#■END : 77
 ```
 
 The file line comes first so a block self-identifies its source even when several
 `--query` extractions get concatenated and the originating command is no longer in view.
+`■BLOCK : A-B` / `■END : B` are the framing numbers — always true, exactly the slice printed
+below, never a claim about depth. `■` marks a line as tool-written, never file content (never
+occurs at the start of a real source line, so a pasted chunk can't be mistaken for a real
+comment). A query that pulled in more than one original resolved range (batch merge, or an
+escalated one — see below) adds a same-line ` = ranges : Level L  A-B, …` tail instead of one
+(possibly wrong) level number for the whole span.
+
+**A too-small/uninformative result auto-escalates.** If the resolved block falls under an
+informative-size floor (default ~12 non-blank lines — a lone `import` band, a single orphan
+statement, a flat const-file's tiny default hit), `--query` pulls in neighboring blocks at the
+same structural level until the result is big enough to be useful (capped ~40 lines by
+default) — this is a genuine change to which `--line`/`--level` values get resolved, not just
+cosmetic, so it's always announced with an unconditional metadata line:
+
+```
+#parameters escalated: --line 1 -> --line 1,4 (result was 2 non-blank line(s), below the
+informative floor) — use --force for the exact requested range without escalation
+```
+
+Add `--force` to skip this and get exactly the literal range you asked for, however small.
+Thresholds (`ESCALATE_FLOOR`/`ESCALATE_TARGET`/`ESCALATE_CEILING`/`ESCALATE_K`) live in
+`CONFIG__TOOLS.py`, with built-in fallback defaults if that file/those names are absent. See
+`__dev/vision/Vision05__get_codeblock.md` for the full design.
 
 ### `--outline` — structural table of contents (no `--line` needed)
 
@@ -83,14 +106,14 @@ language**. This is how an agent discovers WHICH line to go to, then pulls the s
 `--line N --query`.
 
 ```
-#outline — depth 2, L1=1 L2=2, showing 1..2
+#outline — max depth 2, L1=1 L2=2, showing levels 1..2
 #.   [1-11]  imports: logging, contextlib, anyio, starlette.websockets, …
 #.   [13-13] assign: logger
 #1   [16-67] async def websocket_server(scope, receive, send)
 #  2 [35-51] async def ws_reader()   # Pump inbound frames into the read stream …
 ```
 
-- **Header line** (`outline — depth D, L1=… L2=…, showing 1..K`) reports the whole file's shape
+- **Header line** (`outline — max depth D, L1=… L2=…, showing levels 1..K`) reports the whole file's shape
   (total depth + block count per level) so a shallow view still tells you there's more.
 - Each row: `<level> [start-end] <label>`. A **number** = a named block at that depth; a `.` = a
   level marker — either a **transparent frame** (a `namespace`, `extern "C"`, shown but adding no
@@ -112,6 +135,7 @@ language**. This is how an agent discovers WHICH line to go to, then pulls the s
 | `--level N` | optional | Absolute block address: depth N from the file **top** (`1`=outermost). With `--outline`, caps the depth shown. |
 | `--query` | flag | Return actual text of the chosen block instead of the metadata ladder. |
 | `--numbered` | flag | With `--query`, prefix each code line with its absolute line number. Off by default (raw text stays copy/paste-safe). |
+| `--force` | flag | Guarantees the exact requested range, ignoring context length — skips `--query`'s too-small-result escalation (see above). |
 | `--project-root PATH` | optional | Root directory for resolving relative file paths. CLI value overrides `CONFIG__TOOLS.py`. |
 
 ### Level addressing — two self-describing flags (don't mix)
@@ -139,10 +163,10 @@ When `--line` falls between blocks at file-level scope (no containing block foun
 | Language | Extension(s) | Detection Method | Notes |
 |----------|--------------|------------------|-------|
 | Python | `.py` | Indentation-based (no AST) | Multiline signatures, compound blocks (`try/except`, `if/elif` — sibling branches share one depth), docstrings/comments glued to the block they precede. |
-| TypeScript / JS / TSX | `.ts` `.js` `.tsx` `.jsx` | tree-sitter (`tree_sitter_typescript`) | Real syntax tree (`typescript` grammar for `.ts`/`.js`, `tsx` for `.tsx`/`.jsx`). Named blocks + name-bound arrows (`const Foo = () => {…}`, `value: () => {…}`, class fields); multi-line object literals & arrow bodies count as blocks. `declarations()` (for make_interface_card) preserved. |
+| TypeScript / JS / TSX | `.ts` `.js` `.mjs` `.tsx` `.jsx` | tree-sitter (`tree_sitter_typescript`) | Real syntax tree (`typescript` grammar for `.ts`/`.js`/`.mjs`, `tsx` for `.tsx`/`.jsx` — `.mjs` is the same JS grammar, just Node's ESM marker, not a syntax difference). Named blocks + name-bound arrows (`const Foo = () => {…}`, `value: () => {…}`, class fields); multi-line object literals & arrow bodies count as blocks. `declarations()` (for make_interface_card) preserved. A big flat `return (...)` full of JSX isn't broken into landmarks yet — `--outline`/`--query` flag it with a `known limitation: …` note instead of silently handing over an unstructured wall (see `__dev/Plan__jsx-carve-tsx.md`). |
 | C / C++ | `.cpp` `.cc` `.cxx` `.c++` `.h` `.hpp` `.hh` `.hxx` `.c` | tree-sitter (`tree_sitter_cpp`) | Real syntax tree: multi-line signatures, `template<...>`, `Class::method`, macros, raw string literals `R"(...)"`. `namespace`/`extern "C"` are **transparent** (shown in `--outline`, add no depth). |
 | C# | `.cs` | tree-sitter (`tree_sitter_c_sharp`) | Real syntax tree: multi-line signatures, `record` types, file-scoped namespaces, nested types. Namespaces are **transparent**. |
-| CSS / SCSS / Sass | `.css` `.scss` `.sass` | tree-sitter (`tree_sitter_css`) | A block is a rule set `selector { … }`; nested rules (`&::before`), `@media`/`@supports`/`@keyframes`/`@font-face` nest; label = the selector list. SCSS-only syntax (parameterized `@mixin`/`@include`, unquoted `url(../x)`) parses imperfectly but doesn't derail structure. |
+| CSS / SCSS / Sass | `.css` `.scss` `.sass` | tree-sitter (`tree_sitter_css`) | A block is a rule set `selector { … }`; nested rules (`&::before`), `@media`/`@supports`/`@keyframes`/`@font-face` nest; label = the selector list. SCSS-only syntax (parameterized `@mixin`/`@include`, unquoted `url(../x)`) parses imperfectly but doesn't derail structure. A top-level `$var: value;` isn't valid CSS and used to blow up the whole file's parse — it's masked into a same-length comment before parsing (recovered structure is exact; the masked band itself shows as a bare `~masked` filler, no text preview) and no longer glues onto the next rule as its preamble. |
 | Markdown | `.md`, `.markdown` | Heading hierarchy | Sections by ATX headings (`#`..`######`); level = heading depth. Fenced code skipped so `#` inside code isn't a heading. |
 | YAML | `.yaml`, `.yml` | tree-sitter (`tree_sitter_yaml`) | A `key: value` line and a `- item` line are both blocks; one whose value is itself a nested mapping/sequence has a body (one level deeper), a scalar-valued one is a leaf. Comments glue onto the block below them, same as everywhere else. Multiple `---`-separated documents in one file have their top-level entries flattened together. |
 | Plain text | `.txt` | Blank-line heuristics (no markup) | No headings to key off, so structure comes from whitespace alone: a paragraph is a run of non-blank lines; 2+ blank lines (or a `---`/`===`/`***` rule line) starts a new section grouping the paragraphs between two such breaks. A paragraph with 2+ list-marker lines (`1.`/`1)`/`-`/`*`/`•`) splits one level deeper into list items. No title text exists, so a block's name is its own first ~60 chars (word-trimmed). Experimental — the cheapest structural guess that still gives a useful outline/ladder, not a claim of real prose understanding. |
@@ -217,7 +241,7 @@ def fetch_data(url):              # Level 1: function definition
 ```
 
 Query line 5 (`return response.json()`):
-- Default → `#Block level: 3 range: 4-8` (the try block including its except branch)
+- Default → `#■BLOCK : 4-8` (the try block including its except branch)
 - `--level -1 --query` → returns the if block text
 - `--level -2 --query` → returns the function definition text
 
@@ -254,7 +278,7 @@ namespace MyApp.Services          // Level 1: namespace block
 ```
 
 Query line 10 (`return u;`):
-- Default → `//Block level: 6 range: 10-11` (the innermost if block)
+- Default → `//■BLOCK : 10-11` (the innermost if block)
 - `--level -3 --query` → returns the method body text from `GetById(int id)` down through all its branches
 
 ## Architecture
@@ -268,6 +292,8 @@ gets ONE answer to "which block am I in", whether asked as a map or as an addres
 ```
 get_codeblock/
 ├── core.py               # CLI parsing, resolve() logic, file I/O, importable get_codeblock()
+├── escalate.py           # Vision05: --query too-small-result escalation (CLI-only, never the API)
+├── jsx_note.py           # stopgap: flags large flat TSX/JSX blocks (see __dev/Plan__jsx-carve-tsx.md)
 ├── reader/               # the engine (Vision03/04)
 │   ├── reader.py           # Reader — façade/router: outline→classify, get_blocks/line_level→address
 │   ├── registry.py         # resolve(ext) → (Backend, Spec)   ← single entry

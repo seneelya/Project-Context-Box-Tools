@@ -9,7 +9,7 @@ boundaries where grep and brace-counting fail.
 "what is this, and where are its edges", then pull just that region.
 
 Languages: Python `.py` · C/C++ `.cpp .cc .cxx .h .hpp .c` · C# `.cs` · TypeScript/JS/TSX
-`.ts .js .tsx .jsx` · CSS/SCSS `.css .scss` · Markdown `.md` · YAML `.yaml .yml` · plain text
+`.ts .js .mjs .tsx .jsx` · CSS/SCSS `.css .scss` · Markdown `.md` · YAML `.yaml .yml` · plain text
 `.txt` (experimental).
 
 ---
@@ -24,7 +24,7 @@ Run this first on any unfamiliar file:
 python get_codeblock.py --file PATH                # bare = outline (the default)
 ```
 ```
-#outline — depth 2, L1=1 L2=2, showing 1..2
+#outline — max depth 2, L1=1 L2=2, showing levels 1..2
 #.   [1-11]  imports: logging, contextlib, anyio, starlette.websockets, …
 #.   [13-13] assign: logger
 #1   [16-67] async def websocket_server(scope, receive, send)
@@ -91,6 +91,18 @@ the start of a real source line, so a pasted chunk can't be mistaken for a real 
 `#File:` … `■END` to keep several extractions distinct when you concatenate them. Add `--numbered`
 to prefix code lines with absolute line numbers (off by default — raw text stays copy/paste-safe).
 
+**A too-small result auto-escalates — you'll see it happen.** Land on a lone `import` line, a
+flat const-file's top statement, a one-line `if`-body — `--query` won't just hand you 2 useless
+lines. It pulls in neighboring blocks until the result is actually informative, and always says so:
+
+```
+#parameters escalated: --line 1 -> --line 1,4 (result was 2 non-blank line(s), below the
+informative floor) — use --force for the exact requested range without escalation
+```
+
+Wanted exactly what you asked for, no more? Add `--force`. Same flag also gets you the literal
+range on a batch call — it isn't specific to a single `--line`.
+
 ---
 
 ## `--line` takes an array — same three modes, one call
@@ -135,9 +147,11 @@ You get the **innermost** block by default. To target another rung, add ONE flag
   lands. `0` = the block itself (default), `1` = its parent, `2` = grandparent.
 - **`--level N`** — absolute: jump to depth **N counted from the file top** (`1` = outermost).
 
-Read `Block level: K` (under `--query`) / `lvl K` (in the ladder) as the block's real nesting
-depth (1 = file top). Trust that this depth is **one truth**: the ladder, the outline, and the
-level any tool reports for a symbol all agree — same block boundaries for the same line.
+Read the ladder's leading number as the block's real nesting depth (1 = file top) — `--query`'s
+own `■BLOCK : A-B` never states one directly (a merged run lists each real level in a
+` = ranges : Level L  A-B, …` tail instead). Trust that this depth is **one truth**: the ladder,
+the outline, and the level any tool reports for a symbol all agree — same block boundaries for
+the same line.
 
 ---
 
@@ -194,10 +208,15 @@ Stop there — outline to locate, one `--line`/`--query` to extract — instead 
 - **SCSS caveat**: nested rule sets, `&` nesting, `@media`/`@supports` are solid; parameterized
   `@mixin($x)` / `@include(...)` / unquoted `url(../x)` parse imperfectly (css grammar) but don't
   derail the surrounding structure. A top-level `$var: value;` used to blow up the whole file's
-  parse — now masked into a comment before parsing, so the rest of the file recovers.
+  parse — now masked into a comment before parsing, so the rest of the file recovers, and that
+  masked comment no longer glues onto the next rule as its preamble (it's a variable in disguise,
+  not a real comment).
 - **Plain text (`.txt`) is experimental**: no real language understanding, just blank-line
   paragraphs/sections and list-marker splitting — the cheapest structural guess that's still more
   useful than reading the file linearly, not a claim of real prose parsing.
+- **A large, flat JSX `return (...)` isn't broken into landmarks yet.** `--outline`/`--query` on
+  one prints a `known limitation: …` note instead of silently handing you an unstructured wall of
+  JSX — fall back to `Read` for that block's exact content.
 
 See `get_codeblock__TLDR.md` for the one-screen version, `get_codeblock__README.md` for the full
 reference (every flag, edge cases, architecture).

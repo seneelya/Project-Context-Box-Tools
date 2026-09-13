@@ -1,7 +1,7 @@
 # get_codeblock — TLDR
 
 Returns a self-contained structural block containing a line — for code
-(`.py` · `.ts .js .tsx .jsx` · `.cs` · `.cpp .cc .cxx .h .hpp .c` · `.css .scss`), Markdown
+(`.py` · `.ts .js .mjs .tsx .jsx` · `.cs` · `.cpp .cc .cxx .h .hpp .c` · `.css .scss`), Markdown
 (`.md`: heading sections), YAML (`.yaml .yml`: key/list nesting), and plain text (`.txt`:
 paragraphs/sections, experimental). Lets an agent get precise context around any location, or a
 file's table of contents, without reading the whole file.
@@ -62,8 +62,18 @@ excess ignored). Same three modes as single-line, just merged:
 - **Bare `--outline` is an adaptive OVERVIEW, not the full tree.** It sizes depth to
   the file: tiny files / a lone top-level object expand to level 2; otherwise it shows
   level 1 only when a deeper map would exceed ~15% of the file or ~40 rows. The header
-  line reports total depth + per-level counts (`depth 3, L1=1 L2=5 L3=1, showing 1..2`)
-  so you know there's more. Add `--level N` for an EXACT depth cap (high N = everything).
+  line reports total depth + per-level counts (`max depth 3, L1=1 L2=5 L3=1, showing
+  levels 1..2`) so you know there's more. Add `--level N` for an EXACT depth cap (high
+  N = everything).
+- **`--query` auto-escalates a too-small result.** A resolved block under ~12 non-blank
+  lines (a lone top-level `import` band, a single orphan statement, …) gets neighboring
+  blocks pulled in until it's actually informative (capped ~40 lines) — a `#parameters
+  escalated: --line A -> --line A,B,C …` line says exactly what changed. Add `--force`
+  to get the literal requested range instead, no escalation.
+- **A large, flat TSX/JSX block gets a heads-up, not a fix.** A big `return (...)` full
+  of JSX isn't broken into landmarks yet (known gap) — `--outline`/`--query` on one
+  print a `known limitation: …` note instead of silently handing you an unstructured
+  wall; fall back to `Read` for that block's exact content.
 - Transparent frames (a C#/C++ `namespace`, `extern "C"`) render with a `.` marker
   instead of a level number — they're a wrapper, not a nesting level.
 - `--outline` works for Python (indentation), Markdown (headings), plain text (blank-line

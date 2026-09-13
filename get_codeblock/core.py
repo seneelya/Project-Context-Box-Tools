@@ -195,7 +195,9 @@ def parse_args():
             print("Two ways to pick a block at --line (don't mix):")
             print("  --ancestor-level N  relative — walk N blocks up from where the line lands (0=here).")
             print("  --level N           absolute — jump to depth N counted from the file top.")
-            print("  Output 'Block level: K' is the block's real depth (1 = file top, deeper = higher).")
+            print("  The ladder's level number is the block's real depth (1 = file top, deeper = higher);")
+            print("  --query's own ■BLOCK : A-B never states one (a merged run lists each real level")
+            print("  in a ' = ranges : Level L  A-B, ...' tail instead of one number for the whole span).")
             print("")
             if default_root:
                 print(f'CONFIG__TOOLS.PROJECT_ROOT="{default_root}" (use --project-root @ to apply it)')
@@ -822,7 +824,7 @@ def main():
     # code file along with the block below it, and an uncommented line would break there.
     def emit_legend():
         if is_tty:
-            legend_text = ("'Block level: K' = real depth (1=file top, deeper=higher). Pick a block: "
+            legend_text = ("Ladder's level number = real depth (1=file top, deeper=higher). Pick a block: "
                             "--ancestor-level N = N up from here (0=this block, 1=parent) · "
                             "--level N = absolute depth from top · --query = its text.")
             print(f"\033[92m{c(legend_text)}\033[0m")
