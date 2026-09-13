@@ -67,13 +67,14 @@ run_restamp_fixtures 21/0.
 T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails         # 120/0 — общий оракул пакета
 T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py        # 109/0 — merge/salvage/зона/discrepancies
 T:/AgentsWork/venv/Scripts/python.exe test/run_restamp_fixtures.py  # 21/0 — ручной полигон merge-идентичности
-T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py          # 12/12 — реальный CLI-вывод (subprocess)
+T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py          # 13/13 (2026-09-13) — реальный CLI-вывод (subprocess)
 T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py      # HIGH=0 (LOW LEVEL=5 на TS try/catch — известный шум)
 ```
 
 ## get_codeblock — отдельный, активно развивающийся подпоток
 
-Свой набор vision-доков `__dev/vision/Vision01-04__get_codeblock.md` + операционные заметки
+Свой набор vision-доков `__dev/vision/Vision01-06__get_codeblock.md` (05 — query-эскалация/`--force`,
+06 — семя идеи «разборщик монструозных файлов», брейншторм, не решение) + операционные заметки
 `__dev/CONTEXT_RESTORE_TOOLS.md` (канонические источники, инварианты, ⚠ два репозитория — та
 заметка ещё говорит про старый раскол репо, тоже подправлена, но читать вместе с этим файлом, не
 вместо). Регресс отдельный: `test/golden_check.py`, `test/sweep_invariants.py` — см.
