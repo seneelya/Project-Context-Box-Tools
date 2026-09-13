@@ -24,6 +24,13 @@ Entries are fixed over time; append new ones at the top (below this header).
 - **Expected:** Useful mid-level units (e.g. route groups) or at least more than one structural landmark inside the return
 - **Got:** Outline depth 1 only (`const App`); ladder at a route line → `~return_statement` spanning almost the whole component. `--outline --level 2` still depth 1 (structurally correct, agent-weak)
 - **Note:** For route tables / large JSX returns, outline maps the file but cannot replace Grep+offset Read. Optional: treat significant JSX subtrees or repeated patterns as outline landmarks.
+- **Deferred:** 2026-09-13 — reproduced live on this exact `App.tsx` (return spans [123-599], zero
+  sub-landmarks), root-caused, and scoped: real fix analyzed and written up in
+  [`Plan__jsx-carve-tsx.md`](../Plan__jsx-carve-tsx.md) — touches shared brace-addressing machinery
+  used by ALL languages (not just TSX), so deliberately not attempted yet. **Interim mitigation
+  shipped instead**: `get_codeblock/jsx_note.py` detects a large, flat, JSX-containing block and
+  prints a `known limitation: …` note in both `--outline` and `--query` output, pointing at `Read`
+  — so the gap is visible, not silent. See the plan doc for the actual carve when picked up.
 
 ### 2026-08-23 — Default innermost `--query` often too small for agent use
 - **Severity:** ux / wish
