@@ -740,7 +740,7 @@ def format_seams_mermaid(graph):
             edges.append((nid, target_label, s["kind"], s["shape"]))
     if not edges:
         return "# runtime seams — none found in any card"
-    out = ["# runtime seams — mermaid (generated, not stored — see Vision07)", "", "```mermaid", "graph LR"]
+    out = ["# runtime seams", "", "```mermaid", "graph LR"]
     for a, b, kind, shape in edges:
         label = f"{kind} — {shape}"
         out.append(f'    {_mermaid_id(a)}["{a}"] -.->|"{label}"| {_mermaid_id(b)}["{b}"]')
