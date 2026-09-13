@@ -444,20 +444,25 @@ def _edge_bits(i, nodes, rdeps, pkg, edges):
 
 
 def _seam_bits(i, nodes, pkg, rseams=None):
-    """Строка Runtime seams узла (Plan03/Vision07) — ОТДЕЛЬНЫЕ маркеры '⇢' (я объявил связь
-    на цель) / '⇠' (кто-то объявил связь на МЕНЯ как на цель — граф ВЫЧИСЛЯЕТ этот вид, карточка
-    цели его не дублирует руками, см. _reverse_seams). Не смешивается с →/← (только import-рёбра).
+    """Строки Runtime seams узла (Plan03/Vision07) — СПИСОК отдельных строк, не одна общая:
+    "seam→" (я объявил связь на цель) / "seam← " (кто-то объявил связь на МЕНЯ как на цель —
+    граф ВЫЧИСЛЯЕТ этот вид, карточка цели его не дублирует руками, см. _reverse_seams).
+
+    Текстовый префикс "seam", не отдельный юникод-глиф (было '⇢'/'⇠') — тусклый спецсимвол в
+    конце длинной строки легко потерять глазами, а для LLM редкий кодпоинт токенизируется хуже
+    обычного слова. Каждая строка — своя, а не слита с →/← и друг с другом: это РЯДОВАЯ связь,
+    не менее заметная, чем импорт, а не приписка мелким шрифтом в конце.
     Только резолвнутые в карточку цели; свободный текст без ребра — только в --view seams-mermaid."""
-    bits = []
+    lines = []
     out = [s for s in nodes[i]["seams"] if s.get("target_id")]
     if out:
         names = [f"{_rel_to(s['target_id'], pkg)} ({s['kind']} — {s['shape']})" for s in out]
-        bits.append("⇢ " + " · ".join(names))
+        lines.append("seam→ " + " · ".join(names))
     inc = (rseams or {}).get(i, [])
     if inc:
         names = [f"{_rel_to(s['from'], pkg)} ({s['kind']} — {s['shape']})" for s in inc]
-        bits.append("⇠ " + " · ".join(names))
-    return "   ".join(bits)
+        lines.append("seam← " + " · ".join(names))
+    return lines
 
 
 def _compute_layers(nodes):
@@ -609,8 +614,8 @@ def _slices(graph, disp_label):
 # «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
 # Анатомия записи — единая, чтобы не расходилась между видами; строка entry зависит от --verbose.
 _EDGES = ("> edges:  → what it imports · ← what imports it · ×N before (…) = list length "
-          "(shown only when >1) · ⟲ = in a cycle · ⇢/⇠ = Runtime seam I declared/declared on me "
-          "(kind — shape), NOT an import — see --view seams-mermaid")
+          "(shown only when >1) · ⟲ = in a cycle · seam→/seam← = Runtime seam I declared/declared "
+          "on me (kind — shape), own line, NOT an import — see --view seams-mermaid")
 _SEP = "> ---"
 
 
@@ -685,8 +690,7 @@ def format_tree(graph, disp, edges, verbose=1):
             eb = _edge_bits(i, nodes, rdeps, pkg, edges)
             if eb:
                 out.append(f"  {eb}")
-            sb = _seam_bits(i, nodes, pkg, rseams)
-            if sb:
+            for sb in _seam_bits(i, nodes, pkg, rseams):
                 out.append(f"  {sb}")
         out.append("")
     return "\n".join(out + _slices(graph, disp))
@@ -706,8 +710,7 @@ def format_depth(graph, disp, edges, verbose=1):
             eb = _edge_bits(i, nodes, rdeps, "(root)", edges)  # слои cross-cutting -> пути полные
             if eb:
                 out.append(f"  {eb}")
-            sb = _seam_bits(i, nodes, "(root)", rseams)
-            if sb:
+            for sb in _seam_bits(i, nodes, "(root)", rseams):
                 out.append(f"  {sb}")
         out.append("")
     return "\n".join(out + _slices(graph, disp))

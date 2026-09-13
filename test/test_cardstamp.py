@@ -738,9 +738,9 @@ def test_seam_graph_edges_and_islands():
     check("no leftover singles", singles == [])
     tree = format_tree(g, "__map", "inout")
     check("seam edge shown with its own marker, not →/←",
-          "⇢ b.py (by-path — dependent)" in tree)
+          "seam→ b.py (by-path — dependent)" in tree)
     check("reverse seam computed on the target's own line, not hand-duplicated",
-          "⇠ a.py (by-path — dependent)" in tree)
+          "seam← a.py (by-path — dependent)" in tree)
 
 
 def test_seam_legacy_section_rename_via_aliases():
