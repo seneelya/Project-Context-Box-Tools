@@ -262,6 +262,19 @@ def _reverse(nodes):
     return {i: sorted(v) for i, v in rdeps.items()}
 
 
+def _reverse_seams(nodes):
+    """id -> [{from, symbol, kind, shape, why}, ...] — кто объявил Runtime seam НА МЕНЯ как на
+    цель. Симметрично _reverse() для deps: строку пишет только зависимая/потребляющая сторона
+    (Vision07), обратный вид граф ВЫЧИСЛЯЕТ сам — карточка цели не дублирует его руками."""
+    r = {i: [] for i in nodes}
+    for i, n in nodes.items():
+        for s in n.get("seams", ()):
+            t = s.get("target_id")
+            if t in r:
+                r[t].append({**s, "from": i})
+    return {i: sorted(v, key=lambda s: s["from"]) for i, v in r.items()}
+
+
 def _resolve_id(nodes, want):
     """Точный id, иначе уникальный базовый путь (как в build_graph). None если не нашли/неоднозначно."""
     want = want.strip().lstrip("./")
@@ -430,15 +443,21 @@ def _edge_bits(i, nodes, rdeps, pkg, edges):
     return "   ".join(bits)
 
 
-def _seam_bits(i, nodes, pkg):
-    """Строка Runtime seams узла (Plan03/Vision07) — ОТДЕЛЬНЫЙ маркер '⇢', не смешивается с
-    →/← (те — только import-рёбра). Только резолвнутые в карточку цели; свободный текст без
-    ребра сюда не попадает (он есть только в --view seams-mermaid, там как отдельный узел)."""
-    seams = [s for s in nodes[i]["seams"] if s.get("target_id")]
-    if not seams:
-        return ""
-    names = [f"{_rel_to(s['target_id'], pkg)} ({s['kind']} — {s['shape']})" for s in seams]
-    return "⇢ " + " · ".join(names)
+def _seam_bits(i, nodes, pkg, rseams=None):
+    """Строка Runtime seams узла (Plan03/Vision07) — ОТДЕЛЬНЫЕ маркеры '⇢' (я объявил связь
+    на цель) / '⇠' (кто-то объявил связь на МЕНЯ как на цель — граф ВЫЧИСЛЯЕТ этот вид, карточка
+    цели его не дублирует руками, см. _reverse_seams). Не смешивается с →/← (только import-рёбра).
+    Только резолвнутые в карточку цели; свободный текст без ребра — только в --view seams-mermaid."""
+    bits = []
+    out = [s for s in nodes[i]["seams"] if s.get("target_id")]
+    if out:
+        names = [f"{_rel_to(s['target_id'], pkg)} ({s['kind']} — {s['shape']})" for s in out]
+        bits.append("⇢ " + " · ".join(names))
+    inc = (rseams or {}).get(i, [])
+    if inc:
+        names = [f"{_rel_to(s['from'], pkg)} ({s['kind']} — {s['shape']})" for s in inc]
+        bits.append("⇠ " + " · ".join(names))
+    return "   ".join(bits)
 
 
 def _compute_layers(nodes):
@@ -590,8 +609,8 @@ def _slices(graph, disp_label):
 # «Как читать эту карту» — мета-шапка под H1 каждого режима (термстайл красит '>' серым).
 # Анатомия записи — единая, чтобы не расходилась между видами; строка entry зависит от --verbose.
 _EDGES = ("> edges:  → what it imports · ← what imports it · ×N before (…) = list length "
-          "(shown only when >1) · ⟲ = in a cycle · ⇢ = Runtime seam (kind — shape), "
-          "NOT an import — see --view seams-mermaid")
+          "(shown only when >1) · ⟲ = in a cycle · ⇢/⇠ = Runtime seam I declared/declared on me "
+          "(kind — shape), NOT an import — see --view seams-mermaid")
 _SEP = "> ---"
 
 
@@ -651,6 +670,7 @@ _ORIENT_DISCR = ("> read: card↔source gaps — orphan (card, no source) · pen
 
 def format_tree(graph, disp, edges, verbose=1):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
+    rseams = _reverse_seams(nodes)
     out = [f"# map — {len(nodes)} modules · tree (by directory) · auto-gathered from {disp}",
            _orient_tree(verbose), ""]
     pkgs = {}
@@ -665,7 +685,7 @@ def format_tree(graph, disp, edges, verbose=1):
             eb = _edge_bits(i, nodes, rdeps, pkg, edges)
             if eb:
                 out.append(f"  {eb}")
-            sb = _seam_bits(i, nodes, pkg)
+            sb = _seam_bits(i, nodes, pkg, rseams)
             if sb:
                 out.append(f"  {sb}")
         out.append("")
@@ -674,6 +694,7 @@ def format_tree(graph, disp, edges, verbose=1):
 
 def format_depth(graph, disp, edges, verbose=1):
     nodes, rdeps, cyc = graph["nodes"], _reverse(graph["nodes"]), _cycle_nodes(graph["nodes"])
+    rseams = _reverse_seams(nodes)
     layers = _compute_layers(nodes)
     out = [f"# map — {len(nodes)} modules · depth (0=leaves) · auto-gathered from {disp}",
            _orient_depth(verbose), ""]
@@ -685,7 +706,7 @@ def format_depth(graph, disp, edges, verbose=1):
             eb = _edge_bits(i, nodes, rdeps, "(root)", edges)  # слои cross-cutting -> пути полные
             if eb:
                 out.append(f"  {eb}")
-            sb = _seam_bits(i, nodes, "(root)")
+            sb = _seam_bits(i, nodes, "(root)", rseams)
             if sb:
                 out.append(f"  {sb}")
         out.append("")
