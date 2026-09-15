@@ -44,6 +44,14 @@ class TypeScriptHandler(LanguageHandler):
     # ES side-effect import: import '...' (no symbols captured)
     # Not used for symbol detection but could be flagged in the future.
 
+    # Dynamic namespace import used as a static one: const x = await import('...')
+    # BARE form only — deliberately does not match `const x = (await import('...')).default`
+    # (a leading '(' before 'await' breaks this regex), since that resolves to one export's
+    # VALUE, not a namespace alias, and needs a different rule if it ever matters.
+    DYNAMIC_NAMESPACE_RE = re.compile(
+        r'^\s*(?:const|let|var)\s+(\w+)\s*=\s*await\s+import\s*\(\s*["\']([^"\']+)["\']\s*\)'
+    )
+
     # CommonJS: const x = require('...') or var/let
     CJS_REQUIRE_RE = re.compile(
         r'^\s*(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*["\']([^"\']+)["\']'
@@ -77,17 +85,48 @@ class TypeScriptHandler(LanguageHandler):
         self._attr_pattern_cache = {}
 
     def get_extensions(self) -> Set[str]:
-        return {".ts", ".tsx", ".js", ".jsx"}
+        # держать в шаге с _MODULE_EXTS (нормализация специфаеров) — иначе .mjs/.cjs-файлы
+        # (в т.ч. тесты вида *.test.mjs) вообще не попадают в collect_files и молча выпадают
+        # из consumers_of/find_code_usage, хотя реально импортируют цель.
+        return {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 
-    def matches_target(self, imported_specifier: str, target_names: Set[str]) -> bool:
+    def matches_target(
+        self,
+        imported_specifier: str,
+        target_names: Set[str],
+        consumer_filepath: str | None = None,
+        target_filepath: str | None = None,
+    ) -> bool:
         """Check if an import specifier refers to one of the target modules.
 
         For TS/JS we compare against:
           - exact path-like names (e.g., './src/utils', 'lib/helpers')
           - dotted names (for package-style imports)
+          - (when consumer_filepath/target_filepath are given) the specifier resolved to an
+            ABSOLUTE path relative to the CONSUMER's own directory, compared for EXACT equality
+            against the target's own absolute path. target_names alone is a static set of
+            name-forms computed once from the target's own path, so a `../`-climbing specifier
+            written from a consumer nested at a DIFFERENT depth (e.g. tests/desktop/x.mjs
+            reaching desktop/src/core.js) never matched any of them, even though it is a real,
+            correct import. This check is deliberately kept SEPARATE from the target_names
+            loop below (exact-path equality only, no prefix/substring matching) — an earlier
+            version folded the resolved path into `specs` and got a false positive: a resolved
+            path like 'src/utils/common/pick' spuriously prefix-matched an unrelated 'src'
+            entry that target_names carries for a different reason.
         """
         if not imported_specifier:
             return False
+        if (
+            consumer_filepath
+            and target_filepath
+            and imported_specifier.startswith(".")
+        ):
+            consumer_dir = os.path.dirname(os.path.abspath(consumer_filepath))
+            resolved_abs = os.path.normpath(os.path.join(consumer_dir, imported_specifier))
+            resolved_root, _ = os.path.splitext(resolved_abs)
+            target_root, _ = os.path.splitext(os.path.normpath(os.path.abspath(target_filepath)))
+            if os.path.normcase(resolved_root) == os.path.normcase(target_root):
+                return True
         # Candidate spellings of the specifier: as-is, slash-normalized, and with a trailing
         # module extension stripped (`./util.js` → `./util`, to match extensionless target names).
         specs = {imported_specifier, imported_specifier.replace("\\", "/")}
@@ -200,10 +239,10 @@ class TypeScriptHandler(LanguageHandler):
                     base_path = module_specifier.rstrip("/") or "."
                     full_path = f"{base_path}/{original}"
 
-                    if self.matches_target(module_specifier, target_names):
+                    if self.matches_target(module_specifier, target_names, filepath, target_file_path):
                         used_symbols[original] = kind
                         symbol_lines.setdefault(original, []).append(idx + 1)
-                    elif self.matches_target(full_path, target_names):
+                    elif self.matches_target(full_path, target_names, filepath, target_file_path):
                         used_symbols[original] = kind
                         symbol_lines.setdefault(original, []).append(idx + 1)
 
@@ -216,7 +255,7 @@ class TypeScriptHandler(LanguageHandler):
                 module_specifier = m.group(2).strip().rstrip("/")
                 kind = self._get_import_kind(line, content_lines, idx)
 
-                if self.matches_target(module_specifier, target_names):
+                if self.matches_target(module_specifier, target_names, filepath, target_file_path):
                     import_aliases[local_alias] = (module_specifier, kind)
 
                 continue
@@ -228,7 +267,19 @@ class TypeScriptHandler(LanguageHandler):
                 module_specifier = m.group(2).strip().rstrip("/")
                 kind = self._get_import_kind(line, content_lines, idx)
 
-                if self.matches_target(module_specifier, target_names):
+                if self.matches_target(module_specifier, target_names, filepath, target_file_path):
+                    import_aliases[local_alias] = (module_specifier, kind)
+
+                continue
+
+            # Dynamic namespace import used as a static one: const x = await import('...')
+            m = self.DYNAMIC_NAMESPACE_RE.match(line)
+            if m:
+                local_alias = m.group(1)
+                module_specifier = m.group(2).strip().rstrip("/")
+                kind = self._get_import_kind(line, content_lines, idx)
+
+                if self.matches_target(module_specifier, target_names, filepath, target_file_path):
                     import_aliases[local_alias] = (module_specifier, kind)
 
                 continue
@@ -240,7 +291,7 @@ class TypeScriptHandler(LanguageHandler):
                 module_specifier = m.group(2).strip().rstrip("/")
                 kind = self._get_import_kind(line, content_lines, idx)
 
-                if self.matches_target(module_specifier, target_names):
+                if self.matches_target(module_specifier, target_names, filepath, target_file_path):
                     for original, local in self._parse_named_items(items_text):
                         used_symbols[original] = kind
                         symbol_lines.setdefault(original, []).append(idx + 1)
@@ -254,7 +305,7 @@ class TypeScriptHandler(LanguageHandler):
                 module_specifier = m.group(2).strip().rstrip("/")
                 kind = self._get_import_kind(line, content_lines, idx)
 
-                if self.matches_target(module_specifier, target_names):
+                if self.matches_target(module_specifier, target_names, filepath, target_file_path):
                     import_aliases[local_alias] = (module_specifier, kind)
 
                 continue
@@ -311,7 +362,7 @@ class TypeScriptHandler(LanguageHandler):
         dynamic_patterns: Set[str] = set()
         for m in self.DYNAMIC_IMPORT_RE.finditer(full_text):
             module_str = m.group(1).strip().rstrip("/")
-            if self.matches_target(module_str, target_names):
+            if self.matches_target(module_str, target_names, filepath, target_file_path):
                 dynamic_patterns.add("import()")
 
         return used_symbols, symbol_lines, dynamic_patterns
