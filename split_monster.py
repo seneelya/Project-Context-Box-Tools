@@ -130,6 +130,8 @@ class _Monster:
     """The mutating half of the library — everything here only touches disk under `--apply`."""
 
     def write(self, target_file, blocks, imports=None):
+        """Write `blocks`/`imports` into `target_file` (dedup imports; new blocks go BEFORE
+        whatever body is already there). Only ever touches `target_file` — never `source_file`."""
         imports = imports or []
         header = _dedup_preserve_order([imp.text for imp in imports])
         new_body = _reconstruct_body(blocks)
@@ -157,6 +159,8 @@ class _Monster:
         print(f"wrote {target_file}: {len(header)} import(s), {len(blocks)} block(s)")
 
     def cut(self, source_file, blocks):
+        """Remove `blocks`' exact ranges from `source_file` — every block must belong to this
+        same `source_file` (raises otherwise); only ever touches `source_file`, never a target."""
         for b in blocks:
             if b.source_file != source_file:
                 raise ValueError(
@@ -268,6 +272,31 @@ def _safe_ident(target_file):
     return ident or "TARGET"
 
 
+def _help_lines():
+    """Cheat-sheet for the imported names, pulled from their OWN docstrings — not hand-copied,
+    so it can't drift out of sync with them. A future session reading a generated script has
+    no reason to already know what `cut`/`add_import`/`monster.*` do; this is instead of making
+    it go re-read split_monster.py's source to find out."""
+    import inspect
+
+    entries = [("cut", cut), ("add_import", add_import),
+               ("monster.write", _Monster.write), ("monster.cut", _Monster.cut),
+               ("monster.consumers", _Monster.consumers)]
+    lines = ["# --- шпаргалка по импортированному (из докстрингов split_monster.py) ---"]
+    for name, fn in entries:
+        params = [p for p in inspect.signature(fn).parameters if p != "self"]
+        doc = inspect.getdoc(fn) or ""
+        first_para = []
+        for docline in doc.splitlines():
+            if not docline.strip():
+                break
+            first_para.append(docline.strip())
+        summary = " ".join(first_para)
+        lines.append(f"# {name}({', '.join(params)}) — {summary}")
+    lines.append("# --- конец шпаргалки ---")
+    return lines
+
+
 def generate(file_path, splits, out_path, project_root="."):
     """Expand `[(line, target_file), ...]` into a full three-layer script at `out_path`.
 
@@ -287,7 +316,10 @@ def generate(file_path, splits, out_path, project_root="."):
         f'sys.path.insert(0, r"{_HERE}")',
         "from split_monster import cut, add_import, monster",
         "",
+        *_help_lines(),
+        "",
     ]
+    header_len = len(out)
 
     tag = 0
     list_names = {}
@@ -313,10 +345,10 @@ def generate(file_path, splits, out_path, project_root="."):
 
     if all_symbols:
         out.insert(
-            4,
+            header_len,
             f"monster.consumers({file_path!r}, {all_symbols!r}, project_root={project_root!r})",
         )
-        out.insert(5, "")
+        out.insert(header_len + 1, "")
 
     for target, list_name in list_names.items():
         out.append(f"monster.write({target!r}, {list_name}, [])")
