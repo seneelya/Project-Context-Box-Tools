@@ -307,8 +307,25 @@ def generate(file_path, splits, out_path, project_root="."):
     top_level_names = _all_top_level_names(all_lines)
 
     by_target = {}
+    seen_ranges = {}  # (start, end) -> target already claimed for this exact resolved range
     for line_no, target in splits:
-        by_target.setdefault(target, []).append(cut(file_path, line_no))
+        block = cut(file_path, line_no)
+        key = (block.start, block.end)
+        prev_target = seen_ranges.get(key)
+        if prev_target is not None:
+            if prev_target != target:
+                raise ValueError(
+                    f"--split {line_no} resolves to the SAME block [{block.start}-{block.end}] "
+                    f"as an earlier --split (get_codeblock bands adjacent simple top-level "
+                    f"statements into one block) but points at a DIFFERENT target "
+                    f"({target!r} vs already-claimed {prev_target!r}) — this one range can only "
+                    f"go to one file; pick a single target for the whole band."
+                )
+            print(f"# note: --split {line_no} is the same banded block as an earlier --split "
+                  f"([{block.start}-{block.end}]) — deduped, not written twice")
+            continue
+        seen_ranges[key] = target
+        by_target.setdefault(target, []).append(block)
 
     out = [
         f"# сгенерировано: split_monster --file {file_path} --split ...",

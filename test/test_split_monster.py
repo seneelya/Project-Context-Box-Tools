@@ -192,6 +192,51 @@ def test_generate_hint_finds_cross_reference():
         assert "helperOne" in text  # the hint names the block being cross-referenced
 
 
+# --------------------------------------------------------------------------- banded blocks
+
+BANDED_JS = """\
+export const ROW_PX = 34
+export const NOTE_ESTIMATE_PX = 30
+export const OVERSCAN_PX = 400
+
+function keepMe() {
+  return 1;
+}
+"""
+
+
+def test_generate_dedupes_lines_that_resolve_to_the_same_band():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="banded.js", content=BANDED_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "1", str(Path(d) / "target.js"),
+            "--split", "2", str(Path(d) / "target.js"),  # same band as line 1 — must dedupe
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        # only ONE `= cut(...)` extraction for the banded range, not two — else monster.cut()
+        # would delete the range twice ("cut(" alone also matches the cheat-sheet/monster.cut)
+        assert text.count("= cut(") == 1
+        assert "TARGET_BLOCKS = [c01]" in text
+
+
+def test_generate_rejects_same_band_split_to_different_targets():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="banded.js", content=BANDED_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "1", str(Path(d) / "a.js"),
+            "--split", "2", str(Path(d) / "b.js"),  # same band, DIFFERENT target — must reject
+            "--out-script", out_script,
+        )
+        assert result.returncode != 0
+        assert not Path(out_script).exists()
+
+
 def test_generated_script_runs_and_moves_the_block():
     with tempfile.TemporaryDirectory() as d:
         src = _write_fixture(d)
