@@ -205,18 +205,30 @@ _TOP_LEVEL_NAME_RE = re.compile(
 _WORD_RE = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
 
 
+def _declaration_line(text):
+    """The block's own declaration line — NOT necessarily line 0 of `text`, since get_codeblock
+    (correctly) includes a leading comment as part of the same block/range."""
+    for line in text.splitlines():
+        if _TOP_LEVEL_NAME_RE.match(line.strip()):
+            return line.strip()
+    return text.splitlines()[0].strip() if text else ""
+
+
 def _block_name(text):
-    first_line = text.splitlines()[0].strip() if text else ""
-    m = _TOP_LEVEL_NAME_RE.match(first_line)
+    m = _TOP_LEVEL_NAME_RE.match(_declaration_line(text))
     if not m:
         return None
     return next(g for g in m.groups() if g)
 
 
 def _all_top_level_names(all_lines):
+    """Only lines with NO leading whitespace — an indented `const x = ...` inside some other
+    function is not a top-level name just because it matches the same regex when stripped."""
     names = {}
     for line in all_lines:
-        m = _TOP_LEVEL_NAME_RE.match(line.strip())
+        if line[:1].isspace():
+            continue
+        m = _TOP_LEVEL_NAME_RE.match(line)
         if m:
             names[next(g for g in m.groups() if g)] = True
     return names
@@ -247,8 +259,7 @@ def _hint_lines(block, all_lines, top_level_names):
 
 
 def _preview_line(block):
-    first = block.text.splitlines()[0].strip() if block.text else ""
-    return f"# {first}  [{block.start}-{block.end}]"
+    return f"# {_declaration_line(block.text)}  [{block.start}-{block.end}]"
 
 
 def _safe_ident(target_file):
