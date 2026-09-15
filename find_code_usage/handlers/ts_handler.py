@@ -62,6 +62,11 @@ class TypeScriptHandler(LanguageHandler):
         r'^\s*(?:const|let|var)\s*\{([^}]+)\}\s*=\s*require\s*\(\s*["\']([^"\']+)["\']'
     )
 
+    # Destructured dynamic import: const { foo, bar as b } = await import('...')
+    DYNAMIC_DESTRUCTURE_RE = re.compile(
+        r'^\s*(?:const|let|var)\s*\{([^}]+)\}\s*=\s*await\s+import\s*\(\s*["\']([^"\']+)["\']'
+    )
+
     # Dynamic import(): detect module name strings used at runtime
     DYNAMIC_IMPORT_RE = re.compile(
         r'import\s*\(\s*["\']([^"\']+)["\']'
@@ -211,6 +216,32 @@ class TypeScriptHandler(LanguageHandler):
                     result.setdefault(sym, []).append(idx + 1)
         return result
 
+    def _join_multiline_imports(self, content_lines: List[str]) -> List[str]:
+        """Collapse a multi-line `import {...} from '...'` onto its own first line so the
+        existing single-line regexes (ES_NAMED_RE etc.) can match it as-is — they already
+        tolerate embedded newlines fine, they just never SAW one because the per-line loop
+        below only ever hands them one physical line at a time. Returns a list the SAME
+        length as `content_lines` (continuation lines become blank), so every other line-
+        number-based lookup in this file keeps working unchanged.
+        """
+        out = list(content_lines)
+        n = len(out)
+        i = 0
+        while i < n:
+            line = out[i]
+            if re.match(r'^\s*import\b', line) and "from" not in line and "require(" not in line:
+                j = i
+                while j + 1 < n and "from" not in out[j] and (j - i) < 200:
+                    j += 1
+                if "from" in out[j] and j > i:
+                    out[i] = "".join(out[i : j + 1])
+                    for k in range(i + 1, j + 1):
+                        out[k] = "\n"
+                    i = j + 1
+                    continue
+            i += 1
+        return out
+
     def analyze_file(
         self, filepath: str, content_lines: List[str], target_names: Set[str], project_root: str, target_file_path: str = None
     ) -> Tuple[Dict[str, str], Dict[str, List[int]], Set[str]]:
@@ -219,6 +250,7 @@ class TypeScriptHandler(LanguageHandler):
         Args:
             target_file_path: Optional path to the target file being analyzed (used by some handlers for optimization).
         """
+        content_lines = self._join_multiline_imports(content_lines)
         used_symbols: Dict[str, str] = {}
         symbol_lines: Dict[str, List[int]] = {}
         import_aliases: Dict[str, Tuple[str, str]] = {}  # local_alias -> (module_specifier, kind)
@@ -286,6 +318,20 @@ class TypeScriptHandler(LanguageHandler):
 
             # CJS destructured: const { foo } = require('...')
             m = self.CJS_DESTRUCTURE_RE.match(line)
+            if m:
+                items_text = m.group(1)
+                module_specifier = m.group(2).strip().rstrip("/")
+                kind = self._get_import_kind(line, content_lines, idx)
+
+                if self.matches_target(module_specifier, target_names, filepath, target_file_path):
+                    for original, local in self._parse_named_items(items_text):
+                        used_symbols[original] = kind
+                        symbol_lines.setdefault(original, []).append(idx + 1)
+
+                continue
+
+            # Destructured dynamic import: const { foo } = await import('...')
+            m = self.DYNAMIC_DESTRUCTURE_RE.match(line)
             if m:
                 items_text = m.group(1)
                 module_specifier = m.group(2).strip().rstrip("/")

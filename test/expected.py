@@ -502,6 +502,19 @@ IMPORTS = {
             'src/runner.ts': ['analyze'],
         },
     },
+    # Regression fixtures for 2026-09-16 findings (split_monster real-file testing):
+    # .mjs extension, bare `await import()`, destructured `await import()`, multi-line
+    # `import {...} from` (join-before-match), and cross-directory relative resolution
+    # (consumer nested at a DIFFERENT depth than the target, matches_target's own
+    # target_names heuristic never covered this — see ts_handler.py's matches_target docstring).
+    'ts downstream dynamic imports': {
+        "mode": 'downstream', "root": 'tsSRC', "file": 'dyn/target.ts',
+        "expect": {
+            'dyn/dynamic_consumer.mjs': ['GADGET', 'widget'],
+            'dyn/multiline_consumer.ts': ['GADGET', 'widget'],
+            'dyn/nested/deep_consumer.ts': ['widget'],
+        },
+    },
     'ts incoming analyzer': {
         "mode": 'incoming', "root": 'tsSRC', "file": 'src/analyzer.ts',
         "expect": {
