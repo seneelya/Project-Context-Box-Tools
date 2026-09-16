@@ -392,6 +392,45 @@ def test_generate_does_not_offer_a_comment_already_glued_into_its_landmark():
         assert "# кандидат" not in text
 
 
+MULTILINE_CONST_JS = """\
+import { unrelated } from './x.js';
+
+function helperZero() {
+  return 0;
+}
+
+// rationale: multi-line object literal below
+const ROLE_TONE = {
+  user: 'blue',
+  assistant: 'green'
+}
+
+function helperOne() {
+  return 1;
+}
+"""
+
+
+def test_generate_excludes_a_candidate_already_claimed_by_a_wider_cut():
+    # get_codeblock's own cut() glues a comment into a FOLLOWING multi-line const's range
+    # ([7-11]), but outline_rows' Classifier reports them as two separate rows ([7-7] and
+    # [8-11]) — an exact-tuple "already claimed" check misses that the narrower row [7-7] is
+    # already inside the wider claimed range, and would wrongly offer it as a free candidate
+    # (real risk: a naive second cut() on it would delete an already-moved range twice).
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="multiline.js", content=MULTILINE_CONST_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "8", str(Path(d) / "target.js"),   # ROLE_TONE — glues the comment in
+            "--split", "13", str(Path(d) / "target2.js"),  # helperOne — its own separate target
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        assert "# кандидат" not in text
+
+
 def test_generated_script_runs_and_moves_the_block():
     with tempfile.TemporaryDirectory() as d:
         src = _write_fixture(d)

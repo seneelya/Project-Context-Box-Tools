@@ -465,9 +465,20 @@ def generate(file_path, splits, out_path, project_root="."):
     list_names = {}
     import_list_names = {}
     all_symbols = []
-    # seeded with every already-claimed range — a block already being cut (to ANY target in
-    # this batch) is not free to grab, must never be offered as a candidate for another one
-    printed_candidates = set(seen_ranges.keys())
+    # a block already being cut (to ANY target in this batch) is not free to grab, must never
+    # be offered as a candidate for another one — checked by CONTAINMENT, not exact-tuple
+    # match: outline_rows' own Classifier can report a FINER split (e.g. a comment as its own
+    # row, [53-53]) than what cut()'s band-merge actually resolved for the same span ([53-59],
+    # comment glued into the following multi-line const) — an exact-tuple check would miss
+    # that the narrower row is already fully inside an already-claimed wider one, and offer it
+    # as a "free" candidate; if a future session naively cut() it too, the overlapping range
+    # would be deleted TWICE (real corruption risk, not just cosmetic noise — found live on
+    # prompt-mirror.js, 2026-09-16).
+    printed_candidates = set()
+
+    def _already_claimed(cand):
+        return any(s <= cand["start"] and cand["end"] <= e for s, e in seen_ranges)
+
     for target, blocks in by_target.items():
         var_names = []
         for b in blocks:
@@ -475,7 +486,7 @@ def generate(file_path, splits, out_path, project_root="."):
             same_level_rows = [r for r in outline if r["level"] == b.level]
             for cand, position in _orphan_candidates(same_level_rows, b.start, b.end):
                 key = (cand["start"], cand["end"])
-                if key in printed_candidates:
+                if key in printed_candidates or _already_claimed(cand):
                     continue
                 printed_candidates.add(key)
                 out.append(
