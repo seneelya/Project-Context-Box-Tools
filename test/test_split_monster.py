@@ -237,6 +237,161 @@ def test_generate_rejects_same_band_split_to_different_targets():
         assert not Path(out_script).exists()
 
 
+# --------------------------------------------------------------------------- Находка 1: imports
+
+IMPORTS_JS = """\
+import { jsx, jsxs } from 'react/jsx-runtime';
+import { useState } from 'react';
+import { unrelatedThing } from './other.js';
+
+function Widget() {
+  const [x] = useState(0);
+  return jsx('div', {});
+}
+
+function Plain() {
+  return 1;
+}
+"""
+
+
+def test_generate_adds_needed_source_imports_for_the_target_that_uses_them():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="imports.js", content=IMPORTS_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "5", str(Path(d) / "widget.js"),  # Widget — uses jsx + useState
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        assert "add_import(\"import { jsx } from 'react/jsx-runtime'\")" in text
+        assert "add_import(\"import { useState } from 'react'\")" in text
+        # jsxs is imported by the source but never used by Widget — must NOT be proposed
+        assert "jsxs" not in text
+        # unrelatedThing is never used by Widget either
+        assert "unrelatedThing" not in text
+
+
+def test_generate_does_not_propose_imports_a_target_does_not_use():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="imports.js", content=IMPORTS_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "10", str(Path(d) / "plain.js"),  # Plain — uses neither import
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        # cheat-sheet mentions add_import(text) by name — only a real "= add_import(" CALL
+        # (assigned to a var, same shape as everywhere else in this tool) would be a false positive
+        assert "= add_import(" not in text
+
+
+DEFAULT_NAMESPACE_JS = """\
+import React from 'react';
+import * as util from './util.js';
+
+function Widget() {
+  return React.createElement(util.thing());
+}
+"""
+
+
+def test_generate_reconstructs_default_and_namespace_imports():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="dn.js", content=DEFAULT_NAMESPACE_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "4", str(Path(d) / "widget.js"),
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        assert "add_import(\"import React from 'react'\")" in text
+        assert "add_import(\"import * as util from './util.js'\")" in text
+
+
+# --------------------------------------------------------------------------- multi-name bands
+
+def test_generate_marks_multi_name_bands_and_lists_every_name_for_consumers():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="banded.js", content=BANDED_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "1", str(Path(d) / "target.js"),
+            "--split", "2", str(Path(d) / "target.js"),
+            "--split", "3", str(Path(d) / "target.js"),
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        assert "# банд: 3 объявлений" in text
+        assert "ROW_PX" in text and "NOTE_ESTIMATE_PX" in text and "OVERSCAN_PX" in text
+        # monster.consumers() must be asked about EVERY name in the band, not just the first
+        consumers_line = [l for l in text.splitlines() if l.startswith("monster.consumers(")][0]
+        for name in ("ROW_PX", "NOTE_ESTIMATE_PX", "OVERSCAN_PX"):
+            assert name in consumers_line
+
+
+# --------------------------------------------------------------------------- Находка 2: orphans
+
+ORPHAN_BEFORE_CONST_JS = """\
+import { unrelated } from './x.js';
+
+// rationale: this width was picked to fit five-char tool names
+const TOOL_FONT = '11px monospace';
+
+function keepMe() {
+  return 1;
+}
+"""
+
+
+def test_generate_surfaces_orphan_comment_before_a_const_as_a_candidate():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="orphan.js", content=ORPHAN_BEFORE_CONST_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "4", str(Path(d) / "target.js"),  # TOOL_FONT — comment does NOT glue
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        assert "# кандидат" in text
+        assert "[3-3]" in text  # the comment's own line range
+
+
+GLUED_COMMENT_JS = """\
+import { unrelated } from './x.js';
+
+// this rationale glues straight into the function below
+
+function helperOne() {
+  return 1;
+}
+"""
+
+
+def test_generate_does_not_offer_a_comment_already_glued_into_its_landmark():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, name="glued.js", content=GLUED_COMMENT_JS)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "6", str(Path(d) / "target.js"),  # helperOne — comment already IN the block
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        assert "# кандидат" not in text
+
+
 def test_generated_script_runs_and_moves_the_block():
     with tempfile.TemporaryDirectory() as d:
         src = _write_fixture(d)

@@ -31,6 +31,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from get_codeblock.core import get_codeblock as _gcb_get_codeblock
+from get_codeblock.reader.classify import outline_rows as _gcb_outline_rows
 
 
 # --------------------------------------------------------------------------- primitives
@@ -38,13 +39,14 @@ from get_codeblock.core import get_codeblock as _gcb_get_codeblock
 class Block:
     """A byte-exact top-level code range pulled from one source file."""
 
-    __slots__ = ("source_file", "start", "end", "text")
+    __slots__ = ("source_file", "start", "end", "text", "level")
 
-    def __init__(self, source_file, start, end, text):
+    def __init__(self, source_file, start, end, text, level=1):
         self.source_file = source_file
         self.start = start
         self.end = end
         self.text = text
+        self.level = level
 
     def __repr__(self):
         return f"Block({self.source_file!r}, {self.start}, {self.end})"
@@ -69,7 +71,7 @@ def cut(source_file, line):
     escalation, no guessing the end line myself.
     """
     res = _gcb_get_codeblock(source_file, line_num=line, level=1, query=True)
-    return Block(source_file, res["start"], res["end"], res["text"])
+    return Block(source_file, res["start"], res["end"], res["text"], res["level"])
 
 
 def add_import(text):
@@ -218,11 +220,20 @@ def _declaration_line(text):
     return text.splitlines()[0].strip() if text else ""
 
 
-def _block_name(text):
-    m = _TOP_LEVEL_NAME_RE.match(_declaration_line(text))
-    if not m:
-        return None
-    return next(g for g in m.groups() if g)
+def _all_names_in_block(text):
+    """Every top-level declaration name inside `text`, in order — a banded range (2-3
+    declarations merged by get_codeblock because nothing separates them) carries more than
+    one; a single declaration just returns a one-item list."""
+    names = []
+    for line in text.splitlines():
+        if line[:1].isspace():
+            continue
+        m = _TOP_LEVEL_NAME_RE.match(line)
+        if m:
+            name = next(g for g in m.groups() if g)
+            if name not in names:
+                names.append(name)
+    return names
 
 
 def _all_top_level_names(all_lines):
@@ -241,8 +252,8 @@ def _all_top_level_names(all_lines):
 def _hint_lines(block, all_lines, top_level_names):
     """Cheap best-effort grep — NOT a real resolver (Vision06: затычка v0, verify by eye)."""
     hints = []
-    name = _block_name(block.text)
-    if name:
+    names = _all_names_in_block(block.text)
+    for name in names:
         referenced_at = [
             i for i, line in enumerate(all_lines, start=1)
             if not (block.start <= i <= block.end) and re.search(rf"\b{re.escape(name)}\b", line)
@@ -256,7 +267,7 @@ def _hint_lines(block, all_lines, top_level_names):
             )
 
     used = set(_WORD_RE.findall(block.text))
-    needs = sorted(n for n in used if n in top_level_names and n != name)
+    needs = sorted(n for n in used if n in top_level_names and n not in names)
     if needs:
         hints.append(f"# best-effort (grep, не резолв): возможно нужны — {', '.join(needs)}")
     return hints
@@ -297,6 +308,114 @@ def _help_lines():
     return lines
 
 
+def _source_imports(source_lines):
+    """{specifier: {"kind": "named"|"default"|"namespace", "items": [(original, local), ...]}}
+    for the LEADING ES imports of `source_lines` — stops at the first line that is neither
+    blank, a comment, nor an import. Reads via find_code_usage's own ts_handler regexes
+    (Находка 1, Vision06) — not reinvented. Multi-line `import {...} from '...'` collapsed
+    first via ts_handler's own `_join_multiline_imports` — same fix as for consumers
+    (Plan04-CARRY п.4), otherwise a multi-line import in `source_file` ITSELF would silently
+    vanish here too."""
+    from find_code_usage.handlers.ts_handler import TypeScriptHandler
+
+    handler = TypeScriptHandler()
+    lines = handler._join_multiline_imports(list(source_lines))
+
+    imports = {}
+
+    def _add(specifier, kind, items):
+        entry = imports.setdefault(specifier, {"kind": kind, "items": []})
+        for pair in items:
+            if pair not in entry["items"]:
+                entry["items"].append(pair)
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("//", "*", "/*")):
+            continue
+        m = TypeScriptHandler.ES_NAMED_RE.match(line)
+        if m:
+            _add(m.group(2).strip(), "named", handler._parse_named_items(m.group(1)))
+            continue
+        m = TypeScriptHandler.ES_DEFAULT_RE.match(line)
+        if m:
+            _add(m.group(2).strip(), "default", [(m.group(1), m.group(1))])
+            continue
+        m = TypeScriptHandler.ES_NAMESPACE_RE.match(line)
+        if m:
+            _add(m.group(2).strip(), "namespace", [(m.group(1), m.group(1))])
+            continue
+        if not stripped.startswith("import"):
+            break  # first real line of code — leading-import scan is over
+    return imports
+
+
+def _needed_imports_for_target(blocks, source_imports):
+    """{specifier: (kind, [(original, local), ...])} restricted to names these `blocks`
+    actually reference — union across every block assigned to one target file."""
+    used = set()
+    for b in blocks:
+        used.update(_WORD_RE.findall(b.text))
+    needed = {}
+    for specifier, info in source_imports.items():
+        matched = [(orig, local) for orig, local in info["items"] if local in used]
+        if matched:
+            needed[specifier] = (info["kind"], matched)
+    return needed
+
+
+def _render_import_line(specifier, kind, items):
+    """Reconstructs one import statement — NOT copied verbatim from the source (a target may
+    need only a subset of one specifier's names)."""
+    if kind == "named":
+        parts = [orig if orig == local else f"{orig} as {local}" for orig, local in items]
+        return f"import {{ {', '.join(parts)} }} from '{specifier}'"
+    if kind == "default":
+        return f"import {items[0][1]} from '{specifier}'"
+    if kind == "namespace":
+        return f"import * as {items[0][1]} from '{specifier}'"
+    raise ValueError(f"unknown import kind {kind!r}")
+
+
+def _orphan_candidates(same_level_rows, block_start, block_end):
+    """Anonymous same-level outline rows STRICTLY outside [block_start, block_end], bounded
+    on each side by the nearest NAMED (non-filler) same-level row — offered as fold-in
+    candidates for Находка 2, not auto-included. `same_level_rows` must already be filtered
+    to one `level` (a comment before a level-2 method is not this level-1 block's neighbor —
+    "разорванный диапазон" would result from mixing levels).
+
+    Import-kind rows are excluded — they have their own dedicated propagation (add_import,
+    Находка 1) and must never be silently cut out of the source (other code may still need
+    them)."""
+    before = [r for r in same_level_rows if r["end"] < block_start]
+    after = [r for r in same_level_rows if r["start"] > block_end]
+
+    candidates = []
+    for r in reversed(before):
+        if not r["filler"]:
+            break
+        if not r["text"].startswith("imports: "):
+            candidates.append((r, "до"))
+    for r in after:
+        if not r["filler"]:
+            break
+        if not r["text"].startswith("imports: "):
+            candidates.append((r, "после"))
+    return candidates
+
+
+_MANUAL_APPEND_NOTE = [
+    "# --- как дополнить перенос вручную (без перезапуска этого генератора) ---",
+    "# 'кандидат' ниже (если есть) — не единственный способ забрать что-то ещё в перенос.",
+    "# Тул работает без графа ссылок и мог не увидеть/не предложить нужное, если оно лежит",
+    "# не рядом с целью (например константу из другого конца файла). В этом случае можно",
+    "# найти нужный диапазон самому (get_codeblock --outline) и дописать снизу свою строку —",
+    "# ту же cut(FILE, LINE), что и везде здесь, присвоенную новому короткому имени cXX —",
+    "# и добавить cXX в список нужного _BLOCKS. Перегенерировать скрипт не нужно.",
+    "# --- конец ---",
+]
+
+
 def generate(file_path, splits, out_path, project_root="."):
     """Expand `[(line, target_file), ...]` into a full three-layer script at `out_path`.
 
@@ -305,6 +424,8 @@ def generate(file_path, splits, out_path, project_root="."):
     """
     all_lines = Path(file_path).read_text(encoding="utf-8").splitlines()
     top_level_names = _all_top_level_names(all_lines)
+    source_imports = _source_imports(all_lines)
+    outline = _gcb_outline_rows(file_path)
 
     by_target = {}
     seen_ranges = {}  # (start, end) -> target already claimed for this exact resolved range
@@ -335,29 +456,59 @@ def generate(file_path, splits, out_path, project_root="."):
         "",
         *_help_lines(),
         "",
+        *_MANUAL_APPEND_NOTE,
+        "",
     ]
     header_len = len(out)
 
     tag = 0
     list_names = {}
+    import_list_names = {}
     all_symbols = []
+    # seeded with every already-claimed range — a block already being cut (to ANY target in
+    # this batch) is not free to grab, must never be offered as a candidate for another one
+    printed_candidates = set(seen_ranges.keys())
     for target, blocks in by_target.items():
         var_names = []
         for b in blocks:
             tag += 1
+            same_level_rows = [r for r in outline if r["level"] == b.level]
+            for cand, position in _orphan_candidates(same_level_rows, b.start, b.end):
+                key = (cand["start"], cand["end"])
+                if key in printed_candidates:
+                    continue
+                printed_candidates.add(key)
+                out.append(
+                    f"# кандидат (не включён): строки [{cand['start']}-{cand['end']}], "
+                    f"уровень {b.level}, {position} блока [{b.start}-{b.end}] — забрать: "
+                    f"cut({file_path!r}, {cand['start']}), присвоить своему cXX"
+                )
             for h in _hint_lines(b, all_lines, top_level_names):
                 out.append(h)
+            names = _all_names_in_block(b.text)
+            if len(names) > 1:
+                out.append(f"# банд: {len(names)} объявлений в одном диапазоне — "
+                            f"{', '.join(names)}")
             out.append(_preview_line(b))
             varname = f"c{tag:02d}"
             out.append(f"{varname} = cut({file_path!r}, {b.start})  #{tag}")
             var_names.append(varname)
-            name = _block_name(b.text)
-            if name:
-                all_symbols.append(name)
+            all_symbols.extend(names)
         out.append("")
         list_name = f"{_safe_ident(target)}_BLOCKS"
         list_names[target] = list_name
         out.append(f"{list_name} = [{', '.join(var_names)}]")
+
+        needed = _needed_imports_for_target(blocks, source_imports)
+        imp_var_names = []
+        for i, (specifier, (kind, items)) in enumerate(needed.items(), start=1):
+            line_text = _render_import_line(specifier, kind, items)
+            impname = f"{_safe_ident(target)}_IMP{i:02d}"
+            out.append(f"{impname} = add_import({line_text!r})")
+            imp_var_names.append(impname)
+        imports_list_name = f"{_safe_ident(target)}_IMPORTS"
+        import_list_names[target] = imports_list_name
+        out.append(f"{imports_list_name} = [{', '.join(imp_var_names)}]")
         out.append("")
 
     if all_symbols:
@@ -368,7 +519,7 @@ def generate(file_path, splits, out_path, project_root="."):
         out.insert(header_len + 1, "")
 
     for target, list_name in list_names.items():
-        out.append(f"monster.write({target!r}, {list_name}, [])")
+        out.append(f"monster.write({target!r}, {list_name}, {import_list_names[target]})")
     out.append(f"monster.cut({file_path!r}, {' + '.join(list_names.values())})")
 
     Path(out_path).write_text("\n".join(out) + "\n", encoding="utf-8")
