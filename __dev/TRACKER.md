@@ -105,3 +105,16 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 ### Тесты и выкладка
 - `test/test_split_monster.py` — 27 кейсов (md replace, stub, comma-split, palette header).
 - Коммит `5ec9d2d`, push `origin/main` (Project-Context-Box-Tools).
+
+## make_interface_card — короткая DIRECTIVE_DESC (2026-09-23)
+
+### Штамп
+- `DIRECTIVE_DESC` для `####` записей Public API: `write short does+role, or remove` вместо длинного one-liner placeholder (меньше повторяющихся токенов в новых карточках).
+- `DIRECTIVE_SUMMARY` / `DIRECTIVE_HOWITWORKS` без изменений.
+
+### Тесты и миграция
+- `test/test_cardstamp.py` — регресс на короткую форму в свежем штампе.
+- `hermes-filetools`: массовая замена в `__map/*.md` через `replace_in_files` (346 директив); утилита скопирована в `__HQ/tools/`.
+
+### Выкладка
+- Коммит `b82a6a6` + TRACKER; push `origin/main` (Project-Context-Box-Tools).
