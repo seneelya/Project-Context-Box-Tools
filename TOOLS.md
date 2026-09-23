@@ -20,7 +20,7 @@ Match your current goal to exactly one path below. Do not guess which tool fits;
 | "Create or refresh a card for FILE" | `make_interface_card FILE --force > __map/FILE.md` | then fill `<|Agent: …|>` placeholders → run `validate_cards` |
 | "Are my cards valid / up-to-date?" | `validate_cards` (format) + `check_cards_freshness` (stale vs source) | fix issues before trusting cards for reasoning |
 | "Mass find-and-replace across many files" | `replace_in_files FOLDER MASK -r FIND WITH --dry-run` | add `-m 'EXPR'` guard if context-sensitive; confirm dry-run then run without it |
-| "Split a monster file — move named blocks to new files" | `split_monster --file FILE --split LINE TARGET ... --out-script OUT.py` | review/edit the generated script (append, don't rewrite), then `python OUT.py` (plan) → `--apply` |
+| "Split a monster file — move named blocks to new files" | `split_monster --file FILE --split LINE TARGET ... --out-script OUT.py` (`LINE` or `12,34,45` per target; `.md` → `replace`/STUB in script, code → `cut`) | `split_monster__TLDR.md`; edit generated `OUT.py` (STUB, imports), then `python OUT.py` → `--apply` |
 
 **RULE:** If your task is not in this table, fall back to:
 1. Source analysis tools (`find_code_usage`, `get_codeblock`) for facts about code.

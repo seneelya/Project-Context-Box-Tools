@@ -90,3 +90,18 @@ PROJECT_ROOT is a genuine absolute path, keep `"__HQ/tools/_logs"` — unaffecte
 both memohood and hermes-filetools). `_logs/` gitignored. Regression: test_cardstamp 142/0,
 check.py 120/0, golden_check 13/13, sweep clean, run_restamp_fixtures 21/0. Deployed + committed on
 ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
+
+## split_monster — Markdown, replace API, шапка для агента (2026-09-23)
+
+### Функциональность
+- `.md`: `replace()` + `STUB_XX` + `monster.replace()` в generate; код по-прежнему `cut` + `monster.cut`.
+- `--split` принимает список строк через запятую (`12,34,45`) на один target.
+- Адресация md-секций через get_codeblock (`level=0` в `cut`/`replace`).
+
+### Документация и UX агента
+- Единая шапка API во всех сгенерированных `move.py` (cut/replace, `\n`, только `Replace[]` в `monster.replace`).
+- `--help` epilog: форматы, ESM auto-import, smoke-фикстуры.
+
+### Тесты и выкладка
+- `test/test_split_monster.py` — 27 кейсов (md replace, stub, comma-split, palette header).
+- Коммит `5ec9d2d`, push `origin/main` (Project-Context-Box-Tools).
