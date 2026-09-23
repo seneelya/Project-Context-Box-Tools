@@ -95,7 +95,7 @@ def _lang(file):
 # The LLM fills prose; the stamp keeps the machine FACT line and the agent DIRECTIVE line
 # separate so line-based patch edits never collide (the fact is editable too — just a line).
 # Все директивы строятся через cf.agent() -> единый маркер `<|Agent: … |>` (детект в CARD_FORMAT).
-DIRECTIVE_DESC = cf.agent("replace with a concise, sufficient one-liner — what it does and its role; or delete this line if trivial")
+DIRECTIVE_DESC = cf.agent("write short does+role, or remove")
 DIRECTIVE_SUMMARY = cf.agent("replace with a concise one-line summary — what this file is and does")
 DIRECTIVE_HOWITWORKS = cf.agent("describe the actual mechanism/flow after reading the source; keep it precise — do NOT generalize a per-case detail to \"each/every\" unless it holds for all")
 DIRECTIVE_WHY = cf.agent("why?")

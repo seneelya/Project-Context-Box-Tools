@@ -180,6 +180,8 @@ def test_migrate_legacy_format():
 def test_fresh_has_no_salvage_and_placeholders():
     fresh = mic.build_card(_PR, _FILE)
     check("fresh has summary placeholder", _directive_re(mic.DIRECTIVE_SUMMARY).search(fresh) is not None)
+    check("fresh has entry desc placeholder", _directive_re(mic.DIRECTIVE_DESC).search(fresh) is not None)
+    check("fresh desc directive is the short form", "write short does+role, or remove" in fresh)
     check("fresh has no salvage", "## Salvage" not in fresh)
 
 
