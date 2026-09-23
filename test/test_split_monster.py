@@ -172,6 +172,10 @@ def test_generate_produces_tagged_layered_script():
         assert "cut(" in text
         assert "monster.write(" in text
         assert "monster.cut(" in text
+        assert "split_monster API (полная палитра" in text
+        assert "monster.replace" in text
+        assert "переносы" in text
+        assert "cut() + monster.cut()" in text
         # code line carries only code + tag — no mixed-in description
         code_line = [l for l in text.splitlines() if l.strip().startswith("c01 = cut(")][0]
         assert code_line.rstrip().endswith("#1")
@@ -203,6 +207,21 @@ function keepMe() {
   return 1;
 }
 """
+
+
+def test_generate_accepts_comma_separated_lines_for_one_target():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_md_fixture(d)
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "5,9", str(Path(d) / "merged.md"),
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        text = Path(out_script).read_text(encoding="utf-8")
+        assert text.count("= replace(") == 2
+        assert "MERGED_BLOCKS = [c01, c02]" in text
 
 
 def test_generate_dedupes_lines_that_resolve_to_the_same_band():
@@ -429,6 +448,106 @@ def test_generate_excludes_a_candidate_already_claimed_by_a_wider_cut():
         assert result.returncode == 0, result.stderr
         text = Path(out_script).read_text(encoding="utf-8")
         assert "# кандидат" not in text
+
+
+FIXTURE_MD = """\
+# Doc Title
+
+Preamble under H1.
+
+## Section A
+
+Content A
+
+### Section A.1
+
+Deep content
+
+## Section B
+
+Content B
+"""
+
+
+def _write_md_fixture(tmp_dir, name="monster.md", content=FIXTURE_MD):
+    path = Path(tmp_dir) / name
+    path.write_text(content, encoding="utf-8")
+    return str(path)
+
+
+def test_cut_md_heading_section_not_whole_document():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_md_fixture(d)
+        block = sm.cut(path, 5)  # `## Section A`
+        assert block.start == 5
+        assert block.end == 12  # through ### A.1, before ## Section B
+        assert block.text.splitlines()[0].strip() == "## Section A"
+        assert "### Section A.1" in block.text
+        assert "## Section B" not in block.text
+
+
+def test_cut_md_h3_subsection():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_md_fixture(d)
+        block = sm.cut(path, 9)  # `### Section A.1`
+        assert block.start == 9
+        assert block.text.splitlines()[0].strip() == "### Section A.1"
+        assert "Deep content" in block.text
+        assert any(l.strip() == "## Section A" for l in block.text.splitlines()) is False
+
+
+def test_generate_md_emits_replace_and_stub_vars():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_md_fixture(d)
+        out_script = str(Path(d) / "move.py")
+        run_cli("--file", src, "--split", "5", str(Path(d) / "part.md"), "--out-script", out_script)
+        text = Path(out_script).read_text(encoding="utf-8")
+        assert "STUB_01 = " in text
+        assert "= replace(" in text
+        lines = text.splitlines()
+        assert any(l.startswith("monster.replace(") for l in lines)
+        assert not any(l.startswith("monster.cut(") for l in lines)
+        assert "replace() + STUB_XX + monster.replace()" in text
+        assert "полная палитра" in text
+
+
+def test_monster_replace_leaves_stub_text(monkeypatch):
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_md_fixture(d)
+        stub = "> Moved to [A](./part.md)\n"
+        r = sm.replace(src, 5, stub)
+        monkeypatch.setattr(sys, "argv", ["split_monster", "--apply"])
+        sm.monster.write(str(Path(d) / "part.md"), [r], [])
+        sm.monster.replace(src, [r])
+        remaining = Path(src).read_text(encoding="utf-8")
+        assert stub.strip() in remaining
+        assert "## Section A" not in remaining
+        assert "Deep content" in Path(d, "part.md").read_text(encoding="utf-8")
+
+
+def test_generate_and_apply_moves_md_sections():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_md_fixture(d)
+        target_a = str(Path(d) / "part-a.md")
+        target_b = str(Path(d) / "part-b.md")
+        out_script = str(Path(d) / "move.py")
+        result = run_cli(
+            "--file", src,
+            "--split", "5", target_a,
+            "--split", "13", target_b,
+            "--out-script", out_script,
+        )
+        assert result.returncode == 0, result.stderr
+        applied = subprocess.run(
+            [sys.executable, out_script, "--apply"], capture_output=True, text=True
+        )
+        assert applied.returncode == 0, applied.stderr
+        assert "## Section A" in Path(target_a).read_text(encoding="utf-8")
+        assert "## Section B" in Path(target_b).read_text(encoding="utf-8")
+        remaining = Path(src).read_text(encoding="utf-8")
+        assert "## Section A" not in remaining
+        assert "## Section B" not in remaining
+        assert "# Doc Title" in remaining
 
 
 def test_generated_script_runs_and_moves_the_block():
