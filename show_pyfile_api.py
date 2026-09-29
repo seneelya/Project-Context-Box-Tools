@@ -230,6 +230,26 @@ def analyze(path: Path) -> str:
     return "\n".join(out)
 
 
+def _resolve_target(target):
+    """Относительный путь — сначала от CONFIG__TOOLS.PROJECT_ROOT, потом от cwd (Vision08 §5: агент
+    часто стартует ВНЕ проекта). Нашёлся в обоих и это разные файлы -> корень + предупреждение."""
+    path = Path(target)
+    if path.is_absolute():
+        return path
+    try:
+        import CONFIG__TOOLS
+        root = getattr(CONFIG__TOOLS, "PROJECT_ROOT", None)
+    except Exception:
+        root = None
+    if not root or not (Path(root) / path).is_file():
+        return path
+    under_root = (Path(root) / path).resolve()
+    if path.is_file() and not path.resolve().samefile(under_root):
+        print(f"[show_pyfile_api] warning: '{target}' exists both under the project root and under "
+              f"cwd — using {under_root}; pass an absolute path for the other one.", file=sys.stderr)
+    return under_root
+
+
 def main() -> int:
     args = sys.argv[1:]
     if args and args[0] in ("-h", "--help"):
@@ -247,7 +267,7 @@ def main() -> int:
     else:
         print("Использование: python show_pyfile_api.py <путь/к/файлу.py>  (или --file <путь>; --help для справки)", file=sys.stderr)
         return 2
-    path = Path(target)
+    path = _resolve_target(target)
     if not path.exists():
         print(f"[show_pyfile_api] файл не найден: {path}", file=sys.stderr)
         return 2

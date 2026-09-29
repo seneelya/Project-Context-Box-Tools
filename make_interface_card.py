@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import CARD_FORMAT as cf
 import seam_scanner
-from graph_from_cards import _cells, _is_sep, load_config_at
+from graph_from_cards import _cells, _is_sep, load_config_at, resolve_cards_dir, resolve_project_root
 
 
 TOOL_NAME = "make_interface_card"
@@ -49,12 +49,16 @@ def _is_absolute_path(p):
 def _load_logging_config():
     """Best-effort read of the opt-in call-logging config from CONFIG__TOOLS.py.
 
-    Returns (enabled, log_dir, project_root). enabled is False whenever CONFIG__TOOLS.py is
-    missing, doesn't list this tool, or anything else about reading it goes wrong — logging
+    Returns (enabled, log_dir, base). `base` anchors a relative LOG_DIR: config schema >= 2 ->
+    this tool's own __HQ (Vision08: our paths hang off the HQ, which may live outside the
+    sources); older configs -> PROJECT_ROOT, as before. enabled is False whenever CONFIG__TOOLS.py
+    is missing, doesn't list this tool, or anything else about reading it goes wrong — logging
     must never be why the tool fails to run."""
     try:
-        from CONFIG__TOOLS import LOG_ENABLED_TOOLS, LOG_DIR, PROJECT_ROOT
-        return TOOL_NAME in (LOG_ENABLED_TOOLS or []), LOG_DIR, PROJECT_ROOT
+        import CONFIG__TOOLS as c
+        schema = getattr(c, "CONFIG_SCHEMA_VERSION", 1) or 1
+        base = Path(__file__).resolve().parent.parent if schema >= 2 else c.PROJECT_ROOT
+        return TOOL_NAME in (c.LOG_ENABLED_TOOLS or []), c.LOG_DIR, base
     except Exception:
         return False, None, None
 
@@ -72,8 +76,8 @@ def _log_call(record):
         import json
         import time as _time
         log_dir = log_dir or "."
-        # Relative LOG_DIR is anchored to PROJECT_ROOT (CONFIG__TOOLS convention), not the
-        # process's cwd — this tool is routinely invoked from arbitrary directories.
+        # Relative LOG_DIR is anchored to the HQ (schema >= 2) or PROJECT_ROOT (older configs),
+        # never the process's cwd — this tool is routinely invoked from arbitrary directories.
         base = Path(project_root) if project_root and not _is_absolute_path(log_dir) else None
         log_path = (base / log_dir if base else Path(log_dir)) / f"{TOOL_NAME}.log.jsonl"
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -869,9 +873,10 @@ def build_card(project_root, file, old_prose=None, report=None):
     return cf.number_directives("\n".join(lines) + "\n")
 
 
-def _card_path(project_root_abs, file_rel):
-    """__map/<path>.md для файла (root-relative), с сохранением расширения исходника."""
-    return os.path.join(project_root_abs, "__map", file_rel + ".md")
+def _card_path(cards_dir, file_rel):
+    """<cards_dir>/<path>.md для файла (root-relative), с сохранением расширения исходника.
+    cards_dir — из общего резолвера card-тулов (Vision08: --cards-dir > MAP_DIR > <root>/__map)."""
+    return os.path.join(str(cards_dir), file_rel + ".md")
 
 
 def _stamp_to_file(project_root_abs, file_rel, out_path, force, discard_prose=False):
@@ -934,42 +939,6 @@ def _config_lang_testdirs(project_root):
     lang = getattr(mod, "LANGUAGE", "python") or "python"
     test_dirs = list(getattr(mod, "TEST_DIRS", []) or [])
     return lang, test_dirs
-
-
-def _config_project_root():
-    try:
-        import CONFIG__TOOLS
-        return getattr(CONFIG__TOOLS, "PROJECT_ROOT", None) or None
-    except Exception:
-        return None
-
-
-def _resolve_project_root(value):
-    """Card-тул (Vision01__path-and-flag-conventions.md): `__map/` не существует «относительно
-    cwd» — не задан → неявно `CONFIG__TOOLS.PROJECT_ROOT`, НО с проверкой на вменяемость (корень
-    обязан быть предком папки, где лежит сам тул — иначе это протухший/чужой конфиг, откажем, а не
-    тихо отработаем не туда). `@`/литерал — явное решение автора вызова, без проверки."""
-    if value is None:
-        cfg_root = _config_project_root()
-        if cfg_root is None:
-            return os.path.abspath(".")
-        root_abs = os.path.abspath(cfg_root)
-        here = os.path.dirname(os.path.abspath(__file__))
-        if not (here == root_abs or here.startswith(root_abs + os.sep)):
-            sys.stderr.write(
-                f"[make_interface_card] Error: CONFIG__TOOLS.PROJECT_ROOT ({root_abs}) doesn't "
-                f"contain this tool ({here}) — looks like a stale or foreign config. Pass "
-                f"--project-root explicitly (a path, or @ to force this value anyway).\n")
-            sys.exit(2)
-        return root_abs
-    if value == "@":
-        cfg_root = _config_project_root()
-        if cfg_root is None:
-            sys.stderr.write("[make_interface_card] Error: --project-root @ requires "
-                              "CONFIG__TOOLS.PROJECT_ROOT, but it isn't set.\n")
-            sys.exit(2)
-        return os.path.abspath(cfg_root)
-    return os.path.abspath(value)
 
 
 def _normalize_langs(value):
@@ -1058,8 +1027,8 @@ def _seams_help_text():
     ])
 
 
-def _stamp_all(project_root_abs, force, language=None, discard_prose=False, record=None):
-    """BULK: штемпелит ВСЕ исходники под project-root в __map/.
+def _stamp_all(project_root_abs, force, language=None, discard_prose=False, record=None, cards_dir=None):
+    """BULK: штемпелит ВСЕ исходники под project-root в cards_dir (обычно __map/).
 
     Языки: `language` (CLI) если задан, иначе CONFIG__TOOLS.LANGUAGE — и то и
     другое принимает список/через запятую/`all`.
@@ -1069,6 +1038,8 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False, reco
     структурированно, для последующего анализа по накопленным логам, а не для этого одного вызова.
     """
     from find_code_usage.core import collect_files, rel_path
+    if cards_dir is None:
+        cards_dir = os.path.join(project_root_abs, "__map")
     lang, test_dirs = _config_lang_testdirs(project_root_abs)
     selected = language if language else lang
     langs = _normalize_langs(selected)
@@ -1089,7 +1060,7 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False, reco
     for abs_path in files:
         rel = rel_path(abs_path, project_root_abs)
         try:
-            status, rep = _stamp_to_file(project_root_abs, rel, _card_path(project_root_abs, rel),
+            status, rep = _stamp_to_file(project_root_abs, rel, _card_path(cards_dir, rel),
                                           force, discard_prose)
             counts[status] += 1
             if status == "blocked":
@@ -1152,11 +1123,15 @@ def _main_impl(record):
                      help="target source file — alias for the positional <file>, same thing")
     ap.add_argument("--project-root", type=str, default=None,
                      help="project root (also base for a relative <file>/--file). Not given -> "
-                          "implicitly CONFIG__TOOLS.PROJECT_ROOT (sanity-checked: must contain "
-                          "this tool's own folder). '@' -> same, explicitly, unchecked. "
-                          "Literal path -> used as given, unchecked.")
+                          "implicitly CONFIG__TOOLS.PROJECT_ROOT of this tool's own __HQ (must "
+                          "exist). '@' -> same, explicitly, unchecked. Literal path -> used as given.")
     ap.add_argument("--out", type=str, default=None,
                     help="write the card to this file (default: print to stdout)")
+    ap.add_argument("--cards-dir", type=str, default=None,
+                    help="card folder for --all (and for a single <file> without --out: writes "
+                         "<cards-dir>/<file>.md). Default for --all: root from config -> "
+                         "CONFIG__TOOLS.MAP_DIR (relative to __HQ), no key -> <root>/__map; "
+                         "explicit --project-root -> <root>/__map.")
     ap.add_argument("--force", action="store_true",
                     help="discard the existing card and write a FRESH stamp "
                          "(default on an existing card is MERGE — refresh facts, keep prose). "
@@ -1166,7 +1141,7 @@ def _main_impl(record):
                          "(without it, --force on such a card is REFUSED, exit 2 — see REQ-004)")
     ap.add_argument("--all", action="store_true",
                     help="BULK maintainer pre-stamp: stamp EVERY source file under --project-root "
-                         "(by --language, else CONFIG__TOOLS.LANGUAGE) each to __map/<path>.md. Skips "
+                         "(by --language, else CONFIG__TOOLS.LANGUAGE) each to <cards>/<path>.md (see --cards-dir). Skips "
                          ".git/__pycache__/__map/__HQ/.venv/node_modules/... and CONFIG__TOOLS.TEST_DIRS. "
                          "Existing cards MERGE (facts refreshed, prose kept); add --force to reset them "
                          "(cards with prose additionally need --discard-prose, else they're skipped as "
@@ -1193,7 +1168,7 @@ def _main_impl(record):
         print(_seams_help_text())
         return 0
 
-    project_root_abs = _resolve_project_root(args.project_root)
+    project_root_abs = str(resolve_project_root(args.project_root))
     target_file = args.file_opt if args.file_opt is not None else args.file
 
     if args.info_seams:
@@ -1213,12 +1188,16 @@ def _main_impl(record):
 
     if args.all:
         record["mode"] = "all"
-        return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose, record)
+        cards_dir = resolve_cards_dir(args.cards_dir, args.project_root, project_root_abs)
+        return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose, record, cards_dir)
 
     if not target_file:
         ap.error("either a <file> argument (or --file), or --all is required")
 
     out = args.out
+    if not out and args.cards_dir:
+        rel = os.path.relpath(os.path.abspath(os.path.join(project_root_abs, target_file)), project_root_abs)
+        out = _card_path(os.path.abspath(args.cards_dir), rel.replace(os.sep, "/"))
     if not out:
         # Без --out — просто печать штемпеля в stdout (без merge: файла-цели нет).
         record["mode"] = "preview"

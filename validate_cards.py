@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 import CARD_FORMAT as cf
-from graph_from_cards import build_graph, resolve_project_root, _cells, _is_sep, _DASH
+from graph_from_cards import build_graph, resolve_cards_dir, resolve_project_root, _cells, _is_sep, _DASH
 
 
 def _sections(lines):
@@ -199,17 +199,18 @@ def main():
     ap = argparse.ArgumentParser(description="Validate cards against CARD_FORMAT.py", add_help=False)
     ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     ap.add_argument("--cards-dir", type=Path, default=None,
-                    help="карточки (по умолч. <project-root>/__map)")
+                    help="карточки. По умолч.: корень из конфига -> CONFIG__TOOLS.MAP_DIR (от __HQ), "
+                         "нет ключа -> <root>/__map; явный --project-root -> <root>/__map")
     ap.add_argument("--project-root", type=str, default=None,
-                    help="корень проекта (для сирот/pending и для <root>/__map). Не задан -> "
-                         "неявно CONFIG__TOOLS.PROJECT_ROOT (sanity-checked: должен содержать этот "
-                         "тул). '@' -> то же явно, без проверки. Литерал -> буквально, без проверки.")
+                    help="корень проекта (для сирот/pending). Не задан -> неявно "
+                         "CONFIG__TOOLS.PROJECT_ROOT своего __HQ (должен существовать). '@' -> то же "
+                         "явно, без проверки. Литерал -> буквально.")
     args = ap.parse_args()
 
-    # Корень: заданный руками флаг ГЛАВНЕЕ конфига; иначе CONFIG__TOOLS.PROJECT_ROOT; иначе cwd.
+    # Корень: заданный руками флаг ГЛАВНЕЕ конфига; иначе CONFIG__TOOLS.PROJECT_ROOT.
     project_root = resolve_project_root(args.project_root)
-    # cards_dir выводится из корня, если не задан явно (иначе игнорировали --project-root -> баг).
-    cards_dir = args.cards_dir.resolve() if args.cards_dir else (project_root / "__map")
+    # Каталог карточек — общий резолвер card-тулов (Vision08: --cards-dir > MAP_DIR > <root>/__map).
+    cards_dir = resolve_cards_dir(args.cards_dir, args.project_root, project_root)
     if not cards_dir.exists():
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)

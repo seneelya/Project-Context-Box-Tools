@@ -3,9 +3,8 @@
 Validates cards against the `CARD_FORMAT.py` contract. Lean output that **coaches the author**;
 exit 1 on any problem (so it gates in a loop). Independent of `make_interface_card.py`.
 
-**Target:** `validate_cards.py [--cards-dir P] [--project-root P]` — defaults: cards = `<project>/__map/`.
-`--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked (must contain
-this tool's own folder). `@` -> same, explicit, unchecked. Literal path -> as given, unchecked.
+**Target:** `validate_cards.py [--cards-dir P] [--project-root P]` 
+`--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT` of this tool's own `__HQ` (must exist; missing config -> refuses, never a silent cwd; a RELATIVE value must still contain this tool). `@` -> same, explicit, unchecked. Literal path -> as given. Cards: `--cards-dir` > `CONFIG__TOOLS.MAP_DIR` (relative to `__HQ`) > `<root>/__map/`; an explicit `--project-root` always means `<root>/__map/` (Vision08).
 
 ## Quick use
 ```

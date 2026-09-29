@@ -74,9 +74,10 @@ def main():
     parser.add_argument(
         "--project-root",
         default=None,
-        help="Root to scan for consumers/imports, and base for a RELATIVE --file. Not given -> cwd "
-             "(never read from config silently). '@' -> CONFIG__TOOLS.PROJECT_ROOT, explicitly. "
-             f"Literal path -> used as given. (CONFIG__TOOLS.PROJECT_ROOT={CFG_PROJECT_ROOT or 'unset'})"
+        help="Root to scan for consumers/imports, and FIRST base for a RELATIVE --file (cwd second). "
+             "Not given -> CONFIG__TOOLS.PROJECT_ROOT if set and existing, else cwd. '@' -> "
+             "CONFIG__TOOLS.PROJECT_ROOT, explicitly. Literal path -> used as given. "
+             f"(CONFIG__TOOLS.PROJECT_ROOT={CFG_PROJECT_ROOT or 'unset'})"
     )
     parser.add_argument(
         "--tests-only",
@@ -102,10 +103,12 @@ def main():
 
     symbol_filter = {s.strip() for s in args.symbol.split(",") if s.strip()} or None
 
-    # Resolve --project-root: not given -> cwd; "@" -> CONFIG__TOOLS.PROJECT_ROOT, explicitly;
-    # literal -> as given. Generic tool: config is never read silently (see Vision01).
+    # Resolve --project-root: not given -> CONFIG__TOOLS.PROJECT_ROOT if it exists, else cwd
+    # (Vision08 §5: the agent often starts OUTSIDE the project); "@" -> config, explicitly;
+    # literal -> as given.
     if args.project_root is None:
-        project_root = os.path.abspath(".")
+        cfg_abs = os.path.abspath(CFG_PROJECT_ROOT) if CFG_PROJECT_ROOT else None
+        project_root = cfg_abs if cfg_abs and os.path.isdir(cfg_abs) else os.path.abspath(".")
     elif args.project_root == "@":
         if not CFG_PROJECT_ROOT:
             print("Error: --project-root @ requires CONFIG__TOOLS.PROJECT_ROOT, but it isn't set.", file=sys.stderr)
@@ -120,10 +123,25 @@ def main():
     if not args.file and not args.module:
         print("Find where symbols from a target module are imported or used across the project.")
         print("Usage: find_code_usage.py --file PATH [--module-names N1,N2,...] [--language LNG] [--incoming|--verbose|--tests-only] [--symbol NAME]")
-        print(f"--project-root not given -> cwd (\"{project_root}\"); \"@\" -> CONFIG__TOOLS.PROJECT_ROOT (\"{CFG_PROJECT_ROOT or 'unset'}\")")
+        print(f"--project-root not given -> CONFIG__TOOLS.PROJECT_ROOT if set, else cwd (now: \"{project_root}\")")
         print()
         print("Full help with --help")
         sys.exit(1)
+
+    # Relative --file (Vision08 §5): first under project_root, then cwd; turned absolute here so
+    # everything below sees one unambiguous path. A hit in BOTH (different files) -> root wins +
+    # a one-line warning (the REQ-002-A risk: a coincidental file under the root outranking the
+    # one meant relative to cwd).
+    if args.file and not os.path.isabs(args.file):
+        under_root = os.path.abspath(os.path.join(project_root, args.file))
+        under_cwd = os.path.abspath(args.file)
+        if os.path.isfile(under_root):
+            if os.path.isfile(under_cwd) and not os.path.samefile(under_root, under_cwd):
+                print(f"Warning: '{args.file}' exists both under the project root and under cwd — "
+                      f"using {under_root}; pass an absolute path for the other one.", file=sys.stderr)
+            args.file = under_root
+        elif os.path.isfile(under_cwd):
+            args.file = under_cwd
 
     sys.path.insert(0, str(_TOOLS_DIR))
     from find_code_usage.core import resolve_target_names, scan_downstream, scan_incoming
@@ -136,10 +154,9 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Validate --file if provided (required for --incoming mode). Joins against project_root,
-    # which is exactly cwd when --project-root wasn't given (generic-tool rule) — so this is
-    # cwd-relative in the common case (REQ-002-A: no more silent fallback to a config-supplied,
-    # possibly unrelated root) and root-relative when the caller explicitly asked for that root.
+    # Validate --file if provided (required for --incoming mode). A relative --file was already
+    # resolved to an absolute path above (root first, then cwd); the join below only matters
+    # when neither existed, to print where it was looked for.
     target_path_abs = ""
     if args.file:
         file_arg = args.file if os.path.isabs(args.file) else os.path.join(project_root, args.file)

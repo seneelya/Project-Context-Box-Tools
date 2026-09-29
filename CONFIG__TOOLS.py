@@ -10,8 +10,17 @@ local dev/testing against real data, prefer an explicit fixture dir passed in co
 
 Public interface (tools just import these):
     PROJECT_ROOT       -> str  # first existing path from candidates list, or "." as fallback
+    MAP_DIR            -> str  # card folder, relative to the HQ (this file's grandparent)
     LANGUAGE           -> str  # default language for tools that support --language flag
     TEST_DIRS          -> list # test directories excluded from scanning by default
+
+Two roots (Vision08, `__dev/vision/Vision08__hq-as-anchor.md` in ProjectStarter):
+    PROJECT_ROOT = the SOURCES being studied (card IDs are paths relative to it);
+    HQ           = our own folder (`__HQ`): cards, logs, plans, tools. A tool always knows its HQ
+                   by itself (`<HQ>/tools/<tool>.py`) — it is never read from here. The HQ
+                   usually lives inside the sources but doesn't have to, and the agent may start
+                   anywhere (e.g. one level above the project).
+Our own paths (MAP_DIR, LOG_DIR) are relative to the HQ; explicit CLI flags always win.
 """
 
 # CONFIG_SCHEMA_VERSION: bump whenever this template gains a new recognized key/section
@@ -20,7 +29,7 @@ Public interface (tools just import these):
 # regex, no import) from both the template and the target project's copy; a project whose
 # number is lower gets a STALE-CONFIG signal telling it which settings are missing — it
 # never merges automatically, only flags it. Bump this on any change to what's below.
-CONFIG_SCHEMA_VERSION = 1
+CONFIG_SCHEMA_VERSION = 2   # 2: MAP_DIR added; LOG_DIR anchored to the HQ
 
 
 def _resolve_root(candidates):
@@ -41,6 +50,14 @@ def _resolve_root(candidates):
 PROJECT_ROOT = _resolve_root([
     # "/project/<your-project>", r"C:\path\to\<your-project>"
 ]) or "."
+
+# ---------------------------------------------------------------------------
+# MAP_DIR: where the cards live, RELATIVE TO THE HQ (or absolute). "__map" -> <HQ>/__map.
+# Card tools use it only when the project root came from this config; an explicit
+# --project-root <path> means <path>/__map, and --cards-dir beats both.
+# No MAP_DIR at all (a schema-1 project copy) -> legacy <PROJECT_ROOT>/__map.
+# ---------------------------------------------------------------------------
+MAP_DIR = "__map"
 
 # ---------------------------------------------------------------------------
 # LANGUAGE: default language(s) for tools that support --language / bulk scans.
@@ -143,9 +160,9 @@ ESCALATE_K = 1.5
 #   LOG_DIR           -> directory each enabled tool writes its log file into
 #                         (one file per tool: "<tool_name>.log.jsonl"). Created
 #                         automatically if missing. A relative path is anchored
-#                         to PROJECT_ROOT above (not the process's cwd) — tools
-#                         get invoked from all over, cwd-relative would scatter
-#                         log files depending on where the caller stood.
+#                         to the HQ (schema >= 2; schema 1 copies: PROJECT_ROOT),
+#                         never the process's cwd — tools get invoked from all
+#                         over, cwd-relative would scatter log files.
 #
 # Format is JSONL (one JSON object per line) — diagnostic only: argv, exit code,
 # duration, error (if any); make_interface_card also logs its own status
@@ -158,11 +175,7 @@ LOG_ENABLED_TOOLS = [
     "get_codeblock",
     "make_interface_card",
 ]
-# NOT "__HQ/tools/_logs" here specifically — THIS copy's PROJECT_ROOT is "." (this file is
-# deliberately NEUTRAL, see the module docstring), and every test/doc in this repo already
-# invokes the CLIs with cwd = this `__HQ/tools/` directory itself, so PROJECT_ROOT already IS
-# `__HQ/tools/` — prefixing it again doubled the path (`__HQ/tools/__HQ/tools/_logs`, caught
-# 2026-09-14 when logging was turned on by default). A REAL deployed project's own copy of this
-# file has an absolute PROJECT_ROOT (the outer project root), where "__HQ/tools/_logs" is
-# correct and should NOT be changed to match this one — see memohood/hermes-filetools.
-LOG_DIR = "_logs"
+# Relative to the HQ, so the same value is right in every copy — this neutral one (whose
+# PROJECT_ROOT is ".") and a deployed project alike. The old PROJECT_ROOT-anchored value
+# "__HQ/tools/_logs" doubled into "__HQ/tools/__HQ/tools/_logs" here (2026-09-14).
+LOG_DIR = "tools/_logs"

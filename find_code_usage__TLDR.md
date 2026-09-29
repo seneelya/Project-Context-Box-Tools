@@ -45,9 +45,10 @@ Note: `--verbose` `levels` are informational **depth** (how nested the call is) 
 
 ## Configuration notes
 
-**`--project-root`** — not given -> cwd (relative `--file` resolves from where you actually stand,
-never silently from config). `@` -> explicitly `CONFIG__TOOLS.PROJECT_ROOT`. Literal path -> used
-as given. Config is never read without writing `@` — see `__dev/vision/Vision01__path-and-flag-conventions.md`.
+**`--project-root`** — not given -> `CONFIG__TOOLS.PROJECT_ROOT` if set and existing, else cwd (the
+agent often starts OUTSIDE the project). Relative `--file`: first under the root, then cwd; found in
+BOTH (different files) -> the root wins + a one-line warning. `@` -> explicitly the config value.
+Literal path -> used as given. Vision08 §5 (ProjectStarter `__dev/vision/`).
 
 Language priority: CLI `--language` → file extension → config → `python`.
 Paths in output are always `/`-normalized (cross-platform, joinable with card File Path).

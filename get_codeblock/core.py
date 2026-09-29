@@ -39,6 +39,13 @@ def is_absolute_path(p):
     return bool(p and len(p) >= 2 and p[1] == ':')
 
 
+def _same_file(a, b):
+    try:
+        return a.samefile(b)
+    except OSError:
+        return False
+
+
 def load_config():
     """Load CONFIG__TOOLS.py if available."""
     try:
@@ -65,12 +72,11 @@ def parse_args():
     dot = False  # flag: reader .0 universal map (IR: landmarks + filler-полосы + frames)
     depth = 0    # for --dot: how many landmark levels to expand
     force = False  # flag (Vision05): skip query-escalation, exact requested range only
-    # Generic-tool rule (Vision01__path-and-flag-conventions.md): --project-root omitted -> no
-    # root at all (relative --file falls through to plain cwd-relative open() below); config is
-    # read ONLY on an explicit "@" (handled at the --project-root token itself). Previously this
-    # silently defaulted to CONFIG__TOOLS.PROJECT_ROOT, which — softened only by an existence
-    # check, not eliminated — could let a coincidentally-existing file under that root silently
-    # outrank the file the caller actually meant relative to where they stood (REQ-002-A class).
+    # --project-root omitted -> None here; main() then falls back to CONFIG__TOOLS.PROJECT_ROOT as
+    # the FIRST base for a relative --file, cwd second (Vision08 §5 — the agent often starts
+    # OUTSIDE the project and must not type long absolute paths). The REQ-002-A risk (a file that
+    # coincidentally exists under the root silently outranking the one meant relative to cwd) is
+    # handled there: a hit in BOTH places -> the root wins but a one-line warning names both.
     project_root = None
 
     i = 0
@@ -159,7 +165,8 @@ def parse_args():
             print("")
             print("Arguments:")
             print("  --project-root PATH Base to try first for a relative --file, before falling back to")
-            print("                      cwd. Not given -> pure cwd, config is never read implicitly.")
+            print("                      cwd. Not given -> CONFIG__TOOLS.PROJECT_ROOT (if set), then cwd;")
+            print("                      found in both (different files) -> root wins + a warning.")
             print("                      '@' -> explicitly CONFIG__TOOLS.PROJECT_ROOT.")
             print("  --file PATH         Path to file (absolute or relative). Code + Markdown (.md).")
             print("  --line N[,N,...]    Target line number(s), 1-based. One file parse resolves them")
@@ -751,12 +758,18 @@ TOOL_NAME = "get_codeblock"
 def _load_logging_config():
     """Best-effort read of the opt-in call-logging config from CONFIG__TOOLS.py.
 
-    Returns (enabled, log_dir, project_root). enabled is False whenever
-    CONFIG__TOOLS.py is missing, doesn't list this tool, or anything else about
-    reading it goes wrong — logging must never be why the tool fails to run."""
+    Returns (enabled, log_dir, base). `base` anchors a relative LOG_DIR: config
+    schema >= 2 -> this tool's own __HQ (Vision08: our paths hang off the HQ,
+    which may live outside the sources); older configs -> PROJECT_ROOT, as
+    before. enabled is False whenever CONFIG__TOOLS.py is missing, doesn't list
+    this tool, or anything else about reading it goes wrong — logging must never
+    be why the tool fails to run."""
     try:
-        from CONFIG__TOOLS import LOG_ENABLED_TOOLS, LOG_DIR, PROJECT_ROOT
-        return TOOL_NAME in (LOG_ENABLED_TOOLS or []), LOG_DIR, PROJECT_ROOT
+        import CONFIG__TOOLS as c
+        schema = getattr(c, "CONFIG_SCHEMA_VERSION", 1) or 1
+        # this file is <HQ>/tools/get_codeblock/core.py
+        base = Path(__file__).resolve().parents[2] if schema >= 2 else c.PROJECT_ROOT
+        return TOOL_NAME in (c.LOG_ENABLED_TOOLS or []), c.LOG_DIR, base
     except Exception:
         return False, None, None
 
@@ -773,8 +786,8 @@ def _log_call(record):
         import json
         import time as _time
         log_dir = log_dir or "."
-        # A relative LOG_DIR is anchored to PROJECT_ROOT (same convention as the
-        # rest of CONFIG__TOOLS), NOT to the process's cwd — this tool is routinely
+        # A relative LOG_DIR is anchored to the HQ (schema >= 2) or PROJECT_ROOT
+        # (older configs), NOT to the process's cwd — this tool is routinely
         # invoked from arbitrary directories, and a cwd-relative log dir would
         # scatter/duplicate log files depending on where the caller stood.
         base = Path(project_root) if project_root and not is_absolute_path(log_dir) else None
@@ -821,12 +834,19 @@ def _main_impl():
 
     args, config = parse_args()
 
-    # Resolve file path: relative paths are joined with --root (or config PROJECT_ROOT)
+    # Resolve file path (Vision08 §5): absolute -> as is; relative -> first the root (explicit
+    # --project-root, else CONFIG__TOOLS.PROJECT_ROOT), then cwd. Resolved from the root -> the
+    # path becomes absolute, so the 'File:' header shows exactly what was opened.
     file_path = args['file']
-    if not is_absolute_path(file_path) and args.get('project_root'):
-        resolved = str(Path(args['project_root']) / file_path)
-        if Path(resolved).exists():
-            file_path = resolved
+    base = args.get('project_root') or (config or {}).get('PROJECT_ROOT')
+    if not is_absolute_path(file_path) and base:
+        resolved = Path(base) / file_path
+        if resolved.is_file():
+            here = Path(file_path)
+            if here.is_file() and not _same_file(here, resolved):
+                print(f"Warning: '{file_path}' exists both under the project root and under cwd — "
+                      f"using {resolved}; pass an absolute path for the other one.", file=sys.stderr)
+            file_path = str(resolved)
 
     try:
         lines = read_lines(file_path)

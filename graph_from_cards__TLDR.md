@@ -4,10 +4,8 @@ The project's topology from `__map/` cards — the "second compilation". Load it
 then reason in your head (impact / chain / depth); no need to re-read cards.
 
 **Target:** `graph_from_cards.py [--project-root P] [--view tree|depth|seams-mermaid] [--edges out|in|inout]`
-— default cards = `<project>/__map/`. `--project-root` not given -> implicitly
-`CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked (must contain this tool's own folder — a stale/foreign
-config refuses instead of silently mapping the wrong tree). `@` -> same, explicit, unchecked.
-Literal path -> as given, unchecked.
+
+`--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT` of this tool's own `__HQ` (must exist; missing config -> refuses, never a silent cwd; a RELATIVE value must still contain this tool). `@` -> same, explicit, unchecked. Literal path -> as given. Cards: `--cards-dir` > `CONFIG__TOOLS.MAP_DIR` (relative to `__HQ`) > `<root>/__map/`; an explicit `--project-root` always means `<root>/__map/` (Vision08).
 
 ## Quick use
 ```

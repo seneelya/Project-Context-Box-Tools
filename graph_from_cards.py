@@ -23,7 +23,8 @@
     python graph_from_cards.py --cycles                       # циклы A → B → C → A
     python graph_from_cards.py --discrepancies [--group-by kind|package|card]
                                                               # свод «карта vs реальность»
-Карточки по умолчанию в <project-root>/__map/ (корень: флаг > CONFIG__TOOLS > cwd).
+Карточки: --cards-dir > CONFIG__TOOLS.MAP_DIR (от __HQ) > <project-root>/__map/
+(корень: флаг > CONFIG__TOOLS.PROJECT_ROOT; явный --project-root -> всегда <root>/__map).
 """
 
 import argparse
@@ -52,21 +53,18 @@ def resolve_project_root(cli_value):
     `check_cards_freshness` (не для всего пакета — generic-тулы резолвят иначе, см.
     __dev/vision/Vision01__path-and-flag-conventions.md).
 
-    - не задан -> неявно `CONFIG__TOOLS.PROJECT_ROOT`, со sanity-check: резолвленный корень
-      обязан быть предком папки, где лежит сам тул — иначе это протухший/чужой конфиг, отказ,
-      а не тихая работа не пойми над чем;
-    - `"@"` -> то же самое, явно, БЕЗ проверки — пользователь осознанно так решил;
+    - не задан -> неявно `CONFIG__TOOLS.PROJECT_ROOT` СВОЕГО штаба (Vision08): штаб может лежать
+      вне исходников, поэтому «корень обязан быть предком тула» больше не требуется. Проверки:
+      конфига/значения нет -> отказ (не тихий cwd: агент может стоять где угодно, напр. в `SRC/`);
+      папки нет -> отказ; значение ОТНОСИТЕЛЬНОЕ (легаси `or "."`) -> резолвится от cwd, т.е.
+      зависит от того, где стоишь, -> для него старая проверка «корень — предок тула» остаётся;
+    - `"@"` -> то же значение, явно, БЕЗ проверок — пользователь осознанно так решил;
     - литеральный путь -> буквально, без проверки.
     """
     if cli_value is not None and str(cli_value) != "@":
         return Path(cli_value).resolve()
 
-    cfg_root = None
-    try:
-        import CONFIG__TOOLS
-        cfg_root = getattr(CONFIG__TOOLS, "PROJECT_ROOT", None) or None
-    except Exception:
-        pass
+    cfg_root = getattr(own_config(), "PROJECT_ROOT", None) or None
 
     if str(cli_value) == "@":
         if cfg_root is None:
@@ -77,16 +75,60 @@ def resolve_project_root(cli_value):
 
     # cli_value is None: неявный путь — с проверкой на вменяемость.
     if cfg_root is None:
-        return Path.cwd()
-    root_abs = Path(cfg_root).resolve()
-    here = Path(__file__).resolve().parent
-    if not (here == root_abs or root_abs in here.parents):
         sys.stderr.write(
-            f"Error: CONFIG__TOOLS.PROJECT_ROOT ({root_abs}) doesn't contain this tool ({here}) "
-            f"— looks like a stale or foreign config. Pass --project-root explicitly "
-            f"(a path, or @ to force this value anyway).\n")
+            f"Error: no CONFIG__TOOLS.PROJECT_ROOT in {hq_root() / 'tools'} — pass --project-root "
+            f"explicitly.\n")
+        sys.exit(2)
+    root_abs = Path(cfg_root).resolve()
+    if not root_abs.is_dir():
+        sys.stderr.write(f"Error: CONFIG__TOOLS.PROJECT_ROOT ({root_abs}) is not a directory — "
+                          f"pass --project-root explicitly.\n")
+        sys.exit(2)
+    here = Path(__file__).resolve().parent
+    if not Path(cfg_root).is_absolute() and not (here == root_abs or root_abs in here.parents):
+        sys.stderr.write(
+            f"Error: CONFIG__TOOLS.PROJECT_ROOT is relative ({cfg_root!r} -> {root_abs}, from cwd) "
+            f"and doesn't contain this tool ({here}) — set it to an absolute path, or pass "
+            f"--project-root explicitly (a path, or @ to force this value anyway).\n")
         sys.exit(2)
     return root_abs
+
+
+def hq_root():
+    """Штаб (`__HQ`) — родитель папки, где лежит сам тул (`<HQ>/tools/<tool>.py`). Вычисляется,
+    не конфигурируется: не зависит ни от cwd, ни от PROJECT_ROOT (Vision08 §2)."""
+    return Path(__file__).resolve().parent.parent
+
+
+def own_config():
+    """Конфиг СВОЕГО штаба (`<HQ>/tools/CONFIG__TOOLS.py`), или None. Через обычный import:
+    для запущенного скрипта sys.path[0] = папка тула, так что это и есть соседний файл."""
+    try:
+        import CONFIG__TOOLS
+        return CONFIG__TOOLS
+    except Exception:
+        return None
+
+
+def hq_path(value):
+    """Путь из конфига, заданный относительно штаба (MAP_DIR, LOG_DIR при схеме >= 2)."""
+    p = Path(value)
+    return p if p.is_absolute() else (hq_root() / p).resolve()
+
+
+def resolve_cards_dir(cards_dir_arg, project_root_arg, project_root):
+    """Каталог карточек (Vision08 §3 п.2) — единая точка для всех card-тулов:
+    1. `--cards-dir X` -> X;
+    2. `--project-root <путь>` задан явно -> `<root>/__map` (MAP_DIR конфига НЕ применяется: ID
+       карточек относительны корню, чужой проект в нашей карте = каша);
+    3. иначе (корень из конфига, в т.ч. `@`) -> `CONFIG__TOOLS.MAP_DIR` от штаба; ключа нет ->
+       легаси `PROJECT_ROOT/__map`."""
+    if cards_dir_arg:
+        return Path(cards_dir_arg).resolve()
+    if project_root_arg is not None and str(project_root_arg) != "@":
+        return Path(project_root) / "__map"
+    map_dir = getattr(own_config(), "MAP_DIR", None)
+    return hq_path(map_dir) if map_dir else Path(project_root) / "__map"
 
 
 def load_config_at(root):
@@ -95,9 +137,20 @@ def load_config_at(root):
     LANGUAGE, DECL_BACKEND...), not whatever `CONFIG__TOOLS.py` happens to sit next to the
     running script via `import CONFIG__TOOLS`/sys.path (a bulk `--all` run from a dev checkout
     against a foreign project silently used the dev checkout's own TEST_DIRS otherwise).
-    Returns the loaded module, or None if `R` has no such file / it fails to import."""
+    Returns the loaded module, or None if `R` has no such file / it fails to import.
+
+    Vision08: if R IS our own PROJECT_ROOT, the settings are our own HQ's config — the HQ may live
+    outside R, so `R/__HQ/tools/` would miss it. `R/__HQ/tools/` stays the lookup for a FOREIGN R."""
     import importlib.util
 
+    own = own_config()
+    own_root = getattr(own, "PROJECT_ROOT", None)
+    if own_root:
+        try:
+            if Path(own_root).resolve() == Path(root).resolve():
+                return own
+        except OSError:
+            pass
     path = Path(root) / "__HQ" / "tools" / "CONFIG__TOOLS.py"
     if not path.is_file():
         return None
@@ -888,11 +941,12 @@ def main():
         pass
     ap = argparse.ArgumentParser(description="Flat project topology from __map/ cards", add_help=False)
     ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
-    ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <project-root>/__map)")
+    ap.add_argument("--cards-dir", type=Path, default=None,
+                    help="карточки. По умолч.: корень из конфига -> CONFIG__TOOLS.MAP_DIR (от __HQ), "
+                         "нет ключа -> <root>/__map; явный --project-root -> <root>/__map")
     ap.add_argument("--project-root", type=Path, default=None,
-                    help="корень проекта для <root>/__map. Не задан -> неявно "
-                         "CONFIG__TOOLS.PROJECT_ROOT (sanity-checked: должен содержать этот тул). "
-                         "'@' -> то же явно, без проверки. Литерал -> буквально, без проверки.")
+                    help="корень проекта. Не задан -> неявно CONFIG__TOOLS.PROJECT_ROOT своего __HQ "
+                         "(должен существовать). '@' -> то же явно, без проверки. Литерал -> буквально.")
     ap.add_argument("--json", action="store_true", help="выдать граф как JSON вместо плоского текста")
     ap.add_argument("--file", metavar="PATH", default=None,
                     help="фокус-срез вокруг файла: что он тянет (downstream) + кто тянет его (upstream)")
@@ -915,7 +969,9 @@ def main():
                     help="0 = только модули и связи (описания скрыты) | 1 = с описаниями (дефолт)")
     args = ap.parse_args()
 
-    cards_dir = args.cards_dir.resolve() if args.cards_dir else (resolve_project_root(args.project_root) / "__map")
+    # С явным --cards-dir корень нужен только --discrepancies — не требуем его зря (как и раньше).
+    cards_dir = (args.cards_dir.resolve() if args.cards_dir else
+                 resolve_cards_dir(None, args.project_root, resolve_project_root(args.project_root)))
     if not cards_dir.exists():
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)

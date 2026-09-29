@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Актуальность карточек (__map/, любой язык — .py.md/.js.md/...) — вывод под чтение ЛЛМ.
 
-Режимы:
+Режим — ПОПАРНО, каждый файл у своего git (исходники и карточки могут быть в разных репо):
 - git: карточка устарела, если исходник тронут без обновления карточки — в
   рабочем дереве (незакоммиченная правка исходника при чистой карточке) или по
-  истории (последний коммит исходника новее последнего коммита карточки).
-- mtime: фоллбэк — сравнение mtime карточки и исходника.
+  истории (последний коммит исходника новее последнего коммита карточки; `%ct` —
+  часы, так что сравнимо и между двумя репо).
+- mtime: сторона вне git (или игнорируемая своим репо) — её mtime.
 
 Вывод намеренно скупой: без рамок и эмодзи (шум/токены + cp1251-краш на Windows),
 отставание — числом. Для устаревших в git-режиме добавляются коммиты, тронувшие
@@ -13,8 +14,7 @@
 
 Использование:
     python check_cards_freshness.py [--cards-dir PATH] [--project-root PATH]
-По умолчанию карточки в <project>/__map/, корень — родитель __map/
-(скрипт лежит в __HQ/tools/).
+Карточки: --cards-dir > CONFIG__TOOLS.MAP_DIR (от __HQ) > <project-root>/__map/.
 """
 
 import argparse
@@ -23,7 +23,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from graph_from_cards import resolve_project_root
+from graph_from_cards import resolve_cards_dir, resolve_project_root
 
 
 def get_mtime(path):
@@ -37,7 +37,7 @@ def get_mtime(path):
 def _git(root, *args):
     try:
         proc = subprocess.run(
-            ["git", "-C", str(root), *args],
+            ["git", "-c", "core.quotepath=off", "-C", str(root), *args],
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
         )
         return proc.returncode, proc.stdout
@@ -53,7 +53,7 @@ def is_git_repo(root):
 
 
 def _dirty_paths(root):
-    code, out = _git(root, "status", "--porcelain")
+    code, out = _git(root, "status", "--porcelain", "--untracked-files=all")  # не схлопывать новую папку в "?? dir/"
     if code != 0:
         return set()
     dirty = set()
@@ -99,55 +99,85 @@ def _commits_since(root, rel_path, since_ct, limit=5):
     return res
 
 
+class _Repos:
+    """Каждый файл — у СВОЕГО git (Vision08 §3 п.5): исходники и карточки могут жить в разных
+    репо (форк + штаб со своим git, скрытый от форка). Репо файла = ближайший `.git` вверх от его
+    папки (`git -C <dir> rev-parse --show-toplevel`); файл, который этот репо ИГНОРИРУЕТ (напр.
+    карточки в `__HQ`, исключённом из git форка, когда у штаба своего git нет), — «без git» ->
+    mtime. dirty-набор считается один раз на репо."""
+
+    def __init__(self):
+        self._top_by_dir, self._dirty_by_top = {}, {}
+
+    def top(self, path):
+        d = path.parent
+        if d not in self._top_by_dir:
+            code, out = _git(d, "rev-parse", "--show-toplevel")
+            self._top_by_dir[d] = Path(out.strip()).resolve() if code == 0 and out.strip() else None
+        top = self._top_by_dir[d]
+        if top is None:
+            return None
+        code, _ = _git(top, "check-ignore", "-q", "--", _rel(path, top))
+        return None if code == 0 else top
+
+    def dirty(self, top, path):
+        if top not in self._dirty_by_top:
+            self._dirty_by_top[top] = _dirty_paths(top)
+        return _rel(path, top) in self._dirty_by_top[top]
+
+
 def _rel(path, root):
     return path.relative_to(root).as_posix()
 
 
-def check_git(cards_dir, root):
-    fresh, outdated, orphan = [], [], []
-    dirty = _dirty_paths(root)
+def _source_of(card, cards_dir, root):
+    return root / card.relative_to(cards_dir).as_posix()[:-3]   # срезаем ровно хвостовой '.md'
+
+
+def check(cards_dir, root):
+    """Свежесть попарно: для исходника и карточки — время по их СОБСТВЕННОМУ git (коммит; `%ct` —
+    часы, поэтому сравнимо и между репо) или mtime, если стороны нет в git. Возвращает также
+    раскладку `layouts` — какие пары режимов встретились (для строки mode=)."""
+    fresh, outdated, orphan, layouts = [], [], [], set()
+    repos = _Repos()
     for card in sorted(cards_dir.rglob("*.md")):
-        source = root / str(card.relative_to(cards_dir)).replace(".md", "")
+        source = _source_of(card, cards_dir, root)
         if not source.exists():
             orphan.append(card)
             continue
-        src_rel, card_rel = _rel(source, root), _rel(card, root)
-        src_dirty, card_dirty = src_rel in dirty, card_rel in dirty
+        s_top, c_top = repos.top(source), repos.top(card)
+        layouts.add(("git" if s_top else "mtime",
+                     ("git" if c_top == s_top else "git(own)") if c_top else "mtime"))
+        if not s_top and not c_top:
+            card_mt, src_mt = get_mtime(card), get_mtime(source)
+            if card_mt >= src_mt:
+                fresh.append(card)
+            else:
+                outdated.append({"card": card, "lag": (src_mt - card_mt).total_seconds(), "note": "mtime"})
+            continue
+        # «правка в работе»: у git-стороны — незакоммичена; у стороны без git — mtime новее другой
+        src_dirty = repos.dirty(s_top, source) if s_top else get_mtime(source) > get_mtime(card)
+        card_dirty = repos.dirty(c_top, card) if c_top else get_mtime(card) >= get_mtime(source)
         if src_dirty and not card_dirty:
             lag = (get_mtime(source) - get_mtime(card)).total_seconds()
-            outdated.append({"card": card, "lag": lag, "note": "uncommitted src edit"})
+            outdated.append({"card": card, "lag": lag, "note": "uncommitted src edit" if s_top else "mtime"})
             continue
         if src_dirty or card_dirty:
             fresh.append(card)
             continue
-        src_ct = _last_commit_ts(root, src_rel)
-        card_ct = _last_commit_ts(root, card_rel)
+        src_ct = _last_commit_ts(s_top, _rel(source, s_top)) if s_top else int(source.stat().st_mtime)
+        card_ct = _last_commit_ts(c_top, _rel(card, c_top)) if c_top else int(card.stat().st_mtime)
         if src_ct is None:
             fresh.append(card)
             continue
         if card_ct is None or src_ct > card_ct:
             base = card_ct if card_ct is not None else 0
-            commits = _commits_since(root, src_rel, base)
+            commits = _commits_since(s_top, _rel(source, s_top), base) if s_top else []
             note = "commits: " + " | ".join(commits) if commits else "history newer"
             outdated.append({"card": card, "lag": float(src_ct - base), "note": note})
         else:
             fresh.append(card)
-    return {"fresh": fresh, "outdated": outdated, "orphan": orphan}
-
-
-def check_mtime(cards_dir, root):
-    fresh, outdated, orphan = [], [], []
-    for card in sorted(cards_dir.rglob("*.md")):
-        source = root / str(card.relative_to(cards_dir)).replace(".md", "")
-        if not source.exists():
-            orphan.append(card)
-            continue
-        card_mt, src_mt = get_mtime(card), get_mtime(source)
-        if card_mt >= src_mt:
-            fresh.append(card)
-        else:
-            outdated.append({"card": card, "lag": (src_mt - card_mt).total_seconds(), "note": "mtime"})
-    return {"fresh": fresh, "outdated": outdated, "orphan": orphan}
+    return {"fresh": fresh, "outdated": outdated, "orphan": orphan, "layouts": layouts}
 
 
 def _lag(seconds):
@@ -162,25 +192,26 @@ def main():
         pass
     ap = argparse.ArgumentParser(description="Freshness of __map/ cards, any language (LLM-lean output)", add_help=False)
     ap.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
-    ap.add_argument("--cards-dir", type=Path, default=None, help="карточки (по умолч. <root>/__map/)")
+    ap.add_argument("--cards-dir", type=Path, default=None,
+                    help="карточки. По умолч.: корень из конфига -> CONFIG__TOOLS.MAP_DIR (от __HQ), "
+                         "нет ключа -> <root>/__map; явный --project-root -> <root>/__map")
     ap.add_argument("--project-root", type=str, default=None,
-                     help="корень проекта. Не задан -> неявно CONFIG__TOOLS.PROJECT_ROOT "
-                          "(sanity-checked: должен содержать этот тул). '@' -> то же явно, без "
-                          "проверки. Литерал -> буквально, без проверки.")
+                     help="корень проекта. Не задан -> неявно CONFIG__TOOLS.PROJECT_ROOT своего __HQ "
+                          "(должен существовать). '@' -> то же явно, без проверки. Литерал -> буквально.")
     args = ap.parse_args()
 
-    # REQ-002-B: корень больше НЕ угадывается из cards_dir.parent — тот же card-tool контракт,
-    # что у graph_from_cards/validate_cards (см. __dev/vision/Vision01__path-and-flag-conventions.md).
+    # REQ-002-B: корень НЕ угадывается из cards_dir.parent; каталог карточек — общий резолвер
+    # card-тулов (Vision08: --cards-dir > MAP_DIR от __HQ > <root>/__map).
     project_root = resolve_project_root(args.project_root)
-    cards_dir = args.cards_dir.resolve() if args.cards_dir else (project_root / "__map")
+    cards_dir = resolve_cards_dir(args.cards_dir, args.project_root, project_root)
     if not cards_dir.exists():
         # различаем «папки карточек по этому пути нет» от «карточек нет» (см. total==0 ниже) —
         # раньше эти два случая были неотличимы, оба читались как «карточек нет вообще».
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)
 
-    mode = "git" if is_git_repo(project_root) else "mtime"
-    result = check_git(cards_dir, project_root) if mode == "git" else check_mtime(cards_dir, project_root)
+    result = check(cards_dir, project_root)
+    mode = ",".join(f"src:{s} cards:{c}" for s, c in sorted(result["layouts"])) or "-"
     fresh, outdated, orphan = result["fresh"], result["outdated"], result["orphan"]
     total = len(fresh) + len(outdated) + len(orphan)
 

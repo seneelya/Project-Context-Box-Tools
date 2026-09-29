@@ -36,13 +36,14 @@ These steps are **mandatory**, not optional:
 1. **Open the tool's TLDR before running it:** `__HQ/tools/<name>__TLDR.md`
    - This is your quick-reference for flags, idiomatic usage, and gotchas.
    - Do NOT rely solely on `--help`; TLDR contains patterns specific to this project workflow.
-2. **Run from project root.** Card tools (`make_interface_card`, `validate_cards`,
-   `check_cards_freshness`, `graph_from_cards`, `collect_card_bundle`) resolve `--project-root` and
-   `__map/` from `CONFIG__TOOLS.PROJECT_ROOT` automatically when the flag is omitted (sanity-checked
-   against a stale/foreign config). Generic tools (`find_code_usage`, `get_codeblock`,
-   `show_pyfile_api`) resolve relative paths from **cwd** instead, and only read
-   `CONFIG__TOOLS.PROJECT_ROOT` if you write `--project-root @` explicitly. See
-   `__dev/vision/Vision01__path-and-flag-conventions.md` for the full contract.
+2. **Run from anywhere.** Two roots: `PROJECT_ROOT` (the sources, from `CONFIG__TOOLS.py`) and
+   the HQ (`__HQ`, where the tools themselves live). Card tools (`make_interface_card`,
+   `validate_cards`, `check_cards_freshness`, `graph_from_cards`, `collect_card_bundle`) take the
+   root from the config when `--project-root` is omitted, and the cards from `MAP_DIR` (relative to
+   the HQ). Generic tools (`find_code_usage`, `get_codeblock`, `show_pyfile_api`) resolve a relative
+   path from `PROJECT_ROOT` first, then cwd (a hit in both -> warning). Explicit flags and absolute
+   paths always win. Contract: ProjectStarter `__dev/vision/Vision08__hq-as-anchor.md` (on top of
+   `__dev/vision/Vision01__path-and-flag-conventions.md`).
 
 This sequence is: TOOLS.md → `<tool>__TLDR.md` → execute tool. Do not skip step 1.
 

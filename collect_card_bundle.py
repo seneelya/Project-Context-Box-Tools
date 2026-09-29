@@ -12,50 +12,15 @@ API и склеивает. Толстый слой (API) тянется по т�
 Использование:
     python collect_card_bundle.py <file> [--cards-dir PATH] [--depth N]
 Пример: python collect_card_bundle.py capture.py
-По умолчанию карточки в <project>/__map/ (скрипт в __HQ/tools/).
+Карточки: --cards-dir > CONFIG__TOOLS.MAP_DIR (от __HQ) > <project-root>/__map/.
 """
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
 import CARD_FORMAT as cf
-from graph_from_cards import build_graph  # соседний модуль в __HQ/tools/
-
-
-def _config_project_root():
-    try:
-        import CONFIG__TOOLS
-        return getattr(CONFIG__TOOLS, "PROJECT_ROOT", None) or None
-    except Exception:
-        return None
-
-
-def _resolve_project_root(value):
-    """Card-тул: не задан -> неявно CONFIG__TOOLS.PROJECT_ROOT со sanity-check (корень обязан быть
-    предком папки, где лежит сам тул); `@`/литерал -> явное решение автора вызова, без проверки.
-    См. __dev/vision/Vision01__path-and-flag-conventions.md."""
-    if value is None:
-        cfg_root = _config_project_root()
-        if cfg_root is None:
-            return os.path.abspath(".")
-        root_abs = os.path.abspath(cfg_root)
-        here = os.path.dirname(os.path.abspath(__file__))
-        if not (here == root_abs or here.startswith(root_abs + os.sep)):
-            print(f"[collect_card_bundle] Error: CONFIG__TOOLS.PROJECT_ROOT ({root_abs}) doesn't "
-                  f"contain this tool ({here}) — looks like a stale or foreign config. Pass "
-                  f"--project-root explicitly (a path, or @ to force this value anyway).", file=sys.stderr)
-            sys.exit(2)
-        return root_abs
-    if value == "@":
-        cfg_root = _config_project_root()
-        if cfg_root is None:
-            print("[collect_card_bundle] Error: --project-root @ requires CONFIG__TOOLS.PROJECT_ROOT, "
-                  "but it isn't set.", file=sys.stderr)
-            sys.exit(2)
-        return os.path.abspath(cfg_root)
-    return os.path.abspath(value)
+from graph_from_cards import build_graph, resolve_cards_dir, resolve_project_root  # соседний модуль в __HQ/tools/
 
 
 def _find_card(cards_dir, target):
@@ -101,10 +66,11 @@ def main():
     ap.add_argument("target", nargs="?", help="файл (root-relative), напр. capture.py или _engine/embed.py")
     ap.add_argument("--file", dest="file_opt", default=None, help="алиас позиционного target, то же самое")
     ap.add_argument("--project-root", type=str, default=None,
-                     help="корень проекта (база для <target>/--file и <root>/__map). Не задан -> "
-                          "неявно CONFIG__TOOLS.PROJECT_ROOT (sanity-checked). '@' -> то же явно, "
-                          "без проверки. Литерал -> буквально, без проверки.")
-    ap.add_argument("--cards-dir", type=Path, default=None)
+                     help="корень проекта. Не задан -> неявно CONFIG__TOOLS.PROJECT_ROOT своего "
+                          "__HQ (должен существовать). '@' -> то же явно, без проверки. Литерал -> буквально.")
+    ap.add_argument("--cards-dir", type=Path, default=None,
+                    help="карточки. По умолч.: корень из конфига -> CONFIG__TOOLS.MAP_DIR (от __HQ), "
+                         "нет ключа -> <root>/__map; явный --project-root -> <root>/__map")
     ap.add_argument("--depth", type=int, default=1, help="глубина транзитивных зависимостей (по умолч. 1)")
     args = ap.parse_args()
 
@@ -112,8 +78,9 @@ def main():
     if not target:
         ap.error("target file required (positional <target> or --file)")
 
-    project_root_abs = _resolve_project_root(args.project_root)
-    cards_dir = args.cards_dir.resolve() if args.cards_dir else (Path(project_root_abs) / "__map")
+    # Каталог карточек — общий резолвер card-тулов (Vision08); с явным --cards-dir корень не нужен.
+    cards_dir = (args.cards_dir.resolve() if args.cards_dir else
+                 resolve_cards_dir(None, args.project_root, resolve_project_root(args.project_root)))
     if not cards_dir.exists():
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)

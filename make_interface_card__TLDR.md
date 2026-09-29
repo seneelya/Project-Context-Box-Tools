@@ -4,12 +4,9 @@ The card **STAMP**: ONE command → a ready `.md` card skeleton where the FACT s
 filled deterministically and the prose is left as `<Agent: …>` directive lines for the LLM to
 complete after reading the source. It analyzes nothing new — it ORCHESTRATES three facts.
 
-**Target:** `make_interface_card.py <file> [--project-root R] [--out PATH] [--force [--discard-prose]]` — multilingual (py/ts/cs). `<file>` also as `--file`, same thing.
+**Target:** `make_interface_card.py <file> [--project-root R] [--out PATH | --cards-dir D] [--force [--discard-prose]]` — multilingual (py/ts/cs). `<file>` also as `--file`, same thing.
 
-**`--project-root`** — card-tool rule (`__map/` has no meaning relative to cwd): not given ->
-implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked (must be an ancestor of where this script
-itself lives — a stale/foreign config REFUSES rather than silently stamping the wrong tree). `@` ->
-same, explicitly, unchecked. Literal path -> used as given, unchecked.
+**`--project-root`** — card-tool rule. `--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT` of this tool's own `__HQ` (must exist; missing config -> refuses, never a silent cwd; a RELATIVE value must still contain this tool). `@` -> same, explicit, unchecked. Literal path -> as given. Cards: `--cards-dir` > `CONFIG__TOOLS.MAP_DIR` (relative to `__HQ`) > `<root>/__map/`; an explicit `--project-root` always means `<root>/__map/` (Vision08). `--cards-dir D` with a single `<file>` and no `--out` writes `D/<file>.md`; with `--all` it is the target folder.
 
 ## Quick use  (copy, tweak, run)
 ```
