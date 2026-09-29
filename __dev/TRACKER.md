@@ -118,3 +118,9 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 
 ### Выкладка
 - Коммит `b82a6a6` + TRACKER; push `origin/main` (Project-Context-Box-Tools).
+
+## 2026-09-30 — Plan08: C/C++ в штемпеле (старт)
+
+- Vision09 перенесён сюда (`__dev/vision/`), план — `__dev/plans/Plan08__cpp-stamp.md`.
+- Решение владельца: языки подключаются ЗАПИСЬЮ в реестр, не веткой `if` → шаг 0 = `stamp_langs/` + `CONTRACT.md`, без C++.
+- → next: шаг 0.
