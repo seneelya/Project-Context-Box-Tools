@@ -26,6 +26,10 @@ used to skip every `.js`/`.ts` file *silently* — a polyglot repo (a python bac
 JS front end in one tree) got a half-built map and nothing said so. `--language` overrides per
 run: comma/space separated, `all` for every known language, short forms `py/ts/js/tsx/cs`
 accepted. The pass now prints the languages and extensions it went by, even on success.
+
+**Languages = registry `stamp_langs/`** (one module per language, shape frozen in
+`stamp_langs/CONTRACT.md`). Today: python, typescript (ts/tsx/js/jsx), csharp. A file whose extension
+no module claims is REFUSED (exit 2) — it is never stamped as Python.
 Per-FILE analysis was always polyglot — only the bulk selection was not.
 
 ## The three facts it fills

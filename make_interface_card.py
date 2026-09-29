@@ -6,8 +6,8 @@
 Ничего нового не анализирует — ОРКЕСТРИРУЕТ три факта:
   - объявленная поверхность + сигнатуры   <- единый источник:
         Python  → show_pyfile_api.collect (ast — точные типы параметров),
-        TS/JS   → get_codeblock declarations (структурные заголовки блоков),
-        (C# — позже; сейчас только факты потребления/зависимостей).
+        TS/JS/C# → get_codeblock declarations (структурные заголовки блоков);
+        какой язык чем — реестр `stamp_langs/` (модуль на язык, форма — его CONTRACT.md).
   - потреблённая поверхность               <- find_code_usage downstream
     (кто РЕАЛЬНО импортит символы цели; вскрывает leaked-private и dead surface).
   - зависимости самой цели                 <- find_code_usage --incoming (резолв в файлы).
@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import CARD_FORMAT as cf
 import seam_scanner
+import stamp_langs
 from graph_from_cards import _cells, _is_sep, load_config_at, resolve_cards_dir, resolve_project_root
 
 
@@ -88,12 +89,14 @@ def _log_call(record):
         pass
 
 
-_LANG = {".py": "python", ".ts": "typescript", ".tsx": "typescript",
-         ".js": "typescript", ".jsx": "typescript", ".cs": "csharp"}
-
-
 def _lang(file):
-    return _LANG.get(os.path.splitext(file)[1].lower(), "python")
+    """Канонное имя языка файла — по реестру `stamp_langs`. Незнакомое расширение —
+    ValueError, а НЕ молча python (раньше `.h` ушёл бы в Python-разбор)."""
+    lang = stamp_langs.for_file(file)
+    if lang is None:
+        raise ValueError(f"no stamp language for '{os.path.splitext(file)[1] or file}' "
+                         f"(known: {' '.join(sorted(stamp_langs.all_extensions()))})")
+    return lang.NAME
 
 
 # The LLM fills prose; the stamp keeps the machine FACT line and the agent DIRECTIVE line
@@ -123,13 +126,7 @@ def _cis_setup(project_root, file):
     target_abs = os.path.abspath(file_arg)
     lang = _lang(file)
     handler = get_handler(lang)
-    if lang == "csharp" and hasattr(handler, "_extract_namespace"):
-        ns = handler._extract_namespace(target_abs)
-        if ns:
-            target_names.add(ns)
-            parts = ns.split(".")
-            for i in range(1, len(parts)):
-                target_names.add(".".join(parts[:i]))
+    target_names |= stamp_langs.get(lang).extra_target_names(handler, target_abs)
     return project_root, target_names, target_abs, lang, handler
 
 
@@ -157,135 +154,14 @@ def deps_of(project_root, file):
     return resolved, externals
 
 
-def _resolve_sibling_signature(target_abs, module, level, name):
-    """Best-effort signature of a re-exported `name` from a relative import
-    `from <dots><module> import name` — resolve to a sibling .py and read its ast (Python)."""
-    if level <= 0:
-        return None
-    base = Path(target_abs).parent
-    for _ in range(level - 1):
-        base = base.parent
-    parts = module.split(".") if module else []
-    cand = base.joinpath(*parts)
-    for p in (cand.with_suffix(".py"), cand / "__init__.py"):
-        if p.is_file():
-            try:
-                import show_pyfile_api
-                return show_pyfile_api.collect(p).get("all_defs", {}).get(name)
-            except Exception:
-                return None
-    return None
-
-
 # --- declared surface (single source, per language) --------------------------
 
-def _decl_backend(project_root):
-    """DECL_BACKEND from the TARGET project's CONFIG__TOOLS (REQ-007 — not the one next to this
-    script): 'auto' | 'treesitter' | 'regex' (default 'auto')."""
-    mod = load_config_at(project_root)
-    return getattr(mod, "DECL_BACKEND", "auto") if mod else "auto"
-
-
-# Per-language tree-sitter backend module + the pip package that supplies its grammar.
-_TS_BACKEND = {
-    "typescript": ("get_codeblock.handlers.ts_treesitter", "tree-sitter-typescript"),
-    "csharp": ("get_codeblock.handlers.cs_treesitter", "tree-sitter-c-sharp"),
-}
-_WARNED = set()   # warn once per (language) per process
-
-
-def _warn_fallback(lang, pkg, forced):
-    if lang in _WARNED:
-        return
-    _WARNED.add(lang)
-    how = "DECL_BACKEND=treesitter but its grammar is missing" if forced else \
-          "high-fidelity tree-sitter backend not installed"
-    sys.stderr.write(
-        f"[make_interface_card] WARNING: {how} for {lang} - running in the REGEX FALLBACK "
-        f"(lower-fidelity signatures). For a full parse install:  "
-        f"pip install tree-sitter {pkg}   (or set CONFIG__TOOLS.DECL_BACKEND='regex' to silence)\n"
-    )
-
-
-def _declarations(lang, src, project_root):
-    """Declared surface for a brace language via DECL_BACKEND (tree-sitter or regex).
-
-    Emits a one-time stderr WARNING when `auto`/`treesitter` wanted tree-sitter but the
-    grammar isn't installed, so an agent knows results are the lower-fidelity fallback.
-    """
-    backend = _decl_backend(project_root)
-    mod_name, pkg = _TS_BACKEND[lang]
-    if backend in ("treesitter", "auto"):
-        try:
-            import importlib
-            ts = importlib.import_module(mod_name)
-            if ts.available():
-                return ts.declarations(src)
-            _warn_fallback(lang, pkg, forced=(backend == "treesitter"))
-        except Exception as e:
-            sys.stderr.write(f"[make_interface_card] WARNING: tree-sitter backend for {lang} failed ({e}); using regex.\n")
-    from get_codeblock.handlers import get_handler
-    return get_handler(lang).declarations(src.splitlines(keepends=True))
-
-
 def _declared(project_root, file, lang):
-    """Language-agnostic declared surface. Returns:
-      {docstring_first, exports:[{name,kind,signature,methods}], all_defs:{name:sig},
-       reexports:[{name,source[,module,level]}]}
-    Python via show_pyfile_api(ast) — precise param types; TS/JS via get_codeblock declarations.
-    """
-    empty = {"docstring_first": None, "exports": [], "all_defs": {}, "reexports": []}
+    """Объявленная поверхность — от модуля языка в `stamp_langs` (форма dict'а заморожена в
+    `stamp_langs/CONTRACT.md`): {docstring_first, exports:[{name,kind,signature,methods}],
+    all_defs:{name:sig}, reexports:[{name,source[,…]}]}."""
     target_abs = file if os.path.isabs(file) else os.path.join(project_root, file)
-
-    if lang == "python":
-        import show_pyfile_api
-        c = show_pyfile_api.collect(Path(target_abs))
-        exports = [{"name": f["name"], "kind": "function", "signature": f["signature"], "methods": []}
-                   for f in c["functions"]]
-        exports += [{"name": cl["name"], "kind": "class", "signature": cl["name"], "methods": cl["methods"]}
-                    for cl in c["classes"]]
-        exports += [{"name": g["name"], "kind": "const", "signature": g["signature"], "methods": []}
-                    for g in c["constants"]]
-        all_defs = dict(c["all_defs"])
-        for g in c["module_globals"]:
-            all_defs.setdefault(g["name"], g["signature"])
-        reexports = [{"name": nm, "source": "." * imp["level"] + imp["module"],
-                      "module": imp["module"], "level": imp["level"]}
-                     for imp in c["import_froms"] if imp["level"] >= 1 for nm in imp["names"]]
-        return {"docstring_first": c["docstring_first"], "exports": exports,
-                "all_defs": all_defs, "reexports": reexports}
-
-    if lang == "typescript":
-        try:
-            src = open(target_abs, encoding="utf-8", errors="replace").read()
-        except OSError:
-            return empty
-        decls = _declarations("typescript", src, project_root)
-        exports, all_defs, reexports = [], {}, []
-        for d in decls:
-            if d["kind"] == "reexport":
-                reexports.append({"name": d["name"], "source": d["reexport_from"]})
-                continue
-            all_defs[d["name"]] = d["signature"]
-            if d["exported"]:
-                exports.append({"name": d["name"], "kind": d["kind"],
-                                "signature": d["signature"], "methods": []})
-        return {"docstring_first": None, "exports": exports, "all_defs": all_defs, "reexports": reexports}
-
-    if lang == "csharp":
-        try:
-            src = open(target_abs, encoding="utf-8", errors="replace").read()
-        except OSError:
-            return empty
-        exports, all_defs = [], {}
-        for d in _declarations("csharp", src, project_root):
-            all_defs[d["name"]] = d["signature"]
-            if d["exported"]:
-                exports.append({"name": d["name"], "kind": d["kind"],
-                                "signature": d["signature"], "methods": d.get("methods", [])})
-        return {"docstring_first": None, "exports": exports, "all_defs": all_defs, "reexports": []}
-
-    return empty  # unknown language — declared surface TBD; facts still come from import_search
+    return stamp_langs.get(lang).declared_surface(project_root, target_abs)
 
 
 # --- formatting --------------------------------------------------------------
@@ -315,16 +191,7 @@ def _is_ph(line):
 # по "первому слову" (ломается на любой обёртке), а по ПОЗИЦИИ: токен перед первой `(`
 # (вызываемое — функция/метод), иначе токен перед первым `=` (присвоение), иначе — то,
 # что останется после отбрасывания слева известных слов этого языка (класс/интерфейс/
-# голый Python). Новый язык — новая копия набора, ничего в логике не меняется.
-_DECORATORS = {
-    "python": ("async",),
-    "typescript": ("export", "default", "declare", "async", "function", "class",
-                   "interface", "enum", "type", "namespace", "abstract", "public",
-                   "private", "protected", "readonly", "static", "const", "let", "var"),
-    "csharp": ("public", "private", "protected", "internal", "static", "virtual",
-               "override", "sealed", "abstract", "async", "readonly", "partial",
-               "new", "class", "interface", "struct", "enum", "record", "const"),
-}
+# голый Python). Набор слов — `DECORATORS` модуля языка в `stamp_langs`.
 _IDENT_RE = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
 _TRAILING_IDENT_RE = re.compile(r"([A-Za-z_$][A-Za-z0-9_$]*)\s*$")
 
@@ -332,7 +199,8 @@ _TRAILING_IDENT_RE = re.compile(r"([A-Za-z_$][A-Za-z0-9_$]*)\s*$")
 def _strip_decorators(text, lang):
     """Срезает слева известные служебные слова ЭТОГО языка, пока не упрёмся в то, что
     декоратором не является — остаток начинается с настоящего имени объявления."""
-    words = _DECORATORS.get(lang, ())
+    mod = stamp_langs.get(lang)
+    words = mod.DECORATORS if mod else ()
     s = text
     while True:
         m = _IDENT_RE.match(s)
@@ -664,9 +532,7 @@ def build_card(project_root, file, old_prose=None, report=None):
     reexport_sigs = {}
     if is_pkg:
         for r in declared["reexports"]:
-            sig = None
-            if lang == "python" and "module" in r:
-                sig = _resolve_sibling_signature(target_abs, r["module"], r["level"], r["name"])
+            sig = stamp_langs.get(lang).reexport_signature(target_abs, r)
             reexport_sigs[r["name"]] = sig if sig else r["name"]
             new_syms.append((r["name"], "Re-exports", reexport_sigs[r["name"]]))
             placed.add(r["name"])
@@ -941,47 +807,6 @@ def _config_lang_testdirs(project_root):
     return lang, test_dirs
 
 
-def _normalize_langs(value):
-    """LANGUAGE (скаляр ИЛИ список) / --language -> список канонных языков.
-
-    Полиглотный репозиторий — норма, а не край: у нас питон-плагин и его же
-    JS-фронтенд лежат в ОДНОМ дереве. Разбор карточки и так пофайловый
-    (`_lang(file)` смотрит на расширение), одноязычным был только выбор того,
-    ЧТО попадёт в массовый проход. Скаляр продолжает работать как раньше.
-    `"all"` = все известные языки.
-    """
-    if isinstance(value, str):
-        items = [p.strip() for p in value.replace(",", " ").split()]
-    elif isinstance(value, (list, tuple, set)):
-        items = [str(p).strip() for p in value]
-    else:
-        items = []
-    known = set(_LANG.values())
-    out, seen = [], set()
-    for it in items:
-        if not it:
-            continue
-        low = it.lower()
-        if low == "all":
-            return sorted(known)
-        # Синонимы, которыми язык называют в CLI других тулов пакета.
-        low = {"ts": "typescript", "js": "typescript", "tsx": "typescript",
-               "cs": "csharp", "py": "python"}.get(low, low)
-        if low in known and low not in seen:
-            seen.add(low)
-            out.append(low)
-    return out
-
-
-def _lang_extensions(lang):
-    """Расширения одного языка ИЛИ списка языков. Неизвестное -> все известные."""
-    langs = _normalize_langs(lang)
-    if not langs:
-        return set(_LANG)   # неизвестный/пустой язык -> все известные расширения
-    exts = {e for e, l in _LANG.items() if l in langs}
-    return exts or set(_LANG)
-
-
 def _seams_help_text():
     """Full Runtime seams contract — this is what the card's contract-note line points to
     (Vision07: the ONE source of truth for the format, not a separate doc file that can rot)."""
@@ -1042,8 +867,8 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False, reco
         cards_dir = os.path.join(project_root_abs, "__map")
     lang, test_dirs = _config_lang_testdirs(project_root_abs)
     selected = language if language else lang
-    langs = _normalize_langs(selected)
-    exts = _lang_extensions(selected)
+    langs = stamp_langs.normalize(selected)
+    exts = stamp_langs.extensions(selected)
     files = collect_files(project_root_abs, exts, test_dirs=test_dirs, tests_only=False)
     # Печатаем ЯЗЫКИ, а не только расширения: молчаливый пропуск JS-файлов в
     # питон-проекте — ровно то, из-за чего эта опция и появилась. Пусть видно,
@@ -1193,6 +1018,10 @@ def _main_impl(record):
 
     if not target_file:
         ap.error("either a <file> argument (or --file), or --all is required")
+    if stamp_langs.for_file(target_file) is None:
+        sys.stderr.write(f"[make_interface_card] REFUSED: no stamp language for {target_file} "
+                         f"(known extensions: {' '.join(sorted(stamp_langs.all_extensions()))})\n")
+        return 2
 
     out = args.out
     if not out and args.cards_dir:

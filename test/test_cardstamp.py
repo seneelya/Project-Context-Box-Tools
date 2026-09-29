@@ -774,6 +774,37 @@ def test_seam_legacy_section_rename_via_aliases():
     check("legacy header still resolves the dep edge", "x.py" in g["nodes"]["legacy.py"]["deps"])
 
 
+def test_stamp_langs_registry():
+    """Plan08 шаг 0: язык — запись в реестре; незнакомое расширение НЕ становится python."""
+    import stamp_langs
+    check("registry knows 3 langs", stamp_langs.known() == ["csharp", "python", "typescript"])
+    check("for_file .tsx -> typescript", stamp_langs.for_file("a/b.tsx").NAME == "typescript")
+    check("for_file .h -> None (not python)", stamp_langs.for_file("ggml.h") is None)
+    check("alias cs -> csharp", stamp_langs.get("CS").NAME == "csharp")
+    check("normalize synonyms+dedup", stamp_langs.normalize("py, js ts") == ["python", "typescript"])
+    check("normalize all", stamp_langs.normalize("all") == stamp_langs.known())
+    check("extensions unknown -> all", stamp_langs.extensions("klingon") == stamp_langs.all_extensions())
+    check("default hook: no extra names", stamp_langs.get("python").extra_target_names(None, "x") == set())
+    try:
+        mic._lang("ggml.h")
+        check("_lang refuses unknown ext", False)
+    except ValueError:
+        check("_lang refuses unknown ext", True)
+
+    class _Broken:
+        NAME = "broken"
+        EXTENSIONS = (".zz",)
+
+        @staticmethod
+        def declared(project_root, target_abs):
+            return {"exports": []}
+    try:
+        stamp_langs.Lang(_Broken).declared_surface(".", "x.zz")
+        check("contract: missing keys is loud", False)
+    except ValueError:
+        check("contract: missing keys is loud", True)
+
+
 def main():
     test_is_empty()
     test_agent_directive_marker()
@@ -801,6 +832,7 @@ def main():
     test_seam_validate_kind_shape_target()
     test_seam_graph_edges_and_islands()
     test_seam_legacy_section_rename_via_aliases()
+    test_stamp_langs_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
 
