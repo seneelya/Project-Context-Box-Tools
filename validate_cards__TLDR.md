@@ -8,8 +8,9 @@ exit 1 on any problem (so it gates in a loop). Independent of `make_interface_ca
 
 ## Quick use
 ```
-validate_cards.py --project-root .                         # validate ./__map
-validate_cards.py --cards-dir path/__map --project-root .  # custom cards dir
+validate_cards.py                                           # cards from config (MAP_DIR), root from config
+validate_cards.py --project-root <R>                        # a foreign project -> <R>/__map
+validate_cards.py --cards-dir path/__map --project-root <R> # custom cards dir
 ```
 
 ## Checks (per card)

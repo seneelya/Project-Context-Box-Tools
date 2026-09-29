@@ -4,7 +4,8 @@ Python-only AST hint for a card writer — an OPTIONAL aid, **not a gate** and n
 for reading the code. Parses one `.py` file via stdlib `ast` and prints a compact summary.
 
 **Target:** `show_pyfile_api.py <file.py>` (or `--file <file.py>`, same thing) — reads only, never
-writes, never crashes on valid Python.
+writes, never crashes on valid Python. A relative path is looked up first under
+`CONFIG__TOOLS.PROJECT_ROOT`, then cwd (found in both -> root + a warning); absolute -> as is.
 
 ## Quick use
 ```

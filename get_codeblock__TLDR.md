@@ -6,6 +6,11 @@ Returns a self-contained structural block containing a line — for code
 paragraphs/sections, experimental). Lets an agent get precise context around any location, or a
 file's table of contents, without reading the whole file.
 
+> **Paths:** absolute `--file` -> as is. Relative -> first under `--project-root` (not given ->
+> `CONFIG__TOOLS.PROJECT_ROOT`), then cwd; found in BOTH (different files) -> the root wins + a
+> one-line warning, and the `File:` header shows the full path that was opened. So from anywhere:
+> `get_codeblock.py --file src/llama.cpp --outline` — no long paths needed.
+
 > **Dependencies:** Python (`.py`), Markdown (`.md`) and plain text (`.txt`) are zero-dependency.
 > C/C++, C#, TypeScript/JS/TSX, CSS/SCSS and YAML use tree-sitter grammars — see
 > `get_codeblock/requirements.txt`. If a needed package is missing, the tool prints the exact

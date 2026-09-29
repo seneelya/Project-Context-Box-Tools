@@ -28,26 +28,32 @@
 
 ## Инструкция по использованию
 
-**Target:** `make_interface_card.py <file> --project-root R [--out PATH] [--force [--discard-prose]]`
+**Target:** `make_interface_card.py <file> [--project-root R] [--out PATH | --cards-dir D] [--force [--discard-prose]]`
 
 ```bash
-make_interface_card.py <f>.py --project-root .                          # preview to stdout, no write
-make_interface_card.py <f>.py --project-root . --out __map/<f>.py.md    # stamp -> write card (NEW)
-make_interface_card.py <f>.py --project-root . --out <card>             # re-stamp: MERGE (default)
-make_interface_card.py <f>.py --project-root . --out <card> --force               # RESET (только если карточка ещё пустая)
-make_interface_card.py <f>.py --project-root . --out <card> --force --discard-prose  # RESET, было заполнено — подтверждение
-make_interface_card.py --all                                            # bulk: всё дерево, CONFIG LANGUAGE
-make_interface_card.py --all --language py,ts                           # bulk: полиглот-дерево (или 'all')
+make_interface_card.py <f>.py                                     # preview to stdout, no write
+make_interface_card.py <f>.py --cards-dir <HQ>/__map              # stamp -> write <HQ>/__map/<f>.py.md (NEW)
+make_interface_card.py <f>.py --out <card>                        # re-stamp to an exact path: MERGE (default)
+make_interface_card.py <f>.py --out <card> --force                # RESET (только если карточка ещё пустая)
+make_interface_card.py <f>.py --out <card> --force --discard-prose  # RESET, было заполнено — подтверждение
+make_interface_card.py --all                                      # bulk: всё дерево -> MAP_DIR, CONFIG LANGUAGE
+make_interface_card.py --all --language py,ts                     # bulk: полиглот-дерево (или 'all')
 ```
+
+Корень и карточки — правило card-тулов (Vision08, ProjectStarter `__dev/vision/`): `--project-root`
+не задан -> `CONFIG__TOOLS.PROJECT_ROOT` своего `__HQ` (нет конфига -> отказ, не cwd); каталог
+карточек для `--all`: `--cards-dir` > `CONFIG__TOOLS.MAP_DIR` (от `__HQ`) > `<root>/__map`; явный
+`--project-root` -> всегда `<root>/__map`. Запускать можно из любой папки.
 
 | Параметр | Описание |
 |---|---|
 | `<file>` | Путь к исходнику (root-relative или абсолютный); опускается вместе с `--all` |
-| `--project-root R` | Корень для обратного индекса (`find_code_usage`) и резолва путей |
-| `--out PATH` | Куда писать карточку. Без него — печать в stdout, без merge (не с чем сравнивать) |
+| `--project-root R` | Корень для обратного индекса (`find_code_usage`) и резолва путей; не задан -> из конфига |
+| `--out PATH` | Куда писать карточку. Без него (и без `--cards-dir`) — печать в stdout, без merge (не с чем сравнивать) |
+| `--cards-dir D` | Папка карточек: для `<file>` без `--out` пишет `D/<file>.md`; для `--all` — куда штемпелить |
 | `--force` | Сброс вместо merge — см. секцию «Force и guard» ниже |
 | `--discard-prose` | Подтверждение `--force` на карточке, где УЖЕ есть проза (без него — отказ, exit 2) |
-| `--all` | Массовый проход по всему `--project-root`, каждый файл → `__map/<path>.md` |
+| `--all` | Массовый проход по всему корню, каждый файл → `<cards>/<path>.md` (`<cards>` — см. `--cards-dir`) |
 | `--language L` | Только под `--all`: список языков (иначе `CONFIG__TOOLS.LANGUAGE`); полиглот-репо без этого молча теряет второй язык |
 
 Без `--file`/`--all` — ошибка usage, exit 1. `--all` игнорирует `<file>` и `--out`.
@@ -143,7 +149,8 @@ make_interface_card.py --all --language py,ts                           # bulk: 
 `_stamp_all` собирает файлы через `find_code_usage.core.collect_files` (те же исключения каталогов,
 что у обратного индекса — `.git`/`__pycache__`/`__map`/`__HQ`/`.venv`/`node_modules`/…, плюс
 `CONFIG__TOOLS.BLACKLIST_DIRS`), по расширениям выбранных языков, и штемпелит каждый в
-`__map/<path>.md` (существующие — merge, как при одиночном вызове). `--language` — явный список
+`<cards>/<path>.md` — `<cards>` из общего резолвера (`--cards-dir` > `MAP_DIR` > `<root>/__map`),
+существующие — merge, как при одиночном вызове. `--language` — явный список
 языков для ЭТОГО прохода (полиглот-репо со скалярным `CONFIG__TOOLS.LANGUAGE` иначе молча теряет
 второй язык — ради этого флаг и появился).
 
@@ -190,7 +197,7 @@ flowchart LR
     FCU[find_code_usage] --> MIC
     SS[seam_scanner — детектор паттернов] --> MIC
     CF[CARD_FORMAT — контракт] -.задаёт формат.-> MIC
-    MIC --> CARD["__map/&lt;file&gt;.md"]
+    MIC --> CARD["&lt;MAP_DIR&gt;/&lt;file&gt;.md"]
     CARD --> VC[validate_cards — гейт формата]
     CARD --> GFC[graph_from_cards — топология + Runtime seams]
     CARD --> CCB[collect_card_bundle — Public API по требованию]

@@ -10,13 +10,14 @@ complete after reading the source. It analyzes nothing new — it ORCHESTRATES t
 
 ## Quick use  (copy, tweak, run)
 ```
-make_interface_card.py <f>.py --project-root . --out __map/<f>.py.md   # stamp → write the card
-make_interface_card.py <f>.py --project-root .                         # preview to stdout (no write)
-make_interface_card.py <f>.py --project-root . --out <card>            # re-stamp: MERGE — facts refreshed, prose KEPT
-make_interface_card.py <f>.py --project-root . --out <card> --force    # on an EMPTY stamp: reset, as before
-make_interface_card.py <f>.py --project-root . --out <card> --force --discard-prose  # on a FILLED card: required, see below
-make_interface_card.py --all                                          # bulk: whole tree, CONFIG LANGUAGE
-make_interface_card.py --all --language py,ts                         # bulk: POLYGLOT tree (or 'all')
+make_interface_card.py <f>.py --cards-dir <HQ>/__map          # stamp → write <HQ>/__map/<f>.py.md (<f> root-relative)
+make_interface_card.py <f>.py                                  # preview to stdout (no write)
+make_interface_card.py <f>.py --out <card>                     # write to an exact path; re-stamp = MERGE — facts refreshed, prose KEPT
+make_interface_card.py <f>.py --out <card> --force             # on an EMPTY stamp: reset, as before
+make_interface_card.py <f>.py --out <card> --force --discard-prose  # on a FILLED card: required, see below
+make_interface_card.py --all                                   # bulk: whole tree -> MAP_DIR, CONFIG LANGUAGE
+make_interface_card.py --all --language py,ts                  # bulk: POLYGLOT tree (or 'all')
+make_interface_card.py <f>.py --project-root <R> --cards-dir <D>  # a foreign project, cards wherever you say
 ```
 
 **`--all` is single-language unless you say otherwise.** Extensions come from

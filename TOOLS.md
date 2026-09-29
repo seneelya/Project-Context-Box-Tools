@@ -17,7 +17,7 @@ Match your current goal to exactly one path below. Do not guess which tool fits;
 | "Who uses this file / symbol? What breaks if I change it?" | `find_code_usage --file PATH [--symbol NAME]` | add `--verbose` for line numbers → use with `get_codeblock` |
 | "Show me just this function/class/block around line N" | `get_codeblock --file PATH --outline` (map) → `--line N --query` (text) | use `--level K` to zoom in/out the nesting ladder |
 | "Quick glance: what public API does this Python file expose?" | `show_pyfile_api FILE.py` | treat as hint only; verify with raw code when precision matters |
-| "Create or refresh a card for FILE" | `make_interface_card FILE --force > __map/FILE.md` | then fill `<|Agent: …|>` placeholders → run `validate_cards` |
+| "Create or refresh a card for FILE" | `make_interface_card FILE --cards-dir <HQ>/__map` (re-run = MERGE, prose kept) | then fill `<|Agent: …|>` placeholders → run `validate_cards` |
 | "Are my cards valid / up-to-date?" | `validate_cards` (format) + `check_cards_freshness` (stale vs source) | fix issues before trusting cards for reasoning |
 | "Mass find-and-replace across many files" | `replace_in_files FOLDER MASK -r FIND WITH --dry-run` | add `-m 'EXPR'` guard if context-sensitive; confirm dry-run then run without it |
 | "Split a monster file — move named blocks to new files" | `split_monster --file FILE --split LINE TARGET ... --out-script OUT.py` (`LINE` or `12,34,45` per target; `.md` → `replace`/STUB in script, code → `cut`) | `split_monster__TLDR.md`; edit generated `OUT.py` (STUB, imports), then `python OUT.py` → `--apply` |
@@ -68,7 +68,7 @@ graph_from_cards --file CHANGED.py --edges in      # upstream dependents (who br
 
 ### Pattern C: Creating/updating a card
 ```
-make_interface_card FILE.py --force > __map/FILE.py.md   # generate skeleton with facts
+make_interface_card FILE.py --cards-dir <HQ>/__map     # write/refresh <HQ>/__map/FILE.py.md (MERGE keeps prose)
 # You (the agent) now fill all <|Agent: …|> placeholders by reading the actual code.
 validate_cards                                           # verify format compliance
 check_cards_freshness                                    # confirm freshness status
@@ -127,7 +127,7 @@ All CLI tools run from project root: `python __HQ/tools/<name>.py [args]`
 | File | One-liner |
 |------|-----------|
 | `CARD_FORMAT.py` | Card format contract: section names, deps columns, aliases — the schema cards must follow |
-| `CONFIG__TOOLS.py` | Per-project defaults: PROJECT_ROOT, LANGUAGE, TEST_DIRS, DECL_BACKEND |
+| `CONFIG__TOOLS.py` | Per-project defaults: PROJECT_ROOT (sources), MAP_DIR + LOG_DIR (relative to the HQ), LANGUAGE, TEST_DIRS, DECL_BACKEND |
 
 Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-apply examples).
 
@@ -135,9 +135,9 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
 
 ## ENVIRONMENT & DEPENDENCIES
 
-- **Run from project root:** `python __HQ/tools/<name>.py …`. See "Getting started" above for how
-  `--project-root` resolves per tool category (card tools vs generic tools) — it isn't the same
-  everywhere on purpose.
+- **Run from anywhere:** `python <HQ>/tools/<name>.py …` — cwd doesn't matter (the agent may start
+  outside the project). See "Getting started" above for how `--project-root`, `MAP_DIR` and relative
+  paths resolve per tool category (card tools vs generic tools).
 - **Language auto-detected from extension.** Python (indentation, stdlib `ast`); `.ts`/`.js`, `.cs`,
   `.cpp`/`.h`/…, `.yaml`/`.yml` (tree-sitter); Markdown (`.md`) and plain text (`.txt`,
   experimental) for `get_codeblock`.

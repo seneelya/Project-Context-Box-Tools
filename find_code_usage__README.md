@@ -58,13 +58,13 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 
 | Параметр | Описание | Пример |
 |----------|----------|--------|
-| `--file PATH` | Путь к исследуемому файлу (относительный от project-root или абсолютный) | `_engine/auth.py`, `src/analyzer.ts` |
+| `--file PATH` | Путь к исследуемому файлу: абсолютный, или относительный — сначала от project-root, потом от cwd (есть в обоих -> root + предупреждение) | `_engine/auth.py`, `src/analyzer.ts` |
 | `--module NAME` | Имя модуля (альтернатива --file; в v1 не используется активно) | `auth_module` |
 | `--module-names N1,N2,...` | Дополнительные имена по которым этот модуль можно импортировать | `_secret_module,auth_core` |
 | `--language LNG` | Язык обработчика/резолвера (поддерживает Python, TypeScript/JS, C#). По умолчанию автодетект по расширению файла или python | `python`, `typescript`, `csharp` |
 | `--incoming` | Показать upstream зависимости (откуда целевой файл импортирует символы) вместо downstream consumers | (без значения) |
 | `--verbose` | Группировать вывод по символам с номерами строк, типами загрузки и уровнями блоков (работает только в default mode); добавляет легенду формата | (без значения) |
-| `--project-root PATH` | Root directory to scan for imports (default from CONFIG__TOOLS.py or current dir) | `/workspace/SRC/memohood`, `.` |
+| `--project-root PATH` | Root directory to scan for imports (default: CONFIG__TOOLS.PROJECT_ROOT if set and existing, else current dir); `@` = config value explicitly | `/workspace/SRC/memohood`, `.` |
 | `--tests-only` | Show usages only from configured test directories (reveals API covered by tests) | (no value needed) |
 | `--symbol N1,N2,...` | Post-filter output to these symbol name(s). Works in every mode (filters the produced data, not the logic) | `resolve_chain`, `chat,embed` |
 
@@ -357,7 +357,7 @@ If `./CONFIG__TOOLS.py` exists and defines valid paths/languages, the tool reads
 
 | Config constant | Used as default for | Cascade priority |
 |-----------------|---------------------|------------------|
-| `PROJECT_ROOT` | `--project-root PATH` | CLI flag > config value > current dir (`.`) |
+| `PROJECT_ROOT` | `--project-root PATH`; first base for a relative `--file` | CLI flag > config value (if the dir exists) > current dir (`.`) |
 | `LANGUAGE` | `--language LNG` | CLI flag > auto-detect from file extension > config value > `python` |
 | `TEST_DIRS` | Test directories to exclude/include | Config value > empty list (no exclusions) |
 

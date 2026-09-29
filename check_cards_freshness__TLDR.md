@@ -9,7 +9,8 @@ cards found" (empty dir).
 
 ## Quick use
 ```
-check_cards_freshness.py --project-root .    # list stale + orphan cards (git mode)
+check_cards_freshness.py                        # stale + orphan cards (root + MAP_DIR from config)
+check_cards_freshness.py --project-root <R>     # a foreign project -> <R>/__map
 ```
 
 ## Modes

@@ -136,7 +136,7 @@ language**. This is how an agent discovers WHICH line to go to, then pulls the s
 | `--query` | flag | Return actual text of the chosen block instead of the metadata ladder. |
 | `--numbered` | flag | With `--query`, prefix each code line with its absolute line number. Off by default (raw text stays copy/paste-safe). |
 | `--force` | flag | Guarantees the exact requested range, ignoring context length — skips `--query`'s too-small-result escalation (see above). |
-| `--project-root PATH` | optional | Root directory for resolving relative file paths. CLI value overrides `CONFIG__TOOLS.py`. |
+| `--project-root PATH` | optional | First base for a relative `--file` (cwd second). Not given -> `CONFIG__TOOLS.PROJECT_ROOT`. Found in both (different files) -> root wins + a warning. `@` = config value explicitly. |
 
 ### Level addressing — two self-describing flags (don't mix)
 
@@ -221,8 +221,11 @@ Run `help(get_codeblock)` in Python for full docstring reference.
 
 ## Configuration
 
-When `CONFIG__TOOLS.py` exists in the project root:
-- `PROJECT_ROOT` — base directory used for resolving relative file paths (overridden by CLI `--project-root`).
+When `CONFIG__TOOLS.py` sits next to the tool (`<HQ>/tools/`):
+- `PROJECT_ROOT` — FIRST base for a relative `--file`, cwd second (overridden by CLI `--project-root`).
+  The agent may start outside the project and still write short project-relative paths; a hit in
+  both places prints a warning, and the `File:` header shows the full path actually opened.
+- `LOG_DIR` — where call logs go (relative to the HQ at config schema >= 2).
 - Other settings are tool-specific and not required for basic usage.
 
 ## Examples
