@@ -42,6 +42,11 @@ Run with `--project-root test/<set>`.
     on member count (regex under-reports on generated nesting) — the concrete case for the
     optional tree-sitter backend. `Map/` (MapService 19KB + `IMapService`).
 
+- **cppSRC/** — **llama.cpp** (ggml backend layer) at upstream `7fee17846`, files WHOLE with the real
+  folder layout + own `__HQ/tools/CONFIG__TOOLS.py` (`CPP_INCLUDE_DIRS`/`CPP_STRIP_MACROS`/`CPP_PAIRS`).
+  `#ifdef GGML_USE_*`-guarded includes, edges leaving the fixture, a transitive-only path impl→header,
+  a build-generated missing header. Links and counts: `cppSRC/README.md` (Plan08).
+
 - **mdSRC/** — memohood cards (`capture.py.md`, `cli.py.md`). No import links (Markdown);
   for `get_codeblock` heading sections / `--outline` (the canonical "pull `## Public API`" case).
 

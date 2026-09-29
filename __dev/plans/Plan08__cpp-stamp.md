@@ -37,7 +37,7 @@ dict'а `declared` (`docstring_first`, `exports[{name,kind,signature,methods}]`,
 21, `test_split_monster` ok, `test__replace_in_files` 15/21 старое + восстановить фикстуры), в
 `make_interface_card.py` нет `lang ==`.
 
-## Шаг 1 — фикстура `test/cppSRC/`
+## Шаг 1 — фикстура `test/cppSRC/` · ✅ (+ цепочка `ggml-vulkan-{common,push-constants,types}.h`)
 
 Файлы llama.cpp на `7fee17846` ЦЕЛИКОМ (не обрезаем), с настоящими папками, + `LICENSE` (MIT):
 `ggml/include/{ggml,ggml-backend,ggml-cuda,ggml-vulkan}.h`, `ggml/src/ggml-backend-impl.h`,

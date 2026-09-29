@@ -124,4 +124,5 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - Vision09 перенесён сюда (`__dev/vision/`), план — `__dev/plans/Plan08__cpp-stamp.md`.
 - Решение владельца: языки подключаются ЗАПИСЬЮ в реестр, не веткой `if` → шаг 0 = `stamp_langs/` + `CONTRACT.md`, без C++.
 - ✅ Шаг 0 (`5973592`): реестр `stamp_langs/` (python/typescript/csharp + `_common`), `CONTRACT.md` (форма `declared` + хуки, громкая проверка ключей). В `make_interface_card.py` ноль `lang ==`; незнакомое расширение → отказ exit 2 (раньше молча python — `.h` ушёл бы в Python-разбор). Регресс = база: check 121, cardstamp 144→154 (+10 на реестр), restamp 21, split ok, replace 15/21 старое.
-- → next: шаг 1 — фикстура `test/cppSRC/`.
+- ✅ Шаг 1: фикстура `test/cppSRC/` — 14 файлов llama.cpp `7fee17846` целиком (+LICENSE, свой CONFIG, README со связями). Находка: `ggml-vulkan.cpp` достаёт `ggml-vulkan.h` только транзитивно (common→push-constants→types) → цепочка добавлена в фикстуру; `ggml-vulkan-shaders.hpp` генерируется сборкой, в дереве его нет.
+- → next: шаг 2 — include-рёбра с условием.
