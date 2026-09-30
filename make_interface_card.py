@@ -167,14 +167,42 @@ def _declared(project_root, file, lang):
 
 # --- formatting --------------------------------------------------------------
 
-def _consumers_fact(sym, consumers):
+# Up to this many consumers a symbol lists them file by file; above it the card carries ONE
+# summary line by folder (a mega-API symbol used by 600 files is "used everywhere, mostly in X",
+# not a 600-line list). The full list is one query away — find_code_usage --symbol.
+CONSUMERS_LIST_MAX = 8
+_FOLDER_TOP = 6
+
+
+def _consumers_fact(sym, consumers, target_rel=None):
     """Generated fact lines: who really imports `sym` — one consumer per line (Plan02 pt.1),
     so two branches each adding a different new consumer add two different LINES instead of
-    both rewriting the same single comma-joined line (guaranteed git conflict otherwise)."""
+    both rewriting the same single comma-joined line (guaranteed git conflict otherwise).
+    More than CONSUMERS_LIST_MAX -> one line folded by folder, most-used folders first."""
     c = consumers.get(sym)
     if not c:
         return ["consumers 0"]
-    return [f"consumers {len(c)}:"] + [f"- {f}" for f, _k, _ln in c]
+    if len(c) <= CONSUMERS_LIST_MAX:
+        return [f"consumers {len(c)}:"] + [f"- {f}" for f, _k, _ln in c]
+    # Adaptive depth: full folder first; too many folders (a symbol spread one-file-per-backend)
+    # -> regroup one level up, until it fits _FOLDER_TOP or we reach the top level.
+    dirs = [os.path.dirname(f).replace(os.sep, "/") or "." for f, _k, _ln in c]
+    depth = max(d.count("/") + 1 for d in dirs)
+    while True:
+        by_dir = defaultdict(int)
+        for d in dirs:
+            by_dir["/".join(d.split("/")[:depth])] += 1
+        if len(by_dir) <= _FOLDER_TOP or depth <= 1:
+            break
+        depth -= 1
+    top = sorted(by_dir.items(), key=lambda kv: (-kv[1], kv[0]))
+    parts = [f"{d} {n}" for d, n in top[:_FOLDER_TOP]]
+    rest = top[_FOLDER_TOP:]
+    if rest:
+        parts.append(f"+{sum(n for _d, n in rest)} in {len(rest)} more folder(s)")
+    where = f"--file {target_rel} " if target_rel else ""
+    return [f"consumers {len(c)} (by folder): {', '.join(parts)} — full list: "
+            f"find_code_usage {where}--symbol {sym}"]
 
 
 # --- merge: сохранить прозу человека, освежить факты -------------------------
@@ -624,7 +652,7 @@ def build_card(project_root, file, old_prose=None, report=None):
             lines.append(f"#### `{e['signature']}`")
             if e.get("cond"):
                 lines.append(f"condition: {e['cond']}")
-            lines.extend(_consumers_fact(e["name"], consumers))
+            lines.extend(_consumers_fact(e["name"], consumers, file))
             emit_desc(e["name"])
             for m in e.get("methods", []):
                 lines.append(f"    - `{m['signature']}`")
@@ -635,7 +663,7 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append("### Re-exports")
         for r in declared["reexports"]:
             lines.append(f"#### `{reexport_sigs.get(r['name'], r['name'])}`  ← {r['source']}")
-            lines.extend(_consumers_fact(r["name"], consumers))
+            lines.extend(_consumers_fact(r["name"], consumers, file))
             emit_desc(r["name"])
         lines.append("")
 
@@ -643,7 +671,7 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append(f"### {cf.CONSUMED_SUBSECTION}")
         for sym in leftover:
             lines.append(f"#### `{leftover_sigs[sym]}`")
-            lines.extend(_consumers_fact(sym, consumers))
+            lines.extend(_consumers_fact(sym, consumers, file))
             emit_desc(sym)
         lines.append("")
 

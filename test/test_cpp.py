@@ -250,6 +250,20 @@ def test_evaluator_and_cells():
     check("escaped pipe roundtrip", split_cells("| a | " + escape_cell("A || B") + " |") == [" a ", " A || B "])
 
 
+def test_consumers_folding():
+    few = {"f": [(f"a/x{i}.cpp", "include", [1]) for i in range(mic.CONSUMERS_LIST_MAX)]}
+    check("<= max: listed file by file", mic._consumers_fact("f", few)[0] == f"consumers {mic.CONSUMERS_LIST_MAX}:"
+          and len(mic._consumers_fact("f", few)) == mic.CONSUMERS_LIST_MAX + 1)
+    many = {"g": [(f"src/models/m{i}.cpp", "include", [1]) for i in range(12)]
+                 + [("ggml/src/ggml-cuda/k.cu", "include", [1]), ("tools/server/s.cpp", "include", [1])]}
+    out = mic._consumers_fact("g", many, "ggml/include/ggml.h")
+    check("> max: one folded line", len(out) == 1)
+    check("folded: most-used folder first", out[0].startswith("consumers 14 (by folder): src/models 12, "))
+    check("folded: points to the full list", out[0].endswith("find_code_usage --file ggml/include/ggml.h --symbol g"))
+    op = mic._parse_old_prose("# x.h\n\ns.\n\n## Public API\n\n#### `void g(void)`\n" + out[0] + "\nMy prose.\n")
+    check("folded line is fact, not prose", op["entries"]["g"]["desc"] == ["My prose."])
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -269,6 +283,7 @@ def main():
     test_merge_and_validate()
     test_zone_and_graph()
     test_evaluator_and_cells()
+    test_consumers_folding()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
