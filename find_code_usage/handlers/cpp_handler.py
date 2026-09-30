@@ -17,6 +17,9 @@ from ..core import LanguageHandler
 from ..cpp_includes import CPP_EXTS, tree_for
 
 
+_IDENT_RE = re.compile(r"[A-Za-z_]\w*")
+
+
 class CppHandler(LanguageHandler):
 
     def __init__(self):
@@ -86,6 +89,13 @@ class CppHandler(LanguageHandler):
         # One regex pass over the whole text (a per-line loop dominated the zone stamp);
         # line numbers only for the hits.
         text = "".join(content_lines)
+        # cheap C-speed prefilter: which of the target's names occur here at all -> a small regex
+        names = _names
+        hits = names.intersection(_IDENT_RE.findall(text))
+        if not hits:
+            return symbols, lines, set()
+        if len(hits) < len(names):
+            rx = re.compile(r"\b(" + "|".join(sorted(map(re.escape, hits), key=len, reverse=True)) + r")\b")
         starts = None
         skip: Dict[int, bool] = {}
         for m in rx.finditer(text):

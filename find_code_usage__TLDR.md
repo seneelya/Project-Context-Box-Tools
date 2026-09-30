@@ -26,6 +26,12 @@ include graph of the whole root), and its symbols = which of the target's declar
 Kinds: `include`, `include [if X]` (under `#if`), `via <header>` (through a chain). `--incoming`
 lists the target's includes; unresolved ones carry a tag (`[not in tree; if GGML_USE_METAL]`).
 Include lookup: own folder -> `CONFIG__TOOLS.CPP_INCLUDE_DIRS` -> unique path-suffix in the tree.
+Scan cache: the per-file `#include`/`#if` scan of the whole root is kept in
+`__HQ/tools/_cache/<root>-<hash>/cpp_scan.json` (derived data, gitignored, never deployed). Freshness
+per file = git blob id (`git ls-files -s`; changed/untracked or no git -> mtime+size); only changed
+files are rescanned, a tool code change drops the cache. Delete it any time; `TOOLS_NO_CACHE=1`
+turns it off, `TOOLS_CACHE_DIR` moves it. On llama.cpp (1445 files) the tree builds in 0.35 s warm
+vs 5 s cold.
 
 ## Filtering
 

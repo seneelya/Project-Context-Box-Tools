@@ -57,6 +57,8 @@ same-stem rule misses). CUDA qualifiers (`__device__` …) are cut always.
   the WHOLE tree (+ transitive count), grep seam hints (`vtable` table fills, `registry` calls,
   `dlopen`) with their conditions, and `opaque` ranges tree-sitter could not read (read the code
   there; usually a macro to add to `CPP_WRAPPER_MACROS`/`CPP_STRIP_MACROS`).
+* **Speed:** the include tree comes from the scan cache (`find_code_usage__TLDR.md` § C/C++);
+  a zone of 36 llama.cpp files restamps in ~8 s.
 
 ## The three facts it fills
 
