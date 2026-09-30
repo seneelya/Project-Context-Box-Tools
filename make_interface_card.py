@@ -322,19 +322,32 @@ def _entry_key(h4_line, lang=None):
 
 
 _SIM_THRESHOLD = 0.6
-_MARK_SIG_CHANGED = "⚠ поменялась сигнатура - "
+_MARK_SIG_CHANGED = "⚠ signature changed - "
 
 
 def _mark_renamed(old_name):
-    return f"⚠ похоже на переименование, было `{old_name}` - "
+    return f"⚠ looks renamed, was `{old_name}` - "
 
 
 def _norm_name(name):
     return re.sub(r"[^A-Za-z0-9]", "", name).lower()
 
 
+def _split_qual(name):
+    parts = re.split(r"::|\.", name)
+    return parts[:-1], parts[-1]
+
+
 def _similarity(a, b):
-    return difflib.SequenceMatcher(None, _norm_name(a), _norm_name(b)).ratio()
+    """Rename likelihood of two entry names. Qualified names (`Class::method`) compare by the BARE
+    name within the SAME qualifier: the shared `llama_context::` prefix alone made
+    `process_ubatch` look like `resolve_fused_ops` (0.66 > threshold) and moved prose onto the
+    wrong entry. Different qualifiers = a different owner, never a rename."""
+    qa, na = _split_qual(a)
+    qb, nb = _split_qual(b)
+    if qa != qb:
+        return 0.0
+    return difflib.SequenceMatcher(None, _norm_name(na), _norm_name(nb)).ratio()
 
 
 def _resolve_entry_identities(new_syms, op, report):

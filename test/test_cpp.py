@@ -632,6 +632,16 @@ def test_reader_recovers_after_unparsable_body():
           [len(x) for x in out.split("\n")] == [len(x) for x in src.split("\n")])
 
 
+def test_rename_similarity_qualified():
+    s = mic._similarity
+    check("rename: a shared class prefix is not similarity",
+          s("llama_context::process_ubatch", "llama_context::resolve_fused_ops") < mic._SIM_THRESHOLD)
+    check("rename: same class, close bare names still match",
+          s("W::load_tensors", "W::load_tensor") >= mic._SIM_THRESHOLD)
+    check("rename: another class is never a rename", s("A::run", "B::run") == 0.0)
+    check("rename marker is English", mic._mark_renamed("x").startswith("⚠ looks renamed"))
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -666,6 +676,7 @@ def main():
     test_impl_methods_not_duplicated()
     test_merge_keeps_prose_of_qualified_methods()
     test_reader_recovers_after_unparsable_body()
+    test_rename_similarity_qualified()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0

@@ -297,7 +297,7 @@ def test_merge_marker_on_signature_change_and_rename():
     resolved2, renamed_from2 = mic._resolve_entry_identities(new_syms_renamed, op, report2)
     check("renamed keeps prose", resolved2["ALLOWED_TOOLS"][0].endswith("B."))
     check("renamed gets a different marker than sig-change",
-          resolved2["ALLOWED_TOOLS"][0].startswith("⚠ похоже на переименование")
+          resolved2["ALLOWED_TOOLS"][0].startswith("⚠ looks renamed")
           and "OUR_TOOLS" in resolved2["ALLOWED_TOOLS"][0])
     check("renamed old name reported", "OUR_TOOLS -> ALLOWED_TOOLS" in report2["renamed"])
     check("renamed old entry excluded from Salvage", "OUR_TOOLS" in renamed_from2)

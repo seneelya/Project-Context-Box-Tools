@@ -82,7 +82,7 @@ def run_one(lang):
     check(lang, f"'{ren_old}' -> '{ren_new}' reported as renamed",
           f"{ren_old} -> {ren_new}" in report["renamed"])
     check(lang, f"'{ren_new}' carries the renamed-from marker + old prose",
-          ren_old in "".join(l for l in after.splitlines() if "похоже на переименование" in l)
+          ren_old in "".join(l for l in after.splitlines() if "looks renamed" in l)
           and "PROSE_RENAMED" in after)
     check(lang, f"'{removed}' salvaged, not silently dropped",
           removed in report["salvaged"] and "## Salvage" in after and "PROSE_REMOVED" in after)
