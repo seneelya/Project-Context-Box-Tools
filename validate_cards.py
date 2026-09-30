@@ -8,7 +8,8 @@
   «мигрировать» через canon());
 - `In-Project Dependencies` = `(none)` или таблица с колонками DEPS_COLUMNS; каждый `File Path`
   резолвится в существующую карточку (иначе — ошибка);
-- `Public API` = `(none)` или ≥1 H3; приватные `_x` в Public API запрещены (кроме `Re-exports`);
+- `Public API` = `(none)` или ≥1 H3, или маркер `API: in source — …` (1.3.0: исходник существует,
+  таблица семейств с колонками `FAMILIES_COLUMNS`); приватные `_x` в Public API запрещены (кроме `Re-exports`);
 - (опц. с --project-root) сироты — карточка без исходника;
 - `Runtime seams` (опционально, если есть) — `Kind`/`Shape` из закрытых словарей CARD_FORMAT;
   `Target`, похожий на путь проекта, резолвится тем же pending/unresolved, что File Path;
@@ -168,7 +169,17 @@ def validate_card(path, cards_dir, unresolved_raw, project_root, seam_rows=None)
                     nm = _entry_name(line)
                     if nm.startswith("_") and cur_h3 not in cf.PRIVATE_OK_SUBSECTIONS:
                         issues.append(f"review: private '{nm}' in Public API (keep only if consumed elsewhere)")
-            if not has_h3:
+            # "API: in source" (CARD_FORMAT 1.3.0): signatures live in the named source — the
+            # marker replaces H4 entries; the link must not lie, the family table has fixed columns.
+            src = next((cf.api_in_source_file(ln) for ln in body if cf.api_in_source_file(ln)), None)
+            if src:
+                if project_root is not None and not (project_root / src).exists():
+                    issues.append(f'Public API: "{cf.API_IN_SOURCE}" names a missing source: "{src}"')
+                hdr = next((ln for ln in body if ln.strip().startswith("|")), None)
+                cols = [c.strip() for c in hdr.strip().strip("|").split("|")] if hdr else []
+                if cols != cf.FAMILIES_COLUMNS:
+                    issues.append(f"Public API: family table columns must be {cf.FAMILIES_COLUMNS}")
+            elif not has_h3:
                 issues.append("Public API: neither (none) nor an H3 subsection")
 
     # сироты (опц.)

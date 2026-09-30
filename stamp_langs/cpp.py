@@ -230,6 +230,14 @@ def _family(name, how, its, first=None):
             "first": min([first] + lines if first else lines), "last": max(lines)}
 
 
+def api_families(project_root, target_abs, declared_surface):
+    """A header IS the interface -> families (card form "API: in source"); an implementation
+    keeps H4 entries (only its external definitions not declared in a header)."""
+    if not _is_header(target_abs):
+        return None
+    return families(project_root, target_abs, declared_surface["exports"])
+
+
 def families(project_root, target_abs, exports=None):
     """[{name, how: section|prefix|kind|file, decls: [names], first, last}] in file order.
     `exports` = declared()["exports"] (computed when omitted)."""
@@ -273,6 +281,11 @@ def families(project_root, target_abs, exports=None):
     else:
         split("", "prefix", items)
     out.sort(key=lambda f: (f["first"], f["name"]))
+    seen = {}
+    for f in out:                 # the name is the prose key -> unique within the card
+        n = seen[f["name"]] = seen.get(f["name"], 0) + 1
+        if n > 1:
+            f["name"] = f"{f['name']} ({n})"
     return out
 
 

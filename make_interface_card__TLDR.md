@@ -48,10 +48,15 @@ looked up after the file's own folder; without it a unique path-suffix match is 
 same-stem rule misses). CUDA qualifiers (`__device__` …) are cut always.
 * **Deps Kind** = `conditional(GGML_USE_CUDA)` when the `#include` sits under `#if`; `|` is written `\|`.
   Unresolved includes go to External with a tag: `[not in tree; if GGML_USE_METAL]`.
-* **Header** exports everything it declares; each entry under `#if` gets a `condition: X` fact
-  line; a macro defined per branch lists its variants with their conditions.
+* **Header = "API: in source"** (card-format 1.3.0): NO signatures in the card (the header has them,
+  with the author's comments). Public API = `API: in source — get_codeblock --file H --outline (N
+  declarations)` + a family table `Family | Decls | Lines | Used from (by folder)` (fact) +
+  `### What each family is for` — one prose line per family, kept by name on re-stamp; a family
+  that disappears goes to Salvage. Families: the author's section frames (`//` / `// Title` / `//`)
+  -> name prefix (groups >30 split deeper, <4 go to "other <kind>") -> kind. Hook
+  `api_families` (`stamp_langs/CONTRACT.md` ПОПРАВКА 3).
 * **Implementation** exports only external definitions NOT declared in any header it includes —
-  the header's API is not duplicated.
+  the header's API is not duplicated; an entry under `#if` gets a `condition: X` fact line.
 * **`## Build facts`** (pure fact, rebuilt every stamp — never write prose there): header<->impl
   `pair:`, "defines what these headers declare", `#if` zones with line ranges, `included by` over
   the WHOLE tree (+ transitive count), grep seam hints (`vtable` table fills, `registry` calls,

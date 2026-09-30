@@ -21,7 +21,8 @@ validate_cards.py --cards-dir path/__map --project-root <R> # custom cards dir
   to migrate via `canon()`);
 * **`In-Project Dependencies`** = `(none)` or a table with `DEPS_COLUMNS`; every `File Path`
   resolves to an existing card (else error);
-* **`Public API`** = `(none)` or ≥1 H3; private `_x` in Public API forbidden (except `Re-exports`);
+* **`Public API`** = `(none)` or ≥1 H3, or the `API: in source — …` marker (1.3.0 — the named source
+  must exist, the family table has columns `Family | Decls | Lines | Used from (by folder)`); private `_x` in Public API forbidden (except `Re-exports`);
 * **orphans** (with `--project-root`) — a card whose source no longer exists;
 * **`Runtime seams`** (optional — not in `H2_SECTIONS`, absence is never flagged): each row's
   `Kind`/`Shape` must be one of `CARD_FORMAT`'s closed vocabularies (typo = error); `Target`

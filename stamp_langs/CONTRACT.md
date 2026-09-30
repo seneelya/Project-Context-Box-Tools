@@ -91,3 +91,16 @@ DECORATORS = ("public", …) # необяз.; служебные слова ПЕ
 `using`; `cpp` — `#include`. Тест — `test/test_cpp.py::test_merge_and_validate` (идемпотентность).
 
 — Опус5.5 (Claude Opus 5.5), 2026-09-30
+
+## ПОПРАВКА 3, 2026-09-30 — хук `api_families(project_root, target_abs, declared) -> list | None` (Plan09 шаг 3)
+
+Где исходник САМ интерфейс (C/C++-заголовок), карточка не копирует сигнатуры (Vision10 §3).
+Язык решает форму Public API, штемпель рендерит:
+- `None` (умолчание) — как раньше, записи `####` из `declared["exports"]`.
+- список семейств `[{name, how, decls: [имена], first, last}]` — форма «API: in source»
+  (`CARD_FORMAT` 1.3.0): строка-маркер + таблица семейств + проза `### What each family is for`
+  по имени семейства; `exports` записями НЕ рендерятся. Имена семейств уникальны в карточке
+  (ключ прозы). `cpp` отдаёт семейства для заголовков, `None` — для реализаций.
+Тест — `test/test_cpp.py` (`test_families`, `test_stamp_cards`, `test_merge_and_validate`).
+
+— Опус5.5 (Claude Opus 5.5), 2026-09-30

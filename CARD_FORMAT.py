@@ -135,6 +135,36 @@ IMPORT_KINDS = ["normal", "lazy", "conditional", "type"]
 # прозу сюда не писать (её место — How it works / Runtime seams).
 BUILD_FACTS_SECTION = "Build facts"
 
+# "API: in source" (1.3.0, Vision10 §3 / Plan09 step 3). Where the source file IS the interface
+# (a C/C++ header), the card does NOT copy its signatures — the author's file has them, with
+# the author's comments. Public API then holds, instead of H3/H4 entries:
+#
+#     API: in source — `get_codeblock --file ggml/include/ggml-backend.h --outline` (143 declarations)
+#
+#     | Family | Decls | Lines | Used from (by folder) |      FACT, rebuilt every stamp: API
+#     |---|---|---|---|                                     families (author's sections -> name
+#     | Backend scheduler | 21 | L263-354 | 12: src 5, … |  prefix -> kind), consumers by folder
+#
+#     ### What each family is for (one line per family — free text)
+#     - `Backend scheduler` — <|Agent:07 … |>              PROSE, keyed by family name; survives
+#                                                           re-stamps; a vanished family -> Salvage
+#
+# The marker line makes such a Public API valid without H4 entries; the named source must exist.
+API_IN_SOURCE = "API: in source"
+FAMILIES_COLUMNS = ["Family", "Decls", "Lines", "Used from (by folder)"]
+FAMILY_WHY_SUBSECTION = "What each family is for"
+_API_IN_SOURCE_RE = re.compile(r"^API: in source — `get_codeblock --file (\S+) --outline`")
+
+
+def api_in_source_line(file_rel, n_decls):
+    return f"{API_IN_SOURCE} — `get_codeblock --file {file_rel} --outline` ({n_decls} declarations)"
+
+
+def api_in_source_file(line):
+    """The source a marker line points at, or None when the line is not the marker."""
+    m = _API_IN_SOURCE_RE.match(line.strip())
+    return m.group(1) if m else None
+
 # "## Runtime seams" — ОПЦИОНАЛЬНАЯ H2-секция (Plan03/Vision07): связи, которых не видно из
 # импортов (динамическая загрузка по пути, отдельный процесс, общий файл, шина событий). НЕ
 # входит в H2_SECTIONS/H2_SECTIONS_PACKAGE — как "## Salvage", появляется только если есть что
@@ -202,7 +232,7 @@ EMPTY = "(none)"
 # into every card as its LAST line (see version_comment()/is_version_comment() below) so
 # an already-written card carries its own provenance — a version number that only lives
 # in this file tells you nothing about files stamped by an older copy of the tool.
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 _VERSION_RE = re.compile(r"^<!--\s*card-format:\s*(\S+)\s*-->\s*$")
 

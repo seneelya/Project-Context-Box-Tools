@@ -35,6 +35,12 @@ class _Defaults:
         return []
 
     @staticmethod
+    def api_families(project_root, target_abs, declared):
+        """None -> Public API as H4 entries (default). A list of families -> the source IS the
+        interface: card form "API: in source" (CARD_FORMAT 1.3.0) with this family table."""
+        return None
+
+    @staticmethod
     def import_line(line):
         """Is this line an external-import FACT line (the resolver's raw_line), not prose?"""
         return line.startswith(("import ", "from "))

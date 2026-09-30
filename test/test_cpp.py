@@ -190,8 +190,13 @@ def test_stamp_cards():
     check("pair from header", "pair: implemented in `ggml/src/ggml-cuda/ggml-cuda.cu`" in cuda_h)
     check("included by with cond", "- `ggml/src/ggml-backend-reg.cpp` [if GGML_USE_CUDA]" in cuda_h)
     check("__cplusplus idiom filtered", "`__cplusplus`" not in cuda_h)
-    check("decl condition line", "#### `#define GGML_CUDA_NAME \"ROCm\"`\ncondition: GGML_USE_HIP" in cuda_h)
-    check("consumer found across files", "- ggml/src/ggml-backend-reg.cpp" in cuda_h)
+    check("header: API in source, no signatures copied",
+          "API: in source — `get_codeblock --file ggml/include/ggml-cuda.h --outline` (14 declarations)" in cuda_h
+          and "#### " not in cuda_h)
+    check("header: family table with consumers by folder",
+          "| Family | Decls | Lines | Used from (by folder) |" in cuda_h
+          and "| (whole file) | 14 | L" in cuda_h and "ggml/src 1" in cuda_h)
+    check("header: #if zones still in Build facts", "GGML_USE_HIP" in cuda_h.split("## Build facts", 1)[1])
     vk = mic.build_card(_PR, "ggml/src/ggml-vulkan/ggml-vulkan.cpp")
     check("pair from impl", "pair: implements `ggml/include/ggml-vulkan.h`" in vk)
     check("transitive declare facts", "`ggml/src/ggml-vulkan/ggml-vulkan-common.h` 191" in vk)
@@ -204,16 +209,33 @@ def test_merge_and_validate():
         st, _ = mic._stamp_to_file(_PR, "ggml/include/ggml-cuda.h", str(out), force=False)
         check("fresh stamp", st == "new")
         text = out.read_text(encoding="utf-8")
-        filled = text.replace("<|Agent:02 write short does+role, or remove |>", "Creates the CUDA backend.", 1)
+        filled = text.replace("- `(whole file)` — <|Agent:02 what this family is for — one line |>",
+                              "- `(whole file)` — CUDA backend entry points.", 1)
+        # a family that no longer exists + an old-form H4 entry with prose (pre-1.3.0 card)
+        filled = filled.replace("\n## In-Project Dependencies",
+                                "- `Gone family` — old family prose.\n\n### Functions\n"
+                                "#### `ggml_backend_t ggml_backend_cuda_init(int device)`\n"
+                                "Creates the CUDA backend.\n\n## In-Project Dependencies", 1)
         out.write_text(filled, encoding="utf-8")
         st, _ = mic._stamp_to_file(_PR, "ggml/include/ggml-cuda.h", str(out), force=False)
         again = out.read_text(encoding="utf-8")
-        check("merge keeps prose", st == "merged" and "Creates the CUDA backend." in again)
+        check("merge keeps family prose", st == "merged" and "- `(whole file)` — CUDA backend entry points." in again)
+        salv = again.split("## Salvage", 1)[1] if "## Salvage" in again else ""
+        check("vanished family -> Salvage", "family `Gone family` — old family prose." in salv)
+        check("old H4 entry prose -> Salvage", "Creates the CUDA backend." in salv
+              and "#### " not in again.split("## Salvage", 1)[0])
         check("merge rebuilds Build facts once", again.count("## Build facts") == 1)
-        check("condition line is fact, not prose (not duplicated by merge)",
-              again.count("condition: GGML_USE_HIP") == text.count("condition: GGML_USE_HIP") == 2)
+        st, _ = mic._stamp_to_file(_PR, "ggml/include/ggml-cuda.h", str(out), force=False)
+        check("family form re-stamp is idempotent", out.read_text(encoding="utf-8") == again)
         issues, _p, _a = vc.validate_card(out, cards, [], Path(_PR))
         check("card validates", issues == [])
+        out.write_text(again.replace("--file ggml/include/ggml-cuda.h --outline", "--file ggml/include/nope.h --outline"),
+                       encoding="utf-8")
+        issues, _p, _a = vc.validate_card(out, cards, [], Path(_PR))
+        check("validator: API in source must name an existing file", any("missing source" in i for i in issues))
+        out.write_text(again.replace("| Family | Decls |", "| Group | Decls |"), encoding="utf-8")
+        issues, _p, _a = vc.validate_card(out, cards, [], Path(_PR))
+        check("validator: fixed family table columns", any("family table columns" in i for i in issues))
 
 
 def test_zone_and_graph():

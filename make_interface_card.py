@@ -106,6 +106,7 @@ def _lang(file):
 DIRECTIVE_DESC = cf.agent("write short does+role, or remove")
 DIRECTIVE_SUMMARY = cf.agent("replace with a concise one-line summary — what this file is and does")
 DIRECTIVE_HOWITWORKS = cf.agent("describe the actual mechanism/flow after reading the source; keep it precise — do NOT generalize a per-case detail to \"each/every\" unless it holds for all")
+DIRECTIVE_FAMILY = cf.agent("what this family is for — one line")
 DIRECTIVE_WHY = cf.agent("why?")
 
 # H4 declaration kind -> H3 subsection label (order below drives emission order).
@@ -184,17 +185,24 @@ def _consumers_fact(sym, consumers, target_rel=None):
         return ["consumers 0"]
     if len(c) <= CONSUMERS_LIST_MAX:
         return [f"consumers {len(c)}:"] + [f"- {f}" for f, _k, _ln in c]
-    # Adaptive depth: the DEEPEST folder level whose top _FOLDER_TOP folders still cover at least
-    # half of the consumers. A concentrated symbol keeps precise folders ("ggml/src/ggml-cuda 135");
-    # one spread one-file-per-backend climbs until the grouping says something ("ggml/src 13").
-    dirs = [os.path.dirname(f).replace(os.sep, "/") or "." for f, _k, _ln in c]
+    where = f"--file {target_rel} " if target_rel else ""
+    return [f"consumers {len(c)} (by folder): {_by_folder([f for f, _k, _ln in c])} — full list: "
+            f"find_code_usage {where}--symbol {sym}"]
+
+
+def _by_folder(files):
+    """'ggml/src/ggml-cuda 135, src 4, +3 in 2 more folder(s)'.
+    Adaptive depth: the DEEPEST folder level whose top _FOLDER_TOP folders still cover at least
+    half of the files. A concentrated symbol keeps precise folders ("ggml/src/ggml-cuda 135");
+    one spread one-file-per-backend climbs until the grouping says something ("ggml/src 13")."""
+    dirs = [os.path.dirname(f).replace(os.sep, "/") or "." for f in files]
     depth = max(d.count("/") + 1 for d in dirs)
     while True:
         by_dir = defaultdict(int)
         for d in dirs:
             by_dir["/".join(d.split("/")[:depth])] += 1
         shown = sum(sorted(by_dir.values(), reverse=True)[:_FOLDER_TOP])
-        if shown * 2 >= len(c) or depth <= 1:
+        if shown * 2 >= len(files) or depth <= 1:
             break
         depth -= 1
     top = sorted(by_dir.items(), key=lambda kv: (-kv[1], kv[0]))
@@ -202,9 +210,21 @@ def _consumers_fact(sym, consumers, target_rel=None):
     rest = top[_FOLDER_TOP:]
     if rest:
         parts.append(f"+{sum(n for _d, n in rest)} in {len(rest)} more folder(s)")
-    where = f"--file {target_rel} " if target_rel else ""
-    return [f"consumers {len(c)} (by folder): {', '.join(parts)} — full list: "
-            f"find_code_usage {where}--symbol {sym}"]
+    return ", ".join(parts)
+
+
+def _families_fact(fams, consumers, file_rel, n_decls):
+    """Public API in the "API: in source" form (CARD_FORMAT 1.3.0): the marker line + the
+    family table (fact). The prose list below it is rendered by build_card (merge-aware)."""
+    lines = [cf.api_in_source_line(file_rel, n_decls), "",
+             "| " + " | ".join(cf.FAMILIES_COLUMNS) + " |",
+             "|" + "---|" * len(cf.FAMILIES_COLUMNS)]
+    for f in fams:
+        users = sorted({u for d in f["decls"] for u, _k, _ln in consumers.get(d, [])})
+        used = f"{len(users)}: {_by_folder(users)}" if users else "0"
+        lines.append(f"| {escape_cell(f['name'])} | {len(f['decls'])} | "
+                     f"L{f['first']}-{f['last']} | {escape_cell(used)} |")
+    return lines
 
 
 # --- merge: сохранить прозу человека, освежить факты -------------------------
@@ -437,6 +457,23 @@ def _parse_why_section(body, P):
             P["why"][key] = why
 
 
+def _parse_keyed_bullets(body, h3_title):
+    """{key: text} from '- `key` — text' bullets under '### <h3_title>…' (placeholders skipped)."""
+    out, inside = {}, False
+    for ln in body:
+        s = ln.strip()
+        if s.startswith("### "):
+            inside = s[4:].strip().startswith(h3_title)
+            continue
+        if not inside or not s.startswith("- ") or " — " not in s:
+            continue
+        key, text = s[2:].split(" — ", 1)
+        key, text = key.strip().strip("`").strip(), text.strip()
+        if key and text and not _is_ph(text) and text != cf.EMPTY:
+            out[key] = text
+    return out
+
+
 def _parse_old_prose(text, lang=None):
     """Проза человека из существующей карточки, по ключу-имени. -> dict слотов."""
     lines = text.splitlines()
@@ -446,7 +483,8 @@ def _parse_old_prose(text, lang=None):
     # Discrepancies, Salvage, whichever happens to be physically last) needs its own
     # special-case to avoid swallowing it as content.
     lines = [ln for ln in lines if not cf.is_version_comment(ln)]
-    P = {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {}}
+    P = {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {},
+         "family_why": {}}
 
     h1 = next((i for i, ln in enumerate(lines)
                if ln.strip().startswith("# ") and not ln.strip().startswith("## ")), None)
@@ -472,6 +510,7 @@ def _parse_old_prose(text, lang=None):
         name = cf.canon(raw)
         if name == "Public API":
             _parse_entries(body, P, lang)
+            P["family_why"] = _parse_keyed_bullets(body, cf.FAMILY_WHY_SUBSECTION)
         elif name == "In-Project Dependencies":
             _parse_why(body, P)          # legacy table-Why column (no-op on new-format tables)
             _parse_why_section(body, P)  # new bullet-list Why (no-op on legacy bodies)
@@ -549,8 +588,13 @@ def build_card(project_root, file, old_prose=None, report=None):
     resolved, externals = deps_of(project_root, file)
     declared = _declared(project_root, file, lang)
     target_abs = file if os.path.isabs(file) else os.path.join(project_root, file)
+    # "API: in source" (CARD_FORMAT 1.3.0): the language says the source IS the interface ->
+    # a family table instead of H4 entries; the exports are then not entries (no signatures).
+    fams = stamp_langs.get(lang).api_families(project_root, target_abs, declared) or None
+    file_rel = os.path.relpath(target_abs, project_root).replace(os.sep, "/")
 
     op = old_prose or {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {}}
+    op.setdefault("family_why", {})
     if report is None:
         report = {}
     for k in ("preserved_entries", "new_entries", "salvaged", "renamed"):
@@ -562,12 +606,14 @@ def build_card(project_root, file, old_prose=None, report=None):
     # identity-resolution (точное имя -> fuzzy на переименование, REQ-004+005 design) должна
     # видеть картину целиком, а не решать по одной записи за раз в порядке вывода. -----------
     by_h3 = defaultdict(list)
-    for e in declared["exports"]:
+    for e in ([] if fams else declared["exports"]):
         by_h3[_KIND_H3.get(e["kind"], "Objects")].append(e)
 
     new_syms = [(e["name"], h3, e["signature"])
                 for h3 in _H3_ORDER + ["Objects"] for e in by_h3.get(h3, [])]
     placed = {name for name, _, _ in new_syms}
+    if fams:
+        placed |= {d for f in fams for d in f["decls"]}
 
     reexport_sigs = {}
     if is_pkg:
@@ -648,6 +694,20 @@ def build_card(project_root, file, old_prose=None, report=None):
     lines.append("## Public API")
     lines.append("")
 
+    family_orphans = {}
+    if fams:
+        lines.extend(_families_fact(fams, consumers, file_rel, sum(len(f["decls"]) for f in fams)))
+        lines.append("")
+        lines.append(f"### {cf.FAMILY_WHY_SUBSECTION} (one line per family — free text)")
+        for f in fams:
+            why = op["family_why"].get(f["name"])
+            lines.append(f"- `{f['name']}` — {why or DIRECTIVE_FAMILY}")
+            if why:
+                report["preserved_entries"].append(f["name"])
+        lines.append("")
+        names = {f["name"] for f in fams}
+        family_orphans = {k: v for k, v in op["family_why"].items() if k not in names}
+
     for h3 in _H3_ORDER + ["Objects"]:
         group = by_h3.get(h3)
         if not group:
@@ -680,7 +740,7 @@ def build_card(project_root, file, old_prose=None, report=None):
             emit_desc(sym)
         lines.append("")
 
-    if not (any(by_h3.values()) or (is_pkg and declared["reexports"]) or leftover):
+    if not (fams or any(by_h3.values()) or (is_pkg and declared["reexports"]) or leftover):
         lines.append("(none)")
         lines.append("")
 
@@ -769,14 +829,19 @@ def build_card(project_root, file, old_prose=None, report=None):
     old_salv = op["sections"].get("Salvage", [])
     orphans = [nm for nm, e in op["entries"].items()
                if nm not in emitted and nm not in renamed_from and e["desc"]]
-    if old_salv or orphans:
+    if old_salv or orphans or family_orphans:
         lines.append("")
         lines.append(f"## {_SALVAGE_H2}")
         lines.append("")
         if old_salv:
             lines.extend(old_salv)
         for nm in orphans:
-            lines.extend(op["entries"][nm]["block"])
+            # blank lines dropped: the Salvage parser keeps only non-blank lines, so a block
+            # written with them would change again on the next stamp (not idempotent)
+            lines.extend(ln for ln in op["entries"][nm]["block"] if ln.strip())
+            report["salvaged"].append(nm)
+        for nm, why in family_orphans.items():      # a family that is gone (renamed/regrouped)
+            lines.append(f"- family `{nm}` — {why}")
             report["salvaged"].append(nm)
 
     # Card-format version — ALWAYS the literal last line (Plan02 pt.0): which contract
