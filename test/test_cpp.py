@@ -606,6 +606,12 @@ def test_merge_keeps_prose_of_qualified_methods():
         again = out.read_text(encoding="utf-8")
         check("merge keeps prose under Class::method entries",
               "Returns its argument." in again and "Does nothing." in again and "## Salvage" not in again)
+        hw = again.replace(again.split("## How it works", 1)[1].split("## Doc links", 1)[0],
+                           "\n\n**Scope:** the helpers.\n\nSecond paragraph.\n\n")
+        out.write_text(hw, encoding="utf-8")
+        mic._stamp_to_file(str(root), "impl.cpp", str(out), force=False)
+        check("merge keeps paragraphs of How it works (blank line between them)",
+              "**Scope:** the helpers.\n\nSecond paragraph." in out.read_text(encoding="utf-8"))
 
 
 def test_misc_registry():

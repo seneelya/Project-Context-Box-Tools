@@ -586,10 +586,18 @@ def _parse_old_prose(text, lang=None):
             # other section here never gets told to write cf.EMPTY as a real answer, so for them
             # a bare "(none)" still means "nothing kept" as before.
             drop_empty_marker = name != "Discrepancies"
-            keep = [ln for ln in body if ln.strip() and not _is_ph(ln)
+            keep = [ln for ln in body if not _is_ph(ln)
                     and (not drop_empty_marker or ln.strip() != cf.EMPTY)]
-            if keep:
-                P["sections"][name] = keep
+            # paragraphs survive: blank lines INSIDE the prose are kept (one), only the edges are
+            # trimmed — dropping them all glued paragraphs together on the first re-stamp
+            out = []
+            for ln in keep:
+                if ln.strip() or (out and out[-1].strip()):
+                    out.append(ln)
+            while out and not out[-1].strip():
+                out.pop()
+            if out:
+                P["sections"][name] = out
     return P
 
 
