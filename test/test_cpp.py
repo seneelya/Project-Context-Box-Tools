@@ -578,13 +578,14 @@ def test_impl_methods_not_duplicated():
     # a .cpp defining `Class::method` for a class declared in its header must not re-list them
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
-        (root / "w.h").write_text("#pragma once\nnamespace ns {\nstruct W {\n    void run();\n    int size() const;\n};\n}\n"
-                                  "int free_fn(int x);\n", encoding="utf-8")
+        (root / "w.h").write_text("#pragma once\nnamespace ns {\nstruct W {\n    void run();\n    int size() const;\n"
+                                  "private:\n    void hidden(int k);\n};\n}\nint free_fn(int x);\n", encoding="utf-8")
         (root / "w.cpp").write_text('#include "w.h"\nvoid ns::W::run() {}\nint ns::W::size() const { return 0; }\n'
+                                    "void ns::W::hidden(int k) { (void)k; }\n"
                                     "int free_fn(int x) { return x; }\nint extra(int y) { return y; }\n", encoding="utf-8")
         from stamp_langs import cpp
         ex = [e["name"] for e in cpp.declared(str(root), str(root / "w.cpp"))["exports"]]
-        check("impl: class methods declared in the header are not re-listed", ex == ["extra"])
+        check("impl: class methods declared in the header (private too) are not re-listed", ex == ["extra"])
 
 
 def test_merge_keeps_prose_of_qualified_methods():

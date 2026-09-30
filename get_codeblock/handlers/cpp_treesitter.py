@@ -125,11 +125,30 @@ def _members(ctx, rec):
             continue
         if not public:
             continue
-        if m.type in ("field_declaration", "declaration", "function_definition", "template_declaration"):
+        if m.type in _MEMBER_TYPES:
             sig = ctx.sig(m, stop_at_body=(m.type == "function_definition"))
             d = m.child_by_field_name("declarator")
             name = _declarator_name(d)[0] if d is not None else None
             out.append({"name": name or sig, "signature": sig})
+    return out
+
+
+_MEMBER_TYPES = ("field_declaration", "declaration", "function_definition", "template_declaration")
+
+
+def _all_member_names(ctx, rec):
+    """Names of ALL members, private and protected included: a .cpp defining `Class::method` for
+    a PRIVATE method declared in the class still implements the header (it is not new API)."""
+    body = rec.child_by_field_name("body")
+    if body is None or rec.type == "enum_specifier":
+        return []
+    out = []
+    for m in body.named_children:
+        if m.type in _MEMBER_TYPES:
+            d = m.child_by_field_name("declarator")
+            name = _declarator_name(d)[0] if d is not None else None
+            if name:
+                out.append(name)
     return out
 
 
@@ -141,7 +160,8 @@ def _record(ctx, rec, line, out, prefix=""):
     has_body = rec.child_by_field_name("body") is not None
     out.append({"name": name, "kind": _RECORD[rec.type], "line": line,
                 "signature": prefix + ctx.sig(rec) if has_body else prefix + " ".join(ctx.text(rec).split()),
-                "methods": _members(ctx, rec), "static": False, "definition": has_body})
+                "methods": _members(ctx, rec), "member_names": _all_member_names(ctx, rec),
+                "static": False, "definition": has_body})
     return name
 
 

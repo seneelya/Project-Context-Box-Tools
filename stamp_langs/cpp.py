@@ -131,9 +131,10 @@ def _header_decl_names(project_root, target_abs):
                 decls, _s = _decls(project_root, tgt)
                 for d in decls:
                     out.setdefault(d["name"], tree.rel(tgt))
-                    # methods declared INSIDE a class: the .cpp defines them as `Class::method`
-                    for m in d.get("methods", []):
-                        out.setdefault(f"{d['name']}::{m['name']}", tree.rel(tgt))
+                    # members declared INSIDE a class (private too): the .cpp defines them as
+                    # `Class::method`
+                    for m in d.get("member_names") or [m["name"] for m in d.get("methods", [])]:
+                        out.setdefault(f"{d['name']}::{m}", tree.rel(tgt))
     return out
 
 
