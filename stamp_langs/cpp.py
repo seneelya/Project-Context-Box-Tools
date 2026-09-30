@@ -230,6 +230,13 @@ def _family(name, how, its, first=None):
             "first": min([first] + lines if first else lines), "last": max(lines)}
 
 
+def source_edges(project_root):
+    """The whole include graph of the root (scan cache — ~0.3 s warm on llama.cpp)."""
+    tree = _engine().tree_for(project_root)
+    return {tree.rel(src): [(tree.rel(t), c) for t, c, _l in edges]
+            for src, edges in tree.forward().items()}
+
+
 def api_families(project_root, target_abs, declared_surface):
     """A header IS the interface -> families (card form "API: in source"); an implementation
     keeps H4 entries (only its external definitions not declared in a header)."""

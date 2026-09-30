@@ -15,7 +15,8 @@ graph_from_cards.py --view seams-mermaid      # every Runtime seam as one mermai
 graph_from_cards.py --edges out               # only "→ uses" (quieter; reading order)
 graph_from_cards.py --edges in                # only "← used-by" (blast radius of a change)
 graph_from_cards.py --verbose 0               # modules + edges only (hide summary lines)
-graph_from_cards.py --file _engine/embed.py   # focus slice around one file
+graph_from_cards.py --file _engine/embed.py   # focus slice around one file (+ files without cards, C/C++)
+graph_from_cards.py --file x.h --cards-only   # same slice, carded files only (old behaviour)
 graph_from_cards.py --cycles                  # circular deps as A → B → C → A
 graph_from_cards.py --discrepancies           # "map vs reality" digest (orphan/pending/unresolved)
 graph_from_cards.py --discrepancies --group-by package   # same findings, regrouped by package
@@ -30,6 +31,14 @@ condition three-valued: a flag ON switches OFF the rest of its family (`GGML_USE
 `GGML_USE_*` off), `!X` = explicitly off, other names (`_WIN32`, `NDEBUG`) stay unknown. False ->
 edge dropped; true -> plain edge; unknown -> kept and listed in the `> build flags:` header
 (comparisons / `__has_include` are never guessed).
+
+**Files without cards in `--file`** (Vision10 §2, Plan09 step 4). For a language with a whole-tree
+scan (C/C++: the include tree from the scan cache, ~0.5 s on llama.cpp) files WITHOUT cards join the
+`--file` slice as nodes marked `(no card)`, with edges and `#if` conditions from the source — so
+`used-by` is the whole tree, not just the stamped zone. More than 8 such files in one list fold by
+folder (`+44 without card (by folder): tests 8, ggml/src/ggml-cpu 5, …`). A file without a card can
+be the center too. Overview views (`tree`, `depth`, `--cycles`, `--discrepancies`) stay card-only —
+there "a source without a card" is the *pending* finding. `--json` adds `no_card: [...]`.
 
 **`--discrepancies`** = coverage audit of the card layer against the source tree:
 *orphan* (card without source), *pending* (dep on a source that has no card yet),

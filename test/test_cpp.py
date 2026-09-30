@@ -259,6 +259,33 @@ def test_zone_and_graph():
         check("pair parsed", g["nodes"]["ggml/include/ggml-cuda.h"]["pair"] == [] )   # impl card not in this map
 
 
+def test_graph_source_nodes():
+    from graph_from_cards import add_source_nodes, file_zone, format_file_zone, fold_by_folder
+    with tempfile.TemporaryDirectory() as d:
+        cards = Path(d)
+        mic._stamp_all(_PR, force=False, cards_dir=str(cards), paths=["ggml/include"])
+        g = build_graph(cards)
+        n_cards = len(g["nodes"])
+        rdeps_cards = [i for i, n in g["nodes"].items() if "ggml/include/ggml-cuda.h" in n["deps"]]
+        added = add_source_nodes(g, Path(_PR))
+        nodes = g["nodes"]
+        check("source nodes: files without cards join, marked", added > 0
+              and len(nodes) == n_cards + added and nodes["ggml/src/ggml-backend-reg.cpp"]["card"] is False
+              and nodes["ggml/include/ggml-cuda.h"].get("card", True) is True)
+        z = file_zone(g, "ggml/include/ggml-cuda.h", 1)
+        check("source nodes: used-by sees files outside the zone", rdeps_cards == []
+              and {"ggml/src/ggml-backend-reg.cpp", "ggml/src/ggml-cuda/ggml-cuda.cu"} <= z["up"])
+        check("source nodes: edge condition from the scan",
+              nodes["ggml/src/ggml-backend-reg.cpp"]["dep_conds"].get("ggml/include/ggml-cuda.h") == "GGML_USE_CUDA")
+        txt = format_file_zone(g, z, 0)
+        check("source nodes: rendered with (no card)", "ggml/src/ggml-backend-reg.cpp (no card) [if GGML_USE_CUDA]" in txt)
+        g2 = build_graph(cards)
+        add_source_nodes(g2, Path(_PR), ["GGML_USE_VULKAN"])
+        check("source nodes: --flags apply to scanned edges",
+              "ggml/include/ggml-cuda.h" not in g2["nodes"]["ggml/src/ggml-backend-reg.cpp"]["deps"])
+        check("fold_by_folder: adaptive", fold_by_folder(["a/b/x.c", "a/b/y.c", "c/z.c"]) == "a/b 2, c 1")
+
+
 def test_evaluator_and_cells():
     ev = flag_evaluator(["GGML_USE_CUDA", "GGML_USE_VULKAN", "!NDEBUG"])
     check("on", ev.run("GGML_USE_CUDA") is True)
@@ -413,6 +440,7 @@ def main():
     test_stamp_cards()
     test_merge_and_validate()
     test_zone_and_graph()
+    test_graph_source_nodes()
     test_evaluator_and_cells()
     test_consumers_folding()
     test_flags_skip_numbers()

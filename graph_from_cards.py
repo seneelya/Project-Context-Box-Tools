@@ -166,6 +166,31 @@ def load_config_at(root):
 _CELL_SPLIT = re.compile(r"(?<!\\)\|")
 
 
+def fold_by_folder(files, top=6):
+    """'ggml/src/ggml-cuda 135, src 4, +3 in 2 more folder(s)'. Adaptive depth: the DEEPEST
+    folder level whose `top` folders still cover at least half of the files — a concentrated set
+    keeps precise folders, a spread one climbs until the grouping says something."""
+    from collections import defaultdict
+    dirs = [f.rsplit("/", 1)[0] if "/" in f else "." for f in (x.replace("\\", "/") for x in files)]
+    if not dirs:
+        return ""
+    depth = max(d.count("/") + 1 for d in dirs)
+    while True:
+        by_dir = defaultdict(int)
+        for d in dirs:
+            by_dir["/".join(d.split("/")[:depth])] += 1
+        shown = sum(sorted(by_dir.values(), reverse=True)[:top])
+        if shown * 2 >= len(files) or depth <= 1:
+            break
+        depth -= 1
+    ranked = sorted(by_dir.items(), key=lambda kv: (-kv[1], kv[0]))
+    parts = [f"{d} {n}" for d, n in ranked[:top]]
+    rest = ranked[top:]
+    if rest:
+        parts.append(f"+{sum(n for _d, n in rest)} in {len(rest)} more folder(s)")
+    return ", ".join(parts)
+
+
 def split_cells(row):
     """'| a | b \\| c |' -> ['a', 'b | c'] — делит по НЕэкранированной `|` (GitHub-markdown:
     `\\|` внутри ячейки — буквальная черта; нужно C++-условиям `A || B` в колонке Kind)."""
@@ -463,17 +488,7 @@ def build_graph(cards_dir, flags=None):
             deps.add(resolved)
         for d in plain:
             conds.pop(d, None)
-        if ev is not None:
-            for d, cond in list(conds.items()):
-                v = ev.run(cond)
-                if v is False:
-                    deps.discard(d)
-                    conds.pop(d)
-                    flag_info["dropped"].append((nid, d, cond))
-                elif v is None:
-                    flag_info["unknown"].append((nid, d, cond))
-                else:
-                    conds.pop(d)                # condition holds for this build -> plain edge
+        _apply_flags(nid, deps, conds, ev, flag_info)
         deps.discard(nid)
         conds.pop(nid, None)
         pair = [p for p in (_resolve_tok(r, ids, by_base) for r in c.get("pairs_raw", [])) if p and p != nid]
@@ -493,6 +508,62 @@ def build_graph(cards_dir, flags=None):
             if d in indeg:
                 indeg[d] += 1
     return {"nodes": nodes, "indeg": indeg, "unresolved": unresolved, "flag_info": flag_info}
+
+
+def _apply_flags(nid, deps, conds, ev, flag_info):
+    if ev is None:
+        return
+    for d, cond in list(conds.items()):
+        v = ev.run(cond)
+        if v is False:
+            deps.discard(d)
+            conds.pop(d)
+            flag_info["dropped"].append((nid, d, cond))
+        elif v is None:
+            flag_info["unknown"].append((nid, d, cond))
+        else:
+            conds.pop(d)                # condition holds for this build -> plain edge
+
+
+def add_source_nodes(graph, project_root, flags=None):
+    """Plan09 step 4 (Vision10 §2): files WITHOUT cards join the graph as nodes (`card: False`),
+    their edges straight from the source scan of each language that has one (registry hook
+    `source_edges` — C/C++: the include tree). A carded file keeps its card's edges (the card
+    is the truth for it). Used by `--file` so `used-by` is the whole tree, not just the zone;
+    overview views and --discrepancies stay card-only (pending = "source without card" there).
+    -> number of nodes added."""
+    import stamp_langs
+    langs = None
+    try:
+        langs = stamp_langs.normalize(getattr(load_config_at(project_root), "LANGUAGE", None))
+    except Exception:
+        langs = None
+    nodes = graph["nodes"]
+    ev = flag_evaluator(flags) if flags else None
+    added = 0
+    for name in (langs or stamp_langs.known()):
+        try:
+            edges = stamp_langs.get(name).source_edges(str(project_root))
+        except Exception:
+            edges = None
+        for src, targets in (edges or {}).items():
+            if src in nodes:
+                continue
+            deps, conds, plain = set(), {}, set()
+            for tgt, cond in targets:
+                deps.add(tgt)
+                if cond is None:
+                    plain.add(tgt)
+                else:
+                    conds[tgt] = f"{conds[tgt]} || {cond}" if tgt in conds else cond
+            for d in plain:
+                conds.pop(d, None)
+            _apply_flags(src, deps, conds, ev, graph.setdefault("flag_info", {"dropped": [], "unknown": []}))
+            deps.discard(src)
+            nodes[src] = {"summary": "", "deps": sorted(deps), "seams": [], "dep_conds": conds,
+                          "pair": [], "card": False}
+            added += 1
+    return added
 
 
 def _reverse(nodes):
@@ -557,38 +628,60 @@ def format_file_zone(graph, z, verbose=1):
     nodes, rdeps = graph["nodes"], z["rdeps"]
     c = z["center"]
 
+    def carded(i):
+        return nodes.get(i, {}).get("card", True)
+
+    def tag(i):
+        return i if carded(i) else f"{i} (no card)"
+
     def line(i):
         s = nodes[i]["summary"]
-        return f"{i} — {s}" if verbose >= 1 and s and not cf.is_agent_directive(s) else i
+        return f"{i} — {s}" if verbose >= 1 and s and not cf.is_agent_directive(s) else tag(i)
 
-    out = [f"# file: {c}  (hops {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)",
-           _orient_file(verbose), ""]
+    def listing(ids, conds):
+        """Carded files by name; files without cards by name up to 8, else folded by folder."""
+        with_card = [f"{i} [if {conds[i]}]" if conds.get(i) else i for i in ids if carded(i)]
+        no_card = [i for i in ids if not carded(i)]
+        if len(no_card) <= 8:
+            with_card += [f"{i} (no card)" + (f" [if {conds[i]}]" if conds.get(i) else "") for i in no_card]
+        else:
+            with_card.append(f"+{len(no_card)} without card (by folder): {fold_by_folder(no_card)}")
+        return ", ".join(with_card) or "(none)"
+
+    n_nc = sum(1 for n in nodes.values() if not n.get("card", True))
+    out = [f"# file: {tag(c)}  (hops {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)",
+           _orient_file(verbose)]
+    if n_nc:
+        out.append(f"> files without cards are in this slice too (edges from the source scan, "
+                   f"{n_nc} such files in the tree); --cards-only hides them")
+    out.append("")
     conds = nodes[c].get("dep_conds", {})
-    uses = [f"{d} [if {conds[d]}]" if d in conds else d for d in nodes[c]["deps"]]
     rconds = {i: nodes[i].get("dep_conds", {}).get(c) for i in rdeps[c]}
-    used_by = [f"{i} [if {rconds[i]}]" if rconds[i] else i for i in rdeps[c]]
     out += ["## center", line(c),
-            f"  uses -> {', '.join(uses) or '(none)'}",
-            f"  used-by <- {', '.join(used_by) or '(none)'}"]
+            f"  uses -> {listing(nodes[c]['deps'], conds)}",
+            f"  used-by <- {listing(rdeps[c], rconds)}"]
     if nodes[c].get("pair"):
         out.append(f"  pair <-> {', '.join(nodes[c]['pair'])}")
     out.append("")
 
-    out.append(f"## downstream (what {c} transitively depends on, <={z['depth']})")
-    for i in sorted(z["down"]):
-        out.append(line(i))
-        if nodes[i]["deps"]:
-            out.append(f"    -> {', '.join(nodes[i]['deps'])}")
-    if not z["down"]:
-        out.append("(none)")
+    def section(ids, edges, arrow):
+        few = len([i for i in ids if not carded(i)]) <= 8
+        for i in sorted(ids):
+            if not carded(i) and not few:
+                continue
+            out.append(line(i))
+            if edges.get(i):
+                out.append(f"    {arrow} {listing(edges[i], {})}")
+        nc = sorted(i for i in ids if not carded(i))
+        if nc and not few:
+            out.append(f"+{len(nc)} without card (by folder): {fold_by_folder(nc)}")
+        if not ids:
+            out.append("(none)")
 
+    out.append(f"## downstream (what {c} transitively depends on, <={z['depth']})")
+    section(z["down"], {i: nodes[i]["deps"] for i in z["down"]}, "->")
     out += ["", f"## upstream (what transitively depends on {c}, <={z['depth']})"]
-    for i in sorted(z["up"]):
-        out.append(line(i))
-        if rdeps[i]:
-            out.append(f"    <- {', '.join(rdeps[i])}")
-    if not z["up"]:
-        out.append("(none)")
+    section(z["up"], rdeps, "<-")
     return "\n".join(out)
 
 
@@ -1167,6 +1260,9 @@ def main():
                          "flags are dropped. A flag ON switches OFF its family (GGML_USE_CUDA -> other "
                          "GGML_USE_* off); '!X' = explicitly off; other names stay unknown (edge kept, "
                          "listed in the header). Example: --flags GGML_USE_CUDA,GGML_USE_VULKAN")
+    ap.add_argument("--cards-only", action="store_true",
+                    help="--file: only files that have cards (default: files without cards join the "
+                         "slice with edges from the source scan — C/C++ include tree)")
     ap.add_argument("--verbose", type=int, default=1, metavar="N",
                     help="0 = только модули и связи (описания скрыты) | 1 = с описаниями (дефолт)")
     args = ap.parse_args()
@@ -1221,6 +1317,10 @@ def main():
         return
 
     if args.file:
+        if not args.cards_only:
+            root = resolve_project_root(args.project_root)
+            if root is not None:
+                add_source_nodes(graph, root, flags or None)
         center = _resolve_id(graph["nodes"], args.file)
         if not center:
             print(f"--file: '{args.file}' — no such card (need a root-relative path or a unique basename)",
@@ -1228,8 +1328,11 @@ def main():
             sys.exit(1)
         z = file_zone(graph, center, max(1, args.hops))
         if args.json:
+            nc = sorted(i for i in (z["down"] | z["up"] | {center})
+                        if not graph["nodes"][i].get("card", True))
             print(json.dumps({"center": center, "depth": z["depth"],
-                              "downstream": sorted(z["down"]), "upstream": sorted(z["up"])},
+                              "downstream": sorted(z["down"]), "upstream": sorted(z["up"]),
+                              "no_card": nc},
                              ensure_ascii=False, indent=2))
         else:
             print(termstyle.md(format_file_zone(graph, z, args.verbose)))

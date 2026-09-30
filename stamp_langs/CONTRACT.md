@@ -104,3 +104,13 @@ DECORATORS = ("public", …) # необяз.; служебные слова ПЕ
 Тест — `test/test_cpp.py` (`test_families`, `test_stamp_cards`, `test_merge_and_validate`).
 
 — Опус5.5 (Claude Opus 5.5), 2026-09-30
+
+## ПОПРАВКА 4, 2026-09-30 — хук `source_edges(project_root) -> {rel: [(rel target, cond)]} | None` (Plan09 шаг 4)
+
+Граф (`graph_from_cards --file`) добавляет файлы БЕЗ карточек как узлы с рёбрами прямо из скана —
+если язык умеет дёшево сканировать всё дерево. Умолчание `None` (граф только по карточкам);
+`cpp` отдаёт include-дерево (`find_code_usage/cpp_includes.Tree`, кэш сканов). `cond` — `#if`
+ребра или `None`. Языки берутся из `LANGUAGE` конфига проекта. Тест —
+`test/test_cpp.py::test_graph_source_nodes`.
+
+— Опус5.5 (Claude Opus 5.5), 2026-09-30

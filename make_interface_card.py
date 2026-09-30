@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import CARD_FORMAT as cf
 import seam_scanner
 import stamp_langs
-from graph_from_cards import (_cells, _is_sep, escape_cell, load_config_at, resolve_cards_dir,
+from graph_from_cards import (_cells, _is_sep, escape_cell, fold_by_folder, load_config_at, resolve_cards_dir,
                               resolve_project_root, split_cells)
 
 
@@ -191,26 +191,8 @@ def _consumers_fact(sym, consumers, target_rel=None):
 
 
 def _by_folder(files):
-    """'ggml/src/ggml-cuda 135, src 4, +3 in 2 more folder(s)'.
-    Adaptive depth: the DEEPEST folder level whose top _FOLDER_TOP folders still cover at least
-    half of the files. A concentrated symbol keeps precise folders ("ggml/src/ggml-cuda 135");
-    one spread one-file-per-backend climbs until the grouping says something ("ggml/src 13")."""
-    dirs = [os.path.dirname(f).replace(os.sep, "/") or "." for f in files]
-    depth = max(d.count("/") + 1 for d in dirs)
-    while True:
-        by_dir = defaultdict(int)
-        for d in dirs:
-            by_dir["/".join(d.split("/")[:depth])] += 1
-        shown = sum(sorted(by_dir.values(), reverse=True)[:_FOLDER_TOP])
-        if shown * 2 >= len(files) or depth <= 1:
-            break
-        depth -= 1
-    top = sorted(by_dir.items(), key=lambda kv: (-kv[1], kv[0]))
-    parts = [f"{d} {n}" for d, n in top[:_FOLDER_TOP]]
-    rest = top[_FOLDER_TOP:]
-    if rest:
-        parts.append(f"+{sum(n for _d, n in rest)} in {len(rest)} more folder(s)")
-    return ", ".join(parts)
+    """Folded by folder (adaptive depth) — one helper for the stamp and the graph."""
+    return fold_by_folder([f.replace(os.sep, "/") for f in files], _FOLDER_TOP)
 
 
 def _families_fact(fams, consumers, file_rel, n_decls):

@@ -35,6 +35,13 @@ class _Defaults:
         return []
 
     @staticmethod
+    def source_edges(project_root):
+        """{rel file: [(rel target, #if cond or None)]} for EVERY file of this language under the
+        root, straight from the source scan — lets the graph show files WITHOUT cards (Plan09
+        step 4). None = the language has no cheap whole-tree scan (the graph uses cards only)."""
+        return None
+
+    @staticmethod
     def api_families(project_root, target_abs, declared):
         """None -> Public API as H4 entries (default). A list of families -> the source IS the
         interface: card form "API: in source" (CARD_FORMAT 1.3.0) with this family table."""
