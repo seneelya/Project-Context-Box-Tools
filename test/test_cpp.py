@@ -170,7 +170,7 @@ def test_entry_key():
         "using Alias = int": "Alias",
         "template <typename T> T maxv(T a, T b)": "maxv",
         "extern int ggml_counter": "ggml_counter",
-        "void ns::Widget::run()": "run",
+        "void ns::Widget::run()": "ns::Widget::run",
     }
     for sig, want in cases.items():
         check(f"entry_key {sig!r}", k(sig) == want)
@@ -587,6 +587,27 @@ def test_impl_methods_not_duplicated():
         check("impl: class methods declared in the header are not re-listed", ex == ["extra"])
 
 
+def test_merge_keeps_prose_of_qualified_methods():
+    # an implementation card lists `Class::method` definitions; the prose written under them must
+    # survive a re-stamp (entry key = full qualified name, like the declaration's name)
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "w.cpp").write_text("struct W { void run(); };\nnamespace ns { struct G { int go(int x); }; }\n"
+                                    "void W_helper() {}\n", encoding="utf-8")
+        (root / "impl.cpp").write_text('#include "nothing.h"\nint ns::G::go(int x) { return x; }\n'
+                                       "void standalone(int y) { (void)y; }\n", encoding="utf-8")
+        out = root / "cards" / "impl.cpp.md"
+        mic._stamp_to_file(str(root), "impl.cpp", str(out), force=False)
+        text = out.read_text(encoding="utf-8")
+        text = text.replace("<|Agent:02 write short does+role, or remove |>", "Returns its argument.", 1)
+        text = text.replace("<|Agent:03 write short does+role, or remove |>", "Does nothing.", 1)
+        out.write_text(text, encoding="utf-8")
+        mic._stamp_to_file(str(root), "impl.cpp", str(out), force=False)
+        again = out.read_text(encoding="utf-8")
+        check("merge keeps prose under Class::method entries",
+              "Returns its argument." in again and "Does nothing." in again and "## Salvage" not in again)
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -619,6 +640,7 @@ def main():
     test_why_folding()
     test_no_git_noise_on_shift()
     test_impl_methods_not_duplicated()
+    test_merge_keeps_prose_of_qualified_methods()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0

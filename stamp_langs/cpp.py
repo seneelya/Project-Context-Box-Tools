@@ -342,7 +342,10 @@ def entry_key(sig):
         return m.group(1)
     m = re.search(r"(" + _ID + r"(?:::~?" + _ID + r")*)\s*\(", s)   # function: name(
     if m:
-        return m.group(1).split("::")[-1]
+        # the FULL qualified name: the declaration's own name is `Class::method` for an
+        # out-of-class definition — a short key never matched it, and merge sent every written
+        # one-liner of such an entry to Salvage (llama qwen4exp.cpp, Plan01)
+        return m.group(1)
     body = re.split(r"[=\[]", s, 1)[0]
     ids = re.findall(_ID, body)
     return ids[-1] if ids else None
