@@ -155,10 +155,20 @@ def _speed_up():
 
 _speed_up()
 
-# Authoritative set of extensions the tool addresses (mirrors test/check.py _LANG).
-SUPPORTED = {".py", ".ts", ".js", ".tsx", ".jsx", ".scss", ".sass", ".css", ".cs",
-             ".md", ".markdown", ".cpp", ".cc", ".cxx", ".c++", ".hpp", ".hh", ".hxx",
-             ".h", ".c"}
+# Which extensions the tool addresses: ask the reader registry (the single entry point), not a
+# list of our own — a hand list here silently skipped .cu/.cuh (282 files of a CUDA tree).
+_SUPPORTED_CACHE = {}
+
+
+def _supported(ext):
+    if ext not in _SUPPORTED_CACHE:
+        from get_codeblock.reader.registry import resolve
+        try:
+            resolve(ext)
+            _SUPPORTED_CACHE[ext] = ext not in (".txt", "")   # plain text: nothing to address
+        except Exception:
+            _SUPPORTED_CACHE[ext] = False
+    return _SUPPORTED_CACHE[ext]
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", ".mypy_cache",
              ".pytest_cache", "secret", "parity"}
 
@@ -171,7 +181,7 @@ def iter_files(roots):
         for dirpath, dirs, files in os.walk(root):
             dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
             for f in files:
-                if os.path.splitext(f)[1].lower() in SUPPORTED:
+                if _supported(os.path.splitext(f)[1].lower()):
                     yield os.path.join(dirpath, f)
 
 
