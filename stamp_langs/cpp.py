@@ -375,6 +375,70 @@ def _cap(items, render):
     return lines
 
 
+_NAMES_MAX = 8          # names shown per zone / seam group line
+
+
+def _decl_index(target_abs):
+    """Declarations of the file with their block ends — get_codeblock's name resolver (the same
+    names `get_codeblock --name` finds). Anchors in Build facts are these names, never line
+    numbers: a number shifts on every edit above it and rewrites the card (git noise)."""
+    try:
+        from get_codeblock.name_resolver import declarations
+        return declarations(target_abs)
+    except Exception:
+        return []
+
+
+def _names(items):
+    items = list(dict.fromkeys(items))
+    head = ", ".join(items[:_NAMES_MAX])
+    return head + (f" +{len(items) - _NAMES_MAX} more" if len(items) > _NAMES_MAX else "")
+
+
+def _zone_where(decls, ranges):
+    """`in f, g · wraps h, k · top level ×2` for the line ranges of one #if condition."""
+    from get_codeblock.name_resolver import container_at, outermost_in
+    inside, wraps, top = [], [], 0
+    for a, b in ranges:
+        c = container_at(decls, a)
+        if c is not None and c.end >= b and c.line < a:
+            inside.append(c.name)
+            continue
+        w = [d.name for d in outermost_in(decls, a, b)]
+        if w:
+            wraps.extend(w)
+        else:
+            top += 1
+    parts = []
+    if inside:
+        parts.append("in " + _names(inside))
+    if wraps:
+        parts.append("wraps " + _names(wraps))
+    if top:
+        parts.append("top level" + (f" ×{top}" if top > 1 else ""))
+    return " · ".join(parts)
+
+
+def _seam_lines(hits, decls, scan):
+    """Seam hints by (kind, container, condition): a group of 4+ -> one line with a count; a
+    smaller one keeps each hit's code (which backend registers, which symbol is loaded)."""
+    from get_codeblock.name_resolver import container_at
+    groups = {}
+    for line, label, snippet in hits:
+        c = container_at(decls, line)
+        key = (label, c.name if c else None, scan.cond_at(line) if scan else None)
+        groups.setdefault(key, []).append(snippet)
+    out = []
+    for (label, where, cond), snips in groups.items():
+        at = f" in `{where}`" if where else " (top level)"
+        tail = f" [if {cond}]" if cond else ""
+        if len(snips) >= 4:
+            out.append(f"- {label} ×{len(snips)}{at}{tail}")
+        else:
+            out.extend(f"- {label}: `{s[:100]}`{at}{tail}" for s in snips)
+    return out
+
+
 def fact_sections(project_root, target_abs, declared_surface):
     """-> [(title, [lines])] — the `## Build facts` section (pure fact, re-stamped)."""
     import seam_scanner
@@ -400,6 +464,7 @@ def fact_sections(project_root, target_abs, declared_surface):
             lines.append("defines what these headers declare: "
                          + ", ".join(f"`{h}` {n}" for h, n in sorted(per.items(), key=lambda x: -x[1])))
 
+    decls = _decl_index(target_abs)
     blocks = [x for x in (scan.blocks if scan else []) if x[0] not in _IDIOM_CONDS]
     if blocks:
         by_cond = {}
@@ -409,8 +474,8 @@ def fact_sections(project_root, target_abs, declared_surface):
         lines.append(f"build conditions ({len(blocks)} #if-branches): "
                      + (", ".join(f"`{f}`" for f in flags) if flags else "(none named)"))
         zones = sorted(by_cond.items(), key=lambda kv: kv[1][0][0])
-        lines.extend(_cap(zones, lambda kv: f"- `{kv[0]}`: " + ", ".join(
-            f"L{a}-{b}" for a, b in kv[1][:6]) + (f" +{len(kv[1]) - 6}" if len(kv[1]) > 6 else "")))
+        lines.extend(_cap(zones, lambda kv: f"- `{kv[0]}` ({len(kv[1])} zone{'s' if len(kv[1]) > 1 else ''}): "
+                          + (_zone_where(decls, kv[1]) or "top level")))
 
     incl = tree.includers(target_abs)
     if header:
@@ -424,13 +489,18 @@ def fact_sections(project_root, target_abs, declared_surface):
 
     hits = seam_scanner.scan(target_abs, "cpp")
     if hits:
-        lines.append(f"seam hints ({len(hits)}, grep — confirm in code):")
-        lines.extend(_cap(hits, lambda h: f"- L{h[0]} {h[1]}: `{h[2][:100]}`"
-                          + (f" [if {scan.cond_at(h[0])}]" if scan and scan.cond_at(h[0]) else "")))
+        lines.append(f"seam hints ({len(hits)}, grep — confirm in code; "
+                     f"`get_codeblock --name <container>` to read):")
+        seam = _seam_lines(hits, decls, scan)
+        lines.extend(seam[:_MAX_LIST] + ([f"- … +{len(seam) - _MAX_LIST} more"] if len(seam) > _MAX_LIST else []))
 
     if an and an["opaque"]:
+        from get_codeblock.name_resolver import container_at
+        where = []
+        for a, b in an["opaque"][:10]:
+            c = container_at(decls, a)
+            where.append((f"in `{c.name}`" if c else "top level") + f" (~{b - a + 1} lines)")
         lines.append("opaque (tree-sitter could not read — read the code; a macro wrapping declarations? "
-                     "add it to CPP_WRAPPER_MACROS / CPP_STRIP_MACROS): "
-                     + ", ".join(f"L{a}" if a == b else f"L{a}-{b}" for a, b in an["opaque"][:10]))
+                     "add it to CPP_WRAPPER_MACROS / CPP_STRIP_MACROS): " + ", ".join(where))
 
     return [("Build facts", lines)] if lines else []

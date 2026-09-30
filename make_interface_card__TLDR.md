@@ -62,10 +62,13 @@ shared with get_codeblock).
 * **Implementation** exports only external definitions NOT declared in any header it includes —
   the header's API is not duplicated; an entry under `#if` gets a `condition: X` fact line.
 * **`## Build facts`** (pure fact, rebuilt every stamp — never write prose there): header<->impl
-  `pair:`, "defines what these headers declare", `#if` zones with line ranges, `included by` over
-  the WHOLE tree (+ transitive count), grep seam hints (`vtable` table fills, `registry` calls,
-  `dlopen`) with their conditions, and `opaque` ranges tree-sitter could not read (read the code
-  there; usually a macro to add to `CPP_WRAPPER_MACROS`/`CPP_STRIP_MACROS`).
+  `pair:`, "defines what these headers declare", `#if` zones (`in f, g · wraps h · top level`),
+  `included by` over the WHOLE tree (+ transitive count), grep seam hints grouped by container
+  (`vtable ×12 in ggml_backend_cuda_buffer_interface`; small groups keep the code:
+  `register_backend(ggml_backend_cuda_reg());` in `ggml_backend_registry` [if GGML_USE_CUDA]), and
+  `opaque` places tree-sitter could not read (`in f (~40 lines)`; usually a macro for
+  `CPP_WRAPPER_MACROS`/`CPP_STRIP_MACROS`). **No line numbers anywhere** — anchors are names
+  (`get_codeblock --name f`), so an edit that shifts lines does not rewrite the card (git noise).
 * **Speed:** the include tree comes from the scan cache (`find_code_usage__TLDR.md` § C/C++);
   a zone of 36 llama.cpp files restamps in ~8 s.
 

@@ -136,7 +136,9 @@ IMPORT_KINDS = ["normal", "lazy", "conditional", "type"]
 # "## Build facts" — ОПЦИОНАЛЬНАЯ H2-секция ФАКТОВ (Plan08, C/C++): пара header<->impl, `#if`-зоны,
 # кто включает файл во ВСЁМ дереве, подсказки швов, непрозрачные зоны. Пишется модулем языка
 # (`stamp_langs/<lang>.fact_sections`), штамп перезаписывает её целиком на каждом проходе —
-# прозу сюда не писать (её место — How it works / Runtime seams).
+# прозу сюда не писать (её место — How it works / Runtime seams). Номеров строк здесь НЕТ: якоря —
+# имена (функция/таблица, где стоит зона/шов), иначе любая правка выше сдвигает номера и
+# перештамповка переписывает карточку (git-шум); найти по имени — `get_codeblock --name`.
 BUILD_FACTS_SECTION = "Build facts"
 
 # "API: in source" (1.3.0, Vision10 §3 / Plan09 step 3). Where the source file IS the interface
@@ -145,9 +147,9 @@ BUILD_FACTS_SECTION = "Build facts"
 #
 #     API: in source — `get_codeblock --file ggml/include/ggml-backend.h --outline` (143 declarations)
 #
-#     | Family | Decls | Lines | Used from (by folder) |      FACT, rebuilt every stamp: API
+#     | Family | Decls | From | Used from (by folder) |       FACT, rebuilt every stamp: API
 #     |---|---|---|---|                                     families (author's sections -> name
-#     | Backend scheduler | 21 | L263-354 | 12: src 5, … |  prefix -> kind), consumers by folder
+#     | Backend scheduler | 21 | `ggml_backend_sched_new` | 12: src 5, … |  prefix -> kind)
 #
 #     ### What each family is for (one line per family — free text)
 #     - `Backend scheduler` — <|Agent:07 … |>              PROSE, keyed by family name; survives
@@ -155,7 +157,10 @@ BUILD_FACTS_SECTION = "Build facts"
 #
 # The marker line makes such a Public API valid without H4 entries; the named source must exist.
 API_IN_SOURCE = "API: in source"
-FAMILIES_COLUMNS = ["Family", "Decls", "Lines", "Used from (by folder)"]
+# `From` = the family's first declaration — a NAME, not a line range: a line range shifts on
+# every edit above it (git noise on every restamp); the name stays, and
+# `get_codeblock --file H --name <From>` lands on it.
+FAMILIES_COLUMNS = ["Family", "Decls", "From", "Used from (by folder)"]
 FAMILY_WHY_SUBSECTION = "What each family is for"
 _API_IN_SOURCE_RE = re.compile(r"^API: in source — `get_codeblock --file (\S+) --outline`")
 

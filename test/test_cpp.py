@@ -184,7 +184,8 @@ def test_stamp_cards():
     check("Kind carries #if", "| `ggml-cuda` | `ggml/include/ggml-cuda.h` |  | conditional(GGML_USE_CUDA) |" in reg)
     check("impl: API not duplicated", "## Public API\n\n(none)" in reg)
     check("defines what headers declare", "defines what these headers declare: `ggml/include/ggml-backend.h` 16" in reg)
-    check("registry seam tagged with flag", "register_backend(ggml_backend_cuda_reg());` [if GGML_USE_CUDA]" in reg)
+    check("registry seam tagged with flag", "register_backend(ggml_backend_cuda_reg());` in `ggml_backend_registry` [if GGML_USE_CUDA]" in reg)
+    check("#if zone anchored by function name", "- `GGML_USE_CUDA` (2 zones): in ggml_backend_registry" in reg)
     check("not-in-tree + cond on external", '#include "ggml-metal.h"  [not in tree; if GGML_USE_METAL]' in reg)
     cuda_h = mic.build_card(_PR, "ggml/include/ggml-cuda.h")
     check("pair from header", "pair: implemented in `ggml/src/ggml-cuda/ggml-cuda.cu`" in cuda_h)
@@ -194,8 +195,11 @@ def test_stamp_cards():
           "API: in source — `get_codeblock --file ggml/include/ggml-cuda.h --outline` (14 declarations)" in cuda_h
           and "#### " not in cuda_h)
     check("header: family table with consumers by folder",
-          "| Family | Decls | Lines | Used from (by folder) |" in cuda_h
-          and "| (whole file) | 14 | L" in cuda_h and "ggml/src 1" in cuda_h)
+          "| Family | Decls | From | Used from (by folder) |" in cuda_h
+          and "| (whole file) | 14 | `" in cuda_h and "ggml/src 1" in cuda_h)
+    facts = cuda_h.split("## Build facts", 1)[1]
+    check("Build facts carry no line numbers (anchors are names)",
+          not __import__("re").search(r"\bL\d+", facts))
     check("header: #if zones still in Build facts", "GGML_USE_HIP" in cuda_h.split("## Build facts", 1)[1])
     vk = mic.build_card(_PR, "ggml/src/ggml-vulkan/ggml-vulkan.cpp")
     check("pair from impl", "pair: implements `ggml/include/ggml-vulkan.h`" in vk)
@@ -538,6 +542,27 @@ def test_why_folding():
           P["why"] == {"ggml/src/ggml-cuda/ops/*": "op kernels", "ggml": "tensor API"})
 
 
+def test_no_git_noise_on_shift():
+    # lines inserted at the top of a source must not change its card (anchors are names)
+    import shutil
+    import time
+    with tempfile.TemporaryDirectory() as d:
+        root = os.path.join(d, "src")
+        shutil.copytree(_PR, root, ignore=shutil.ignore_patterns("__HQ", "__pycache__"))
+        out = os.path.join(d, "cards", "x.md")
+        for rel in ("ggml/src/ggml-backend-reg.cpp", "ggml/include/ggml-backend.h"):
+            mic._stamp_to_file(root, rel, out, force=True, discard_prose=True)
+            before = open(out, encoding="utf-8").read()
+            p = os.path.join(root, rel)
+            src = open(p, encoding="utf-8").read()
+            time.sleep(0.02)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write("// one\n// two\n// three\n\n" + src)
+            mic._stamp_to_file(root, rel, out, force=False)
+            check(f"shifted source -> same card ({os.path.basename(rel)})",
+                  open(out, encoding="utf-8").read() == before)
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -568,6 +593,7 @@ def main():
     test_keyed_bullets_key_with_dash()
     test_stamp_all_stale()
     test_why_folding()
+    test_no_git_noise_on_shift()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0

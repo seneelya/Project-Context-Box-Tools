@@ -231,7 +231,7 @@ def _families_fact(fams, consumers, file_rel, n_decls):
         users = sorted({u for d in f["decls"] for u, _k, _ln in consumers.get(d, [])})
         used = f"{len(users)}: {_by_folder(users)}" if users else "0"
         lines.append(f"| {escape_cell(f['name'])} | {len(f['decls'])} | "
-                     f"L{f['first']}-{f['last']} | {escape_cell(used)} |")
+                     f"`{escape_cell(f['decls'][0])}` | {escape_cell(used)} |")
     return lines
 
 

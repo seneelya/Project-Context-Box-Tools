@@ -40,6 +40,7 @@ class Decl:
     name: str
     quals: List[str]
     line: int
+    end: int = 0          # last line of the declaring node (body / initializer included)
 
 
 @dataclass
@@ -127,6 +128,25 @@ def decl_name(node):
     return comps[-1], quals + comps[:-1]
 
 
+def container_at(decls, line):
+    """Innermost multi-line declaration holding `line` (a function, a struct, a table
+    initializer), or None. `decls` = declarations(path)."""
+    best = None
+    for d in decls:
+        if d.line <= line <= d.end and d.end > d.line:
+            if best is None or (d.end - d.line) < (best.end - best.line):
+                best = d
+    return best
+
+
+def outermost_in(decls, a, b):
+    """Declarations starting inside lines a..b that no other such declaration contains."""
+    inside = [d for d in decls if a <= d.line <= b]
+    return [d for d in inside
+            if not any(o is not d and o.line <= d.line and d.end <= o.end and (o.line, o.end) != (d.line, d.end)
+                       for o in inside)]
+
+
 def _is_func(node):
     return any(w in node.type for w in _FUNC_WORDS)
 
@@ -143,7 +163,7 @@ def declarations(path):
     def add(node, parents):
         nm, q = decl_name(node)
         if nm:
-            out.append(Decl(nm, parents + q, node.start_row + 1))
+            out.append(Decl(nm, parents + q, node.start_row + 1, node.end_row + 1))
             return nm, q
         return None, []
 
@@ -163,7 +183,7 @@ def declarations(path):
                 if not nm:                                  # markdown heading etc.: its label
                     label = spec.name(ch)
                     if label:
-                        out.append(Decl(label, list(parents), ch.start_row + 1))
+                        out.append(Decl(label, list(parents), ch.start_row + 1, ch.end_row + 1))
                 body = spec.body(ch)
                 if body is not None:
                     walk(body, parents + q + ([nm] if nm else []), in_func or _is_func(d))
