@@ -422,6 +422,34 @@ def test_families():
           [(f["name"], f["how"]) for f in fc] == [("(whole file)", "file")])
 
 
+def test_codeblock_header_addressing():
+    # get_codeblock --line on a C header: the API sits inside `#ifdef __cplusplus` / `extern "C"`;
+    # a prototype must address to its `decl:` band and a bodyless typedef to its own block —
+    # the same blocks the map (--outline) shows — never `<file>` (invariants #6/#9).
+    from get_codeblock.reader import address
+    h = os.path.join(_PR, "ggml/include/ggml-backend.h")
+    proto = address.get_blocks(h, 319)
+    check("prototype inside #ifdef -> its decl band",
+          proto[-1]["label"].startswith("decl:") and "ggml_backend_sched_new" in proto[-1]["label"]
+          and proto[-1]["start"] <= 319 <= proto[-1]["end"] and proto[-1]["end"] - proto[-1]["start"] < 10)
+    td = address.get_blocks(h, 24)
+    check("bodyless typedef -> its own block", (td[-1]["start"], td[-1]["end"]) == (24, 24)
+          and "ggml_backend_buffer_type_t" in td[-1]["label"])
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "t.h")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("int f(int x);\n\n#ifdef X\ntypedef int c_t;\nint k(int);\nint k2(int);\n#endif\n")
+        k = address.get_blocks(p, 5)
+        check("line inside a bodyless #ifdef frame -> its band, not <file>",
+              (k[-1]["start"], k[-1]["end"], k[-1]["label"]) == (5, 6, "decl: k, k2"))
+    import subprocess
+    r = subprocess.run([sys.executable, os.path.join(_TOOLS, "get_codeblock.py"), "--file",
+                        os.path.join(_PR, "ggml/src/ggml-backend-dl.cpp"), "--line", "300", "--query"],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
+    check("--query past the end: an error line, not a traceback",
+          r.returncode == 1 and "out of range" in r.stdout and "Traceback" not in r.stderr)
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -447,6 +475,7 @@ def main():
     test_scan_cache()
     test_restamp_idempotent()
     test_families()
+    test_codeblock_header_addressing()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0

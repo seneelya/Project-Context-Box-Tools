@@ -259,9 +259,16 @@ def _containing_chain(root, spec, line):
         levels.append(level)
         if spec.unwrap_def(nxt) is not None:            # landmark — углубляет; frame — нет
             level += 1
-        body = spec.body(nxt)
+        # Same descent as the Classifier (map): a frame WITHOUT a body node (`#ifdef X` —
+        # preproc_ifdef keeps its statements as direct children) is itself the scope. Before,
+        # the chain stopped here and every line inside `#ifdef __cplusplus` of a C header got
+        # `<file>` while the map showed its real block (invariants #6/#9).
+        frame = spec.unwrap_frame(nxt)
+        body = spec.body(frame) if frame is not None else spec.body(nxt)
         if body is None:
-            break
+            if frame is None:
+                break
+            body = frame
         cur = body
     return chain, levels
 
@@ -312,14 +319,21 @@ def ladder_at(path, line):
     CONTEXT_RESTORE_TOOLS.md). Новый формат/язык получает работающий `--line` СРАЗУ,
     без единой строки адресного кода — только Spec (Vision03: «новый язык = данные»).
     Инвариант #7: ничего не нашлось → честный file-scope `[1, N]`."""
+    chain, rungs, n_lines = _chain_rungs(path, line)
+    if not chain:
+        return [{'level': 1, 'start': 1, 'end': n_lines, 'label': '<file>'}]
+    return rungs
+
+
+def _chain_rungs(path, line):
+    """(chain, rungs, n_lines): `_containing_chain` + its rung form — shared by `ladder_at`
+    and `leaf_landmark_at` (one derivation of starts/labels, the map's own)."""
     backend, spec = resolve(os.path.splitext(path)[1])
     with open(path, 'rb') as f:
         src = f.read()
     root = backend.root(src)
     n_lines = max(src.count(b'\n') + (0 if src.endswith(b'\n') else 1), 1)
     chain, levels = _containing_chain(root, spec, line)
-    if not chain:
-        return [{'level': 1, 'start': 1, 'end': n_lines, 'label': '<file>'}]
     rungs = []
     parent_scope = root
     for node, lvl in zip(chain, levels):
@@ -330,9 +344,27 @@ def ladder_at(path, line):
         _n, glued = _owning_block(spec, parent_scope.children(), node.start_row + 1, want_glue=True)
         head = _focus_head(spec, node, lvl, start_override=glued)
         rungs.append({'level': head.level, 'start': head.start, 'end': head.end, 'label': head.name})
-        body = spec.body(node)
+        frame = spec.unwrap_frame(node)
+        body = spec.body(frame) if frame is not None else spec.body(node)
+        if body is None and frame is not None:
+            body = frame                    # bodyless frame (`#ifdef X`) is its own scope
         parent_scope = body if body is not None else parent_scope
-    return rungs
+    return chain, rungs, n_lines
+
+
+def leaf_landmark_at(path, line):
+    """A landmark WITHOUT a body that owns `line` (C/C++: `typedef struct x * x_t;`, a forward
+    `struct x;`) — the map shows it as a numbered block, but the brace engine only knows rungs
+    with bodies, so `--line` on it fell back to `<file>` (invariant #6: one question, one
+    answer). -> rung {'level','start','end','label'} or None. Same chain as the map."""
+    chain, rungs, _n = _chain_rungs(path, line)
+    if not chain or isinstance(chain[-1], Block) or not rungs:
+        return None
+    backend, spec = resolve(os.path.splitext(path)[1])
+    last = chain[-1]
+    if spec.unwrap_frame(last) is not None or spec.body(last) is not None:
+        return None
+    return rungs[-1]
 
 
 def line_level_at(path, idx):

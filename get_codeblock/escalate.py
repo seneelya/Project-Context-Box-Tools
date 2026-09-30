@@ -76,6 +76,11 @@ def maybe_escalate(handler, resolve_fn, file_path, lines, line_nums, levels, run
     already uses for query batches — no new addressing engine, just reuse."""
     FLOOR, TARGET, CEILING, K = _load_thresholds()
 
+    if not runs:
+        # nothing resolved (every requested line was out of range / errored) -> nothing to
+        # grow; the caller reports the per-line errors. Was: max() of an empty sequence.
+        return line_nums, levels, None
+
     seed_total = sum(_nonblank_count(lines, r['start'], r['end']) for r in runs)
     if seed_total >= FLOOR:
         return line_nums, levels, None

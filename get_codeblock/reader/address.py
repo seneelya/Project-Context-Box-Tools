@@ -246,7 +246,7 @@ def get_blocks(path, target_line):
     содержащие строку; тычок в коммент-преамблу → её блок (`_preamble_owner`); если ни
     в один не попали — честный file-scope `[1,N]` (инвариант #7). Контракт наружу совпадает с хендлером
     (его ест `core.resolve`/query/staircase). Внутренний вход: `Reader.get_blocks`."""
-    from .classify import filler_container_at
+    from .classify import filler_container_at, leaf_landmark_at
     lines = _read_lines(path)
     if not lines or target_line < 1 or target_line > len(lines):
         return []
@@ -279,6 +279,9 @@ def get_blocks(path, target_line):
         filler = filler_container_at(path, target_line)
         if filler is not None:
             return [filler]
+        leaf = leaf_landmark_at(path, target_line)     # bodyless landmark the map shows (#6)
+        if leaf is not None:
+            return [leaf]
         return [{'level': 1, 'start': 1, 'end': len(lines), 'label': '<file>'}]
 
     containing.sort(key=lambda np: (np[0].start_row, -np[0].end_row))
