@@ -60,6 +60,14 @@ def run(args):
     return result.stdout
 
 
+def _norm_sep(line):
+    """The `File:` header prints the path with the OS separator (`test\\Edge\\Edge.py` on Windows,
+    `test/Edge/Edge.py` elsewhere) — compare it separator-agnostic, so one golden set holds on
+    every OS. Only that header line: code lines keep their backslashes as they are."""
+    head = line.lstrip("/#<!- ")
+    return line.replace("\\", "/") if head.startswith("File:") else line
+
+
 def golden_path(name):
     return GOLDEN_DIR / f"{name}.txt"
 
@@ -88,8 +96,8 @@ def check(names):
             failed += 1
             continue
 
-        actual_lines = run(args).splitlines()
-        expected_lines = gp.read_text(encoding="utf-8").splitlines()
+        actual_lines = [_norm_sep(ln) for ln in run(args).splitlines()]
+        expected_lines = [_norm_sep(ln) for ln in gp.read_text(encoding="utf-8").splitlines()]
         width = max(len(actual_lines), len(expected_lines))
         bad = [i + 1 for i in range(width)
                if i >= len(actual_lines) or i >= len(expected_lines)
