@@ -446,6 +446,17 @@ def test_codeblock_header_addressing():
         k = address.get_blocks(p, 5)
         check("line inside a bodyless #ifdef frame -> its band, not <file>",
               (k[-1]["start"], k[-1]["end"], k[-1]["label"]) == (5, 6, "decl: k, k2"))
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "w.cpp")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("#ifdef X\nstatic int f(int a) {\n    int local = a;\n    return local;\n}\n#endif\n")
+        from get_codeblock.reader.reader import Reader
+        from get_codeblock.name_resolver import declarations
+        rows = Reader.open(p, open(p, encoding="utf-8").read().splitlines(True), "cpp").outline(
+            open(p, encoding="utf-8").read().splitlines(True), max_level=None, deep=False)
+        check("#ifdef wrapping ONE function: the map shows the function",
+              any(r["start"] == 2 and "f(int a)" in r["text"] and not r.get("filler") for r in rows))
+        check("... and its locals are not names", [x.name for x in declarations(p)] == ["f"])
     import subprocess
     r = subprocess.run([sys.executable, os.path.join(_TOOLS, "get_codeblock.py"), "--file",
                         os.path.join(_PR, "ggml/src/ggml-backend-dl.cpp"), "--line", "300", "--query"],

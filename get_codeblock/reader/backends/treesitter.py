@@ -143,7 +143,12 @@ class TreeSitterSpec:
         """Scope-тело для рекурсии/всплытия: у определения/рамки — первый ребёнок
         body-типа. Разворачиваем обёртку до определения (у namespace определений
         среди ПРЯМЫХ детей нет — они в declaration_list, так что не путаемся)."""
-        d = self.unwrap_def(node) or node
+        # A FRAME's body is its own child (namespace/extern "C" -> declaration_list); never
+        # unwrap into a definition inside it: `#ifdef X` wrapping exactly one function made
+        # unwrap_def find that function and return ITS body — the map lost the function and
+        # listed its locals at file level. A bodiless frame (`#ifdef`) -> None: the frame
+        # itself is the scope (Classifier / _containing_chain).
+        d = node if node.type in self.frame_types else (self.unwrap_def(node) or node)
         for c in d.children():
             if c.type in self.ls.body_types:
                 return c
