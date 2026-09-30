@@ -48,9 +48,8 @@ def main():
     # Auto-detect language from file extension only if --file provided and no explicit --language
     auto_lang = None
     if known.file and not known.language:
-        ext = Path(known.file).suffix.lower()
-        LANG_MAP = {".ts": "typescript", ".js": "typescript", ".cs": "csharp", ".py": "python"}
-        auto_lang = LANG_MAP.get(ext)
+        from find_code_usage.handlers import language_for_file
+        auto_lang = language_for_file(known.file)
 
     parser = argparse.ArgumentParser(
         add_help=False,
@@ -69,7 +68,7 @@ def main():
     parser.add_argument(
         "--language",
         default=auto_lang or CFG_LANGUAGE,
-        help=f"Language handler/resolver. Auto-detected from extension if omitted. Supported: python, typescript, csharp (default: {CFG_LANGUAGE})"
+        help=f"Language handler/resolver. Auto-detected from extension if omitted. Supported: python, typescript, csharp, cpp (default: {CFG_LANGUAGE})"
     )
     parser.add_argument(
         "--project-root",

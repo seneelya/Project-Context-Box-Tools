@@ -11,9 +11,12 @@ TEST_DIRS = []
 CPP_INCLUDE_DIRS = ["ggml/include", "ggml/src"]
 
 # Export/attribute macros that sit in front of declarations and confuse the parser —
-# cut out before parsing. NOT here: GGML_DEPRECATED(func, hint) is function-like (wraps the
-# whole declaration) and GGML_UNUSED is a statement inside bodies.
+# cut out before parsing (NOT GGML_UNUSED: a statement inside bodies).
 CPP_STRIP_MACROS = ["GGML_API", "GGML_BACKEND_API", "GGML_RESTRICT", "GGML_NORETURN"]
+
+# Function-like macros that WRAP a whole declaration: `GGML_DEPRECATED(GGML_API void f(), "hint")`
+# -> `void f()`. Without it tree-sitter loses ~1100 lines of ggml.h (reported as opaque).
+CPP_WRAPPER_MACROS = ["GGML_DEPRECATED"]
 
 # Header <-> implementation pairs the same-stem rule can't find (root-relative). Same stem pairs
 # itself (ggml-cuda.h <-> ggml-cuda/ggml-cuda.cu); nothing disputed in this fixture yet.

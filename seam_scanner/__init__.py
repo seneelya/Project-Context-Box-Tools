@@ -19,6 +19,8 @@ _EXT_LANG = {
     ".py": "python",
     ".ts": "typescript", ".tsx": "typescript", ".js": "typescript", ".jsx": "typescript",
     ".cs": "csharp",
+    ".h": "cpp", ".hh": "cpp", ".hpp": "cpp", ".hxx": "cpp", ".cuh": "cpp", ".inl": "cpp",
+    ".c": "cpp", ".cc": "cpp", ".cpp": "cpp", ".cxx": "cpp", ".c++": "cpp", ".cu": "cpp",
 }
 
 # lang -> [(label, compiled regex)]. Label is shown as-is in `--info-seams` output — pick names
@@ -45,6 +47,14 @@ PATTERNS = {
         ("by-path: Assembly.Load", re.compile(r"Assembly\.Load\s*\(")),
         ("process: Process.Start", re.compile(r"Process\.Start\s*\(")),
         ("http: HttpClient", re.compile(r"\.(GetAsync|PostAsync|PutAsync|DeleteAsync)\s*\(")),
+    ],
+    "cpp": [
+        ("by-path: dlopen/LoadLibrary", re.compile(r"\b(dlopen|LoadLibrary(Ex)?[AW]?)\s*\(")),
+        ("by-path: dlsym/GetProcAddress", re.compile(r"\b(dlsym|GetProcAddress)\s*\(")),
+        # function-pointer table filled by designated field: `/* .get_name = */ fn,` or `.get_name = fn,`
+        ("vtable: fn-table entry", re.compile(r"/\*\s*\.\w+\s*=\s*\*/\s*(?!(?:nullptr|NULL|true|false)\b)[A-Za-z_]\w*|^\s*\.\w+\s*=\s*(?!(?:nullptr|NULL|true|false)\b)[A-Za-z_]\w*\s*,\s*$")),
+        ("registry: register call", re.compile(r"\bregister_\w+\s*\(|\b\w+_register\s*\(")),
+        ("process: system/popen/CreateProcess", re.compile(r"\b(system|_?popen|CreateProcess[AW]?|execv\w*)\s*\(")),
     ],
 }
 

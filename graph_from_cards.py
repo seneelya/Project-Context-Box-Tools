@@ -163,9 +163,28 @@ def load_config_at(root):
         return None
 
 
+_CELL_SPLIT = re.compile(r"(?<!\\)\|")
+
+
+def split_cells(row):
+    """'| a | b \\| c |' -> ['a', 'b | c'] — делит по НЕэкранированной `|` (GitHub-markdown:
+    `\\|` внутри ячейки — буквальная черта; нужно C++-условиям `A || B` в колонке Kind)."""
+    body = row.strip()
+    if body.startswith("|"):
+        body = body[1:]
+    if body.endswith("|") and not body.endswith("\\|"):
+        body = body[:-1]
+    return [c.replace("\\|", "|") for c in _CELL_SPLIT.split(body)]
+
+
+def escape_cell(text):
+    """Обратное к split_cells: `|` в тексте ячейки -> `\\|`."""
+    return text.replace("|", "\\|")
+
+
 def _cells(row):
     """'| a | b | c |' -> ['a','b','c'] (снятые бэктики/пробелы)."""
-    return [c.strip().strip("`").strip() for c in row.strip().strip("|").split("|")]
+    return [c.strip().strip("`").strip() for c in split_cells(row)]
 
 
 def _is_sep(cells):
@@ -187,9 +206,12 @@ def parse_card(path, cards_dir):
     summary = ""
     name_seen = False
     deps_raw = []
+    deps_kind = []            # Kind cell per deps_raw row (C/C++: conditional(<#if>), Plan08)
+    pairs_raw = []            # `pair:` line of ## Build facts (C/C++ header <-> implementation)
     seams_raw = []
-    in_deps = in_seams = False
+    in_deps = in_seams = in_facts = False
     col_idx = 1
+    kind_idx = None
     header_seen = seam_header_seen = False
     seam_cols = {}
 
@@ -207,6 +229,7 @@ def parse_card(path, cards_dir):
             title = cf.canon(s[3:].strip())
             in_deps = title == "In-Project Dependencies"
             in_seams = title == cf.RUNTIME_SEAMS_SECTION
+            in_facts = title == cf.BUILD_FACTS_SECTION
             header_seen = False
             seam_header_seen = False
             continue
@@ -219,12 +242,16 @@ def parse_card(path, cards_dir):
                 for i, c in enumerate(cells):
                     if cf.canon(c) == cf.EDGE_COLUMN:
                         col_idx = i
-                        break
+                    elif cf.canon(c) == "Kind":
+                        kind_idx = i
                 continue
             if col_idx < len(cells):
                 val = cells[col_idx]
                 if val and not cf.is_empty(val):
                     deps_raw.append(val)
+                    deps_kind.append(cells[kind_idx] if kind_idx is not None and kind_idx < len(cells) else "")
+        if in_facts and s.startswith("pair:"):
+            pairs_raw.extend(re.findall(r"`([^`]+)`", s))
         if in_seams and s.startswith("|"):
             cells = _cells(line)
             if _is_sep(cells):
@@ -242,7 +269,145 @@ def parse_card(path, cards_dir):
                     "shape": _row_cell(cells, seam_cols, "Shape"),
                     "why": _row_cell(cells, seam_cols, "Why"),
                 })
-    return {"id": node_id, "summary": summary, "deps_raw": deps_raw, "seams_raw": seams_raw}
+    return {"id": node_id, "summary": summary, "deps_raw": deps_raw, "deps_kind": deps_kind,
+            "pairs_raw": pairs_raw, "seams_raw": seams_raw}
+
+
+# --- build conditions (C/C++ `#if` on an include edge, Plan08) -------------------------------
+
+_COND_KIND = re.compile(r"^conditional\((.*)\)$")
+_COND_TOKEN = re.compile(r"\s*(defined|[A-Za-z_]\w*|\d+[\w]*|&&|\|\||==|!=|>=|<=|[!()<>+\-*/%?:,&|^~])")
+
+
+def edge_condition(kind_cell):
+    """Kind cell -> the #if expression (None = unconditional)."""
+    m = _COND_KIND.match((kind_cell or "").strip())
+    return m.group(1).strip() if m else None
+
+
+class _CondEval:
+    """Three-valued (True / False / None=unknown) evaluation of a #if expression for a set of
+    build flags. Kleene logic: `A && unknown` is False only if A is False, etc. Anything the
+    evaluator does not model (arithmetic, comparisons, __has_include) -> unknown, never a guess."""
+
+    def __init__(self, on, off, families):
+        self.on, self.off, self.families = on, off, families
+
+    def value(self, name):
+        if name in self.on:
+            return True
+        if name in self.off or any(name.startswith(f) for f in self.families):
+            return False
+        return None
+
+    def run(self, expr):
+        toks, pos = [], 0
+        while pos < len(expr):
+            m = _COND_TOKEN.match(expr, pos)
+            if not m:
+                return None
+            toks.append(m.group(1))
+            pos = m.end()
+            while pos < len(expr) and expr[pos].isspace():
+                pos += 1
+        self.toks, self.i = toks, 0
+        try:
+            v = self._or()
+        except (IndexError, ValueError):
+            return None
+        return v if self.i == len(self.toks) else None
+
+    def _peek(self):
+        return self.toks[self.i] if self.i < len(self.toks) else None
+
+    def _or(self):
+        v = self._and()
+        while self._peek() == "||":
+            self.i += 1
+            w = self._and()
+            v = True if (v is True or w is True) else (False if (v is False and w is False) else None)
+        return v
+
+    def _and(self):
+        v = self._unary()
+        while self._peek() == "&&":
+            self.i += 1
+            w = self._unary()
+            v = False if (v is False or w is False) else (True if (v is True and w is True) else None)
+        return v
+
+    def _unary(self):
+        t = self._peek()
+        if t == "!":
+            self.i += 1
+            v = self._unary()
+            return None if v is None else (not v)
+        return self._primary()
+
+    def _primary(self):
+        t = self._peek()
+        if t is None:
+            raise ValueError("eof")
+        self.i += 1
+        if t == "(":
+            v = self._or()
+            if self._peek() != ")":
+                raise ValueError(")")
+            self.i += 1
+            return self._maybe_cmp(v)
+        if t == "defined":
+            if self._peek() == "(":
+                self.i += 1
+                name = self.toks[self.i]
+                self.i += 2
+            else:
+                name = self.toks[self.i]
+                self.i += 1
+            return self.value(name)
+        if t[0].isdigit():
+            try:
+                return self._maybe_cmp(int(t.rstrip("uUlL"), 0) != 0)
+            except ValueError:
+                return self._maybe_cmp(None)
+        if t[0].isalpha() or t[0] == "_":
+            if self._peek() == "(":           # function-like: __has_include(...), FOO(x)
+                depth = 0
+                while self._peek() is not None:
+                    tk = self.toks[self.i]
+                    self.i += 1
+                    depth += tk == "("
+                    depth -= tk == ")"
+                    if depth == 0:
+                        break
+                return self._maybe_cmp(None)
+            return self._maybe_cmp(self.value(t))
+        raise ValueError(t)
+
+    def _maybe_cmp(self, v):
+        """Comparison / arithmetic after an operand -> unknown (the evaluator does not do math)."""
+        if self._peek() in ("==", "!=", ">=", "<=", ">", "<", "+", "-", "*", "/", "%", "&", "|", "^", "?"):
+            while self._peek() not in (None, "&&", "||", ")"):
+                self.i += 1
+            return None
+        return v
+
+
+def flag_evaluator(flags):
+    """`--flags GGML_USE_CUDA,GGML_USE_VULKAN,!GGML_USE_METAL` -> _CondEval. A flag turned ON also
+    switches OFF the rest of its FAMILY (same prefix up to the last `_`: GGML_USE_*) — that is what
+    "build with CUDA+Vulkan" means; names outside any family stay unknown (_WIN32, NDEBUG ...)."""
+    on, off, fams = set(), set(), set()
+    for f in flags:
+        f = f.strip()
+        if not f:
+            continue
+        if f.startswith("!"):
+            off.add(f[1:])
+        else:
+            on.add(f)
+            if "_" in f.strip("_"):
+                fams.add(f[:f.rstrip("_").rfind("_") + 1])
+    return _CondEval(on, off, fams)
 
 
 def _resolve_tok(raw, ids, by_base):
@@ -258,7 +423,7 @@ def _resolve_tok(raw, ids, by_base):
     return cand[0] if len(cand) == 1 else None
 
 
-def build_graph(cards_dir):
+def build_graph(cards_dir, flags=None):
     """-> {'nodes': {id: {summary, deps:[id], seams:[{target,target_id,symbol,kind,shape,why}]}},
     'indeg': {id:int}, 'unresolved': [(id, raw)]}.
 
@@ -277,17 +442,41 @@ def build_graph(cards_dir):
     for i in ids:
         by_base.setdefault(i.split("/")[-1], []).append(i)
 
+    ev = flag_evaluator(flags) if flags else None
+    flag_info = {"flags": list(flags or []), "dropped": [], "unknown": []}
     nodes = {}
     unresolved = []
     for nid, c in parsed.items():
         deps = set()
-        for raw in c["deps_raw"]:
+        conds = {}                               # dep -> #if expression; absent = unconditional
+        plain = set()
+        for raw, kind in zip(c["deps_raw"], c.get("deps_kind") or [""] * len(c["deps_raw"])):
             resolved = _resolve_tok(raw, ids, by_base)
-            if resolved:
-                deps.add(resolved)
-            else:
+            if not resolved:
                 unresolved.append((nid, raw))
+                continue
+            cond = edge_condition(kind)
+            if cond is None:
+                plain.add(resolved)
+            else:
+                conds[resolved] = f"{conds[resolved]} || {cond}" if resolved in conds else cond
+            deps.add(resolved)
+        for d in plain:
+            conds.pop(d, None)
+        if ev is not None:
+            for d, cond in list(conds.items()):
+                v = ev.run(cond)
+                if v is False:
+                    deps.discard(d)
+                    conds.pop(d)
+                    flag_info["dropped"].append((nid, d, cond))
+                elif v is None:
+                    flag_info["unknown"].append((nid, d, cond))
+                else:
+                    conds.pop(d)                # condition holds for this build -> plain edge
         deps.discard(nid)
+        conds.pop(nid, None)
+        pair = [p for p in (_resolve_tok(r, ids, by_base) for r in c.get("pairs_raw", [])) if p and p != nid]
 
         seams = []
         for row in c["seams_raw"]:
@@ -295,14 +484,15 @@ def build_graph(cards_dir):
             if target_id == nid:
                 target_id = None   # self-reference — не ребро, как и в deps (deps.discard(nid))
             seams.append({**row, "target_id": target_id})
-        nodes[nid] = {"summary": c["summary"], "deps": sorted(deps), "seams": seams}
+        nodes[nid] = {"summary": c["summary"], "deps": sorted(deps), "seams": seams,
+                      "dep_conds": conds, "pair": pair}
 
     indeg = {i: 0 for i in nodes}
     for n in nodes.values():
         for d in n["deps"]:
             if d in indeg:
                 indeg[d] += 1
-    return {"nodes": nodes, "indeg": indeg, "unresolved": unresolved}
+    return {"nodes": nodes, "indeg": indeg, "unresolved": unresolved, "flag_info": flag_info}
 
 
 def _reverse(nodes):
@@ -373,9 +563,16 @@ def format_file_zone(graph, z, verbose=1):
 
     out = [f"# file: {c}  (hops {z['depth']}; {len(z['down'])} downstream, {len(z['up'])} upstream)",
            _orient_file(verbose), ""]
+    conds = nodes[c].get("dep_conds", {})
+    uses = [f"{d} [if {conds[d]}]" if d in conds else d for d in nodes[c]["deps"]]
+    rconds = {i: nodes[i].get("dep_conds", {}).get(c) for i in rdeps[c]}
+    used_by = [f"{i} [if {rconds[i]}]" if rconds[i] else i for i in rdeps[c]]
     out += ["## center", line(c),
-            f"  uses -> {', '.join(nodes[c]['deps']) or '(none)'}",
-            f"  used-by <- {', '.join(rdeps[c]) or '(none)'}", ""]
+            f"  uses -> {', '.join(uses) or '(none)'}",
+            f"  used-by <- {', '.join(used_by) or '(none)'}"]
+    if nodes[c].get("pair"):
+        out.append(f"  pair <-> {', '.join(nodes[c]['pair'])}")
+    out.append("")
 
     out.append(f"## downstream (what {c} transitively depends on, <={z['depth']})")
     for i in sorted(z["down"]):
@@ -965,6 +1162,11 @@ def main():
     ap.add_argument("--edges", choices=["out", "in", "inout"], default="inout",
                     help="какие рёбра печатать: out (только '→') | in (только '←') | "
                          "inout (обе стороны, дефолт)")
+    ap.add_argument("--flags", default=None, metavar="A,B,!C",
+                    help="C/C++: graph of ONE build. Edges whose #if condition is false for these "
+                         "flags are dropped. A flag ON switches OFF its family (GGML_USE_CUDA -> other "
+                         "GGML_USE_* off); '!X' = explicitly off; other names stay unknown (edge kept, "
+                         "listed in the header). Example: --flags GGML_USE_CUDA,GGML_USE_VULKAN")
     ap.add_argument("--verbose", type=int, default=1, metavar="N",
                     help="0 = только модули и связи (описания скрыты) | 1 = с описаниями (дефолт)")
     args = ap.parse_args()
@@ -976,10 +1178,16 @@ def main():
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)
 
-    graph = build_graph(cards_dir)
+    flags = [f for f in (args.flags or "").replace(" ", ",").split(",") if f]
+    graph = build_graph(cards_dir, flags or None)
     if not graph["nodes"]:
         print(f"no cards in {cards_dir}")
         sys.exit(0)
+    if flags and not args.json:
+        fi = graph["flag_info"]
+        print(f"> build flags: {', '.join(flags)} — dropped {len(fi['dropped'])} conditional edge(s), "
+              f"kept {len(fi['unknown'])} with an undecidable condition"
+              + ("".join(f"\n>   ? {a} -> {b} [if {c}]" for a, b, c in fi["unknown"][:15])))
 
     if args.cycles:
         print(termstyle.md(format_cycles(graph["nodes"], find_cycles(graph["nodes"]))))

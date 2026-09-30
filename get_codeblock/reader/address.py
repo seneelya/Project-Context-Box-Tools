@@ -21,7 +21,7 @@ from .registry import resolve
 # (беsparser) НАМЕРЕННО исключены — идут своим хендлером до обёртки в backend.
 _BRACE_EXTS = frozenset({
     '.ts', '.js', '.mjs', '.tsx', '.jsx', '.cs',
-    '.cpp', '.cc', '.cxx', '.c++', '.hpp', '.hh', '.hxx', '.h', '.c',
+    '.cpp', '.cc', '.cxx', '.c++', '.hpp', '.hh', '.hxx', '.h', '.c', '.cu', '.cuh',
     '.scss', '.sass', '.css',
 })
 

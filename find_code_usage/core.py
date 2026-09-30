@@ -15,6 +15,7 @@ class ImportInfo:
     module_name: str             # dotted name or path from the import
     symbol_names: List[str]      # specific symbols imported (empty if whole module)
     resolved_path: Optional[str] # absolute path to source file inside project-root, or None
+    kind: Optional[str] = None   # None = normal; else e.g. "conditional(GGML_USE_CUDA)" (C/C++)
 
 
 # Directories to skip during project scan — the built-in, always-on set.
@@ -468,6 +469,13 @@ def scan_downstream(
     """
     all_files = collect_files(project_root, handler.get_extensions(), test_dirs, tests_only)
 
+    # Optional handler hooks: a handler that can tell cheaply which files CAN reach the target
+    # (C/C++: reverse include graph) skips the rest without opening them, and replaces the
+    # name-based fast filter (an include line names the FILE, not the target's symbols).
+    wants = getattr(handler, "wants_file", None)
+    if wants is not None and hasattr(handler, "prepare"):
+        handler.prepare(project_root, target_path_abs if has_file else None)
+
     fast_syms: List[str] = []
     if has_file and target_path_abs and os.path.isfile(target_path_abs):
         try:
@@ -476,12 +484,16 @@ def scan_downstream(
         except OSError:
             fast_syms = []
     fast_re = re.compile("|".join(re.escape(s) for s in fast_syms)) if fast_syms else None
+    if wants is not None:
+        fast_re = None
 
     data: Dict[str, Dict[str, dict]] = {}
     dynamic: Dict[str, Set[str]] = {}
 
     for fpath in all_files:
         if os.path.abspath(fpath) == target_path_abs:
+            continue
+        if wants is not None and not wants(fpath):
             continue
         try:
             with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
@@ -509,6 +521,23 @@ def scan_downstream(
     return data, dynamic
 
 
+def _merge_kinds(kinds: List[Optional[str]]) -> str:
+    """One file imported several times: any plain import wins ("normal"); only conditional
+    imports -> their conditions OR-ed: conditional(A) + conditional(B) -> conditional(A || B)."""
+    if not kinds or any(k is None or k == "normal" for k in kinds):
+        return "normal"
+    conds, other = [], []
+    for k in kinds:
+        m = re.match(r"^conditional\((.*)\)$", k)
+        (conds if m else other).append(m.group(1) if m else k)
+    if other:
+        return other[0]
+    uniq = list(dict.fromkeys(conds))
+    if len(uniq) == 1:
+        return f"conditional({uniq[0]})"
+    return "conditional(" + " || ".join(c if " " not in c else f"({c})" for c in uniq) + ")"
+
+
 def scan_incoming(
     resolver: "ImportResolver",
     target_path_abs: str,
@@ -534,6 +563,7 @@ def scan_incoming(
 
     from collections import defaultdict
     by_file: Dict[str, List[str]] = defaultdict(list)
+    kinds: Dict[str, List[Optional[str]]] = defaultdict(list)
     sym_source: Dict[str, str] = {}
     externals: List[str] = []
 
@@ -541,12 +571,14 @@ def scan_incoming(
         if imp.resolved_path:
             rel_src = rel_path(imp.resolved_path, project_root)
             by_file[rel_src].extend(imp.symbol_names)
+            kinds[rel_src].append(imp.kind)
             for s in imp.symbol_names:
                 sym_source.setdefault(s, rel_src)
         else:
             externals.append(imp.raw_line)
 
-    resolved = [{"file": f, "symbols": sorted(set(by_file[f]))} for f in sorted(by_file)]
+    resolved = [{"file": f, "symbols": sorted(set(by_file[f])), "kind": _merge_kinds(kinds[f])}
+                for f in sorted(by_file)]
 
     usages: Dict[str, dict] = {}
     if verbose and handler is not None and sym_source:

@@ -125,6 +125,14 @@ PRIVATE_OK_SUBSECTIONS = {REEXPORT_SUBSECTION, CONSUMED_SUBSECTION}
 DEPS_COLUMNS = ["Import", "File Path", "Symbols", "Kind"]
 EDGE_COLUMN = "File Path"     # из какой колонки берём рёбра графа (root-relative путь к файлу)
 IMPORT_KINDS = ["normal", "lazy", "conditional", "type"]
+# `conditional` may carry its condition: `conditional(GGML_USE_CUDA)` (C/C++ `#if` around the
+# include, Plan08). A `|` inside the cell is written `\|` (GitHub-markdown) — `A \|\| B`.
+
+# "## Build facts" — ОПЦИОНАЛЬНАЯ H2-секция ФАКТОВ (Plan08, C/C++): пара header<->impl, `#if`-зоны,
+# кто включает файл во ВСЁМ дереве, подсказки швов, непрозрачные зоны. Пишется модулем языка
+# (`stamp_langs/<lang>.fact_sections`), штамп перезаписывает её целиком на каждом проходе —
+# прозу сюда не писать (её место — How it works / Runtime seams).
+BUILD_FACTS_SECTION = "Build facts"
 
 # "## Runtime seams" — ОПЦИОНАЛЬНАЯ H2-секция (Plan03/Vision07): связи, которых не видно из
 # импортов (динамическая загрузка по пути, отдельный процесс, общий файл, шина событий). НЕ
@@ -138,7 +146,7 @@ SEAM_COLUMNS = ["Target", "Symbol", "Kind", "Shape", "Why"]
 # Kind (канал): по какому механизму существует связь. file/event неоднозначны по направлению
 # без явной пометки — допускают суффикс через ":". by-path/process/http однозначны конвенцией
 # "строку пишет инициатор/загрузчик", суффикс для них не предусмотрен.
-SEAM_KIND_BASE = ["by-path", "process", "http", "file", "event"]
+SEAM_KIND_BASE = ["by-path", "process", "http", "file", "event", "vtable", "registry"]
 SEAM_KIND_SUFFIXES = {
     "file": ["reads", "writes", "reads+writes"],
     "event": ["emits", "listens"],
@@ -193,7 +201,7 @@ EMPTY = "(none)"
 # into every card as its LAST line (see version_comment()/is_version_comment() below) so
 # an already-written card carries its own provenance — a version number that only lives
 # in this file tells you nothing about files stamped by an older copy of the tool.
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 _VERSION_RE = re.compile(r"^<!--\s*card-format:\s*(\S+)\s*-->\s*$")
 

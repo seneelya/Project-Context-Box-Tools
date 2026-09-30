@@ -15,6 +15,9 @@ def get_resolver(language: str) -> ImportResolver:
         "js": _make_ts_resolver,
         "csharp": _make_csharp_resolver,
         "cs": _make_csharp_resolver,
+        "cpp": _make_cpp_resolver,
+        "c": _make_cpp_resolver,
+        "c++": _make_cpp_resolver,
     }
 
     factory = factories.get(language.lower())
@@ -41,3 +44,8 @@ def _make_ts_resolver():
 def _make_csharp_resolver():
     from .csharp_resolver import CSharpResolver
     return CSharpResolver()
+
+
+def _make_cpp_resolver():
+    from .cpp_resolver import CppResolver
+    return CppResolver()

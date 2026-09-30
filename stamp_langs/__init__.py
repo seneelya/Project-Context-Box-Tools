@@ -8,7 +8,7 @@
 import importlib
 import os
 
-_MODULES = ("python", "typescript", "csharp")
+_MODULES = ("python", "typescript", "csharp", "cpp")
 
 _DECLARED_KEYS = ("docstring_first", "exports", "all_defs", "reexports")
 
@@ -25,6 +25,14 @@ class _Defaults:
     @staticmethod
     def reexport_signature(target_abs, reexport):
         return None
+
+    @staticmethod
+    def entry_key(signature):
+        return None          # None -> the stamp's generic position rule
+
+    @staticmethod
+    def fact_sections(project_root, target_abs, declared):
+        return []
 
 
 class Lang:

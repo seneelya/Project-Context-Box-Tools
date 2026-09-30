@@ -32,7 +32,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import CARD_FORMAT as cf
 import seam_scanner
 import stamp_langs
-from graph_from_cards import _cells, _is_sep, load_config_at, resolve_cards_dir, resolve_project_root
+from graph_from_cards import (_cells, _is_sep, escape_cell, load_config_at, resolve_cards_dir,
+                              resolve_project_root, split_cells)
 
 
 TOOL_NAME = "make_interface_card"
@@ -111,8 +112,8 @@ DIRECTIVE_WHY = cf.agent("why?")
 _KIND_H3 = {"function": "Functions", "class": "Classes", "interface": "Interfaces",
             "enum": "Enums", "type": "Types", "namespace": "Namespaces",
             "const": "Constants", "let": "Constants", "var": "Constants",
-            "struct": "Classes", "record": "Classes"}
-_H3_ORDER = ["Functions", "Classes", "Interfaces", "Enums", "Types", "Constants", "Namespaces"]
+            "struct": "Classes", "record": "Classes", "macro": "Macros"}
+_H3_ORDER = ["Functions", "Classes", "Interfaces", "Enums", "Types", "Constants", "Macros", "Namespaces"]
 
 
 # --- fact producers ----------------------------------------------------------
@@ -241,6 +242,11 @@ def _entry_key(h4_line, lang=None):
     по первому слову (то ломается на любой языковой обёртке — см. REQ-004+005 design).
     """
     e = _h4_raw_text(h4_line)
+    mod = stamp_langs.get(lang)
+    if mod is not None:
+        own = mod.entry_key(e)     # language knows its own signature shapes (C++: typedef/#define)
+        if own:
+            return own
     eq, paren = e.find("="), e.find("(")
     if eq != -1 and (paren == -1 or eq < paren):
         name = _name_before(e, "=")
@@ -332,6 +338,7 @@ def _parse_entries(body, P, lang=None):
         desc = [ln for ln in block[1:]
                 if ln.strip() and not _is_ph(ln)
                 and not ln.strip().startswith("consumers ")
+                and not ln.strip().startswith("condition: ")   # C/C++ `#if` fact (Plan08)
                 and not ln.lstrip().startswith("- ")]  # `- ` = метод (факт), не проза
         if cur["name"]:
             P["entries"][cur["name"]] = {"desc": desc, "block": block, "sig": cur["sig"], "group": cur["group"]}
@@ -348,7 +355,7 @@ def _cells_raw(row):
     разваливался. graph_from_cards читает только факт-колонки, поэтому там
     _cells остаётся правильным — чинить надо здесь, а не у него.
     """
-    return [c.strip() for c in row.strip().strip("|").split("|")]
+    return [c.strip() for c in split_cells(row)]
 
 
 def _parse_why(body, P):
@@ -615,6 +622,8 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append(f"### {h3}")
         for e in group:
             lines.append(f"#### `{e['signature']}`")
+            if e.get("cond"):
+                lines.append(f"condition: {e['cond']}")
             lines.extend(_consumers_fact(e["name"], consumers))
             emit_desc(e["name"])
             for m in e.get("methods", []):
@@ -658,11 +667,12 @@ def build_card(project_root, file, old_prose=None, report=None):
             key = os.path.basename(r["file"]).rsplit(".", 1)[0]
             if key not in seen_keys:
                 seen_keys.append(key)
+            kind = escape_cell(r.get("kind") or "normal")   # C/C++: conditional(<#if>)
             if r["symbols"]:
                 for s in r["symbols"]:
-                    lines.append(f"| `{key}` | `{r['file']}` | `{s}` | normal |")
+                    lines.append(f"| `{key}` | `{r['file']}` | `{s}` | {kind} |")
             else:
-                lines.append(f"| `{key}` | `{r['file']}` |  | normal |")
+                lines.append(f"| `{key}` | `{r['file']}` |  | {kind} |")
         lines.append("")
         lines.append("### Why these imports are used (one line per import — free text)")
         for key in seen_keys:
@@ -687,6 +697,14 @@ def build_card(project_root, file, old_prose=None, report=None):
     else:
         lines.append(cf.EMPTY)
     lines.append("")
+
+    # ---- language fact sections (C/C++: ## Build facts) — pure fact, rebuilt every stamp;
+    # the parser drops them (unknown to _parse_old_prose), so nothing stale survives a merge.
+    for title, body in stamp_langs.get(lang).fact_sections(project_root, target_abs, declared):
+        lines.append(f"## {title}")
+        lines.append("")
+        lines.extend(body)
+        lines.append("")
 
     # ---- prose-only sections ----
     prose_section("How it works", DIRECTIVE_HOWITWORKS)
@@ -852,11 +870,34 @@ def _seams_help_text():
     ])
 
 
-def _stamp_all(project_root_abs, force, language=None, discard_prose=False, record=None, cards_dir=None):
+def _config_stamp_dirs(project_root):
+    """STAMP_DIRS from the TARGET project's config (Plan08): the zone `--all` stamps by default."""
+    mod = load_config_at(project_root)
+    return list(getattr(mod, "STAMP_DIRS", []) or []) if mod else []
+
+
+def _in_zone(rel, zone):
+    """rel (root-relative, '/') inside one of the zone subpaths? Empty zone = whole root."""
+    if not zone:
+        return True
+    rel = rel.replace("\\", "/")
+    for z in zone:
+        z = z.replace("\\", "/").strip("/")
+        if not z or rel == z or rel.startswith(z + "/"):
+            return True
+    return False
+
+
+def _stamp_all(project_root_abs, force, language=None, discard_prose=False, record=None, cards_dir=None,
+               paths=None):
     """BULK: штемпелит ВСЕ исходники под project-root в cards_dir (обычно __map/).
 
     Языки: `language` (CLI) если задан, иначе CONFIG__TOOLS.LANGUAGE — и то и
     другое принимает список/через запятую/`all`.
+
+    `paths` — ЗОНА штемпелевания (Plan08): подпути от корня; не задано -> CONFIG__TOOLS.STAMP_DIRS,
+    пусто -> весь корень. Зона ограничивает ТОЛЬКО то, каким файлам пишутся карточки: связи (кто
+    включает / кого включает / кто использует) по-прежнему считаются по ВСЕМУ корню.
 
     `record` (опционально) — dict логирования вызова (см. `_log_call`): если дан, сюда кладутся
     `all_files`/`all_counts`/`all_seam_hints` — та же сводка, что печатается в stderr, только
@@ -870,6 +911,10 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False, reco
     langs = stamp_langs.normalize(selected)
     exts = stamp_langs.extensions(selected)
     files = collect_files(project_root_abs, exts, test_dirs=test_dirs, tests_only=False)
+    zone = list(paths) if paths else _config_stamp_dirs(project_root_abs)
+    if zone:
+        files = [f for f in files if _in_zone(rel_path(f, project_root_abs), zone)]
+        sys.stderr.write(f"[make_interface_card] --all: zone={zone} (links still resolved over the whole root)\n")
     # Печатаем ЯЗЫКИ, а не только расширения: молчаливый пропуск JS-файлов в
     # питон-проекте — ровно то, из-за чего эта опция и появилась. Пусть видно,
     # по какому набору шли, даже когда всё нашлось.
@@ -972,6 +1017,10 @@ def _main_impl(record):
                          "(cards with prose additionally need --discard-prose, else they're skipped as "
                          "'blocked' and the run exits 1). Ignores <file> and --out. One-shot way to "
                          "seed/refresh a whole tree's card skeletons.")
+    ap.add_argument("--path", action="append", default=None, metavar="SUBDIR",
+                    help="--all only: stamp only files under this root-relative subpath (repeatable; "
+                         "default CONFIG__TOOLS.STAMP_DIRS, empty = whole root). Only WHERE cards are "
+                         "written — edges and consumers are still resolved over the whole root.")
     ap.add_argument("--language", type=str, default=None,
                     help="--all only: which languages to stamp, overriding CONFIG__TOOLS.LANGUAGE. "
                          "Comma/space separated, or 'all'. Accepts python/typescript/csharp and the "
@@ -1014,7 +1063,9 @@ def _main_impl(record):
     if args.all:
         record["mode"] = "all"
         cards_dir = resolve_cards_dir(args.cards_dir, args.project_root, project_root_abs)
-        return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose, record, cards_dir)
+        paths = [p for arg in (args.path or []) for p in arg.split(",") if p.strip()]
+        return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose, record, cards_dir,
+                          paths or None)
 
     if not target_file:
         ap.error("either a <file> argument (or --file), or --all is required")

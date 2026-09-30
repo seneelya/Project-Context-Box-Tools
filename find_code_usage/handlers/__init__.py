@@ -15,6 +15,9 @@ def get_handler(language: str) -> LanguageHandler:
         "js": _make_ts_handler,
         "csharp": _make_csharp_handler,
         "cs": _make_csharp_handler,
+        "cpp": _make_cpp_handler,
+        "c": _make_cpp_handler,
+        "c++": _make_cpp_handler,
         # Add more here as they are implemented
     }
 
@@ -24,6 +27,23 @@ def get_handler(language: str) -> LanguageHandler:
         raise ValueError(f"Language '{language}' not supported yet (supported: {supported})")
 
     return factory()
+
+
+_CANONICAL = ("python", "typescript", "csharp", "cpp")
+
+
+def language_for_file(path: str):
+    """Canonical language whose handler claims the file's extension (None = nobody). The
+    handlers' own get_extensions() is the single source — no second extension table."""
+    import os
+    ext = os.path.splitext(path)[1].lower()
+    for name in _CANONICAL:
+        try:
+            if ext in get_handler(name).get_extensions():
+                return name
+        except Exception:
+            continue
+    return None
 
 
 def _make_python_handler():
@@ -39,3 +59,8 @@ def _make_ts_handler():
 def _make_csharp_handler():
     from .csharp_handler import CSharpHandler
     return CSharpHandler()
+
+
+def _make_cpp_handler():
+    from .cpp_handler import CppHandler
+    return CppHandler()

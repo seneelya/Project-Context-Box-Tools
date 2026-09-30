@@ -389,7 +389,7 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
     lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
-                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
+                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp', '.cu': 'cpp', '.cuh': 'cpp',
                 '.scss': 'css', '.sass': 'css', '.css': 'css',
                 '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text',
                 '.yaml': 'yaml', '.yml': 'yaml'}
@@ -457,7 +457,7 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
     lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
-                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
+                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp', '.cu': 'cpp', '.cuh': 'cpp',
                 '.scss': 'css', '.sass': 'css', '.css': 'css',
                 '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text',
                 '.yaml': 'yaml', '.yml': 'yaml'}
@@ -858,7 +858,7 @@ def _main_impl():
     lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
                 '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
                 '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
-                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
+                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp', '.cu': 'cpp', '.cuh': 'cpp',
                 '.scss': 'css', '.sass': 'css', '.css': 'css',
                 '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text',
                 '.yaml': 'yaml', '.yml': 'yaml'}

@@ -25,7 +25,7 @@ _LANG_MAP = {
     '.tsx': 'tsx', '.jsx': 'tsx',
     '.cs': 'csharp',
     '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp',
-    '.hpp': 'cpp', '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp',
+    '.hpp': 'cpp', '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp', '.cu': 'cpp', '.cuh': 'cpp',
     '.scss': 'css', '.sass': 'css', '.css': 'css',
     '.md': 'markdown', '.markdown': 'markdown',
     '.txt': 'text',

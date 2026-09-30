@@ -15,7 +15,7 @@ def ts_profile_for_ext(ext):
     if ext in ('.tsx', '.jsx'):
         from .typescript import TSX
         return TSX
-    if ext in ('.cpp', '.cc', '.cxx', '.hpp', '.h', '.hh', '.c'):
+    if ext in ('.cpp', '.cc', '.cxx', '.c++', '.hpp', '.h', '.hh', '.hxx', '.c', '.cu', '.cuh'):
         from .cpp import CPP
         return CPP
     if ext == '.cs':

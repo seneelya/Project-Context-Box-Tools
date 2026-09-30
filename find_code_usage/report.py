@@ -103,7 +103,9 @@ def _format_downstream_grouped(data: Dict[str, Dict[str, dict]]) -> None:
         for sym, v in data[f].items():
             groups.setdefault(v["kind"], []).append(sym)
         parts = []
-        for kind in ["top-level", "lazy", "conditional", "fallback"]:
+        known = ["top-level", "lazy", "conditional", "fallback"]
+        # then any language-specific kind (C/C++: "include", "include [if X]", "via <header>")
+        for kind in known + sorted(k for k in groups if k not in known):
             if kind in groups:
                 syms = ", ".join(sorted(groups[kind]))
                 parts.append(f"[{syms}]" if kind == "top-level" else f"[{kind}: {syms}]")

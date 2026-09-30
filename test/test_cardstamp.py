@@ -777,16 +777,17 @@ def test_seam_legacy_section_rename_via_aliases():
 def test_stamp_langs_registry():
     """Plan08 шаг 0: язык — запись в реестре; незнакомое расширение НЕ становится python."""
     import stamp_langs
-    check("registry knows 3 langs", stamp_langs.known() == ["csharp", "python", "typescript"])
+    check("registry knows 4 langs", stamp_langs.known() == ["cpp", "csharp", "python", "typescript"])
     check("for_file .tsx -> typescript", stamp_langs.for_file("a/b.tsx").NAME == "typescript")
-    check("for_file .h -> None (not python)", stamp_langs.for_file("ggml.h") is None)
+    check("for_file .h -> cpp (not python)", stamp_langs.for_file("ggml.h").NAME == "cpp")
+    check("for_file .zz -> None (not python)", stamp_langs.for_file("x.zz") is None)
     check("alias cs -> csharp", stamp_langs.get("CS").NAME == "csharp")
     check("normalize synonyms+dedup", stamp_langs.normalize("py, js ts") == ["python", "typescript"])
     check("normalize all", stamp_langs.normalize("all") == stamp_langs.known())
     check("extensions unknown -> all", stamp_langs.extensions("klingon") == stamp_langs.all_extensions())
     check("default hook: no extra names", stamp_langs.get("python").extra_target_names(None, "x") == set())
     try:
-        mic._lang("ggml.h")
+        mic._lang("notes.zz")
         check("_lang refuses unknown ext", False)
     except ValueError:
         check("_lang refuses unknown ext", True)
