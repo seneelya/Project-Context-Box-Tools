@@ -3,6 +3,7 @@
 > **Замысел (intent), не механика.** Продолжает `Vision09__cpp-stamp.md` (исполнен — Plan08) по
 > итогам приёмки на `llama.cpp_mix`. Инварианты скелета — `Vision01__project-starter.md` шаблона
 > (compile-not-retrieve, не лосслес граф-БД). План — `../plans/Plan09__cards-links-and-meaning.md`.
+> **Исполнено (2026-09-30)** — Plan09 шаги 0–5, итоги там; открытое §7 — clangd, кэш для Python/TS.
 
 ## 1. Проблема (цифры приёмки 2026-09-30)
 
