@@ -60,6 +60,15 @@ make_interface_card.py --all --language py,ts                     # bulk: пол
 
 ---
 
+## C/C++ (Plan08) — коротко
+
+Модуль `stamp_langs/cpp.py` + движок `find_code_usage/cpp_includes.py` (директивы, `#if`-условия,
+резолв include, граф включений всего корня) + `get_codeblock/handlers/cpp_treesitter.py`
+(объявления; второй разбор «одна ветка на `#if` + пустые тела функций» для мест, где первый
+сломался). Условия ПОМЕЧАЮТСЯ (Kind `conditional(X)`, строка `condition: X`, `## Build facts`), не
+разрешаются. Что именно пишется в карточку и какие ключи конфига — `make_interface_card__TLDR.md`
+§ C/C++; замысел — `__dev/vision/Vision09__cpp-stamp.md`, план — `__dev/plans/Plan08__cpp-stamp.md`.
+
 ## Механизм: как собирается свежий (не merge) штемпель
 
 1. **Определить язык** файла по расширению — реестр **`stamp_langs/`** (модуль на язык; форма,

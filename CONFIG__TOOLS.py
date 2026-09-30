@@ -134,6 +134,27 @@ WHITELIST_DIRS = ["*"]
 DECL_BACKEND = "auto"
 
 # ---------------------------------------------------------------------------
+# C/C++/CUDA (Plan08) — read by the C++ modules of make_interface_card / find_code_usage /
+# graph_from_cards. All optional; empty = generic behaviour.
+#   CPP_INCLUDE_DIRS   -> where `#include "x.h"` is looked up after the file's own folder,
+#                         root-relative, in order (copy from CMake target_include_directories).
+#                         Empty -> a UNIQUE path-suffix match in the tree (ambiguous = reported).
+#   CPP_STRIP_MACROS   -> export/attribute macros cut before parsing: GGML_API, LLAMA_API,
+#                         X_ATTRIBUTE_FORMAT(1, 2) (a call right after the name goes too).
+#                         CUDA qualifiers (__device__, __global__ ...) are always cut.
+#   CPP_WRAPPER_MACROS -> function-like macros wrapping a whole declaration:
+#                         DEPRECATED(decl, "hint") -> decl.
+#   CPP_PAIRS          -> header <-> implementation the same-stem rule misses {"a.h": "b.cpp"}.
+#   STAMP_DIRS         -> default ZONE of `make_interface_card --all` (subpaths); empty = whole
+#                         root. Only limits WHERE cards are written — links use the whole root.
+# ---------------------------------------------------------------------------
+CPP_INCLUDE_DIRS = []
+CPP_STRIP_MACROS = []
+CPP_WRAPPER_MACROS = []
+CPP_PAIRS = {}
+STAMP_DIRS = []
+
+# ---------------------------------------------------------------------------
 # ESCALATE_*: get_codeblock --query escalation thresholds (Vision05 — expand a
 # too-small/uninformative --query result instead of returning a near-empty
 # block). Only affects --query; --force bypasses escalation for one call.

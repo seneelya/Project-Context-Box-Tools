@@ -20,7 +20,16 @@ graph_from_cards.py --cycles                  # circular deps as A → B → C �
 graph_from_cards.py --discrepancies           # "map vs reality" digest (orphan/pending/unresolved)
 graph_from_cards.py --discrepancies --group-by package   # same findings, regrouped by package
 graph_from_cards.py --json                    # JSON draft for a visualizer
+graph_from_cards.py --flags GGML_USE_CUDA,GGML_USE_VULKAN   # C/C++: the graph of ONE build
 ```
+
+**C/C++ build conditions.** A deps row with Kind `conditional(<#if>)` is an edge that exists
+only under that condition; `--file` shows it as `uses -> x.h [if GGML_USE_CUDA]` (and on
+`used-by`), plus `pair <-> impl` from the card's `## Build facts`. `--flags A,B` evaluates each
+condition three-valued: a flag ON switches OFF the rest of its family (`GGML_USE_CUDA` -> other
+`GGML_USE_*` off), `!X` = explicitly off, other names (`_WIN32`, `NDEBUG`) stay unknown. False ->
+edge dropped; true -> plain edge; unknown -> kept and listed in the `> build flags:` header
+(comparisons / `__has_include` are never guessed).
 
 **`--discrepancies`** = coverage audit of the card layer against the source tree:
 *orphan* (card without source), *pending* (dep on a source that has no card yet),

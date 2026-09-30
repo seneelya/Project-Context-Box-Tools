@@ -67,6 +67,20 @@ py test/check.py --fails    # only mismatches + summary (quick regression run)
 - Golden was seeded from current output; **verify the counts by finger** (e.g. "chat.py
   really uses 4 symbols of `_http`", "line 140 really sits 4 levels deep").
 
+## C/C++ — `test_cpp.py`
+
+```bash
+py test/test_cpp.py            # dots + summary
+py test/test_cpp.py --fails    # only failures
+```
+
+Self-checking asserts over `cppSRC/` (Plan08): `#if` condition tagging (guards, `#elif`/`#else`
+chains, `#if 0`, computed includes), include resolution (own dir / `CPP_INCLUDE_DIRS` / not in
+tree / external / unique suffix / ambiguous), declarations (macro variants, export-macro
+stripping, the second parse that rescues `ggml-vulkan.cpp`), `entry_key`, the stamped card
+(Kind `conditional(...)`, `## Build facts`), merge + validate, zone `--all --path`, graph
+`--flags`. Needs `tree-sitter-cpp`.
+
 ## Fuzz sweep — `sweep_invariants.py`
 
 `check.py` verifies hand-picked lines. `sweep_invariants.py` does the opposite: it pokes

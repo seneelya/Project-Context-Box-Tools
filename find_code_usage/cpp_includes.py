@@ -553,12 +553,14 @@ def prepare_for_second_parse(text: str) -> str:
 
 
 def strip_macros(src: str, names: List[str], wrappers: List[str] = ()) -> str:
-    """Blank out export/attribute macros (`GGML_API`) and unwrap function-like wrapper macros
+    """Blank out export/attribute macros (`GGML_API`, and with its arguments when called on the
+    same line: `GGML_ATTRIBUTE_FORMAT(1, 2)`) and unwrap function-like wrapper macros
     (`GGML_DEPRECATED(decl, "hint")` -> `decl`), keeping every newline so line numbers hold."""
     if names:
         # Only CODE lines: inside a directive (`#define GGML_API extern`) the macro is being
         # DEFINED — blanking it there would turn the line into `#define extern`.
-        rx = re.compile(r"\b(?:" + "|".join(re.escape(n) for n in names) + r")\b")
+        rx = re.compile(r"\b(?:" + "|".join(re.escape(n) for n in names) + r")\b"
+                        r"(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?")
         lines, in_directive = src.split("\n"), False
         for i, ln in enumerate(lines):
             directive = in_directive or ln.lstrip().startswith("#")

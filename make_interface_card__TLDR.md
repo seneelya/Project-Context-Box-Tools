@@ -4,7 +4,7 @@ The card **STAMP**: ONE command → a ready `.md` card skeleton where the FACT s
 filled deterministically and the prose is left as `<Agent: …>` directive lines for the LLM to
 complete after reading the source. It analyzes nothing new — it ORCHESTRATES three facts.
 
-**Target:** `make_interface_card.py <file> [--project-root R] [--out PATH | --cards-dir D] [--force [--discard-prose]]` — multilingual (py/ts/cs). `<file>` also as `--file`, same thing.
+**Target:** `make_interface_card.py <file> [--project-root R] [--out PATH | --cards-dir D] [--force [--discard-prose]]` — multilingual (py/ts/cs/C/C++/CUDA). `<file>` also as `--file`, same thing.
 
 **`--project-root`** — card-tool rule. `--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT` of this tool's own `__HQ` (must exist; missing config -> refuses, never a silent cwd; a RELATIVE value must still contain this tool). `@` -> same, explicit, unchecked. Literal path -> as given. Cards: `--cards-dir` > `CONFIG__TOOLS.MAP_DIR` (relative to `__HQ`) > `<root>/__map/`; an explicit `--project-root` always means `<root>/__map/` (Vision08). `--cards-dir D` with a single `<file>` and no `--out` writes `D/<file>.md`; with `--all` it is the target folder.
 
@@ -18,6 +18,7 @@ make_interface_card.py <f>.py --out <card> --force --discard-prose  # on a FILLE
 make_interface_card.py --all                                   # bulk: whole tree -> MAP_DIR, CONFIG LANGUAGE
 make_interface_card.py --all --language py,ts                  # bulk: POLYGLOT tree (or 'all')
 make_interface_card.py <f>.py --project-root <R> --cards-dir <D>  # a foreign project, cards wherever you say
+make_interface_card.py --all --path ggml/include --path ggml/src/ggml-vulkan   # bulk over a ZONE only (C/C++ trees are huge)
 ```
 
 **`--all` is single-language unless you say otherwise.** Extensions come from
@@ -28,14 +29,39 @@ run: comma/space separated, `all` for every known language, short forms `py/ts/j
 accepted. The pass now prints the languages and extensions it went by, even on success.
 
 **Languages = registry `stamp_langs/`** (one module per language, shape frozen in
-`stamp_langs/CONTRACT.md`). Today: python, typescript (ts/tsx/js/jsx), csharp. A file whose extension
+`stamp_langs/CONTRACT.md`). Today: python, typescript (ts/tsx/js/jsx), csharp, cpp (C/C++/CUDA). A file whose extension
 no module claims is REFUSED (exit 2) — it is never stamped as Python.
 Per-FILE analysis was always polyglot — only the bulk selection was not.
+
+**`--path SUBDIR` (repeatable, `--all` only) = the ZONE** — cards are written only for files under
+it (default `CONFIG__TOOLS.STAMP_DIRS`, empty = whole root). The zone limits WHERE cards go, never
+what is SEEN: includes, includers and consumers are still resolved over the whole root, so a card
+in the zone lists who uses it from anywhere in the tree.
+
+## C/C++ (and CUDA) — what is different
+
+Conditions are TAGGED, never resolved. Needs `pip install tree-sitter tree-sitter-cpp` (no regex
+fallback). Config keys (target project's `CONFIG__TOOLS`): `CPP_INCLUDE_DIRS` (where `"x.h"` is
+looked up after the file's own folder; without it a unique path-suffix match is tried),
+`CPP_STRIP_MACROS` (export/attribute macros cut before parsing — `GGML_API`, `X_ATTRIBUTE_FORMAT(1,2)`),
+`CPP_WRAPPER_MACROS` (`DEPRECATED(decl, "hint")` -> `decl`), `CPP_PAIRS` (header<->impl the
+same-stem rule misses). CUDA qualifiers (`__device__` …) are cut always.
+* **Deps Kind** = `conditional(GGML_USE_CUDA)` when the `#include` sits under `#if`; `|` is written `\|`.
+  Unresolved includes go to External with a tag: `[not in tree; if GGML_USE_METAL]`.
+* **Header** exports everything it declares; each entry under `#if` gets a `condition: X` fact
+  line; a macro defined per branch lists its variants with their conditions.
+* **Implementation** exports only external definitions NOT declared in any header it includes —
+  the header's API is not duplicated.
+* **`## Build facts`** (pure fact, rebuilt every stamp — never write prose there): header<->impl
+  `pair:`, "defines what these headers declare", `#if` zones with line ranges, `included by` over
+  the WHOLE tree (+ transitive count), grep seam hints (`vtable` table fills, `registry` calls,
+  `dlopen`) with their conditions, and `opaque` ranges tree-sitter could not read (read the code
+  there; usually a macro to add to `CPP_WRAPPER_MACROS`/`CPP_STRIP_MACROS`).
 
 ## The three facts it fills
 
 * **Declared surface + signatures** — Python → `show_pyfile_api.collect` (ast, exact param types);
-  TS/JS/C# → `get_codeblock` declarations (structural block headers).
+  TS/JS/C# → `get_codeblock` declarations (structural block headers); C/C++ → tree-sitter-cpp.
 * **Consumed surface** — `find_code_usage` downstream: who REALLY imports each symbol
   (`consumers N: file…`); exposes leaked-private and dead surface.
 * **Dependencies** — `find_code_usage --incoming`, resolved to files.

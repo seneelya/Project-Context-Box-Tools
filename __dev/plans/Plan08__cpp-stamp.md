@@ -45,7 +45,7 @@ dict'а `declared` (`docstring_first`, `exports[{name,kind,signature,methods}]`,
 `ggml/src/ggml-cuda/ggml-cuda.cu`, `ggml/src/ggml-vulkan/ggml-vulkan.cpp`. Свой `CONFIG__TOOLS`-
 фрагмент с `CPP_INCLUDE_DIRS` / `CPP_STRIP_MACROS` / `CPP_PAIRS`. `test/` не деплоится — размер ок.
 
-## Шаги 2–8
+## Шаги 2–8 · ✅ 2–8 (`eede1f6` + доводка), 9 — отложен (см. «Итог» ниже)
 
 2. **include-рёбра:** `find_code_usage` handler + resolver для C++ (`#include "..."` = импорт;
    резолв: папка файла → `CPP_INCLUDE_DIRS`; `<...>` = внешнее); у ребра — условие из
@@ -61,6 +61,36 @@ dict'а `declared` (`docstring_first`, `exports[{name,kind,signature,methods}]`,
    всего дерева → «кем включается / кто регистрирует, вне зоны».
 8. **Приёмка на живом `llama.cpp_mix`** (выборочно, карточки в `__HQ/__map`, исходники не трогаем).
 9. *(опц.)* `compile_commands.json` → `live` / `dead` / `unknown`.
+
+## Итог исполнения (2026-09-30)
+
+| шаг | где | статус |
+|---|---|---|
+| 2 include-рёбра + условие | `find_code_usage/cpp_includes.py`, `handlers/cpp_handler.py`, `resolvers/cpp_resolver.py`; `ImportInfo.kind` → колонка Kind | ✅ |
+| 3 Public API заголовков | `get_codeblock/handlers/cpp_treesitter.py` + `stamp_langs/cpp.py` | ✅ |
+| 4 пара `.h`↔`.cpp/.cu` | `stamp_langs/cpp.py::_pair` (+ `CPP_PAIRS`), «defines what these headers declare» | ✅ |
+| 5 зоны `#if` + швы | `## Build facts`, `seam_scanner.PATTERNS["cpp"]`, `opaque` | ✅ |
+| 6 формат + граф | `CARD_FORMAT` 1.2.0 (`BUILD_FACTS_SECTION`, Kind `conditional(X)`, `\|` в ячейке, seam Kind `vtable`/`registry`); `graph_from_cards --flags`, `pair <->` | ✅ |
+| 7 зона | `--all --path` / `STAMP_DIRS`; связи — по всему корню | ✅ |
+| 8 приёмка на `llama.cpp_mix` | 37 карточек (ggml/include, слой бэкендов, vulkan, ядро cuda), validate 0 issues, штаб `dc32fba` | ✅ |
+| 9 `compile_commands.json` | — | ⏸ отложен |
+
+**Отклонения от плана/вижена (сознательные):**
+- `#if`/`#include` — построчный скан директив, НЕ tree-sitter: директивы строковые по определению,
+  так точнее, без грамматики и быстро (1445 файлов llama.cpp — 4 с). Tree-sitter — только для объявлений.
+- Второй разбор объявлений: tree-sitter теряет весь файл, когда `#if/#else` рвёт скобки или
+  X-макросы без `;` сидят в теле функции (`ggml-vulkan.cpp` с L1678). Решение: для сломанных
+  диапазонов — повторный разбор текста «одна ветка на `#if` + пустые тела функций». Остаток — `opaque`.
+- Новые ключи: `CPP_WRAPPER_MACROS` (`DEPRECATED(decl, "hint")`), `STAMP_DIRS`; `CPP_STRIP_MACROS`
+  режет и вызов за именем (`X_ATTRIBUTE_FORMAT(1,2)`); CUDA-квалификаторы режутся всегда.
+- Kind `build-flag` и `dlopen` НЕ введены: условное ребро уже выражено `conditional(X)` в deps,
+  `dlopen` — это существующий `by-path`.
+- Попутно исправлено: `find_code_usage` CLI держал свою таблицу расширений (без C++) → теперь
+  спрашивает реестр обработчиков; `report` печатал только питоновские виды импорта.
+
+**Шаг 9 отложен — почему:** граф ОДНОЙ сборки уже даёт `--flags` без всякой сборки; а
+`compile_commands.json` требует CMake-генератор Ninja, сборки `mix` ещё нет (стабильная — VS, и её
+не трогаем). Вернуться, когда появится сборка микса: `-D` каждого TU → `live/dead` у рёбер и зон.
 
 ## Чего НЕ делать
 
