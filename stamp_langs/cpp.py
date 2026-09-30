@@ -202,10 +202,14 @@ def _pair(project_root, target_abs):
     return [tree.rel(p) for p in pick]
 
 
+# numeric literals (0xFFFFFFFF, 201703L, 1u, 1.5f) — their letters are NOT identifiers
+_NUMBER = re.compile(r"\b(?:0[xX][0-9a-fA-F]+|\d[\w.]*)")
+
+
 def _flags(conds):
     names = set()
     for c in conds:
-        for ident in re.findall(_ID, c or ""):
+        for ident in re.findall(_ID, _NUMBER.sub(" ", c or "")):
             if ident not in ("defined", "__has_include") and not ident.isdigit():
                 names.add(ident)
     return sorted(names)

@@ -4,12 +4,12 @@
 приёмка на `y:\SRC\llama.cpp_mix` (зона Plan08, 37 карточек). Модульность — записью в реестр
 (`stamp_langs/`), не `if`.
 
-## Шаг 0 — баг: мусорные флаги в Build facts
+## Шаг 0 — баг: мусорные флаги в Build facts · ✅
 
 `UINTPTR_MAX == 0xFFFFFFFF` даёт «флаги» `L`, `xFFFFFFFF` (`stamp_langs/cpp.py::_flags` режет
 идентификаторы из чисел). Числовые литералы (`0x…`, `…L/U`) — не флаги. Тест.
 
-## Шаг 1 — кэш сканов `__HQ/tools/_cache/<root>-<hash>/`
+## Шаг 1 — кэш сканов `__HQ/tools/_cache/<root>-<hash>/` · подготовка ✅ (`.gitignore`, deploy exclude)
 
 - Слой в `find_code_usage/cpp_includes.py` (Tree): загрузка → сверка отпечатков (`git ls-files -s`
   + `git status`; без git — mtime+size) → доскан изменённых → запись. Отпечаток конфига `CPP_*` и

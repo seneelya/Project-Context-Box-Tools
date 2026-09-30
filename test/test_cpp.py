@@ -264,6 +264,12 @@ def test_consumers_folding():
     check("folded line is fact, not prose", op["entries"]["g"]["desc"] == ["My prose."])
 
 
+def test_flags_skip_numbers():
+    from stamp_langs import cpp
+    got = cpp._flags(["UINTPTR_MAX == 0xFFFFFFFF", "__cplusplus >= 201703L", "defined(GGML_USE_CUDA) && X > 1u"])
+    check("numeric literals are not flags", got == ["GGML_USE_CUDA", "UINTPTR_MAX", "X", "__cplusplus"])
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -284,6 +290,7 @@ def main():
     test_zone_and_graph()
     test_evaluator_and_cells()
     test_consumers_folding()
+    test_flags_skip_numbers()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
