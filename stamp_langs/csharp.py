@@ -13,6 +13,10 @@ _TS_MODULE = "get_codeblock.handlers.cs_treesitter"
 _TS_PKG = "tree-sitter-c-sharp"
 
 
+def import_line(line):
+    return line.startswith(("using ", "global using "))
+
+
 def declared(project_root, target_abs):
     src = _common.read_source(target_abs)
     if src is None:

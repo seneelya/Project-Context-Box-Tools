@@ -80,3 +80,14 @@ DECORATORS = ("public", …) # необяз.; служебные слова ПЕ
 Тест формы — `test/test_cpp.py` (`test_entry_key`, `test_stamp_cards`, `test_merge_and_validate`).
 
 — Опус5.5 (Claude Opus 5.5), 2026-09-30
+
+## ПОПРАВКА 2, 2026-09-30 — хук `import_line(line) -> bool` (Plan09 шаг 1, найдено замером)
+
+`## External Dependencies` = список внешних импортов (ФАКТ, `raw_line` резолвера, пересобирается)
++ строка агента. Merge отделял факт от прозы по префиксам Python (`import `/`from `), поэтому
+`#include <memory>` (C/C++) и `using System;` (C#) считались прозой и копились на каждой
+перештамповке (llama `ggml-cpp.h.md` — 4 копии). Хук: язык сам говорит, похожа ли строка на его
+импорт. Умолчание — Python-префиксы; `typescript` — `import`/`export`/`require(`; `csharp` —
+`using`; `cpp` — `#include`. Тест — `test/test_cpp.py::test_merge_and_validate` (идемпотентность).
+
+— Опус5.5 (Claude Opus 5.5), 2026-09-30

@@ -480,9 +480,12 @@ def _parse_old_prose(text, lang=None):
             # directive now says "else write (none)" (REQ-009 — "DELETE this line" left no
             # trace, so merge couldn't tell "agent said nothing applies" from "agent never
             # looked" and kept reinserting the directive on every re-stamp).
+            # the import list itself is FACT (re-rendered from the source every stamp); only
+            # the language knows what its import line looks like (C/C++ `#include`, C# `using`)
+            is_imp = (stamp_langs.get(lang) if lang else stamp_langs.get("python")).import_line
             note = [ln for ln in body if ln.strip() and not _is_ph(ln)
                     and ln.strip() != "external imports:"
-                    and not ln.strip().startswith(("import ", "from "))]
+                    and not is_imp(ln.strip())]
             if note:
                 P["ext_note"] = note
         elif name.startswith("Salvage"):

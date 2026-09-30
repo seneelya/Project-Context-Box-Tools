@@ -13,6 +13,10 @@ _TS_MODULE = "get_codeblock.handlers.ts_treesitter"
 _TS_PKG = "tree-sitter-typescript"
 
 
+def import_line(line):
+    return line.startswith(("import ", "import{", "export ")) or "require(" in line
+
+
 def declared(project_root, target_abs):
     src = _common.read_source(target_abs)
     if src is None:

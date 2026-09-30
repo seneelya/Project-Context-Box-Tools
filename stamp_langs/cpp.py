@@ -37,6 +37,10 @@ _BUILTIN_STRIP = ["__device__", "__host__", "__global__", "__forceinline__", "__
                   "__shared__", "__constant__", "__managed__", "__restrict__", "__launch_bounds__"]
 
 
+def import_line(line):
+    return line.startswith("#include")
+
+
 def _engine():
     from find_code_usage import cpp_includes
     return cpp_includes

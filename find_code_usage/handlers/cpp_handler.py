@@ -8,6 +8,7 @@ Kind per symbol: `include` (direct, unconditional), `include [if X]` (direct, un
 `via <header>` (through a chain). Files outside the reach are never opened (`wants_file`).
 """
 
+import bisect
 import os
 import re
 from typing import Dict, List, Set, Tuple
@@ -80,13 +81,26 @@ class CppHandler(LanguageHandler):
             kind = f"include [if {cond}]" if cond else "include"
         _names, rx = self._names(project_root, target_abs)
         symbols, lines = {}, {}
-        if rx is not None:
-            for no, line in enumerate(content_lines, 1):
-                s = line.lstrip()
-                if s.startswith("#include") or s.startswith("//"):
-                    continue
-                for m in rx.finditer(line):
-                    nm = m.group(1)
-                    symbols[nm] = kind
-                    lines.setdefault(nm, []).append(no)
+        if rx is None:
+            return symbols, lines, set()
+        # One regex pass over the whole text (a per-line loop dominated the zone stamp);
+        # line numbers only for the hits.
+        text = "".join(content_lines)
+        starts = None
+        skip: Dict[int, bool] = {}
+        for m in rx.finditer(text):
+            if starts is None:
+                starts, pos = [], 0
+                for ln in content_lines:
+                    starts.append(pos)
+                    pos += len(ln)
+            i = bisect.bisect_right(starts, m.start()) - 1
+            if i not in skip:
+                s = content_lines[i].lstrip()
+                skip[i] = s.startswith("#include") or s.startswith("//")
+            if skip[i]:
+                continue
+            nm = m.group(1)
+            symbols[nm] = kind
+            lines.setdefault(nm, []).append(i + 1)
         return symbols, lines, set()

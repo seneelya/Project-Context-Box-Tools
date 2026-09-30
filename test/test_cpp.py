@@ -270,6 +270,74 @@ def test_flags_skip_numbers():
     check("numeric literals are not flags", got == ["GGML_USE_CUDA", "UINTPTR_MAX", "X", "__cplusplus"])
 
 
+def test_scan_cache():
+    from find_code_usage.scan_cache import ScanCache
+    with tempfile.TemporaryDirectory() as d:
+        os.environ["TOOLS_CACHE_DIR"] = os.path.join(d, "cache")
+        root = Path(d) / "proj"
+        root.mkdir()
+        (root / "a.h").write_text("#pragma once\n", encoding="utf-8")
+        (root / "b.h").write_text('#include "a.h"\n', encoding="utf-8")
+        (root / "c.cpp").write_text('#include "b.h"\n#include <vector>\n', encoding="utf-8")
+        t = ci.Tree(str(root))
+        t.forward()
+        check("cache: cold run scans all", t.cache_stats == (0, 3))
+        t = ci.Tree(str(root))
+        f1 = t.forward()
+        check("cache: warm run scans nothing", t.cache_stats == (3, 0))
+        check("cache: same edges from cache",
+              [(os.path.basename(x), c, l) for x, c, l in f1[str(root / "c.cpp")]] == [("b.h", None, 1)])
+        (root / "c.cpp").write_text('#include "a.h"\n', encoding="utf-8")
+        t = ci.Tree(str(root))
+        f2 = t.forward()
+        check("cache: changed file rescanned alone", t.cache_stats == (2, 1)
+              and [os.path.basename(x) for x, _c, _l in f2[str(root / "c.cpp")]] == ["a.h"])
+        (root / "b.h").unlink()
+        (root / "d.h").write_text("#pragma once\n", encoding="utf-8")
+        t = ci.Tree(str(root))
+        t.forward()
+        c = ScanCache(str(root), "cpp_scan", ci_version())
+        check("cache: deleted dropped, new scanned", t.cache_stats == (2, 1)
+              and sorted(c.entries) == ["a.h", "c.cpp", "d.h"])
+        c2 = ScanCache(str(root), "cpp_scan", "other-version")
+        check("cache: other producer version -> empty", c2.entries == {})
+        os.environ["TOOLS_NO_CACHE"] = "1"
+        t = ci.Tree(str(root))
+        t.forward()
+        check("cache: TOOLS_NO_CACHE scans all", t.cache_stats == (0, 0))
+        del os.environ["TOOLS_NO_CACHE"]
+        # git root (the fixture is tracked by the tools repo): blob ids as fingerprints
+        t = ci.Tree(_PR)
+        t.forward()
+        t = ci.Tree(_PR)
+        t.forward()
+        check("cache: git fingerprints -> warm run all hits", t.cache_stats == (len(t.files), 0))
+        del os.environ["TOOLS_CACHE_DIR"]
+
+
+def ci_version():
+    from find_code_usage.scan_cache import source_version
+    return source_version(ci.__file__)
+
+
+def test_restamp_idempotent():
+    # External Dependencies: `#include <...>` is FACT (hook import_line), not prose — a re-stamp
+    # of an untouched card must not change a byte (the list used to duplicate on every merge).
+    with tempfile.TemporaryDirectory() as d:
+        out = Path(d) / "ggml/src/ggml-backend-dl.h.md"
+        mic._stamp_to_file(_PR, "ggml/src/ggml-backend-dl.h", str(out), force=False)
+        first = out.read_text(encoding="utf-8")
+        mic._stamp_to_file(_PR, "ggml/src/ggml-backend-dl.h", str(out), force=False)
+        second = out.read_text(encoding="utf-8")
+        check("fresh card has external includes", "#include <" in first)
+        check("re-stamp is idempotent", first == second)
+        check("import_line hook per language",
+              stamp_langs.get("cpp").import_line("#include <x>")
+              and stamp_langs.get("csharp").import_line("using System;")
+              and stamp_langs.get("python").import_line("import os")
+              and not stamp_langs.get("cpp").import_line("uses dlopen on Linux"))
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -291,6 +359,8 @@ def main():
     test_evaluator_and_cells()
     test_consumers_folding()
     test_flags_skip_numbers()
+    test_scan_cache()
+    test_restamp_idempotent()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0

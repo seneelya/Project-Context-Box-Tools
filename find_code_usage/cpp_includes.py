@@ -300,6 +300,18 @@ def scan_file(path: str) -> Optional[Scan]:
     return s
 
 
+def scan_to_json(s: Scan) -> dict:
+    return {"inc": [[i.line, i.spec, i.quoted, i.cond, i.computed] for i in s.includes],
+            "guard": s.guard, "sl": s.seg_lines, "sc": s.seg_conds,
+            "bl": [list(b) for b in s.blocks], "n": s.n_lines}
+
+
+def scan_from_json(d: dict) -> Scan:
+    return Scan(includes=[Include(*i) for i in d["inc"]], guard=d["guard"],
+                seg_lines=d["sl"], seg_conds=d["sc"], blocks=[tuple(b) for b in d["bl"]],
+                n_lines=d["n"])
+
+
 # --------------------------------------------------------------------------- config / tree
 
 def cpp_config(project_root: str) -> dict:
@@ -338,12 +350,20 @@ class Tree:
             self.inc_dirs.append(os.path.abspath(d))
         self._fwd: Optional[Dict[str, List[Tuple[str, Optional[str], int]]]] = None
         self._rev = None
+        self._isfile: Dict[str, bool] = {}
+        self.cache_stats = (0, 0)   # (hits, misses) of the on-disk scan cache
 
     def rel(self, p: str) -> str:
         return os.path.relpath(p, self.root).replace(os.sep, "/")
 
     def _exists(self, p: str) -> bool:
-        return os.path.normcase(os.path.abspath(p)) in self.fileset or os.path.isfile(p)
+        k = os.path.normcase(os.path.abspath(p))
+        if k in self.fileset:
+            return True
+        hit = self._isfile.get(k)
+        if hit is None:
+            hit = self._isfile[k] = os.path.isfile(p)
+        return hit
 
     def resolve(self, including_abs: str, inc: Include) -> Tuple[Optional[str], str]:
         """-> (abs path or None, how): how = own-dir | include-dir | unique-suffix | external |
@@ -374,15 +394,27 @@ class Tree:
     def forward(self) -> Dict[str, List[Tuple[str, Optional[str], int]]]:
         """{abs file: [(abs target, cond, line)]} — resolved in-tree includes of every file."""
         if self._fwd is None:
+            # Directive scans come from the on-disk cache (Plan09 step 1); resolution is always
+            # redone — it depends on the set of files and CPP_INCLUDE_DIRS, and is cheap.
+            from .scan_cache import ScanCache, source_version
+            cache = ScanCache(self.root, "cpp_scan", source_version(__file__))
             fwd = {}
             for p in self.files:
-                s = scan_file(p)
+                d = cache.get(p)
+                if d is not None:
+                    s = scan_from_json(d)
+                else:
+                    s = scan_file(p)
+                    if s is not None:
+                        cache.put(p, scan_to_json(s))
                 edges = []
                 for inc in (s.includes if s else []):
                     tgt, _how = self.resolve(p, inc)
                     if tgt:
                         edges.append((tgt, inc.cond, inc.line))
                 fwd[p] = edges
+            cache.save()
+            self.cache_stats = (cache.hits, cache.misses)
             self._fwd = fwd
         return self._fwd
 

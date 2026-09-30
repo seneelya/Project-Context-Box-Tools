@@ -34,6 +34,11 @@ class _Defaults:
     def fact_sections(project_root, target_abs, declared):
         return []
 
+    @staticmethod
+    def import_line(line):
+        """Is this line an external-import FACT line (the resolver's raw_line), not prose?"""
+        return line.startswith(("import ", "from "))
+
 
 class Lang:
     """Зарегистрированный язык: атрибуты модуля + умолчания для необязательных хуков."""
