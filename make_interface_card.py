@@ -975,8 +975,26 @@ def _in_zone(rel, zone):
     return False
 
 
+def _stale_filter(project_root_abs, cards_dir, files):
+    """--stale: only files whose EXISTING card is outdated against its own source (the same
+    verdict as check_cards_freshness: git commit times, uncommitted edits, else mtime).
+    -> (files to stamp, number of zone files without a card)."""
+    from check_cards_freshness import check
+    from find_code_usage.core import rel_path
+    rep = check(Path(cards_dir), Path(project_root_abs))
+    outdated = {os.path.normcase(str(o["card"])) for o in rep["outdated"]}
+    keep, missing = [], 0
+    for f in files:
+        card = _card_path(cards_dir, rel_path(f, project_root_abs))
+        if not os.path.exists(card):
+            missing += 1
+        elif os.path.normcase(str(Path(card))) in outdated:
+            keep.append(f)
+    return keep, missing
+
+
 def _stamp_all(project_root_abs, force, language=None, discard_prose=False, record=None, cards_dir=None,
-               paths=None):
+               paths=None, stale=False):
     """BULK: штемпелит ВСЕ исходники под project-root в cards_dir (обычно __map/).
 
     Языки: `language` (CLI) если задан, иначе CONFIG__TOOLS.LANGUAGE — и то и
@@ -1012,6 +1030,16 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False, reco
         if record is not None:
             record["all_files"] = 0
         return 0
+    if stale:
+        total = len(files)
+        files, missing = _stale_filter(project_root_abs, cards_dir, files)
+        sys.stderr.write(f"[make_interface_card] --all --stale: {len(files)} of {total} zone file(s) have an "
+                         f"outdated card" + (f"; {missing} without a card (run without --stale to create)"
+                                             if missing else "") + "\n")
+        if not files:
+            if record is not None:
+                record["all_files"] = 0
+            return 0
     counts = {"new": 0, "merged": 0, "forced": 0, "blocked": 0, "error": 0}
     seam_hints = []
     for abs_path in files:
@@ -1108,6 +1136,10 @@ def _main_impl(record):
                     help="--all only: stamp only files under this root-relative subpath (repeatable; "
                          "default CONFIG__TOOLS.STAMP_DIRS, empty = whole root). Only WHERE cards are "
                          "written — edges and consumers are still resolved over the whole root.")
+    ap.add_argument("--stale", action="store_true",
+                    help="--all only: restamp ONLY cards whose own source changed since the card "
+                         "(check_cards_freshness verdict); no new cards. Links that changed because "
+                         "ANOTHER file changed (new consumers) need a plain --all.")
     ap.add_argument("--language", type=str, default=None,
                     help="--all only: which languages to stamp, overriding CONFIG__TOOLS.LANGUAGE. "
                          "Comma/space separated, or 'all'. Accepts python/typescript/csharp and the "
@@ -1152,7 +1184,7 @@ def _main_impl(record):
         cards_dir = resolve_cards_dir(args.cards_dir, args.project_root, project_root_abs)
         paths = [p for arg in (args.path or []) for p in arg.split(",") if p.strip()]
         return _stamp_all(project_root_abs, args.force, args.language, args.discard_prose, record, cards_dir,
-                          paths or None)
+                          paths or None, stale=args.stale)
 
     if not target_file:
         ap.error("either a <file> argument (or --file), or --all is required")

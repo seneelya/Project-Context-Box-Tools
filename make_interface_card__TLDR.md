@@ -19,6 +19,7 @@ make_interface_card.py --all                                   # bulk: whole tre
 make_interface_card.py --all --language py,ts                  # bulk: POLYGLOT tree (or 'all')
 make_interface_card.py <f>.py --project-root <R> --cards-dir <D>  # a foreign project, cards wherever you say
 make_interface_card.py --all --path ggml/include --path ggml/src/ggml-vulkan   # bulk over a ZONE only (C/C++ trees are huge)
+make_interface_card.py --all --stale          # only cards whose OWN source changed (freshness verdict); no new cards
 ```
 
 **`--all` is single-language unless you say otherwise.** Extensions come from

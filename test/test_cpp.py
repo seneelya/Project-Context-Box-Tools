@@ -495,6 +495,26 @@ def test_keyed_bullets_key_with_dash():
           got == {"Utils — old style": "Helpers for graphs."})
 
 
+def test_stamp_all_stale():
+    import time
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d) / "proj"
+        (root / "src").mkdir(parents=True)
+        (root / "src" / "a.h").write_text("#pragma once\nint a(int x);\n", encoding="utf-8")
+        (root / "src" / "b.h").write_text("#pragma once\nint b(int x);\n", encoding="utf-8")
+        cards = Path(d) / "cards"
+        mic._stamp_all(str(root), force=False, cards_dir=str(cards), language="cpp", paths=["src"])
+        a_card, b_card = cards / "src/a.h.md", cards / "src/b.h.md"
+        before_b = b_card.stat().st_mtime_ns
+        time.sleep(0.05)
+        (root / "src" / "a.h").write_text("#pragma once\nint a(int x);\nint a2(void);\n", encoding="utf-8")
+        (root / "src" / "c.h").write_text("#pragma once\nint c(void);\n", encoding="utf-8")
+        mic._stamp_all(str(root), force=False, cards_dir=str(cards), language="cpp", paths=["src"], stale=True)
+        check("--stale restamps the card whose source changed", "(2 declarations)" in a_card.read_text(encoding="utf-8"))
+        check("--stale leaves fresh cards alone", b_card.stat().st_mtime_ns == before_b)
+        check("--stale creates no new cards", not (cards / "src/c.h.md").exists())
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -523,6 +543,7 @@ def main():
     test_codeblock_header_addressing()
     test_cpp_source_macros()
     test_keyed_bullets_key_with_dash()
+    test_stamp_all_stale()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
