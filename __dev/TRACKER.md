@@ -141,4 +141,10 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ `--name` — `get_codeblock/name_resolver.py`: имя → строки → существующий `--line` (точно 1 → `--query`; иначе `--outline` по кандидатам; шапка одной строкой; exit 2 = ничего). Точно / маска / близко (регистр, подстрока, слова, опечатка). C/C++/Python/C#/TS/md. test_name_resolver 32/0. (`110694a`)
 - ✅ Макросы C/C++ вырезаются ДО разбора в get_codeblock (`get_codeblock/cpp_source.py`, хук `preprocess` на копии `CPP_SPEC`): конфиг `CPP_*` + автоопределение по `#define` самого файла; строки/колонки сохраняются. Одна реализация для ридера, штемпеля, find_code_usage (`cpp_includes` реэкспортирует). Было: `ggml.h` L934–2050 и `llama.h` L514–1685 — один мусорный узел. (`888f52c`, `e8b7424`)
 - Известное, не наше: `sweep_invariants` CRASH=71 на cp1252-фикстуре replace_in_files; `golden_check` 4/13 — устаревшие эталоны шапки.
-- → next (согласовано): `make_interface_card --all --stale`; свёртка Why по папке (написанная проза не сворачивается); швы — сводка по контейнеру; семейства и зоны `#if` без номеров строк (якоря-имена, `--name`).
+- ✅ `make_interface_card --all --stale` — только карточки с устаревшим СВОИМ исходником (вердикт check_cards_freshness), новые не создаёт; ограничение: новые потребители из-за чужих правок — только полный `--all`.
+- ✅ Свёртка Why: ≥5 импортов без прозы из одной папки -> `папка/*` (N: имена) — ключ группы; написанная проза всегда своей строкой. llama `ggml-cuda.cu.md` 259 -> 183 строки.
+- ✅ Карточки без номеров строк (git-шум): зоны `#if` — `in f · wraps g · top level`; швы — группы по контейнеру (`vtable ×10 in <таблица>`), мелкие — с кодом; семейства — колонка `From` (первое объявление) вместо `Lines`; opaque — `in f (~N lines)`. Якоря — имена `name_resolver` (`container_at`, `outermost_in`), читаются `get_codeblock --name`. Тест: сдвиг строк исходника -> карточка байт в байт та же.
+- ✅ Баг карты get_codeblock: `#ifdef`, обёртывающий ровно одну функцию, терял функцию (`Spec.body` рамки разворачивал определение) — исправлено, тест.
+- test_cpp 140/0, name_resolver 32/0, check 121, cardstamp 155, restamp 21; llama validate 0.
+- VERSION get_codeblock (формат вывода: шапка `--name`) — бампнуть в конце сессии.
+- → next: nothing queued (Grok-проза по новой форме — решение владельца).
