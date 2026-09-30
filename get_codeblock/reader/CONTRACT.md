@@ -66,6 +66,10 @@ flowchart TB
 
 ## Карта файлов
 
+(Над ридером, в `get_codeblock/`: `name_resolver.py` — `--name`: имя → строки по тому же дереву
+(`registry.resolve` → RNode, `Spec.unwrap_frame/unwrap_def/body/filler_kind`); не режим — строки
+уходят в существующую адресацию `--line`. Своих рендеров нет, кроме одной строки-шапки.)
+
 ```
 reader.py     — Reader: ФАСАД (единый вход из core.py). Роутит: outline/.0 → classify;
                 get_blocks/line_level → address.py (brace) ИЛИ .py → python_handler ИЛИ

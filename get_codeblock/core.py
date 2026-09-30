@@ -66,6 +66,7 @@ def parse_args():
     line_list = None       # --line, always a list once given (len 1 == the old scalar)
     level_list_raw = None  # --level, as given (before array-broadcast against --line)
     ancestor_list_raw = None  # --ancestor-level, as given (before broadcast; wins over --level)
+    name = None    # --name NAME: resolved to --line(s), then the existing render (name_resolver)
     query = False  # flag, no value needed
     outline = False  # flag: print the file's structural outline (no --line needed)
     numbered = False  # flag: prefix --query code lines with absolute line numbers
@@ -95,6 +96,9 @@ def parse_args():
             except ValueError:
                 print(f"Error: --line requires an integer or comma-separated integers", file=sys.stderr)
                 sys.exit(1)
+            i += 2
+        elif token == '--name' and i + 1 < len(tokens):
+            name = tokens[i + 1]
             i += 2
         elif token == '--level' and i + 1 < len(tokens):
             try:
@@ -162,6 +166,7 @@ def parse_args():
             print("  get_codeblock.py --file PATH [--level MAXDEPTH] --outline")
             print("  get_codeblock.py --file PATH --line N --level K --outline     (focus: one block's own map)")
             print("  get_codeblock.py --file PATH --line N[,N,...] [--ancestor-level N | --level N] [--query]")
+            print("  get_codeblock.py --file PATH --name NAME [--outline]           (a declared name -> its --line)")
             print("")
             print("Arguments:")
             print("  --project-root PATH Base to try first for a relative --file, before falling back to")
@@ -173,6 +178,13 @@ def parse_args():
             print("                      all. >1 line switches to batch mode: bare = survey (one merged")
             print("                      map); with --outline = one merged tree; with --query = one")
             print("                      BLOCK per resolved range, merging touching/nested ones.")
+            print("  --name NAME         Find a declared name in the file and use its line(s) as --line:")
+            print("                      one exact hit -> --query (with --outline: the map inside it);")
+            print("                      several, or only close ones -> --outline per candidate, so the")
+            print("                      next call is an exact --line. Quote C++ names: \"Foo<T>::operator<<\".")
+            print("                      `::`/`.` both qualify (Foo::bar = Foo.bar); `*`/`?` = a family")
+            print("                      (\"ggml_rope_*\"). Not exact -> case / substring / words / typo,")
+            print("                      never a block. The first output line says which. Exit 2 = nothing.")
             print("  --ancestor-level N[,N,...]  Which block at --line: N ancestors up. 0 = the innermost")
             print("                      block itself (default), 1 = its parent, 2 = grandparent, ...")
             print("  --level N[,N,...]   Absolute depth address instead: 1 = file top, 2 = one level in.")
@@ -231,7 +243,7 @@ def parse_args():
     # --file alone (no --line, no --outline) defaults to --outline: it's the primary
     # discovery mode, and requiring the flag explicitly here would be pure friction.
     # The flag itself still works and stays documented for explicit use.
-    if file_path and line_list is None and not outline and not dot:
+    if file_path and line_list is None and name is None and not outline and not dot:
         outline = True
 
     # No arguments or missing required ones: show usage hint
@@ -250,8 +262,8 @@ def parse_args():
         sys.exit(0)
 
     # --outline / --dot need only --file; every other mode needs --file and --line
-    if not file_path or (line_list is None and not outline and not dot):
-        need = "--file" if (outline or dot) else "--file, --line"
+    if not file_path or (line_list is None and name is None and not outline and not dot):
+        need = "--file" if (outline or dot) else "--file, --line (or --name)"
         print(f"Error: the following arguments are required: {need}", file=sys.stderr)
         sys.exit(1)
 
@@ -288,6 +300,7 @@ def parse_args():
         'dot': dot,
         'depth': depth,
         'force': force,
+        'name': name,
         'project_root': project_root
     }, config
 
@@ -913,6 +926,25 @@ def _main_impl():
                             "--ancestor-level N = N up from here (0=this block, 1=parent) · "
                             "--level N = absolute depth from top · --query = its text.")
             print(f"\033[92m{c(legend_text)}\033[0m")
+
+    # --name: NOT a mode — the name becomes --line(s) and the existing render does the rest:
+    # one exact hit -> `--line N --query` (or `--outline` inside it when --outline is given);
+    # several / only close ones -> `--line N1,N2,… --outline` (a ladder per candidate, so the
+    # next call is an exact --line). The only new output is the header line.
+    if args.get('name'):
+        from get_codeblock.name_resolver import resolve_name, header_line
+        res = resolve_name(file_path, args['name'])
+        emit(c(header_line(res)))
+        if not res.hits:
+            sys.exit(2)
+        found = [h.line for h in res.hits]
+        lvl = (args.get('levels') or [0])[0]
+        args['lines'], args['line'] = found, found[0]
+        args['levels'], args['level'] = [lvl] * len(found), lvl
+        if not (res.exact and len(found) == 1):
+            args['outline'], args['query'] = True, False
+        elif not args.get('outline'):
+            args['query'] = True
 
     # --outline / --dot: единый адаптивный рендер поверх `.0` IR (Vision03).
     #   --outline — чистая карта: landmark'и вглубь, filler только на уровне файла.

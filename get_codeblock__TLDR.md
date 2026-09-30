@@ -22,6 +22,8 @@ file's table of contents, without reading the whole file.
 | --- | --- |
 | "What's in this file? Where do I go?" | `--file PATH` (bare — defaults to `--outline`) |
 | "Pull the exact text of the section/function at `--line N` " | `--file PATH --line N --query` |
+| "I know the NAME (function/type/macro/prototype), not the line" | `--file PATH --name NAME` (exact → its text; else candidates) |
+| "I know the name only roughly / a whole family" | `--file PATH --name "sched new"` · `--name "ggml_rope_*"` |
 | "Give me the parent/grandparent block, not the innermost `--line N` " | add `--ancestor-level 1`, `2`, ... |
 | "Give me block N counting from the file top for given `--line N` " | add `--level 1`, `2`, ... |
 | "Big file — cap outline to top 2 levels" | `--file PATH --level 2 --outline` |
@@ -29,6 +31,24 @@ file's table of contents, without reading the whole file.
 | "Pull N blocks by line, one call" | `--file PATH --line a,b,c --query` (merges touching/nested ranges) |
 | "Table of contents of exactly the object I landed on `--line N` " | `--file PATH --line N --outline` (a top-level hit → that object's own map, even in a monster file) |
 | "Table of contents of its immediate (named) parent, one level up" | `--file PATH --line N --ancestor-level 1 --outline` |
+
+## `--name` — a name instead of a line
+
+`--name` is not a mode: it finds the declared name in the file and hands its line(s) to the usual
+`--line` render. Only the FIRST output line is new — it says what was found:
+
+```
+//name: "ggml_backend_sched_new" — exact, line 319          -> then the --line 319 --query text
+//name: "GGML_BACKEND_API" — ambiguous: 4 exact; …          -> then --line 9,10,13,16 --outline
+//name: "sched new" — no exact; closest 1 (words); …        -> then --line 319 --outline (never a block)
+//name: "zzz" — nothing similar; try --outline              -> exit 2
+```
+- Names come from the same tree as `--outline`: functions, classes, methods, C/C++ prototypes,
+  `#define`, `typedef`, enum members, struct fields, module constants, Markdown headings. Not
+  imports, not function locals.
+- Qualify with `::` or `.` (`Api.beta`, `ns::Foo::bar`); template args and spaces are ignored;
+  quote anything with `< > & * |` for the shell. `*`/`?` list a family (top 10 + a count).
+- Not exact -> ranked candidates: case-insensitive > substring > all words > typo.
 
 ## Workflow
 
