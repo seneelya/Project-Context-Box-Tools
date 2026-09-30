@@ -574,6 +574,19 @@ def test_no_git_noise_on_shift():
                   open(out, encoding="utf-8").read() == before)
 
 
+def test_impl_methods_not_duplicated():
+    # a .cpp defining `Class::method` for a class declared in its header must not re-list them
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "w.h").write_text("#pragma once\nnamespace ns {\nstruct W {\n    void run();\n    int size() const;\n};\n}\n"
+                                  "int free_fn(int x);\n", encoding="utf-8")
+        (root / "w.cpp").write_text('#include "w.h"\nvoid ns::W::run() {}\nint ns::W::size() const { return 0; }\n'
+                                    "int free_fn(int x) { return x; }\nint extra(int y) { return y; }\n", encoding="utf-8")
+        from stamp_langs import cpp
+        ex = [e["name"] for e in cpp.declared(str(root), str(root / "w.cpp"))["exports"]]
+        check("impl: class methods declared in the header are not re-listed", ex == ["extra"])
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -605,6 +618,7 @@ def main():
     test_stamp_all_stale()
     test_why_folding()
     test_no_git_noise_on_shift()
+    test_impl_methods_not_duplicated()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0

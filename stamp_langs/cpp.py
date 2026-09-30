@@ -131,7 +131,21 @@ def _header_decl_names(project_root, target_abs):
                 decls, _s = _decls(project_root, tgt)
                 for d in decls:
                     out.setdefault(d["name"], tree.rel(tgt))
+                    # methods declared INSIDE a class: the .cpp defines them as `Class::method`
+                    for m in d.get("methods", []):
+                        out.setdefault(f"{d['name']}::{m['name']}", tree.rel(tgt))
     return out
+
+
+def _declared_where(name, declared_in):
+    """Header that declares `name`, also when the definition carries extra leading qualifiers
+    (`ns::Class::method` defined, `Class::method` declared)."""
+    parts = name.split("::")
+    for i in range(len(parts) - 1):
+        hit = declared_in.get("::".join(parts[i:]))
+        if hit:
+            return hit
+    return declared_in.get(name)
 
 
 def declared(project_root, target_abs):
@@ -147,7 +161,7 @@ def declared(project_root, target_abs):
             keep = True
         else:
             keep = (d["kind"] in ("function", "var") and d["definition"] and not d["static"]
-                    and d["name"] not in declared_in)
+                    and not _declared_where(d["name"], declared_in))
         if keep:
             exports.append({"name": d["name"], "kind": _KIND.get(d["kind"], d["kind"]),
                             "signature": d["signature"], "methods": _methods(d, scan),
@@ -458,8 +472,9 @@ def fact_sections(project_root, target_abs, declared_surface):
         defs, _s = _decls(project_root, target_abs)
         per = {}
         for d in defs:
-            if d["definition"] and not d["static"] and d["name"] in declared_in:
-                per[declared_in[d["name"]]] = per.get(declared_in[d["name"]], 0) + 1
+            h = _declared_where(d["name"], declared_in) if d["definition"] and not d["static"] else None
+            if h:
+                per[h] = per.get(h, 0) + 1
         if per:
             lines.append("defines what these headers declare: "
                          + ", ".join(f"`{h}` {n}" for h, n in sorted(per.items(), key=lambda x: -x[1])))
