@@ -195,6 +195,32 @@ def _by_folder(files):
     return fold_by_folder([f.replace(os.sep, "/") for f in files], _FOLDER_TOP)
 
 
+# Why folding: this many imports WITHOUT prose from one folder -> one group line. A .cu that
+# includes 64 op headers of its own folder gets one "why?" to answer, not 64 identical ones.
+WHY_FOLD_MIN = 5
+
+
+def _why_lines(keys, key_dir, why):
+    """Why bullets: an import with written prose keeps its own line (never folded); unwritten
+    imports of one folder fold into `folder/*` (N: names) once there are WHY_FOLD_MIN of them —
+    or whenever that group already has prose. The group's prose is keyed by `folder/*`."""
+    groups = defaultdict(list)
+    for k in keys:
+        if k not in why:
+            groups[key_dir.get(k, ".")].append(k)
+    folded = {d for d, ks in groups.items() if len(ks) >= WHY_FOLD_MIN or (f"{d}/*" in why and ks)}
+    out, done = [], set()
+    for k in keys:
+        d = key_dir.get(k, ".")
+        if k in why or d not in folded:
+            out.append(f"- `{k}` — {why.get(k, DIRECTIVE_WHY)}")
+        elif d not in done:
+            done.add(d)
+            ks = groups[d]
+            out.append(f"- `{d}/*` ({len(ks)}: {', '.join(ks)}) — {why.get(f'{d}/*', DIRECTIVE_WHY)}")
+    return out
+
+
 def _families_fact(fams, consumers, file_rel, n_decls):
     """Public API in the "API: in source" form (CARD_FORMAT 1.3.0): the marker line + the
     family table (fact). The prose list below it is rendered by build_card (merge-aware)."""
@@ -433,7 +459,13 @@ def _parse_why_section(body, P):
         item = s[2:]
         if " — " not in item:
             continue
-        key, why = item.split(" — ", 1)
+        if item.startswith("`") and "`" in item[1:]:
+            # `key` [(N: a, b, …)] — why : the key is the backticked part (a folded group line
+            # lists its members after it, Plan: Why folding)
+            key = item[1:item.index("`", 1)]
+            why = item.split(" — ", 1)[1]
+        else:
+            key, why = item.split(" — ", 1)
         key, why = key.strip().strip("`").strip(), why.strip()
         if key and why and not _is_ph(why) and why != cf.EMPTY:
             P["why"][key] = why
@@ -741,10 +773,12 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append("| Import | File Path | Symbols | Kind |")
         lines.append("|---|---|---|---|")
         seen_keys = []  # first-seen order, deduped — drives the Why list below
+        key_dir = {}    # import key -> its folder (Why folding)
         for r in resolved:
             key = os.path.basename(r["file"]).rsplit(".", 1)[0]
             if key not in seen_keys:
                 seen_keys.append(key)
+                key_dir[key] = os.path.dirname(r["file"]).replace(os.sep, "/") or "."
             kind = escape_cell(r.get("kind") or "normal")   # C/C++: conditional(<#if>)
             if r["symbols"]:
                 for s in r["symbols"]:
@@ -753,9 +787,7 @@ def build_card(project_root, file, old_prose=None, report=None):
                 lines.append(f"| `{key}` | `{r['file']}` |  | {kind} |")
         lines.append("")
         lines.append("### Why these imports are used (one line per import — free text)")
-        for key in seen_keys:
-            why = op["why"].get(key, DIRECTIVE_WHY)
-            lines.append(f"- `{key}` — {why}")
+        lines.extend(_why_lines(seen_keys, key_dir, op["why"]))
     else:
         lines.append(cf.EMPTY)
     lines.append("")

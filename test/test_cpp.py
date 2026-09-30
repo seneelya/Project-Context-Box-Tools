@@ -515,6 +515,29 @@ def test_stamp_all_stale():
         check("--stale creates no new cards", not (cards / "src/c.h.md").exists())
 
 
+def test_why_folding():
+    keys = ["ggml", "acc", "add", "argmax", "argsort", "binbcast", "common"]
+    key_dir = {"ggml": "ggml/include", "common": "ggml/src/ggml-cuda"}
+    key_dir.update({k: "ggml/src/ggml-cuda/ops" for k in keys[1:6]})
+    out = mic._why_lines(keys, key_dir, {})
+    check("why folding: 5 unwritten of one folder -> one group line",
+          out == ["- `ggml` — " + mic.DIRECTIVE_WHY,
+                  "- `ggml/src/ggml-cuda/ops/*` (5: acc, add, argmax, argsort, binbcast) — " + mic.DIRECTIVE_WHY,
+                  "- `common` — " + mic.DIRECTIVE_WHY])
+    out = mic._why_lines(keys, key_dir, {"add": "element-wise add kernel",
+                                         "ggml/src/ggml-cuda/ops/*": "op kernels"})
+    check("why folding: written prose keeps its own line; the group keeps its prose",
+          "- `add` — element-wise add kernel" in out
+          and "- `ggml/src/ggml-cuda/ops/*` (4: acc, argmax, argsort, binbcast) — op kernels" in out)
+    body = ["### Why these imports are used (one line per import — free text)",
+            "- `ggml/src/ggml-cuda/ops/*` (4: acc, argmax, argsort, binbcast) — op kernels",
+            "- `ggml` — tensor API"]
+    P = {"why": {}}
+    mic._parse_why_section(body, P)
+    check("why folding: group line parsed by its backticked key",
+          P["why"] == {"ggml/src/ggml-cuda/ops/*": "op kernels", "ggml": "tensor API"})
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -544,6 +567,7 @@ def main():
     test_cpp_source_macros()
     test_keyed_bullets_key_with_dash()
     test_stamp_all_stale()
+    test_why_folding()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
