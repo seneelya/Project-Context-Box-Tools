@@ -69,7 +69,11 @@ flowchart TB
 (C/C++: профиль `profiles/cpp.py` ставит `preprocess` = `get_codeblock/cpp_source.preprocess_bytes` —
 вырезка макросов, которых tree-sitter не знает (`GGML_DEPRECATED(decl, "hint")` → `decl`, `GGML_API`,
 `__device__`), с сохранением строк и колонок; список — `CPP_STRIP_MACROS`/`CPP_WRAPPER_MACROS`
-конфига + `#define`-ы самого файла. На КОПИИ общего `CPP_SPEC` (инвариант 5). Тот же
+конфига + `#define`-ы самого файла. На КОПИИ общего `CPP_SPEC` (инвариант 5). Если после разбора на
+верхнем уровне остаётся `ERROR` (функция, тело которой tree-sitter не читает — X-макросы без `;`,
+`ggml_vk_load_shaders`), тело ЭТОЙ функции гасится (`cpp_source._recover`, до 20 раундов) и файл
+разбирается заново: иначе весь остаток файла был одним `ERROR`, карта его не видела. Функция остаётся
+блоком, пропадают только её внутренние рунги. Тот же
 `cpp_source.prepare` зовут штемпель и find_code_usage — одна реализация.)
 
 (Над ридером, в `get_codeblock/`: `name_resolver.py` — `--name`: имя → строки по тому же дереву

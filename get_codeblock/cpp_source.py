@@ -161,6 +161,140 @@ def prepare(src: str, strip: Iterable[str] = (), wrappers: Iterable[str] = ()) -
     return strip_macros(src, names, wraps)
 
 
+_BODY_OPENER = re.compile(
+    r"\)\s*(?:(?:const|noexcept|override|final|volatile|mutable|&&|&)\s*)*"
+    r"(?:noexcept\s*\([^()]*\)\s*)?(?:->\s*[\w:<>,\s*&]+?)?\s*$")
+
+
+def _blank_bodies_impl(text: str, only=None) -> str:
+    """Empty the inside of every function body `) {...}` (newlines kept). The declared surface
+    never needs a body, and bodies are where macro-generated code (X-macros without `;`) makes
+    tree-sitter give up on the WHOLE function. Comments, strings, char literals, raw strings and
+    preprocessor lines are skipped so their braces don't count."""
+    out = list(text)
+    n, i = len(text), 0
+    line_start = True
+
+    def skip_ws_comment_string(j):
+        """Advance over one non-code unit starting at j; return new j or None if code char."""
+        c = text[j]
+        if text.startswith("//", j):
+            k = text.find("\n", j)
+            return n if k == -1 else k
+        if text.startswith("/*", j):
+            k = text.find("*/", j + 2)
+            return n if k == -1 else k + 2
+        if c == "R" and j + 1 < n and text[j + 1] == '"':
+            m = re.match(r'R"([^()\\\s]{0,16})\(', text[j:j + 20])
+            if m:
+                end = text.find(")" + m.group(1) + '"', j)
+                return n if end == -1 else end + len(m.group(1)) + 2
+        if c in "\"'":
+            k = j + 1
+            while k < n and text[k] != c:
+                if text[k] == "\\":
+                    k += 1
+                elif text[k] == "\n":
+                    break
+                k += 1
+            return k + 1
+        return None
+
+    def skip_preproc(j):
+        while j < n:
+            k = text.find("\n", j)
+            if k == -1:
+                return n
+            if text[k - 1] == "\\" or (k >= 2 and text[k - 2:k] == "\\\r"):
+                j = k + 1
+                continue
+            return k
+        return n
+
+    while i < n:
+        c = text[i]
+        if line_start and c in " \t":
+            i += 1
+            continue
+        if line_start and c == "#":
+            i = skip_preproc(i)
+            continue
+        line_start = c == "\n"
+        j = skip_ws_comment_string(i)
+        if j is not None:
+            i = j
+            continue
+        if c == "{" and _BODY_OPENER.search(text[max(0, i - 300):i]) and (only is None or i in only):
+            depth, k, ls = 1, i + 1, False
+            while k < n and depth:
+                ch = text[k]
+                if ls and ch in " \t":
+                    k += 1
+                    continue
+                if ls and ch == "#":
+                    k = skip_preproc(k)
+                    continue
+                ls = ch == "\n"
+                jj = skip_ws_comment_string(k)
+                if jj is not None:
+                    k = jj
+                    continue
+                depth += ch == "{"
+                depth -= ch == "}"
+                k += 1
+            for p in range(i + 1, k - 1):
+                if out[p] != "\n":
+                    out[p] = " "
+            i = k
+            continue
+        i += 1
+    return "".join(out)
+
+
+
+
+def blank_function_bodies(text: str) -> str:
+    """Empty the inside of every function body (newlines kept) — see _blank_bodies_impl."""
+    return _blank_bodies_impl(text)
+
+
+def _body_openers(text: str):
+    """Offsets of every function-body `{` (the same rule the blanker uses), in file order."""
+    out = []
+    n, i, line_start = len(text), 0, True
+    while i < n:
+        c = text[i]
+        if line_start and c in " \t":
+            i += 1
+            continue
+        if line_start and c == "#":
+            k = text.find("\n", i)
+            while k != -1 and text[k - 1] == "\\":
+                k = text.find("\n", k + 1)
+            i = n if k == -1 else k
+            continue
+        line_start = c == "\n"
+        if c == "{" and _BODY_OPENER.search(text[max(0, i - 300):i]):
+            out.append(i)
+        i += 1
+    return out
+
+
+def blank_body_from_line(text: str, row: int) -> str:
+    """Blank ONLY the first function body whose `{` is on line `row` (0-based) or later.
+    Returns the text unchanged when there is none."""
+    line_off = 0
+    for _ in range(row):
+        k = text.find("\n", line_off)
+        if k == -1:
+            return text
+        line_off = k + 1
+    for o in _body_openers(text):
+        if o >= line_off:
+            return _blank_bodies_impl(text, only={o})
+    return text
+
+
 # --------------------------------------------------------------------------- reader hook
 
 _PRE_CACHE: Dict[str, bytes] = {}
@@ -176,6 +310,31 @@ def _config_macros():
             list(getattr(cfg, "CPP_WRAPPER_MACROS", []) or []))
 
 
+RECOVER_ROUNDS = 20
+
+
+def _recover(text: str) -> str:
+    """A function whose body tree-sitter cannot read (X-macros without `;` — ggml-vulkan.cpp
+    `ggml_vk_load_shaders`) turns the REST of the file into one top-level ERROR node: the map shows
+    nothing after it. Blank that function's body (lines/columns kept; the function itself stays a
+    block) and parse again, until no top-level ERROR is left or nothing more can be blanked."""
+    try:
+        from .handlers.cpp_handler import CPP_SPEC
+        parser = CPP_SPEC.parser()
+    except Exception:
+        return text
+    for _ in range(RECOVER_ROUNDS):
+        root = parser.parse(text.encode("utf-8")).root_node
+        err = next((c for c in root.children if c.type == "ERROR"), None)
+        if err is None:
+            return text
+        new = blank_body_from_line(text, err.start_point[0])
+        if new == text:
+            return text
+        text = new
+    return text
+
+
 def preprocess_bytes(source: bytes) -> bytes:
     """`LangSpec.preprocess` for the C/C++ reader profile (tree-sitter parses the result)."""
     key = hashlib.sha1(source).hexdigest()
@@ -184,7 +343,7 @@ def preprocess_bytes(source: bytes) -> bytes:
         return hit
     text = source.decode("utf-8", "replace")
     strip, wraps = _config_macros()
-    out = prepare(text, strip, wraps).encode("utf-8")
+    out = _recover(prepare(text, strip, wraps)).encode("utf-8")
     if len(_PRE_CACHE) > 32:
         _PRE_CACHE.clear()
     _PRE_CACHE[key] = out

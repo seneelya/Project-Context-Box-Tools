@@ -614,6 +614,24 @@ def test_merge_keeps_prose_of_qualified_methods():
               "**Scope:** the helpers.\n\nSecond paragraph." in out.read_text(encoding="utf-8"))
 
 
+def test_reader_recovers_after_unparsable_body():
+    # ggml-vulkan.cpp: ggml_vk_load_shaders (X-macros without `;`) turned the rest of the file into
+    # one ERROR node — the map showed nothing after it, --name found ~60 of the names. The reader
+    # blanks the body of the function where the ERROR starts and parses again (lines kept).
+    from get_codeblock.name_resolver import declarations, resolve_name
+    from get_codeblock import cpp_source as cs
+    f = os.path.join(_PR, "ggml/src/ggml-vulkan/ggml-vulkan.cpp")
+    names = {d.name for d in declarations(f)}
+    check("reader recovery: names after the unparsable function are found",
+          len(names) > 300 and "ggml_backend_vk_cpy_tensor_async" in names)
+    check("reader recovery: --name finds a late function",
+          resolve_name(f, "ggml_backend_vk_cpy_tensor_async").exact)
+    src = open(f, encoding="utf-8").read()
+    out = cs.preprocess_bytes(src.encode("utf-8")).decode("utf-8")
+    check("reader recovery: same lines and columns",
+          [len(x) for x in out.split("\n")] == [len(x) for x in src.split("\n")])
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -647,6 +665,7 @@ def main():
     test_no_git_noise_on_shift()
     test_impl_methods_not_duplicated()
     test_merge_keeps_prose_of_qualified_methods()
+    test_reader_recovers_after_unparsable_body()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
