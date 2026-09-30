@@ -184,15 +184,17 @@ def _consumers_fact(sym, consumers, target_rel=None):
         return ["consumers 0"]
     if len(c) <= CONSUMERS_LIST_MAX:
         return [f"consumers {len(c)}:"] + [f"- {f}" for f, _k, _ln in c]
-    # Adaptive depth: full folder first; too many folders (a symbol spread one-file-per-backend)
-    # -> regroup one level up, until it fits _FOLDER_TOP or we reach the top level.
+    # Adaptive depth: the DEEPEST folder level whose top _FOLDER_TOP folders still cover at least
+    # half of the consumers. A concentrated symbol keeps precise folders ("ggml/src/ggml-cuda 135");
+    # one spread one-file-per-backend climbs until the grouping says something ("ggml/src 13").
     dirs = [os.path.dirname(f).replace(os.sep, "/") or "." for f, _k, _ln in c]
     depth = max(d.count("/") + 1 for d in dirs)
     while True:
         by_dir = defaultdict(int)
         for d in dirs:
             by_dir["/".join(d.split("/")[:depth])] += 1
-        if len(by_dir) <= _FOLDER_TOP or depth <= 1:
+        shown = sum(sorted(by_dir.values(), reverse=True)[:_FOLDER_TOP])
+        if shown * 2 >= len(c) or depth <= 1:
             break
         depth -= 1
     top = sorted(by_dir.items(), key=lambda kv: (-kv[1], kv[0]))
