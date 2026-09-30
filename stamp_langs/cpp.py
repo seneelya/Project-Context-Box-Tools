@@ -151,6 +151,131 @@ def declared(project_root, target_abs):
     return {"docstring_first": None, "exports": exports, "all_defs": all_defs, "reexports": []}
 
 
+# --------------------------------------------------------------------------- API families
+# Vision10 §4 / Plan09 step 2: a header's API grouped MECHANICALLY (the stamp owns it, so an
+# agent's regrouping would be overwritten), in order of trust: the author's section comments ->
+# a shared name prefix -> the declaration kind. Stable between stamps: same source, same groups.
+
+FAMILY_MIN = 4       # a prefix group needs at least this many declarations
+FAMILY_BIG = 30      # a group larger than this is split further by prefix
+_TOP = "(top of file)"
+_WHOLE = "(whole file)"
+_KIND_FAMILY = {"function": "functions", "type": "types", "struct": "types", "class": "types",
+                "enum": "types", "macro": "macros", "var": "variables"}
+
+
+def sections(text):
+    """[(line, title)] — the author's section frames: `//` / `// Title` / `//` opening a comment
+    block (not inside one — a doc paragraph like `// TODO` is not a heading; a doc may FOLLOW, as
+    in `llama.h` Sampling API), a short title that is not a sentence (Memory, Vocab…)."""
+    lines = [ln.strip() for ln in text.splitlines()]
+
+    def com(k):
+        return 0 <= k < len(lines) and lines[k].startswith("//")
+
+    out = []
+    for i in range(1, len(lines) - 1):
+        s = lines[i]
+        if (lines[i - 1] == "//" and lines[i + 1] == "//" and s.startswith("//") and s != "//"
+                and not com(i - 2)):
+            title = s[2:].strip()
+            if title and len(title) <= 60 and not title.endswith((":", ";", ".", ",")):
+                out.append((i + 1, title))
+    return out
+
+
+def _tokens(name):
+    return [t for t in name.split("_") if t] or [name]
+
+
+def _prefix_groups(items, depth=0):
+    """items [(line, name, kind)] -> ([(prefix, items)], leftovers). Names grouped by their first
+    depth+1 `_`-tokens; a group holding more than FAMILY_BIG goes one token deeper (ggml ->
+    ggml_backend -> ggml_backend_sched); groups under FAMILY_MIN are leftovers."""
+    by = {}
+    for it in items:
+        tk = _tokens(it[1])
+        if len(tk) <= depth:
+            by.setdefault(None, []).append(it)
+        else:
+            by.setdefault("_".join(tk[:depth + 1]), []).append(it)
+    groups, left = [], list(by.pop(None, []))
+    for key, its in by.items():
+        if len(its) > FAMILY_BIG and depth < 4:
+            sub, rest = _prefix_groups(its, depth + 1)
+            groups.extend(sub)
+            if len(rest) >= FAMILY_MIN and sub:
+                groups.append(("other " + key + "_*", rest))
+            elif not sub:
+                groups.append((key + "_*", its))
+            else:
+                left.extend(rest)
+        elif len(its) >= FAMILY_MIN:
+            groups.append((key + "_*", its))
+        else:
+            left.extend(its)
+    return groups, left
+
+
+def _by_kind(items, label=""):
+    by = {}
+    for it in items:
+        by.setdefault(_KIND_FAMILY.get(it[2], "other"), []).append(it)
+    return [((f"{label} — other {k}" if label else f"Other {k}"), its) for k, its in by.items()]
+
+
+def _family(name, how, its, first=None):
+    lines = [it[0] for it in its]
+    return {"name": name, "how": how, "decls": [it[1] for it in its],
+            "first": min([first] + lines if first else lines), "last": max(lines)}
+
+
+def families(project_root, target_abs, exports=None):
+    """[{name, how: section|prefix|kind|file, decls: [names], first, last}] in file order.
+    `exports` = declared()["exports"] (computed when omitted)."""
+    if exports is None:
+        exports = declared(project_root, target_abs)["exports"]
+    decls, _scan = _decls(project_root, target_abs)
+    line_of = {}
+    for d in decls:
+        line_of.setdefault(d["name"], d["line"])
+    items = sorted((line_of.get(e["name"], 0), e["name"], e["kind"]) for e in exports)
+    if not items:
+        return []
+    src = _common.read_source(target_abs) or ""
+    secs = sections(src)
+    out = []
+
+    def split(label, how, its, first=None):
+        if len(its) <= FAMILY_BIG:
+            out.append(_family(label or _WHOLE, how if label else "file", its, first))
+            return
+        groups, left = _prefix_groups(its)
+        if not groups:
+            out.append(_family(label or _WHOLE, how if label else "file", its, first))
+            return
+        for key, g in groups:
+            out.append(_family(f"{label} / {key}" if label else key, "prefix", g))
+        for name, g in _by_kind(left, label):
+            out.append(_family(name, "kind", g))
+
+    by_sec = {}
+    for it in items:
+        cur = None
+        for sl, title in secs:
+            if sl <= it[0]:
+                cur = (sl, title)
+        by_sec.setdefault(cur, []).append(it)
+    if sum(1 for k in by_sec if k is not None) >= 2:
+        for key in sorted(by_sec, key=lambda k: k[0] if k else 0):
+            its = by_sec[key]
+            split(key[1] if key else _TOP, "section", its, key[0] if key else None)
+    else:
+        split("", "prefix", items)
+    out.sort(key=lambda f: (f["first"], f["name"]))
+    return out
+
+
 # --------------------------------------------------------------------------- entry key
 
 _ID = r"[A-Za-z_]\w*"

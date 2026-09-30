@@ -338,6 +338,41 @@ def test_restamp_idempotent():
               and not stamp_langs.get("cpp").import_line("uses dlopen on Linux"))
 
 
+def test_families():
+    from stamp_langs import cpp
+    text = "\n".join([
+        "int a;", "", "//", "// Buffers", "//", "", "int b;",
+        "    // doc block", "    //", "    // TODO", "    //", "    // more doc",   # paragraph, not a heading
+        "", "//", "// Sampling API", "//", "// Sample usage:", "int c;",          # heading + doc after
+        "", "//", "// this is a sentence.", "//",                                  # sentence -> not a heading
+    ])
+    check("sections: frames only, doc paragraphs and sentences skipped",
+          cpp.sections(text) == [(4, "Buffers"), (15, "Sampling API")])
+    root = _PR
+    fb = cpp.families(root, os.path.join(root, "ggml/include/ggml-backend.h"))
+    names = [f["name"] for f in fb]
+    check("families: author sections of ggml-backend.h", names[:4] == [
+        "(top of file)", "Backend buffer type", "Backend buffer", "Backend (stream)"]
+        and "Backend scheduler" in names and all(f["how"] == "section" for f in fb))
+    sched = next(f for f in fb if f["name"] == "Backend scheduler")
+    check("families: line range starts at the section frame", sched["first"] == 263
+          and "ggml_backend_sched_new" in sched["decls"])
+    exports = cpp.declared(root, os.path.join(root, "ggml/include/ggml.h"))["exports"]
+    fg = cpp.families(root, os.path.join(root, "ggml/include/ggml.h"), exports)
+    flat = [d for f in fg for d in f["decls"]]
+    check("families: every declaration in exactly one family",
+          sorted(flat) == sorted(e["name"] for e in exports) and len(flat) == len(set(flat)))
+    check("families: big sections split by name prefix (ggml.h)",
+          any(f["name"].endswith("/ ggml_rope_*") and f["how"] == "prefix" for f in fg)
+          and all(len(f["decls"]) <= cpp.FAMILY_BIG or f["name"].split(" / ")[-1].startswith("other ")
+                  for f in fg if f["how"] == "prefix"))
+    check("families: stable between runs",
+          fg == cpp.families(root, os.path.join(root, "ggml/include/ggml.h"), exports))
+    fc = cpp.families(root, os.path.join(root, "ggml/include/ggml-cuda.h"))
+    check("families: small file without sections = one family",
+          [(f["name"], f["how"]) for f in fc] == [("(whole file)", "file")])
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -361,6 +396,7 @@ def main():
     test_flags_skip_numbers()
     test_scan_cache()
     test_restamp_idempotent()
+    test_families()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
