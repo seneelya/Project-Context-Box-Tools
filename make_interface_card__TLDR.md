@@ -58,7 +58,7 @@ shared with get_codeblock).
   `### What each family is for` — one prose line per family, kept by name on re-stamp; a family
   that disappears goes to Salvage. Families: the author's section frames (`//` / `// Title` / `//`)
   -> name prefix (groups >30 split deeper, <4 go to "other <kind>") -> kind. Hook
-  `api_families` (`stamp_langs/CONTRACT.md` ПОПРАВКА 3).
+  `api_families` (`stamp_langs/CONTRACT.md`, amendment 3).
 * **Implementation** exports only external definitions NOT declared in any header it includes —
   the header's API is not duplicated; an entry under `#if` gets a `condition: X` fact line.
 * **`## Build facts`** (pure fact, rebuilt every stamp — never write prose there): header<->impl

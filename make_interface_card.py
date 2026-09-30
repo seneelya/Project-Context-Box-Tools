@@ -593,7 +593,7 @@ def _parse_old_prose(text, lang=None):
     return P
 
 
-_SALVAGE_H2 = "Salvage (снято при re-stamp — перенеси нужное выше или удали)"
+_SALVAGE_H2 = "Salvage (dropped by re-stamp — move what you need above, or delete)"
 
 
 def build_card(project_root, file, old_prose=None, report=None):
