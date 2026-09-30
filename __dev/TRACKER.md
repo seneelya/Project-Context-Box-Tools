@@ -134,3 +134,11 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ Plan09 шаг 3 — карточка заголовка «API: in source» (CARD_FORMAT 1.3.0, хук `api_families` ПОПРАВКА 3, валидатор, Guide__MakeCard § C/C++). Проза семейств по имени, исчезнувшее → Salvage. test_cpp 111/0, check 121, cardstamp 155, restamp 21. → next: шаг 4 (граф: рёбра из исходников для файлов без карточек).
 - ✅ Plan09 шаг 4 — граф `--file`: файлы без карточек узлами `(no card)` с рёбрами из include-дерева (хук `source_edges`, ПОПРАВКА 4), свёртка по папкам, `--cards-only`; обзорные виды и --discrepancies по-прежнему по карточкам. test_cpp 117/0.
 - ✅ Plan09 шаг 5 — приёмка llama: зона 7,7 с (было 31), ggml.h.md 2637 → 169 строк, validate 0, граф видит всё дерево. **Plan09 закрыт.** → next: проза карточек (Grok) по новой форме — когда владелец решит; clangd (Plan08 шаг 9) — при Ninja-сборке микса.
+
+## 2026-09-30 — get_codeblock: C-заголовки, --name, макросы
+
+- ✅ Адресация в C-заголовке: строки внутри `#ifdef __cplusplus` (рамка без тела) давали `<file>` — цепочка теперь спускается в рамку как карта; typedef без тела — свой блок (`classify.leaf_landmark_at`); прототип — полоса `decl:`. `--query` за концом файла — ошибка, не traceback. (`f42d9f9`)
+- ✅ `--name` — `get_codeblock/name_resolver.py`: имя → строки → существующий `--line` (точно 1 → `--query`; иначе `--outline` по кандидатам; шапка одной строкой; exit 2 = ничего). Точно / маска / близко (регистр, подстрока, слова, опечатка). C/C++/Python/C#/TS/md. test_name_resolver 32/0. (`110694a`)
+- ✅ Макросы C/C++ вырезаются ДО разбора в get_codeblock (`get_codeblock/cpp_source.py`, хук `preprocess` на копии `CPP_SPEC`): конфиг `CPP_*` + автоопределение по `#define` самого файла; строки/колонки сохраняются. Одна реализация для ридера, штемпеля, find_code_usage (`cpp_includes` реэкспортирует). Было: `ggml.h` L934–2050 и `llama.h` L514–1685 — один мусорный узел. (`888f52c`, `e8b7424`)
+- Известное, не наше: `sweep_invariants` CRASH=71 на cp1252-фикстуре replace_in_files; `golden_check` 4/13 — устаревшие эталоны шапки.
+- → next (согласовано): `make_interface_card --all --stale`; свёртка Why по папке (написанная проза не сворачивается); швы — сводка по контейнеру; семейства и зоны `#if` без номеров строк (якоря-имена, `--name`).
