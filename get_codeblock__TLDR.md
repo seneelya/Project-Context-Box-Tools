@@ -50,6 +50,15 @@ file's table of contents, without reading the whole file.
   quote anything with `< > & * |` for the shell. `*`/`?` list a family (top 10 + a count).
 - Not exact -> ranked candidates: case-insensitive > substring > all words > typo.
 
+## C/C++ macros
+
+Macros tree-sitter cannot know are cut before parsing, keeping every line and column
+(`get_codeblock/cpp_source.py`): wrappers (`GGML_DEPRECATED(decl, "hint")` -> `decl`), export/
+attribute macros (`GGML_API`, `GGML_ATTRIBUTE_FORMAT(1, 2)`), CUDA qualifiers. Which ones: the
+file's own `#define`s (a macro whose every definition is `func`+attributes or attributes only)
+plus `CPP_STRIP_MACROS` / `CPP_WRAPPER_MACROS` of the HQ config for macros defined elsewhere.
+`--query` always prints the ORIGINAL text; only outline labels show the cleaned head.
+
 ## Workflow
 
 ```

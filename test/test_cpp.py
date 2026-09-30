@@ -450,6 +450,42 @@ def test_codeblock_header_addressing():
           r.returncode == 1 and "out of range" in r.stdout and "Traceback" not in r.stderr)
 
 
+def test_cpp_source_macros():
+    # get_codeblock/cpp_source.py — ONE way to read C/C++ for every tool: macros detected from
+    # the file's own #defines, cut line/column-preserving.
+    from get_codeblock import cpp_source as cs
+    src = "\n".join([
+        "#define API __declspec(dllexport) extern",
+        "#define DEPRECATED(func, hint) func __attribute__((deprecated(hint)))",
+        "#define FMT(a, b) __attribute__((format(printf, a, b)))",
+        "#define MIN(a, b) ((a) < (b) ? (a) : (b))",
+        "#define N 4",
+        "#ifdef _WIN32",
+        "#  define EXP",
+        "#else",
+        "#  define EXP __attribute__((visibility(\"default\")))",
+        "#endif",
+        "API int f(int x) FMT(1, 2);",
+        "DEPRECATED(API void g(int x), \"use h\");",
+    ])
+    strip, wraps = cs.detect_macros(src)
+    check("detect: export/attribute macros (every branch agrees)", strip == ["API", "EXP", "FMT"])
+    check("detect: wrapper; real code macros untouched", wraps == ["DEPRECATED"])
+    out = cs.prepare(src)
+    ol, sl = out.split("\n"), src.split("\n")
+    check("prepare: same lines, same columns", len(ol) == len(sl) and all(len(a) == len(b) for a, b in zip(ol, sl)))
+    check("prepare: macros cut / unwrapped",
+          ol[10].split() == ["int", "f(int", "x)", ";"] and ol[11].split() == ["void", "g(int", "x)", ";"])
+    check("prepare: the macros' own #define lines untouched", ol[:10] == sl[:10])
+    # get_codeblock on the fixture ggml.h: GGML_DEPRECATED(...) used to swallow ~1100 lines
+    from get_codeblock.reader import address
+    h = os.path.join(_PR, "ggml/include/ggml.h")
+    ln = next(i for i, l in enumerate(open(h, encoding="utf-8"), 1) if "ggml_rope_ext(" in l)
+    b = address.get_blocks(h, ln)[-1]
+    check("get_codeblock: prototype after GGML_DEPRECATED(...) is its own block",
+          b["start"] <= ln <= b["end"] and b["end"] - b["start"] < 60 and "ggml_rope_ext" in b["label"])
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -476,6 +512,7 @@ def main():
     test_restamp_idempotent()
     test_families()
     test_codeblock_header_addressing()
+    test_cpp_source_macros()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0

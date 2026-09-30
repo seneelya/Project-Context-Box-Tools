@@ -45,7 +45,10 @@ fallback). Config keys (target project's `CONFIG__TOOLS`): `CPP_INCLUDE_DIRS` (w
 looked up after the file's own folder; without it a unique path-suffix match is tried),
 `CPP_STRIP_MACROS` (export/attribute macros cut before parsing — `GGML_API`, `X_ATTRIBUTE_FORMAT(1,2)`),
 `CPP_WRAPPER_MACROS` (`DEPRECATED(decl, "hint")` -> `decl`), `CPP_PAIRS` (header<->impl the
-same-stem rule misses). CUDA qualifiers (`__device__` …) are cut always.
+same-stem rule misses). CUDA qualifiers (`__device__` …) are cut always; macros the file DEFINES
+itself (`#define LLAMA_API …`, `#define DEPRECATED(func, hint) func …`) are detected — the two
+macro keys are only needed for macros defined in another file (`get_codeblock/cpp_source.py`,
+shared with get_codeblock).
 * **Deps Kind** = `conditional(GGML_USE_CUDA)` when the `#include` sits under `#if`; `|` is written `\|`.
   Unresolved includes go to External with a tag: `[not in tree; if GGML_USE_METAL]`.
 * **Header = "API: in source"** (card-format 1.3.0): NO signatures in the card (the header has them,

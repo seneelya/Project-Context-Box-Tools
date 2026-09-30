@@ -66,6 +66,12 @@ flowchart TB
 
 ## Карта файлов
 
+(C/C++: профиль `profiles/cpp.py` ставит `preprocess` = `get_codeblock/cpp_source.preprocess_bytes` —
+вырезка макросов, которых tree-sitter не знает (`GGML_DEPRECATED(decl, "hint")` → `decl`, `GGML_API`,
+`__device__`), с сохранением строк и колонок; список — `CPP_STRIP_MACROS`/`CPP_WRAPPER_MACROS`
+конфига + `#define`-ы самого файла. На КОПИИ общего `CPP_SPEC` (инвариант 5). Тот же
+`cpp_source.prepare` зовут штемпель и find_code_usage — одна реализация.)
+
 (Над ридером, в `get_codeblock/`: `name_resolver.py` — `--name`: имя → строки по тому же дереву
 (`registry.resolve` → RNode, `Spec.unwrap_frame/unwrap_def/body/filler_kind`); не режим — строки
 уходят в существующую адресацию `--line`. Своих рендеров нет, кроме одной строки-шапки.)

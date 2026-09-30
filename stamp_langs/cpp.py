@@ -31,10 +31,6 @@ _KIND = {"struct": "struct", "union": "struct", "class": "class", "enum": "enum"
 _IDIOM_CONDS = {"__cplusplus", "!__cplusplus"}
 _MAX_LIST = 25          # cap for long fact lists (includers, zones, seam hints)
 _WARNED = set()
-# CUDA/HIP declaration qualifiers tree-sitter-cpp does not know — always cut (harmless in plain
-# C/C++: nobody else names things like this). `__launch_bounds__(...)` goes with its arguments.
-_BUILTIN_STRIP = ["__device__", "__host__", "__global__", "__forceinline__", "__noinline__",
-                  "__shared__", "__constant__", "__managed__", "__restrict__", "__launch_bounds__"]
 
 
 def import_line(line):
@@ -77,7 +73,8 @@ def _analysis(project_root, target_abs):
     if src is None:
         return None, None
     cfg = ci.cpp_config(project_root)
-    prepared = ci.strip_macros(src, _BUILTIN_STRIP + cfg["strip_macros"], cfg["wrapper_macros"])
+    from get_codeblock import cpp_source
+    prepared = cpp_source.prepare(src, cfg["strip_macros"], cfg["wrapper_macros"])
     an = ct.analyze(prepared, ci.prepare_for_second_parse)
     res = (an, ci.scan_file(target_abs))
     _AN_CACHE[key] = res
@@ -91,6 +88,11 @@ def _decls(project_root, target_abs):
     guard = scan.guard if scan else None
     cfg = _engine().cpp_config(project_root)
     noise = set(cfg["strip_macros"]) | set(cfg["wrapper_macros"])   # export/attribute macro defs
+    src = _common.read_source(target_abs)
+    if src:
+        from get_codeblock import cpp_source
+        auto_strip, auto_wrap = cpp_source.detect_macros(src)
+        noise |= set(auto_strip) | set(auto_wrap)
     out = []
     for d in an["decls"]:
         if d["kind"] == "macro" and (d["name"] == guard or d["name"] in noise):

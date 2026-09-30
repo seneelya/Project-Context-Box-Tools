@@ -584,52 +584,6 @@ def prepare_for_second_parse(text: str) -> str:
     return blank_function_bodies(first_branch_only(text))
 
 
-def strip_macros(src: str, names: List[str], wrappers: List[str] = ()) -> str:
-    """Blank out export/attribute macros (`GGML_API`, and with its arguments when called on the
-    same line: `GGML_ATTRIBUTE_FORMAT(1, 2)`) and unwrap function-like wrapper macros
-    (`GGML_DEPRECATED(decl, "hint")` -> `decl`), keeping every newline so line numbers hold."""
-    if names:
-        # Only CODE lines: inside a directive (`#define GGML_API extern`) the macro is being
-        # DEFINED — blanking it there would turn the line into `#define extern`.
-        rx = re.compile(r"\b(?:" + "|".join(re.escape(n) for n in names) + r")\b"
-                        r"(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?")
-        lines, in_directive = src.split("\n"), False
-        for i, ln in enumerate(lines):
-            directive = in_directive or ln.lstrip().startswith("#")
-            in_directive = directive and ln.rstrip("\r").endswith("\\")
-            if not directive:
-                lines[i] = rx.sub(lambda m: " " * len(m.group(0)), ln)
-        src = "\n".join(lines)
-    for w in wrappers:
-        src = _unwrap(src, w)
-    return src
-
-
-def _unwrap(src: str, name: str) -> str:
-    rx = re.compile(r"\b" + re.escape(name) + r"\s*\(")
-    out, pos = [], 0
-    for m in rx.finditer(src):
-        if m.start() < pos:
-            continue
-        i, depth, comma = m.end(), 1, None
-        while i < len(src) and depth:
-            ch = src[i]
-            if ch in "([{":
-                depth += 1
-            elif ch in ")]}":
-                depth -= 1
-            elif ch == "," and depth == 1 and comma is None:
-                comma = i
-            i += 1
-        if depth:
-            break
-        close = i - 1
-        arg_end = comma if comma is not None else close
-        blank = lambda s: re.sub(r"[^\n]", " ", s)
-        out.append(src[pos:m.start()])
-        out.append(blank(src[m.start():m.end()]))
-        out.append(src[m.end():arg_end])
-        out.append(blank(src[arg_end:close + 1]))
-        pos = close + 1
-    out.append(src[pos:])
-    return "".join(out)
+# Macro handling lives in get_codeblock (the lowest layer — how a C/C++ file is READ); kept
+# importable from here for existing callers.
+from get_codeblock.cpp_source import strip_macros, _unwrap  # noqa: E402,F401
