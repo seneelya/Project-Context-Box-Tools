@@ -486,6 +486,15 @@ def test_cpp_source_macros():
           b["start"] <= ln <= b["end"] and b["end"] - b["start"] < 60 and "ggml_rope_ext" in b["label"])
 
 
+def test_keyed_bullets_key_with_dash():
+    body = ["### What each family is for (one line per family — free text)",
+            "- `Utils — old style` — Helpers for graphs.",
+            "- `Backend buffer` — <|Agent:03 what this family is for — one line |>"]
+    got = mic._parse_keyed_bullets(body, "What each family is for")
+    check("keyed bullets: key in backticks may hold ' — '; placeholders skipped",
+          got == {"Utils — old style": "Helpers for graphs."})
+
+
 def test_misc_registry():
     check("find_code_usage: .cu -> cpp", language_for_file("x/k.cu") == "cpp")
     check("find_code_usage: .py still python", language_for_file("a.py") == "python")
@@ -513,6 +522,7 @@ def main():
     test_families()
     test_codeblock_header_addressing()
     test_cpp_source_macros()
+    test_keyed_bullets_key_with_dash()
     test_misc_registry()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0

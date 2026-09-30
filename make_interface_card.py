@@ -449,7 +449,10 @@ def _parse_keyed_bullets(body, h3_title):
             continue
         if not inside or not s.startswith("- ") or " — " not in s:
             continue
-        key, text = s[2:].split(" — ", 1)
+        if s.startswith("- `") and "` — " in s:          # key in backticks may hold " — " itself
+            key, text = s[3:].split("` — ", 1)
+        else:
+            key, text = s[2:].split(" — ", 1)
         key, text = key.strip().strip("`").strip(), text.strip()
         if key and text and not _is_ph(text) and text != cf.EMPTY:
             out[key] = text

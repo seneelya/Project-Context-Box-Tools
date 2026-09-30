@@ -82,6 +82,22 @@ def detect_macros(src: str) -> Tuple[List[str], List[str]]:
     return sorted(strip), wrappers
 
 
+def used_in_code(src: str, names: Iterable[str]) -> set:
+    """Which of `names` occur on a CODE line (not inside a directive) — a decorator in use, as
+    opposed to a build flag that only ever appears in `#if` (`#define FP16_AVAILABLE`)."""
+    names = set(names)
+    if not names:
+        return set()
+    rx = re.compile(r"\b(?:" + "|".join(re.escape(n) for n in names) + r")\b")
+    found, in_directive = set(), False
+    for ln in src.split("\n"):
+        directive = in_directive or ln.lstrip().startswith("#")
+        in_directive = directive and ln.rstrip("\r").endswith("\\")
+        if not directive:
+            found.update(rx.findall(ln))
+    return found
+
+
 def strip_macros(src: str, names: Iterable[str], wrappers: Iterable[str] = ()) -> str:
     """Blank out export/attribute macros (`GGML_API`, and with its arguments when called on the
     same line: `GGML_ATTRIBUTE_FORMAT(1, 2)`) and unwrap function-like wrapper macros

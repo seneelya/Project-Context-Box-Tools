@@ -92,7 +92,9 @@ def _decls(project_root, target_abs):
     if src:
         from get_codeblock import cpp_source
         auto_strip, auto_wrap = cpp_source.detect_macros(src)
-        noise |= set(auto_strip) | set(auto_wrap)
+        # only decorators actually used in code are noise; an empty `#define FP16_AVAILABLE`
+        # that appears only in #if is a build flag of the file — a real declaration
+        noise |= cpp_source.used_in_code(src, set(auto_strip) | set(auto_wrap))
     out = []
     for d in an["decls"]:
         if d["kind"] == "macro" and (d["name"] == guard or d["name"] in noise):
@@ -223,7 +225,7 @@ def _by_kind(items, label=""):
     by = {}
     for it in items:
         by.setdefault(_KIND_FAMILY.get(it[2], "other"), []).append(it)
-    return [((f"{label} — other {k}" if label else f"Other {k}"), its) for k, its in by.items()]
+    return [((f"{label} / other {k}" if label else f"Other {k}"), its) for k, its in by.items()]
 
 
 def _family(name, how, its, first=None):
