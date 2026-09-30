@@ -148,3 +148,4 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - test_cpp 140/0, name_resolver 32/0, check 121, cardstamp 155, restamp 21; llama validate 0.
 - VERSION get_codeblock (формат вывода: шапка `--name`) — бампнуть в конце сессии.
 - → next: nothing queued (Grok-проза по новой форме — решение владельца).
+- ✅ Фуззер инвариантов get_codeblock на зоне микса llama (ggml/include, ggml-cuda, ggml-vulkan, include): 314 файлов, 22008 проб (--step 3 --check-query) — HIGH 0 (CONTAIN/RANGE/CRASH/QUERY), LOW 3 (однострочные struct{ operator() } в ggml-cpp.h — уровень по строкам, не баг). Фуззер теперь берёт расширения из реестра ридера (раньше пропускал .cu/.cuh).
