@@ -41,6 +41,18 @@ mode: name -> lines -> the existing `--line` render.
 - Python keeps two engines (tree-sitter map, indentation addressing) aligned on the end convention;
   forcing `.py` through the brace engine was rejected (python `block` starts at the 1st statement).
 
+## Directions (not queued — owner's call)
+
+- **core2 docx / pdf** — the headline goal of Vision03: the reader opens non-code as a book. The
+  contracts are ready (Recipe B); `backends/markdown.py` is the model.
+- **Analyzers** (layer 2) — `Block.description` + the `Analyzer` protocol exist, none written.
+  First candidate: license / docstring detector by regex; embedder rerank is far.
+- **Outline from IR vs delegation** — see Parking: decide consciously, not by accident.
+
+Lesson from the first live deployment (hermes-filetools, 2026-08): a tool bug shows up not as an
+empty slot but as a WRONG fact in a card that agents trust instead of the source (`consumers 0` with
+a live caller). Prefer an honest "unknown" to a confident wrong value.
+
 ## Parking (low priority)
 
 - Frame name token leaks into filler (`~identifier`, `~qualified_name`).

@@ -33,7 +33,18 @@ commit this repo FIRST (an unknown blob is reported as CONFLICT).
 - **Open:** Plan08 step 9 (clangd, needs a Ninja build of the C/C++ test bed); Plan06 (short
   directive markers — directives are already short, plan not formally closed). No open requests.
 - **Test beds:** `y:\SRC\llama.cpp_mix` (C/C++; zone = its config `STAMP_DIRS`), `hermes-filetools`,
-  `memohood` (Python/JS).
+  `memohood` (Python/JS); sweep-only Python trees: `Y:\SRC\rlm`, `Y:\SRC\TRELLIS.2`.
+
+## Where copies of the tools live (update after a release)
+
+| Project | What | How |
+|---|---|---|
+| `y:\SRC\llama.cpp_mix` | whole HQ (tools, guides, roles) | `deploy_hq.py --apply` (commit its HQ first) |
+| `t:\AgentsWork\hermes-filetools` | all tools, NOT the deploy | copy git-tracked tool files; keep its `CONFIG__TOOLS.py`, `hermes_python.py`, `hermes-py.cmd` |
+| `t:\AgentsWork\dVOrbitals\dvOrbital__GDD` | get_codeblock only | copy `get_codeblock/`, `get_codeblock.py`, `get_codeblock__*.md`; keep its config |
+
+Copy = `git ls-files` of this repo minus `__dev/`, `test/`, `CONFIG__TOOLS.py`, `CLONE_TOOLS_HERE.md`;
+never delete files in the target. Smoke after a copy: `validate_cards.py`, `get_codeblock --file <x>`.
 
 ## Regression (before a commit, not after every edit)
 
@@ -41,7 +52,7 @@ Reference interpreter `T:/AgentsWork/venv/Scripts/python.exe` (3.12, ALL grammar
 gives `N skipped (grammar missing)` — that is "not checked", not "ok".
 
 ```bash
-T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 131/0
+T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 135/0
 T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py         # 155/0
 T:/AgentsWork/venv/Scripts/python.exe test/run_restamp_fixtures.py   # 21/0
 T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py           # 13/13
