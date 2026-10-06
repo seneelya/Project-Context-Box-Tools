@@ -45,7 +45,7 @@ mode: name -> lines -> the existing `--line` render.
 
 - Frame name token leaks into filler (`~identifier`, `~qualified_name`).
 - `#define` end-row bleeds one line.
-- Python handler: multi-line `"""` string argument breaks the method end (sweep on
+- (fixed 2026-10-06) Python handler: multi-line `"""` string argument broke the method end (sweep on
   `beellama.cpp/scripts/jinja/jinja-tester.py`) — spun off as its own task.
 - Outline from IR vs the old outline: not byte-identical (comment glue) — decide consciously if ever.
 

@@ -140,6 +140,23 @@ def _bracket_depths(lines):
     return depths
 
 
+def _is_continuation(lines, i):
+    """Line i continues the statement above — it begins INSIDE a multi-line string or an open
+    bracket, or follows a `\\`-ended line. Its indentation means nothing (a dedented JSON literal
+    inside a triple-quoted string, a hanging argument, `\\` + `else (...)` of a conditional
+    expression) — it can neither end a block nor start one."""
+    if _in_string_mask(lines)[i] or _bracket_depths(lines)[i] > 0:
+        return True
+    return i > 0 and lines[i - 1].rstrip('\r\n').endswith('\\')
+
+
+def _statement_start(lines, i):
+    """First line of the logical statement holding line i (walks up over continuations)."""
+    while i > 0 and _is_continuation(lines, i):
+        i -= 1
+    return i
+
+
 def get_indent(line):
     """Return (indent_spaces, is_blank). Tabs count as 4."""
     stripped = line.lstrip()
@@ -158,10 +175,8 @@ def is_block_header(lines, idx):
     """
     if idx < 0 or idx >= len(lines):
         return False
-    if _in_string_mask(lines)[idx]:
-        return False
-    if _bracket_depths(lines)[idx] > 0:
-        return False  # inside an open ([{ → comprehension/ternary clause, not a statement
+    if _is_continuation(lines, idx):
+        return False  # inside a string / open ([{ / after `\`: a clause, not a statement
     line = lines[idx]
     stripped = line.strip()
     if not stripped or stripped.startswith('#'):
@@ -312,7 +327,11 @@ def find_body_end(lines, header_idx, respect_siblings=True):
         if blank:
             last_line = i
             continue
-        
+
+        if _is_continuation(lines, i):          # inside a string / bracket: part of the body
+            last_line = i
+            continue
+
         stripped = lines[i].strip()
         
         # Comments/docstrings at ANY indent never end the parent block — they're semantically attached to something inside it
@@ -373,6 +392,8 @@ def find_body_end(lines, header_idx, respect_siblings=True):
     # addressing and the .0-outline report the same [start-end] for the same block.
     while last_line > colon_idx:
         s = lines[last_line].strip()
+        if _is_continuation(lines, last_line):   # a `#` / blank inside a string is content
+            break
         if not s or s.startswith('#'):
             last_line -= 1
         else:
@@ -386,10 +407,16 @@ def find_containing_blocks(lines, target_idx):
     
     Returns list sorted outermost-first: [(header_idx, body_end), ...].
     """
-    target_indent = get_indent(lines[target_idx])[0]
-    
-    candidates = []
+    # a continuation line (inside a string / bracket) is indented like its statement's first line
+    start = _statement_start(lines, target_idx)
+    target_indent = get_indent(lines[start])[0]
+
+    # ...and when that statement is a block header (a wrapped `def f(a,\n b):`), the line is part
+    # of that block's own header, so the block holds it
+    candidates = [start] if start != target_idx and is_block_header(lines, start) else []
     for i in range(target_idx - 1, -1, -1):
+        if i == start and candidates:
+            continue
         ind, blank = get_indent(lines[i])
         
         if blank or not lines[i].strip():

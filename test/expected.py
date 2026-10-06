@@ -327,6 +327,13 @@ LADDER = [
     # — every ladder rung now reports the same glued range as a direct query (tool-verified).
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 160), (1, 89, 166)]},
     {"file": 'mdSRC/capture.py.md', "line": 12, "expect": [(4, 12, 15), (3, 10, 27), (2, 4, 27), (1, 1, 56)]},
+    # .py: a line inside a multi-line string / open bracket continues its statement — a dedented
+    # `{` / `# …` / `1, 2)` there must not end the method (was: method + class cut at the string)
+    {"file": 'Edge/dedented_string.py', "line": 7, "expect": [(3, 5, 11), (2, 4, 11), (1, 1, 20)]},
+    {"file": 'Edge/dedented_string.py', "line": 8, "expect": [(3, 5, 11), (2, 4, 11), (1, 1, 20)]},
+    {"file": 'Edge/dedented_string.py', "line": 15, "expect": [(3, 14, 15), (2, 13, 15), (1, 1, 20)]},
+    # `\`-continued `else 2` of a conditional expression is not an `else:` block header
+    {"file": 'Edge/dedented_string.py', "line": 19, "expect": [(3, 18, 19), (2, 17, 20), (1, 1, 20)]},
     # REQ-012 scripts: sh `if` has no body node -> its filler band; sh loop is a rung; ps1/bat generic path
     {"file": 'scriptSRC/sample.sh', "line": 13, "expect": [(2, 12, 18), (1, 6, 19)]},
     {"file": 'scriptSRC/sample.sh', "line": 24, "expect": [(2, 22, 27), (1, 21, 31)]},
