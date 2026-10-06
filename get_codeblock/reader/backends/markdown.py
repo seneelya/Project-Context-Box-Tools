@@ -65,10 +65,16 @@ def _build(hs, i, parent_level, gap_start, region_end, lines, section_end):
 
 class MarkdownBackend:
     def root(self, source):
-        from ...handlers.markdown_handler import _headings, _section_end
+        from ...handlers.markdown_handler import _headings, _section_end, _frontmatter
         lines = source.decode('utf-8', 'replace').splitlines(keepends=True)
         hs = _headings(lines)
-        kids, _ = _build(hs, 0, 0, 0, len(lines), lines, _section_end)
+        fm = _frontmatter(lines)
+        start = fm[0] + 1 if fm else 0
+        kids, _ = _build(hs, 0, 0, start, len(lines), lines, _section_end)
+        if fm:
+            # the document's passport: its own block before the first heading, owns no sections
+            label = 'meta: ' + ', '.join(fm[1]) if fm[1] else 'meta'
+            kids.insert(0, MdNode('meta', 0, fm[0], label=label))
         return MdNode('document', 0, max(0, len(lines) - 1), kids=kids)
 
 
@@ -79,10 +85,10 @@ class MarkdownSpec:
         return None
 
     def unwrap_def(self, node):
-        return node if node.type == 'heading' else None
+        return node if node.type in ('heading', 'meta') else None
 
     def role(self, node):
-        return 'landmark' if node.type == 'heading' else 'filler'
+        return 'landmark' if node.type in ('heading', 'meta') else 'filler'
 
     def body(self, node):
         # тело раздела = сам узел (его children() — под-контент и под-заголовки)

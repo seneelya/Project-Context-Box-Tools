@@ -138,6 +138,13 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
         (1, 14, 18, '@media (max-width: 600px)'),
         (2, 15, 17, '.card'),
     ],
+    # REQ-013: YAML frontmatter = its own landmark (keys in the label); its `# comment` is NOT a heading
+    'mdSRC/frontmatter.md': [
+        (1, 1, 7, 'meta: aliases, code, version'),
+        (1, 8, 8, '~content'),
+        (1, 9, 15, 'Title'),
+        (2, 13, 15, 'Sub'),
+    ],
     'mdSRC/cli.py.md': [
         (1, 1, 55, 'cli.py'),
         (2, 4, 33, 'Public API'),
@@ -436,6 +443,7 @@ QUERY = [
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 0, "expect": (3, 139, 145)},
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "level": 1, "expect": (1, 89, 166)},  # ends at last content (return None)
     {"file": 'mdSRC/capture.py.md', "line": 4, "level": 0, "expect": (2, 4, 27)},
+    {"file": 'mdSRC/frontmatter.md', "line": 4, "level": 0, "expect": (1, 1, 7)},   # inside YAML -> the whole frontmatter
     # --- preamble-comment regression: landing on a comment returns the block it documents ---
     {"file": 'Edge/Edge.cs', "line":  9, "level": 0, "expect": (2,  8, 17)},  # /// doc  -> ctor
     {"file": 'Edge/Edge.cs', "line": 19, "level": 0, "expect": (2, 19, 28)},  # //       -> Increment

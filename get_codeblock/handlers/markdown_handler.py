@@ -10,13 +10,32 @@ import re
 
 _ATX = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
 _FENCE = re.compile(r'^(```+|~~~+)')
+_YAML_KEY = re.compile(r'^([A-Za-z_][\w-]*)\s*:')
+
+
+def _frontmatter(lines):
+    """YAML frontmatter at the very top: `---` on line 0 ... closing `---` / `...`.
+    Return (close_idx, [top-level keys]) or None. Keys by regex only — no YAML parser on the
+    zero-dependency .md path. No closing line -> not frontmatter (plain text, as before)."""
+    if not lines or lines[0].lstrip('﻿').rstrip() != '---':
+        return None
+    for i in range(1, len(lines)):
+        if lines[i].rstrip() in ('---', '...'):
+            keys = [m.group(1) for m in map(_YAML_KEY.match, lines[1:i]) if m]
+            return i, keys
+    return None
 
 
 def _headings(lines):
-    """Return [(idx, level, text)] for ATX headings, ignoring fenced code blocks."""
+    """Return [(idx, level, text)] for ATX headings, ignoring fenced code blocks and the
+    YAML frontmatter (a `# comment` there is YAML, not a heading)."""
     out = []
     fence = None
+    fm = _frontmatter(lines)
+    skip = fm[0] if fm else -1
     for i, line in enumerate(lines):
+        if i <= skip:
+            continue
         s = line.strip()
         if fence is not None:
             if s.startswith(fence):

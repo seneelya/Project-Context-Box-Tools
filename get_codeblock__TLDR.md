@@ -2,7 +2,7 @@
 
 Returns a self-contained structural block containing a line — for code
 (`.py` · `.ts .js .mjs .tsx .jsx` · `.cs` · `.cpp .cc .cxx .h .hpp .c .cu .cuh` · `.css .scss`), Markdown
-(`.md`: heading sections), YAML (`.yaml .yml`: key/list nesting), and plain text (`.txt`:
+(`.md`: heading sections; YAML frontmatter = one `meta: <keys>` block), YAML (`.yaml .yml`: key/list nesting), and plain text (`.txt`:
 paragraphs/sections, experimental). Lets an agent get precise context around any location, or a
 file's table of contents, without reading the whole file.
 
