@@ -1,62 +1,62 @@
-# CONTEXT_RESTORE — как поднять контекст в новой сессии
+# CONTEXT_RESTORE — resuming work on the TOOLS (`__HQ/tools`, its own git)
 
-Читать в этом порядке, не блуждать по репо:
+This file is about the tools and the template only. A downstream project's state (its plans,
+tracker, task) lives in that project's `__HQ/` — restore it from there, never from here.
 
-1. **`__dev/DECISIONS.md`** — закрытые решения (одна строка = выбор + почему). Не релитигировать.
-2. **Хвост `__dev/TRACKER.md`** (последние строки `✅`) — где мы по времени, что было только что.
-3. **`__dev/vision/Vision01__path-and-flag-conventions.md`** — контракт путей/флагов, патч сделан
-   (см. чеклист там же, весь `[x]`).
-4. **`__dev/Requests/`** — `DONE__*` закрыты, без префикса = открыто. На 2026-09-14 открытых нет
-   (см. «Открыто, ждёт следующей сессии» ниже).
+## Read, in order (don't wander the repo)
 
-## Что это за репозиторий
+1. Tail of `__dev/TRACKER.md` — where we are, what just landed.
+2. `__dev/DECISIONS.md` — settled choices (one line = choice + why). Don't relitigate.
+3. `__dev/Requests/` — `DONE__*` closed, no prefix = open. `__dev/plans/` — open plans (`done/` closed).
+4. Touching get_codeblock → `__dev/CONTEXT_RESTORE_TOOLS.md` + `get_codeblock/reader/CONTRACT.md`.
+   Touching the card stamp → `make_interface_card__TLDR.md`, `stamp_langs/CONTRACT.md`, `CARD_FORMAT.py`.
 
-Независимый git (`__HQ/tools/.git`), вложенный в ProjectStarter, но `.gitignore`-нутый им — коммитить
-СЮДА, не в ProjectStarter. `__dev/` (история/vision/decisions/requests) и `__delme/` (пусто, было
-для того же — раскол снят 2026-08-30) исключены из `deploy_hq.py` — в проекты не уезжают.
-`TOOLS.md` — router по тулам, `test/HowTo__Test-*.md` — как тестировать каждый.
+Read code with `get_codeblock` (`--outline` -> `--line N --query` / `--name X`), never whole files.
 
-## Что сделано в последней сессии (2026-09-14, крупно)
+## The repo
 
-**REQ-010/Plan03 закрыты — `## Runtime seams`**: связи, которых не видно из импортов (динамическая
-загрузка по пути, отдельный процесс, общий файл, шина событий). `CARD_FORMAT.VERSION` 1.0.0 → 1.1.0:
-`Dependencies Internal/External` переименованы в `In-Project/External Dependencies` (старые заголовки
-читаются через `ALIASES`), новая опциональная секция-таблица (`Target|Symbol|Kind|Shape|Why`), штамп
-хранит её как есть кроме строки-контракта. Новое: `seam_scanner/` (детектор-ПАКЕТ, не тул — нет
-`__main__`/TLDR, только импортируется штампом), `--help-seams`/`<file> --info-seams`,
-`graph_from_cards.py` рисует швы ОТДЕЛЬНЫМ маркером (`【SEAM⇢】`/`【SEAM⇠】`, прошёл 3 итерации — см.
-хвост `plans/done/Plan03__runtime_seams.md`), `components()`/острова считаются СТРОГО по импортам
-(швы не сливают острова — это стёрло бы факт «разные приложения»; отдельно — `_seam_bridges()`/
-`## runtime seams (N)`/`--view seams-mermaid`), `validate_cards.py` проверяет Kind/Shape/Target.
-Ручная миграция 8 живых карточек `hermes-filetools` + раскатка на `memohood` (0 issues на обоих) —
-детали и НАЙДЕННЫЕ ПО ХОДУ вещи (переименование ломает хардкод в потребителях, пропущенный обратный
-вид шва, 2 ошибки и 1 пропуск в исходной human-прозе) — в хвосте `plans/done/Plan03__runtime_seams.md`
-и в `DECISIONS.md` (раздел «Runtime seams»). Всё запушено (ProjectStarter outer+tools, hermes-filetools).
+Independent git (`__HQ/tools/.git`, remote `Project-Context-Box-Tools`), nested in ProjectStarter and
+gitignored by it — commit HERE. `__dev/` (history, visions, plans, requests) and `test/` are not
+deployed to projects. `TOOLS.md` routes to every tool; `test/HowTo__Test-*.md` — how to test each.
+Deploy to a project: from ProjectStarter `py __dev/deploy_hq.py --target <project> --apply` —
+commit this repo FIRST (an unknown blob is reported as CONFLICT).
 
-## Открыто, ждёт следующей сессии
+## State (2026-10-06)
 
-Пусто — ни одного файла без `DONE__` в `__dev/Requests/` (не считая `sonet_feedback__gcb.md`, это
-живой intake-лог get_codeblock, не формальный реквест, и он пуст), `__dev/plans/` пуст, кроме `done/`.
+- **get_codeblock 0.8.0** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
+  frontmatter = `meta:` block), YAML, plain text, shell `.sh`, PowerShell `.ps1`, batch `.bat`.
+  `--name` (name -> lines -> the existing `--line` render). C/C++ macros cut before parsing,
+  recovery after unparsable function bodies. One ext -> language map: `reader.reader.language_for_ext`.
+- **Card stamp** (`make_interface_card`) — CARD_FORMAT 1.3.0; C/C++ via `stamp_langs/cpp.py`
+  (API families, "API: in source" header cards, name anchors instead of line numbers, Why folded by
+  folder); `--all --stale`; scan cache `_cache/`. `graph_from_cards --file` shows files without cards.
+- **Open:** Plan08 step 9 (clangd, needs a Ninja build of the C/C++ test bed); Plan06 (short
+  directive markers — directives are already short, plan not formally closed). No open requests.
+- **Test beds:** `y:\SRC\llama.cpp_mix` (C/C++; zone = its config `STAMP_DIRS`), `hermes-filetools`,
+  `memohood` (Python/JS).
 
-## Регресс (прогнать после любой правки)
+## Regression (before a commit, not after every edit)
 
-Эталонный интерпретатор — `T:\AgentsWork\venv` (3.12; пакет требует Python >= 3.10). Только в нём
-стоят ВСЕ грамматики из `get_codeblock/requirements.txt`. У `py` их нет, и прогон выйдет неполным:
-хвост `N skipped (grammar missing)` — это не «ок», а «столько кейсов не проверялось».
+Reference interpreter `T:/AgentsWork/venv/Scripts/python.exe` (3.12, ALL grammars). Another Python
+gives `N skipped (grammar missing)` — that is "not checked", not "ok".
 
 ```bash
-T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails         # 120/0 — общий оракул пакета
-T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py        # 142/0 (2026-09-14) — merge/salvage/зона/discrepancies/seams
-T:/AgentsWork/venv/Scripts/python.exe test/run_restamp_fixtures.py  # 21/0 — ручной полигон merge-идентичности
-T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py          # 13/13 — реальный CLI-вывод (subprocess)
-T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py      # HIGH=0 (LOW LEVEL=5 на TS try/catch — известный шум)
+T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 131/0
+T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py         # 155/0
+T:/AgentsWork/venv/Scripts/python.exe test/run_restamp_fixtures.py   # 21/0
+T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py           # 13/13
+T:/AgentsWork/venv/Scripts/python.exe test/test_cpp.py               # 150/0
+T:/AgentsWork/venv/Scripts/python.exe test/test_name_resolver.py     # 36/0
+T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py --quiet  # HIGH 0 except CRASH=71 (old cp1252 fixture); LOW LEVEL=5 known
 ```
 
-## get_codeblock — отдельный, активно развивающийся подпоток
+`test__replace_in_files.py` is old (15/21) and DELETES fixtures when failing:
+`git checkout -- test/test__replace_in_files/fixtures`.
 
-Свой набор vision-доков `__dev/vision/Vision01-06__get_codeblock.md` (05 — query-эскалация/`--force`,
-06 — семя идеи «разборщик монструозных файлов», брейншторм, не решение) + операционные заметки
-`__dev/CONTEXT_RESTORE_TOOLS.md` (канонические источники, инварианты, ⚠ два репозитория — та
-заметка ещё говорит про старый раскол репо, тоже подправлена, но читать вместе с этим файлом, не
-вместо). Регресс отдельный: `test/golden_check.py`, `test/sweep_invariants.py` — см.
-`test/HowTo__Test-get_codeblock.md`.
+## Gotchas
+
+- Bash heredocs eat backslashes (`\n`, `\b`) — edits with backslashes: Edit/Write or a .py script.
+- Bump `get_codeblock/core.py::VERSION` once per session (at the end), not per commit.
+- A language plugs in as registry data (`reader/profiles/`, `stamp_langs/`, find_code_usage
+  registries), never an `if lang ==` branch. Full wiring list — `reader/CONTRACT.md`, Recipe A.
+- Plans / visions that change only tools live here in `__dev/`, not in ProjectStarter.

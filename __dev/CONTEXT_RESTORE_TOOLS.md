@@ -1,188 +1,58 @@
-# CONTEXT_RESTORE_TOOLS — как поднять контекст по get_codeblock / universal-reader
+# CONTEXT_RESTORE_TOOLS — get_codeblock / universal reader: strategy and gotchas
 
-Не факты «что сделано» (это в `Plan__universal-reader.md` → раздел СТАТУС), а **стратегия, нюансы
-решений и гочи**, которые живут в голове и не переживают компакт. Читать вместе с Plan.
+Not "what was done" (that is `TRACKER.md`) — the reasoning and traps that don't survive a
+compaction. Read together with `get_codeblock/reader/CONTRACT.md` (the contract, next to the code).
 
-## Канонические источники (истина живёт тут)
+## Canonical sources
 
-- **Идеология:** `Vision02__get_codeblock.md` (`.0`-классификатор, роли landmark/filler/frame),
-  `Vision03__get_codeblock.md` (универсальный ридер, frontend→IR→backend, швы).
-- **Что сделано / что дальше по фазам:** `Plan__universal-reader.md` (раздел ⭐ СТАТУС).
-- **Как добавить слой (рецепты + инварианты):** `__HQ/tools/get_codeblock/reader/CONTRACT.md` — рядом
-  с кодом. `protocol.py` — контракты в коде (окончательная истина).
-- **Код:** `__HQ/tools/get_codeblock/reader/` (весь слой). `handlers/` — старые языковые хендлеры
-  (переиспользуются за фасадом `Reader`, НЕ трогать — на них оракул 88/88).
+- Ideology: `vision/Vision02__get_codeblock.md` (`.0` classifier: landmark / filler / frame),
+  `vision/Vision03__get_codeblock.md` (universal reader: backend -> RNode -> Spec -> IR -> render;
+  section "call grammar" = canonical flag order), `Vision04` (addressing), `Vision05` (query
+  escalation / `--force`).
+- How to add a layer: `get_codeblock/reader/CONTRACT.md` (recipes A/B/C, invariants 1–9, full wiring
+  list for a new language). `reader/protocol.py` = the contracts in code.
+- Phases: `Plan__universal-reader.md`. Parked: `Plan__jsx-carve-tsx.md` (flat JSX not split yet).
 
-## Операционное
+## Architecture in one breath
 
-- **Код тула + эти доки** — ОДИН вложенный репо `__HQ/tools/.git` (remote `Project-Context-Box-Tools`).
-  `/__HQ/tools/` в ProjectStarter — в `.gitignore` (ProjectStarter его не видит вообще).
-  **До 2026-08-30 доки жили отдельно**, в ProjectStarter (`__dev/tools/*.md`) — тот раскол снят,
-  всё перенесено сюда (`__HQ/tools/__dev/`), см. `__dev/vision/Vision01__path-and-flag-conventions.md`.
-- Пуш — только по явной просьбе. Сообщения короткие, одной строкой (см. память `feedback_autocommit`).
+`Reader` (facade) -> `registry.resolve(ext)` -> (Backend, Spec) -> RNode tree -> TWO consumers:
+the MAP (Classifier -> IR `Block` -> outline / `.0` / focus) and ADDRESSING (ladder / query /
+line_level). Addressing has three engines: brace languages (`address._BRACE_EXTS`, rungs from
+`LangSpec` sets), `.py` (indentation `python_handler`, grammar-free on purpose), everything else
+(generic `classify.ladder_at` over the same IR as the map). `--name` (`name_resolver.py`) is not a
+mode: name -> lines -> the existing `--line` render.
 
-## 26.08 — ВНЕ темы ридера: пять правок в card-слое (первое живое развёртывание)
+## Choosing how a new format plugs in
 
-Скелет впервые развернули на реальный проект (`hermes-filetools`, 23 карточки на всё дерево), и это
-вытащило баги, которых лабораторные тесты не видели. Здесь только указатели — детали в сообщениях
-коммитов, они подробные.
+- Brace-shaped code whose body nodes start on the header row (`{`, `do`) -> Recipe A: profile with a
+  `LangSpec` + `_BRACE_EXTS` (C/C++, C#, TS, CSS, shell).
+- Real grammar whose nodes don't fit the brace model (wrapper nodes, bodies starting after `{`) ->
+  Recipe B variant 3: own Spec over `TSNode`, generic addressing (YAML, PowerShell).
+- No grammar needed / none good -> Recipe B: own zero-dep parser (Markdown, plain text, batch).
+- Test: `test/sweep_invariants.py <real files> --check-query` must be HIGH 0 before it ships.
 
-**`find_code_usage` — консьюмеры молча занижались** (`__HQ/tools` @ `1632eaf`): скобочный
-`from x import (a, b,\n c)` терял все имена на строке с открывающей скобкой (сбор начинался с
-`start_idx + 1`), а обычный `import a, b, c  # type: ignore` портил ПОСЛЕДНЕЕ имя, не срезая
-комментарий. Один модуль попал под оба сразу и стал `consumers 0` при живом вызывающем. Почему это
-стоит помнить: симптом — не пустое место, а НЕВЕРНЫЙ факт в карточке, которой верят вместо исходника.
+## Invariants that are easy to break
 
-**`make_interface_card` — merge портил карточку на каждой перештамповке** (@ `cc1374d`): `_parse_why`
-читал колонку прозы через `_cells`, снимающий бэктики (верно для факт-колонок, неверно для прозы) —
-краевой бэктик съедался по одному за проход; `_entry_key` не снимал ЗАКРЫВАЮЩИЙ бэктик у
-ре-экспорта `#### \`name\`  ← .`, ключ не совпадал с эмиссией, и проза такой записи ТЕРЯЛАСЬ. Теперь
-перештамповка идемпотентна — проверено сравнением снапшотов, а не на глаз.
+- Map and addressing give ONE `[start-end]` per block (#6): end = last content line, start = top of
+  the preamble (decorators + glued comments). A body node that starts after `{` breaks this in the
+  brace engine (`_level_of_row` is body-strict) — that is why PowerShell is not a brace profile.
+- A returned rung always contains the line (#7); a filler band is a legitimate container (#9).
+- Shared `LangSpec`s in `handlers/` are not edited (#5) — copies in the profile (`cpp.py`).
+- Python keeps two engines (tree-sitter map, indentation addressing) aligned on the end convention;
+  forcing `.py` through the brace engine was rejected (python `block` starts at the 1st statement).
 
-**Полиглотность и топология** (@ `5cc77dd`): `--all` брал расширения из скалярного `LANGUAGE` и молча
-пропускал файлы другого языка (питон-бэкенд со своим JS-фронтендом в одном дереве получал полукарту).
-`LANGUAGE` теперь принимает список, есть `--language`, проход печатает языки даже при успехе.
-`graph_from_cards` называет независимые части вместо слипшегося списка листьев, одиночные файлы
-выносит в `isolated files`, а в `--discrepancies` даёт `> note:` — **осознанно не находку**: несколько
-частей это архитектура, а не дефект.
+## Parking (low priority)
 
-**Открытое, с воспроизведением:** `REQ-002` (разное разрешение путей у `--file` между тулами; корень
-проекта у `check_cards_freshness`; сид `CONFIG__TOOLS.py` с путями ЧУЖОГО проекта — `_resolve_root`
-берёт первый существующий) и `REQ-003` (цель во ВЛОЖЕННОМ пакете не находит консьюмеров:
-`matches_target` матчит цель только как префикс, а `from . import X` даёт `<пакет>.X`).
+- Frame name token leaks into filler (`~identifier`, `~qualified_name`).
+- `#define` end-row bleeds one line.
+- Python handler: multi-line `"""` string argument breaks the method end (sweep on
+  `beellama.cpp/scripts/jinja/jinja-tester.py`) — spun off as its own task.
+- Outline from IR vs the old outline: not byte-identical (comment glue) — decide consciously if ever.
 
-**Грабля процесса, не кода:** раскатывать в проект ДО коммита в `__HQ/tools` — деплой законно назовёт
-файл CONFLICT, потому что такого блоба в истории шаблона нет. Сначала коммит, потом деплой.
+## Settled — don't relitigate
 
-## Стратегия движения вперёд (порядок и ПОЧЕМУ)
-
-Архитектура доказана: `Reader` (фасад) → `registry.resolve(ext)` → backend (tree-sitter/markdown/
-ast) → `Classifier` → IR (`Block`) → `render`. Дальше:
-
-1. ~~Итерация 2 — именованные КОНСТАНТЫ-ДАННЫЕ → landmark по имени.~~ **РЕШЕНО (проверено
-   2026-09-13, см. `__dev/done/get_codeblock__FUTURE.md`)** — не тем механизмом, что описан ниже
-   (полноценный landmark по имени), а позже и по-другому: `.0`-классификатор/`label.py` показывают
-   такие константы ВИДИМОЙ filler-строкой с именем в метке (`assign: READ_FILE_SCHEMA`), и `--query`
-   резолвит литерал целиком верным диапазоном. Реальная жалоба (invisible/неверный блок) закрыта;
-   формально это `.` (filler), не `1` (landmark) — не критично, работает. Раздел «Итерация 2 —
-   КАК делать» ниже оставлен как исторический черновик, не переписан задним числом.
-2. **Решить: outline из IR или оставить делегацию.** Гоча ниже — паритет не побайтовый.
-3. **core2 docx** — заглавная цель Vision03 (ридер открывает не-код как книгу). Контракты готовы,
-   образец — `backends/markdown.py`. Это доказывает «универсальный ридер», а не просто «код-ридер».
-4. **Аналайзеры** (пласт 2) — `Block.description` + протокол `Analyzer` уже заложены. Первый —
-   license/docstring-детектор по regex. Embedder-rerank — дальняя цель.
-
-Приоритет: **1 закрывает ценность код-карты, 3 раскрывает заглавную идею.** 2 и 4 — по ходу.
-
-## Нюансы следующих шагов (то, что легко сделать неправильно)
-
-### ⭐ МИГРАЦИЯ адресации на reader — brace-семейство СДЕЛАНО; остался Python/MD
-
-**Цель:** ОДИН источник правды «какой блок на строке N» — чтобы карта (outline) и адресация
-(`get_blocks`/`line_level`/`query`/ladder) давали ОДНИ границы/уровни.
-
-**✅ Сделано (commit «Migrate brace-language addressing…»):** brace-языки (ts/tsx/js/jsx/cs/cpp/
-css) адресуются reader-нативным движком `reader/address.py`. Python и Markdown ПОКА делегируют
-старым хендлерам (`Reader.get_blocks`/`line_level` ветвят по `address.supports(path)` —
-whitelist `_BRACE_EXTS`). Оракул 88/88, CLI-лесенка проверена, outline↔ladder границы совпадают
-(Edge.cs: `Widget [3-55]` lvl1 в обоих; namespace прозрачен в обоих).
-
-**Ключевой инсайт (не потерять):** набор узлов АДРЕСАЦИИ ≠ набор outline. `.0`/focus
-(`_is_focus_block` = def+frame) — это КАРТА. Адресация богаче: рунги = **named_def+body,
-braced-control (`for`/`if`/`while`)+body, standalone-тела (arrow/`{…}`/object/array)** —
-порт `_ladder_nodes`. Transparent-рамки (namespace/extern "C") ПРОЗРАЧНЫ для уровня
-(`_level_of_row`: не считаются; frame-дети на том же level). Поэтому `address.py` НЕ строится
-на `_containing_chain`/`_owning_block` (та цепочка — про landmark-карту), а воспроизводит
-`_ladder_nodes`+`_bounds`+`_level_of_row` на RNode (parent известен по ходу рекурсии; склейка
-преамбулы — `_comment_rows`/`_preamble_start`, как в старом хендлере → те же границы).
-
-**✅ Python-гоча РЕШЕНА (не обёрткой, а выравниванием конвенции границ).** Диагноз: `.py` держит
-ДВА движка — tree-sitter outline (богатый, 3.10) + отступной `python_handler` адресация (корректна,
-оракул на ней, grammar-free на любом интерпретаторе). Единственное расхождение оказалось
-КОСМЕТИЧЕСКИМ — на хвостовых пустых/коммент-строках: brace И tree-sitter кончают блок на ПОСЛЕДНЕЙ
-СОДЕРЖАТЕЛЬНОЙ строке (у `}`), а отступной `find_body_end` заглатывал хвостовые blank+comment
-(комменты — вообще преамбула СЛЕДУЮЩЕГО сиблинга). Фикс: `find_body_end` обрезает хвостовые
-blank/`#`-комменты → Python-адресация совпала с brace/tree-sitter-конвенцией (commit «Trim trailing
-blank/comment…», ребейзлайн 8 строк оракула на «конец = последняя содержательная»). Держать ОБА
-движка теперь безопасно — они согласованы по границам. Полная обёртка `python_handler` в backend
-(RNode) НЕ нужна, пока не появится реальная боль; форс Python через brace-`address.py` ОТВЕРГНУТ
-(python-`block` начинается на строке 1-го стейтмента → строгий `_level_of_row` врёт уровнем).
-
-**✅ Markdown — СДЕЛАНО (2026-08-23).** Не «обёрнут в backend» (у него УЖЕ был Backend+Spec для
-карты, `backends/markdown.py`) — адресация подключена к нему generic'ом: `classify.ladder_at`/
-`line_level_at` (та же `_containing_chain`, что focus-outline, развёрнутая в форму рунга
-`get_blocks`). `markdown_handler.get_blocks` больше не вызывается для адресации (только для того,
-что ещё делегирует `declarations()` и т.п.). Бонус сверх плана: этот generic-путь теперь ДЕФОЛТ для
-ЛЮБОГО формата, не в `_BRACE_EXTS` и не `.py` — новый tree-sitter-язык (Rust/Go/YAML/…) или будущий
-core2/3 (docx/pdf) получает работающий `--line`/ladder/query СРАЗУ, без единой строки адресного кода
-(нужен только рабочий `Spec` — Рецепт B). Диспетчер в `Reader` решает по РАСШИРЕНИЮ файла, не по
-`self.language`/`_LANG_MAP` (та карта может не знать новый формат и молча упасть на `'python'` —
-проверено симуляцией: профиль добавлен, `_LANG_MAP`/`_BRACE_EXTS` забыты, generic всё равно
-подхватывает верно, а не python_handler по ошибке).
-
-**Осталось (низкий приоритет):**
-1. **Снять делегацию `.py` в `Reader`** — только если решим полностью унести Python на reader-tree
-   (сейчас не нужно: brace + markdown на reader-движке, py делегирует и согласован по границам).
-
-**Parity:** `test/parity/golden_old.txt` — эталон старых. reader ЧИНИТ баги (sibling-ladder) →
-расхождения = улучшения, ребейзлайн осознанно. Оракул LADDER/QUERY/LEVELS уже на `Reader`.
-
-**Сохранить (внешний контракт):** `get_codeblock()` dict {level,start,end,text};
-`get_line_levels()` {line:level}; `resolve()` (0=внутр, +N от верха, -N вверх);
-`--ancestor-level`/`--numbered`; staircase-рендер `--line`.
-
-### Итерация 2 (константы) — КАК делать
-- **Синхронно в ОБА спека**: `TreeSitterSpec` (`backends/treesitter.py`) И `PythonAstSpec`
-  (`backends/python_ast.py`). Если только в фолбеке — degraded-режим покажет БОЛЬШЕ полного. Абсурд.
-- **Паттерн уже есть**: `_arrow_binding_value` в `treesitter.py` промотирует `NAME = () => {}`.
-  Расширить: `NAME = {...}/[...]/(...)` (object/array/…) с МНОГОСТРОЧНЫМ значением → landmark, имя =
-  заголовок `NAME =` (как у arrow берётся `head_before(body)`). Для ast — `ast.Assign`/`AnnAssign`
-  с value `Dict/List/Tuple` и `end_lineno>lineno`, имя = `targets[0].id`.
-- **Только МНОГОСТРОЧНЫЕ литералы** (рекомендация). Одностройные `x=1` — шум, оставить filler-точкой.
-  Причина: многострочный именованный литерал = «схема/таблица», его и хотели видеть; россыпь `x=1` —
-  нет.
-- **Атомарно, НЕ нырять внутрь** (решение Vision02 #10, #5): у data-const `body()` должен возвращать
-  None → ладдер/depth НЕ раскрывает под-dict. Константа показывается целиком как «вот схема». Это
-  отличие от функций (в функцию ныряем). Не перепутать.
-
-### Outline из IR — ГОЧА (почему не побайтово)
-`.0` — надмножество outline (показывает filler+константы). Отфильтровать к landmark+frame легко, НО:
-старый outline ВКЛЕИВАЕТ ведущий комментарий в диапазон блока (preamble glue → `[52-123]`), а `.0`
-показывает коммент ОТДЕЛЬНОЙ точкой-полосой (`[52-56]` + `[57-123]`). Значит outline-из-IR не совпадёт
-со старым побайтово. Решить осознанно: (а) добавить glue в IR-outline, (б) принять новый формат и
-переписать оракул. Пока НЕ трогали — работает делегация к старому хендлеру.
-
-### Python — сейчас ДВА парсера по режимам (не забыть; уточнено 2026-08-23)
-Устарело: раньше здесь было написано, что `outline` тоже обслуживает старый `python_handler` — НЕ
-так, `Reader.outline()` всегда идёт через `classify.outline_rows` (tree-sitter-python/ast-фолбек),
-без ветки на python. Только `ladder`/`line_level`/`get_blocks` (адресация) обслуживает СТАРЫЙ
-отступной `python_handler` — единственный формат, у которого карта и адресация на РАЗНЫХ движках
-(markdown этой развилки больше не имеет, см. «✅ Markdown — СДЕЛАНО» выше). Полная унификация Python
-на tree-sitter = переписать python-строки оракула под `classify.ladder_at` и проверить, что ast-
-фолбек тоже тянет адресацию. Отложено осознанно (`python_handler` ценен именно тем, что не требует
-грамматики вообще).
-
-### Ладдер на RNode — ПЕРЕСМОТРЕНО: теперь ДЕЛАЕМ (см. «⭐ МИГРАЦИЯ адресации» выше)
-~~Раньше: побайтово тот же вывод, ноль эффекта, не делаем.~~ Причина появилась: адресация и карты
-разошлись на два движка, фокус/квери-фичи уехали на reader, и старый ladder уже ловил баги на реальных
-файлах (sibling-ladder). Примитивы (`_containing_chain`/`_owning_block`) уже написаны. План — выше.
-
-## Парковка (мелочи, низкий приоритет)
-- Имя-токен рамки утекает в filler: `~identifier` (guard `TOPLEVEL_H`), `~qualified_name`
-  (`Orchard.Fruit`) — фильтровать name-ребёнка рамки в classify.
-- `#define` end-row bleed на строку (preproc-узлы).
-- ~~SCSS ломает `tree_sitter_css` (`~ERROR` на `$var`/`@function`/`@include`)~~ **РЕШЕНО**
-  (2026-08-30 — top-level `$var:` маскируется в комментарий перед парсингом; residual — маска
-  клеилась как преамбула к следующему правилу — добит 2026-09-13, `LangSpec.is_synthetic_comment`).
-  `@function`/`@include` с параметрами по-прежнему парсятся неидеально (css-грамматика), но не
-  роняют структуру — см. `get_codeblock__README.md` Supported Languages.
-- **Новое (2026-09-13):** JSX внутри `return (...)` не разбирается на landmark'и — большой плоский
-  React-компонент остаётся одним блоком. Заглушка (`jsx_note.py`) предупреждает об этом в выводе;
-  реальный фикс расписан и отложен — `Plan__jsx-carve-tsx.md`.
-
-## Решено — НЕ релитигировать
-- Формат вывода: отступ = глубина, `.` = уровень/скоуп (filler+frames), число = named landmark,
-  выровнено, только ASCII. Settled.
-- Structural-summary с урезанными телами (OMP-style) — НЕ переносим (Vision02 #10).
-- `.0` — надстройка над общим tree-sitter-корнем, НЕ дубль движка. Reader НЕ переписывает хендлеры.
-- ast — Python-фолбек с громким English-нотисом; полный режим требует `pip install tree_sitter_python`.
+- Output: indent = depth, `.` = level/scope (filler + frames), number = named landmark, ASCII only.
+- Structural summary with trimmed bodies (OMP-style) — not ported.
+- `.0` is a layer over the common tree-sitter root, not a second engine.
+- `ast` is the Python fallback with a loud English notice.
+- Unknown extension = honest error, never "the closest language".
