@@ -28,6 +28,9 @@ def get_handler(language: str):
         "txt": _make_text_handler,
         "yaml": _make_text_handler,
         "yml": _make_text_handler,
+        "batch": _make_text_handler,
+        "powershell": _make_text_handler,
+        "shell": _make_text_handler,   # no old handler: reader-native only (stub for declarations)
     }
 
     factory = handlers.get(language.lower())

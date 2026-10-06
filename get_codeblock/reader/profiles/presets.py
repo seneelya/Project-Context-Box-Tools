@@ -17,6 +17,8 @@ HUMAN_KIND = {
     'using_directive': 'imports', 'import_declaration': 'imports',
     'preproc_include': 'includes', 'export_statement': 'export',
     'declaration': 'decl', 'field_declaration': 'field',
+    # tree-sitter bash: `X=1`, `local/export/declare X=1`
+    'variable_assignment': 'assign', 'declaration_command': 'decl',
 }
 
 # узлы, чей заголовок = список имён импортируемых модулей
@@ -31,11 +33,12 @@ IMPORT_KINDS = {
 ASSIGN_WRAPPERS = {
     'expression_statement', 'lexical_declaration', 'variable_declaration',
     'export_statement', 'declaration', 'field_declaration', 'Assign', 'AnnAssign',
+    'variable_assignment', 'declaration_command',
 }
 
 # узлы-привязки и их поле-цель (имя слева от `=` / declarator у C/C++)
 BINDER_TYPES = ('assignment', 'augmented_assignment', 'variable_declarator',
-                'init_declarator', 'function_declarator')
+                'init_declarator', 'function_declarator', 'variable_assignment')
 
 # узлы, которые сами ЯВЛЯЮТСЯ именем (для fallback-поиска И отсева токена-имени рамки)
 NAME_TYPES = ('identifier', 'dotted_name', 'scoped_identifier', 'type_identifier',

@@ -42,6 +42,12 @@ def resolve(ext):
     if ext in ('.yaml', '.yml'):                        # core2 — real grammar, own Spec
         from .backends.yaml_backend import YamlBackend, YamlSpec
         return YamlBackend(), YamlSpec()
+    if ext in ('.bat', '.cmd'):                         # core2 — labels as sections, no parser
+        from .backends.batch import BatchBackend, BatchSpec
+        return BatchBackend(), BatchSpec()
+    if ext in ('.ps1', '.psm1'):                        # core2 — real grammar, own Spec (wrappers)
+        from .backends.powershell import PowerShellBackend, PowerShellSpec
+        return PowerShellBackend(), PowerShellSpec()
     if ext == '.py':                                   # tree-sitter-python или ast-фолбек
         return _python_backend_spec()
     prof = profiles.ts_profile_for_ext(ext)            # core1 — tree-sitter, плагин языка

@@ -138,6 +138,36 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
         (1, 14, 18, '@media (max-width: 600px)'),
         (2, 15, 17, '.card'),
     ],
+    # REQ-012: shell scripts. .sh = brace profile (functions + loops); .ps1 = own Spec over the
+    # real grammar (wrappers spliced, class members one level deeper); .bat = labels as sections.
+    'scriptSRC/sample.sh': [
+        (1, 1, 2, '#!/usr/bin/env bash …'),
+        (1, 3, 3, '~command'),
+        (1, 4, 4, 'assign: VAR'),
+        (1, 6, 19, 'function build  # build it'),
+        (1, 21, 31, 'run()'),
+        (1, 33, 33, '~command'),
+    ],
+    'scriptSRC/sample.ps1': [
+        (1, 1, 1, '# setup'),
+        (1, 2, 2, '~param'),
+        (1, 3, 3, 'assign: $ErrorActionPreference'),
+        (1, 5, 19, 'function Get-Thing  <# block …'),
+        (1, 21, 27, 'class Box'),
+        (2, 23, 23, 'Box([int]$s)'),
+        (2, 24, 26, '[int] Area()'),
+        (1, 29, 32, '~switch_statement'),
+        (1, 33, 33, '~command'),
+    ],
+    'scriptSRC/sample.bat': [
+        (1, 1, 1, '~command'),
+        (1, 2, 2, '~comment'),
+        (1, 3, 4, 'set: MODE, COUNT'),
+        (1, 5, 10, '~if'),
+        (1, 11, 12, '~command x2'),
+        (1, 14, 18, ':work'),
+        (1, 20, 22, ':usage'),
+    ],
     # REQ-013: YAML frontmatter = its own landmark (keys in the label); its `# comment` is NOT a heading
     'mdSRC/frontmatter.md': [
         (1, 1, 7, 'meta: aliases, code, version'),
@@ -297,6 +327,12 @@ LADDER = [
     # — every ladder rung now reports the same glued range as a direct query (tool-verified).
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 160), (1, 89, 166)]},
     {"file": 'mdSRC/capture.py.md', "line": 12, "expect": [(4, 12, 15), (3, 10, 27), (2, 4, 27), (1, 1, 56)]},
+    # REQ-012 scripts: sh `if` has no body node -> its filler band; sh loop is a rung; ps1/bat generic path
+    {"file": 'scriptSRC/sample.sh', "line": 13, "expect": [(2, 12, 18), (1, 6, 19)]},
+    {"file": 'scriptSRC/sample.sh', "line": 24, "expect": [(2, 22, 27), (1, 21, 31)]},
+    {"file": 'scriptSRC/sample.ps1', "line": 15, "expect": [(2, 12, 18), (1, 5, 19)]},
+    {"file": 'scriptSRC/sample.ps1', "line": 25, "expect": [(3, 25, 25), (2, 24, 26), (1, 21, 27)]},
+    {"file": 'scriptSRC/sample.bat', "line": 21, "expect": [(2, 21, 22), (1, 20, 22)]},
     # namespace is transparent -> not a ladder entry; enclosing blocks one level shallower.
     # Invariant #9 (extended): even inside an addressable rung (the method), a plain
     # statement that opens no block of its own is a narrower filler one level deeper —

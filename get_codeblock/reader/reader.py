@@ -21,7 +21,7 @@ _PY_EXTS = {'.py'}
 # Один маппинг ext -> language (позже вытеснит 3 копии lang_map в core.py).
 _LANG_MAP = {
     '.py': 'python',
-    '.ts': 'typescript', '.js': 'typescript',
+    '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
     '.tsx': 'tsx', '.jsx': 'tsx',
     '.cs': 'csharp',
     '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp',
@@ -30,6 +30,9 @@ _LANG_MAP = {
     '.md': 'markdown', '.markdown': 'markdown',
     '.txt': 'text',
     '.yaml': 'yaml', '.yml': 'yaml',
+    '.sh': 'shell', '.bash': 'shell',
+    '.ps1': 'powershell', '.psm1': 'powershell',
+    '.bat': 'batch', '.cmd': 'batch',
 }
 
 

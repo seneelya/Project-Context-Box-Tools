@@ -23,6 +23,7 @@ _BRACE_EXTS = frozenset({
     '.ts', '.js', '.mjs', '.tsx', '.jsx', '.cs',
     '.cpp', '.cc', '.cxx', '.c++', '.hpp', '.hh', '.hxx', '.h', '.c', '.cu', '.cuh',
     '.scss', '.sass', '.css',
+    '.sh', '.bash',
 })
 
 

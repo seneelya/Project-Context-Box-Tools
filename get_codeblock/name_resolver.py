@@ -32,7 +32,7 @@ TYPO_MIN = 0.8
 _FIELDS = ("declaration", "definition", "name", "declarator", "left")
 _HOW_ORDER = {"exact": 0, "glob": 0, "case": 1, "substring": 2, "words": 3, "typo": 4}
 _FUNC_WORDS = ("function", "method", "constructor", "lambda", "arrow")
-_NAME_RE = re.compile(r"^(~?[A-Za-z_$][\w$]*|operator\S+)$")
+_NAME_RE = re.compile(r"^(~?[A-Za-z_$][\w$-]*|operator\S+)$")   # `-`: PowerShell `Get-Thing`
 
 
 @dataclass
@@ -188,7 +188,8 @@ def declarations(path):
                 if body is not None:
                     walk(body, parents + q + ([nm] if nm else []), in_func or _is_func(d))
                 continue
-            if not in_func and spec.filler_kind(ch) != "import":   # locals/imports declare nothing here
+            # locals / imports / shell command calls (`build "$@"` names the called command) declare nothing
+            if not in_func and spec.filler_kind(ch) not in ("import", "command"):
                 add(ch, parents)
 
     walk(root, [], False)

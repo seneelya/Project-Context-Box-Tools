@@ -24,4 +24,7 @@ def ts_profile_for_ext(ext):
     if ext in ('.scss', '.sass', '.css'):
         from .css import CSS
         return CSS
+    if ext in ('.sh', '.bash'):
+        from .bash import BASH
+        return BASH
     return None

@@ -31,17 +31,21 @@ ladder/query/resolve, Vision04). У адресации ТРИ движка на 
 
 ```mermaid
 flowchart TB
-  F["file (.py .ts .cs .css .md .yaml .txt …)"] --> R["Reader (reader.py) · registry.resolve(ext)"]
+  F["file (.py .ts .cs .css .sh .md .yaml .ps1 .bat .txt …)"] --> R["Reader (reader.py) · registry.resolve(ext)"]
   R --> P["PROFILE — плагин языка · profiles/LANG.py<br/>LangSpec: named_def / control / body_types / transparent_parents"]
   P -->|backend| TS["tree-sitter backend (core1)"]
   R -->|.md| MD["markdown backend (core2)"]
   R -->|.yaml .yml| YML["yaml backend (core2 — reuses TSNode, own Spec)"]
   R -->|.txt| TXT["plain-text backend (core2, experimental)"]
+  R -->|.ps1 .psm1| PS["powershell backend (core2 — reuses TSNode, own Spec)"]
+  R -->|.bat .cmd| BAT["batch backend (core2 — labels, no parser)"]
   R -->|".py без грамматики"| AST["python ast backend (фолбек)"]
   TS --> N["RNode — адаптер узла"]
   MD --> N
   YML --> N
   TXT --> N
+  PS --> N
+  BAT --> N
   AST --> N
 
   N --> C["Classifier (backend-agnostic)"]
@@ -90,7 +94,7 @@ protocol.py   — контракты: RNode, Backend, Spec, Analyzer
 registry.py   — resolve(ext) → (Backend, Spec)   ← ЕДИНЫЙ вход по расширению
 profiles/     — плагины языков (Vision03), по файлу на язык:
   base.py       — TSProfile (данные плагина: langspec + extra_frames + binders)
-  typescript.py, cpp.py, csharp.py, css.py, python.py — сами профили
+  typescript.py, cpp.py, csharp.py, css.py, python.py, bash.py — сами профили
   presets.py    — общие наборы (HUMAN_KIND/IMPORT_KINDS/…), чтобы C-подобные не копипастить
   __init__.py   — ts_profile_for_ext(ext) → профиль
 backends/
@@ -102,6 +106,10 @@ backends/
                    body_types не ложится на YAML-вложенность через mapping/sequence-обёртки).
   plaintext.py   — core2: эвристика по пустым строкам, БЕЗ парсера вообще (эксперимент —
                    абзац/секция/список-пункт из отступов/маркеров, не реальное понимание прозы).
+  powershell.py  — core2: реальная грамматика (tree_sitter_powershell) + СВОЙ Spec, как yaml: обёртки
+                   без синтаксиса (`statement_list`/`script_block_body`) вырезаются, а тело функции
+                   (`script_block`) начинается ПОСЛЕ `{` — brace-модель дала бы уровни не те (инв. 6).
+  batch.py       — core2: .bat/.cmd без парсера, метка `:label` = раздел (как заголовок markdown).
   python_ast.py  — фолбек .py без грамматики (громкий нотис; только для .0, не для адресации)
 label.py      — backend-agnostic лейблер filler-полосы: band → список имён (оглавление)
 classify.py   — backend-agnostic .0-классификатор (КАРТА) + focus + render + CLI + generic
@@ -488,6 +496,14 @@ ladder/query/line_level. Новый brace-язык — ДВА касания, и
 get_blocks + query + staircase:
 1. `profiles/<lang>.py` (`LangSpec`) + строка в `profiles/__init__.py` — включает КАРТУ.
 2. расширение в `address._BRACE_EXTS` — включает АДРЕСАЦИЮ на reader-движке.
+
+**Обвязка (все касания нового языка, кроме профиля):** `reader/reader.py::_LANG_MAP` (ЕДИНСТВЕННАЯ
+карта ext → language; core.py и test/check.py берут её через `language_for_ext`, своих копий больше
+нет), `handlers/__init__.py::get_handler` (нет старого хендлера → заглушка `_make_text_handler`),
+`core.make_comment_delims` (комментарий для служебных строк вывода), `env_check.LANGUAGE_MODULES` +
+`requirements.txt` (грамматика), README «Supported Languages» + TLDR, фикстура + эталон
+(`test/expected.py` OUTLINE/LADDER). Пример полного набора — REQ-012 (`.sh` профилем; `.ps1` и
+`.bat` — Рецепт B).
 
 Без шага 2 карта работает, но `Reader` уведёт адресацию в делегацию к языковому хендлеру
 (`handlers/`) — которого у нового языка нет. Оба шага — просто ДАННЫЕ, ни движок, ни рендеры не

@@ -106,6 +106,18 @@ def test_matching():
     check("nothing similar", r.hits == [] and "nothing similar" in header_line(r))
 
 
+def test_scripts():
+    """REQ-012: shell scripts declare functions / labels / variables, not the commands they call."""
+    sh = os.path.join(_HERE, "scriptSRC", "sample.sh")
+    check("sh: function + top-level var, a command call is not a declaration",
+          names(sh) == [("VAR", 4), ("build", 7), ("run", 21)])
+    ps = os.path.join(_HERE, "scriptSRC", "sample.ps1")
+    check("ps1: hyphenated function name is exact", resolve_name(ps, "Get-Thing").exact)
+    check("ps1: class method by bare name", ("Box.Area", 24) in names(ps))
+    bat = os.path.join(_HERE, "scriptSRC", "sample.bat")
+    check("bat: a label is declared without its colon", ("usage", 20) in names(bat))
+
+
 def _run(*args):
     r = subprocess.run([sys.executable, os.path.join(_TOOLS, "get_codeblock.py"), *args],
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -134,6 +146,7 @@ if __name__ == "__main__":
     test_declarations_c_header()
     test_declarations_languages()
     test_matching()
+    test_scripts()
     test_cli()
     print("\n" + "-" * 50)
     print(f"{_PASS} passed, {_FAIL} failed")

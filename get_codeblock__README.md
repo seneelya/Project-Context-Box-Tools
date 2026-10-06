@@ -170,6 +170,9 @@ When `--line` falls between blocks at file-level scope (no containing block foun
 | Markdown | `.md`, `.markdown` | Heading hierarchy | Sections by ATX headings (`#`..`######`); level = heading depth. Fenced code skipped so `#` inside code isn't a heading. YAML frontmatter (`---` … `---` on line 1) is its own landmark `meta: <top-level keys>`, addressable with `--line`; a `#` comment inside it is not a heading. |
 | YAML | `.yaml`, `.yml` | tree-sitter (`tree_sitter_yaml`) | A `key: value` line and a `- item` line are both blocks; one whose value is itself a nested mapping/sequence has a body (one level deeper), a scalar-valued one is a leaf. Comments glue onto the block below them, same as everywhere else. Multiple `---`-separated documents in one file have their top-level entries flattened together. |
 | Plain text | `.txt` | Blank-line heuristics (no markup) | No headings to key off, so structure comes from whitespace alone: a paragraph is a run of non-blank lines; 2+ blank lines (or a `---`/`===`/`***` rule line) starts a new section grouping the paragraphs between two such breaks. A paragraph with 2+ list-marker lines (`1.`/`1)`/`-`/`*`/`•`) splits one level deeper into list items. No title text exists, so a block's name is its own first ~60 chars (word-trimmed). Experimental — the cheapest structural guess that still gives a useful outline/ladder, not a claim of real prose understanding. |
+| Shell | `.sh` `.bash` | tree-sitter (`tree_sitter_bash`) | Functions (`f() { … }`, `function f { … }`) are blocks; loops (`for`/`while`, `do … done`) are addressable rungs. `if`/`case` have no body node in this grammar — a line inside one gets the `~if_statement` band it forms. `X=1` / `local X=1` bands are `assign:` / `decl:`; a command call declares nothing (`--name build` finds the function, not the call). |
+| PowerShell | `.ps1` `.psm1` | tree-sitter (`tree_sitter_powershell`), own Spec | `function`/`filter`, `class` (methods one level deeper), `enum` are blocks; control blocks (`if`/`foreach`/`try`/`switch`) are bands inside the function holding them; `$x = …` runs are `assign: $x`; `<# #>` comments glue as preamble. `--name Get-Thing` works (hyphenated names). |
+| Batch | `.bat` `.cmd` | Labels (no parser) | A `:label` owns the statements down to the next label (like a heading); statements before the first label are the file's top. A multi-line `( … )` block and `^`-continued lines are one statement; bands: `~comment` (`REM`/`::`), `set: X`, `~if`/`~for`, `~command`. `--name usage` finds `:usage`. |
 
 Language detection happens automatically from the file extension — no need to specify it explicitly.
 
@@ -305,7 +308,8 @@ get_codeblock/
 │   ├── classify.py         # backend-agnostic .0-classifier (the MAP) + focus + render + CLI
 │   ├── address.py          # backend-agnostic ADDRESSING for brace langs (get_blocks/line_level)
 │   ├── label.py            # filler-band labeler: band → comma-list of names (an index)
-│   ├── backends/           # treesitter.py (core1) · markdown.py (core2) · python_ast.py (fallback)
+│   ├── backends/           # treesitter.py (core1) · markdown.py, yaml_backend.py, plaintext.py, powershell.py,
+│   │                       #   batch.py (core2, own Spec) · python_ast.py (fallback)
 │   └── profiles/           # one plug-in file per language (LangSpec + promotion rules) + presets
 └── handlers/             # per-language engines, reused BEHIND the façade
     ├── _treesitter_blocks.py # shared tree-sitter LangSpec (node-type sets) — feeds reader profiles

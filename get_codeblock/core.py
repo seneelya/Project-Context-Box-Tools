@@ -366,7 +366,7 @@ def make_comment_delims(language):
     return {"python": ("#", ""), "typescript": ("//", ""), "tsx": ("//", ""),
             "csharp": ("//", ""), "cpp": ("//", ""), "css": ("//", ""),
             "markdown": ("<!-- ", " -->"), "text": ("#", ""),
-            "yaml": ("#", "")}.get(language, ("#", ""))
+            "yaml": ("#", ""), "shell": ("#", ""), "powershell": ("#", ""), "batch": ("REM ", "")}.get(language, ("#", ""))
 
 
 def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool = False) -> dict:
@@ -399,14 +399,8 @@ def get_codeblock(file_path: str, line_num: int = 1, level: int = 0, query: bool
 
     # Detect language by extension
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
-                '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
-                '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
-                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp', '.cu': 'cpp', '.cuh': 'cpp',
-                '.scss': 'css', '.sass': 'css', '.css': 'css',
-                '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text',
-                '.yaml': 'yaml', '.yml': 'yaml'}
-    language = lang_map.get(ext, 'python')
+    from get_codeblock.reader.reader import language_for_ext
+    language = language_for_ext(ext)
 
     # Get blocks via handler
     from get_codeblock.env_check import ensure_language
@@ -467,14 +461,8 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
 
     # Detect language by extension
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
-                '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
-                '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
-                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp', '.cu': 'cpp', '.cuh': 'cpp',
-                '.scss': 'css', '.sass': 'css', '.css': 'css',
-                '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text',
-                '.yaml': 'yaml', '.yml': 'yaml'}
-    language = lang_map.get(ext, 'python')
+    from get_codeblock.reader.reader import language_for_ext
+    language = language_for_ext(ext)
 
     # Per-line logical level: level = 1 + enclosing block BODIES (a block header sits
     # at its parent's level). Every handler implements line_level.
@@ -868,14 +856,8 @@ def _main_impl():
         sys.exit(1)
 
     ext = Path(file_path).suffix.lower()
-    lang_map = {'.py': 'python', '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
-                '.tsx': 'tsx', '.jsx': 'tsx', '.cs': 'csharp',
-                '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp', '.hpp': 'cpp',
-                '.hh': 'cpp', '.hxx': 'cpp', '.h': 'cpp', '.c': 'cpp', '.cu': 'cpp', '.cuh': 'cpp',
-                '.scss': 'css', '.sass': 'css', '.css': 'css',
-                '.md': 'markdown', '.markdown': 'markdown', '.txt': 'text',
-                '.yaml': 'yaml', '.yml': 'yaml'}
-    language = lang_map.get(ext, 'python')
+    from get_codeblock.reader.reader import language_for_ext
+    language = language_for_ext(ext)
 
     # Preflight: if this language needs tree-sitter packages that aren't installed,
     # print exactly what to install (from requirements.txt) instead of a traceback.

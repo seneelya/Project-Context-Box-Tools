@@ -24,17 +24,9 @@ for p in (_TOOLS, _HERE):
 
 from get_codeblock.core import get_line_levels
 
-_LANG = {".py": "python", ".ts": "typescript", ".js": "typescript",
-         ".tsx": "tsx", ".jsx": "tsx",
-         ".scss": "css", ".sass": "css", ".css": "css",
-         ".cs": "csharp", ".md": "markdown", ".markdown": "markdown",
-         ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".c++": "cpp",
-         ".hpp": "cpp", ".hh": "cpp", ".hxx": "cpp", ".h": "cpp", ".c": "cpp",
-         ".txt": "text", ".yaml": "yaml", ".yml": "yaml"}
-
-
 def _lang(file):
-    return _LANG.get(os.path.splitext(file)[1].lower(), "python")
+    from get_codeblock.reader.reader import language_for_ext   # the one ext -> language map
+    return language_for_ext(os.path.splitext(file)[1])
 
 
 def _read(fixture):
