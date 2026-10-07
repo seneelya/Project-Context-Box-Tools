@@ -190,17 +190,22 @@ def test_block_range(d):
     # `cut` = the INNERMOST block around the end: here the run of assignments 2-61
     check("py big: cut by line, block named", (r['from'], r['to'], r['cut']) == (20, 29, [2, 61]))
     md = views.open_source(_tmp(d, "m.md", MD))
-    r = views.block_range(md, 7, 2)          # asked 7-8 in "## First"
+    r = views.block_range(md, 7, 4)          # asked 7-10 in "## First" (tol 2)
     check("md: snaps to the section", (r['from'], r['to'], r['cut']) == (5, 10, None))
+    r = views.block_range(md, 7, 2)          # asked 7-8, tol 1: the heading is 2 back
+    check("md: small count, end cut in the section body", (r['from'], r['to'], r['cut']) == (6, 8, [6, 10]))
     ts = views.open_source(_tmp(d, "t.ts", TS))
-    r = views.block_range(ts, 9, 2)          # asked 9-10: inside `if` of twice()
+    r = views.block_range(ts, 9, 4)          # asked 9-12: inside twice() (tol 2)
     check("ts: snaps to twice()", (r['from'], r['to'], r['cut']) == (7, 12, None))
-    r = views.block_range(ts, 3, 2)          # asked 3-4 inside greet(), comment glued above
+    r = views.block_range(ts, 9, 2)          # asked 9-10, tol 1: only the `if` 8-10
+    check("ts: small count snaps to the inner block", (r['from'], r['to'], r['cut']) == (8, 10, None))
+    r = views.block_range(ts, 2, 4)          # asked 2-5 inside greet(), comment glued above
     check("ts: head takes the glued comment", (r['from'], r['to']) == (1, 5))
     txt = views.open_source(_tmp(d, "p.txt", TXT))
     r = views.block_range(txt, 5, 2)         # asked 5-6 in the second paragraph
-    # start: the paragraph 4-6; end: the OUTERMOST rung within tol is the file root 1-8
-    check("txt: paragraph start, outermost end", (r['from'], r['to'], r['cut']) == (4, 8, None))
+    check("txt: the paragraph", (r['from'], r['to'], r['cut']) == (4, 6, None))
+    r = views.block_range(txt, 5, 1)         # count 1 -> tol 0: exactly the line
+    check("txt: count 1 is one line", (r['from'], r['to']) == (5, 5))
     for bad in ((0, 5), (99, 5), (3, 0)):
         try:
             views.block_range(py, *bad)

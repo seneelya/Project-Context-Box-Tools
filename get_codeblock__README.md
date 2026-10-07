@@ -247,7 +247,7 @@ views.block_range(src, line=120, count=40)       # {from, to, cut}: both ends sn
 
 `block_range` has no CLI mode: it takes `[line, line+count-1]` and snaps the START back to the
 outermost block holding `line` whose head is within `tol` lines, the END forward to the outermost
-block holding the last line whose end is within `tol` (`tol = count // 2`, at least 3). No such
+block holding the last line whose end is within `tol` (`tol = count // 2`). No such
 block at the end -> the end stays and `cut` names the innermost block it falls inside. Two
 lookups, no growth loop; a reader paging forward never gets a line twice.
 

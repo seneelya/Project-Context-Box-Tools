@@ -514,8 +514,8 @@ def block_range(src, line, count):
     Start: the OUTERMOST block containing `line` whose head is at most `tol` lines back
     (a comment glued above a block is part of it). End: the OUTERMOST block containing
     the last line whose end is at most `tol` lines ahead; none — the end stays where
-    `count` put it and `cut` names the innermost block it falls inside. `tol = count // 2`
-    (at least 3), so `count` means "about this many", never an exact promise.
+    `count` put it and `cut` names the innermost block it falls inside. `tol = count // 2`,
+    so `count` means "about this many" (`count 1` is exactly one line).
 
     Two ladder lookups, no growth loop: a line is never read twice by a reader paging
     forward, because the next page starts after this `to`.
@@ -527,7 +527,7 @@ def block_range(src, line, count):
     if count < 1:
         raise ValueError(f"count must be >= 1, got {count}")
     a, b = line, min(n, line + count - 1)
-    tol = max(3, count // 2)
+    tol = count // 2
 
     heads = [r['start'] for r in src.handler.get_blocks(src.path, a) if a - r['start'] <= tol]
     start = min(heads, default=a)
