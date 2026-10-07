@@ -28,10 +28,15 @@ class UnsupportedFormat(ValueError):
 
 
 class Source:
-    """One opened file: its lines, its reader, and the comment wrapper for tool-written lines."""
+    """One opened file: its lines, its reader, and the comment wrapper for tool-written lines.
 
-    def __init__(self, path, lines, language, handler):
+    `display` — the path the `File:` lines show; defaults to `path`. A caller that parses a
+    temporary copy (hermes-filetools reads through its own backend and decodes first) names
+    the real file here, so the picture never shows the copy's path."""
+
+    def __init__(self, path, lines, language, handler, display=None):
         self.path = path
+        self.display = display or path
         self.lines = lines
         self.language = language
         self.handler = handler
@@ -43,8 +48,8 @@ class Source:
         return f"{self._open}{s}{self._close}"
 
 
-def open_source(path):
-    """Read and route `path` once for any number of views.
+def open_source(path, display=None):
+    """Read and route `path` once for any number of views (`display`: see `Source`).
 
     Raises FileNotFoundError; `env_check.EnvError` when this language's tree-sitter packages
     are missing (its text is the exact pip command); `UnsupportedFormat` for an extension no
@@ -66,7 +71,7 @@ def open_source(path):
     except ValueError:
         raise UnsupportedFormat(f"file format '{ext or '(no extension)'}' is not supported yet "
                                 "(no reader profile registered for it).")
-    return Source(path, lines, language, Reader.open(path, lines, language))
+    return Source(path, lines, language, Reader.open(path, lines, language), display)
 
 
 def as_text(rendered):
@@ -322,7 +327,7 @@ def ladder_view(src, line_nums):
 
 
 def render_ladder(view, src):
-    yield 'meta', src.c(f"{_file_header(src.path, src.lines)} · {_hits(view['n'])}")
+    yield 'meta', src.c(f"{_file_header(src.display, src.lines)} · {_hits(view['n'])}")
     yield from _render_boxed_rows(view['rows'], src.c)
 
 
@@ -364,7 +369,7 @@ def outline_batch_view(src, line_nums, levels, deep=False):
 
 
 def render_outline_batch(view, src):
-    yield 'meta', src.c(f"{_file_header(src.path, src.lines)} · {view['mode_word']} batch · {_hits(view['n'])}"
+    yield 'meta', src.c(f"{_file_header(src.display, src.lines)} · {view['mode_word']} batch · {_hits(view['n'])}"
                         + (f", {len(view['errors'])} error(s)" if view['errors'] else ""))
     yield from _render_boxed_rows(view['rows'], src.c)
 
@@ -481,7 +486,7 @@ def render_query(view, src, numbered=False):
         yield 'meta', c(view['note'])
     if view['jsx_note']:
         yield 'meta', c(view['jsx_note'])
-    yield 'meta', c(_file_header(src.path, lines))
+    yield 'meta', c(_file_header(src.display, lines))
     for msg in view['errors']:
         yield 'meta', c(f"ERROR: {msg}")
 

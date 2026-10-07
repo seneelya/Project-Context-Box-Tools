@@ -121,6 +121,10 @@ def test_open_source(d):
     check("open: lines", len(src.lines) == 16)
     check("open: py comment wrapper", src.c("x") == "#x")
     check("open: md comment wrapper", views.open_source(_tmp(d, "m.md", MD)).c("x") == "<!-- x -->")
+    shown = views.open_source(py, display="real/a.py")
+    text = views.as_text(views.render_ladder(views.ladder_view(shown, [8]), shown))
+    check("open: display path in File line, parsing from the copy",
+          text.startswith("#File: real/a.py (16 lines)") and "y = 2" in text)
     try:
         views.open_source(_tmp(d, "x.log", "a\nb\n"))
         check("open: .log refused", False)
