@@ -21,17 +21,22 @@ deployed to projects. `TOOLS.md` routes to every tool; `test/HowTo__Test-*.md` �
 Deploy to a project: from ProjectStarter `py __dev/deploy_hq.py --target <project> --apply` —
 commit this repo FIRST (an unknown blob is reported as CONFLICT).
 
-## State (2026-10-06)
+## State (2026-10-07)
 
 - **get_codeblock 0.8.0** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
   frontmatter = `meta:` block), YAML, plain text, shell `.sh`, PowerShell `.ps1`, batch `.bat`.
   `--name` (name -> lines -> the existing `--line` render). C/C++ macros cut before parsing,
   recovery after unparsable function bodies. One ext -> language map: `reader.reader.language_for_ext`.
+  `get_codeblock/views.py` — every CLI mode as DATA + its renderer (`*_view` / `render_*`,
+  `as_text` == CLI stdout) and `block_range` (both ends of a line range snapped to blocks); the CLI
+  is parse_args -> view -> render. For callers that want data, not text — never one mega-render.
+  Usage stats and a replay of logged calls (guard for refactors): `__dev/usage/`.
 - **Card stamp** (`make_interface_card`) — CARD_FORMAT 1.3.0; C/C++ via `stamp_langs/cpp.py`
   (API families, "API: in source" header cards, name anchors instead of line numbers, Why folded by
   folder); `--all --stale`; scan cache `_cache/`. `graph_from_cards --file` shows files without cards.
 - **Open:** Plan08 step 9 (clangd, needs a Ninja build of the C/C++ test bed); Plan06 (short
-  directive markers — directives are already short, plan not formally closed). No open requests.
+  directive markers — directives are already short, plan not formally closed). Open request:
+  REQ-014 (markdown section body as one block — paragraphs/lists/fences inside it).
 - **Test beds:** `y:\SRC\llama.cpp_mix` (C/C++; zone = its config `STAMP_DIRS`), `hermes-filetools`,
   `memohood` (Python/JS); sweep-only Python trees: `Y:\SRC\rlm`, `Y:\SRC\TRELLIS.2`.
 
@@ -41,6 +46,7 @@ commit this repo FIRST (an unknown blob is reported as CONFLICT).
 |---|---|---|
 | `y:\SRC\llama.cpp_mix` | whole HQ (tools, guides, roles) | `deploy_hq.py --apply` (commit its HQ first) |
 | `t:\AgentsWork\hermes-filetools` | all tools, NOT the deploy | copy git-tracked tool files; keep its `CONFIG__TOOLS.py`, `hermes_python.py`, `hermes-py.cmd` |
+| `t:\AgentsWork\hermes-filetools\vendor\get_codeblock` | get_codeblock package, shipped inside that plugin | its own `vendor/sync_get_codeblock.py` mirrors a COMMIT of this repo (commit here first) |
 | `t:\AgentsWork\dVOrbitals\dvOrbital__GDD` | get_codeblock only | copy `get_codeblock/`, `get_codeblock.py`, `get_codeblock__*.md`; keep its config |
 
 Copy = `git ls-files` of this repo minus `__dev/`, `test/`, `CONFIG__TOOLS.py`, `CLONE_TOOLS_HERE.md`;
