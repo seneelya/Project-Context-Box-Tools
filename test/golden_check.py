@@ -47,6 +47,9 @@ CASES = [
     ("focus_outline_object", ["--file", "test/Edge/Edge.py", "--line", "38", "--outline"]),
     ("focus_outline_named_parent", ["--file", "test/Edge/Edge.py", "--line", "45",
                                      "--ancestor-level", "1", "--outline"]),
+    # REQ-015: 2 exact names, one inside a bodyless `#else` frame — crashed in outline_rows.
+    ("name_ambiguous_else_branch", ["--file", "test/Edge/Edge.else_branch.cu",
+                                    "--name", "edge_pipeline_init", "--query"]),
 ]
 
 

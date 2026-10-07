@@ -344,12 +344,19 @@ def _chain_rungs(path, line):
         _n, glued = _owning_block(spec, parent_scope.children(), node.start_row + 1, want_glue=True)
         head = _focus_head(spec, node, lvl, start_override=glued)
         rungs.append({'level': head.level, 'start': head.start, 'end': head.end, 'label': head.name})
-        frame = spec.unwrap_frame(node)
-        body = spec.body(frame) if frame is not None else spec.body(node)
-        if body is None and frame is not None:
-            body = frame                    # bodyless frame (`#ifdef X`) is its own scope
-        parent_scope = body if body is not None else parent_scope
+        parent_scope = _scope_inside(spec, node, parent_scope)
     return chain, rungs, n_lines
+
+
+def _scope_inside(spec, node, outer):
+    """The scope a chain link opens for the next link: its body, a frame's body, or a bodyless
+    frame (`#ifdef X`, `#else`) itself; a link without any keeps `outer`. One rule for the
+    ladder (`_chain_rungs`) and the focus map (`outline_rows`)."""
+    frame = spec.unwrap_frame(node)
+    body = spec.body(frame) if frame is not None else spec.body(node)
+    if body is None and frame is not None:
+        body = frame
+    return body if body is not None else outer
 
 
 def leaf_landmark_at(path, line):
@@ -440,11 +447,15 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
             # Склеить коммент-преамблу цели: спрашиваем want_glue у её РОДИТЕЛЬСКОГО скоупа
             # (root для верхнего уровня, тело родителя-по-цепочке иначе). Тот же расчёт, что
             # в полном outline (pending) и в адресации (_preamble_start) — один [start-end].
-            parent_scope = spec.body(chain[idx - 1]) if idx > 0 else root
+            # Scope by the ladder's rule (`_scope_inside`): a bodyless parent (`#else` around
+            # a definition, REQ-015) is a scope itself, never None.
+            parent_scope = root
+            for link in chain[:idx]:
+                parent_scope = _scope_inside(spec, link, parent_scope)
             _n, glued = _owning_block(spec, parent_scope.children(), target.start_row + 1,
                                       want_glue=True)
             head = _focus_head(spec, target, base, start_override=glued)
-            body = spec.body(target)
+            body = _scope_inside(spec, target, None)
             if body is not None:
                 head.children = clf.classify(body, level=base + 1, depth=_OUTLINE_FULL_DEPTH,
                                              top_filler_only=not deep)

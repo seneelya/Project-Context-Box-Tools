@@ -1,0 +1,4 @@
+//name: "edge_pipeline_init" — ambiguous: 2 exact; pick one with --line N --query
+//File: test\Edge\Edge.else_branch.cu (26 lines) · outline batch · 2 hits
+// 2| 10-17| edge_pipeline * edge_pipeline_init(const int * devices, size_t n_devices)
+// 2| 19-24| #else // defined(EDGE_STUB) // The stub branch: no pipeline at all, callers treat nullptr as "unavailable". edge_pipeline * edge_pipeline_init(const int *, size_t)
