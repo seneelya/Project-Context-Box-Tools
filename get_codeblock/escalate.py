@@ -1,11 +1,11 @@
 """Vision05 — query-escalation: expand a too-small/uninformative `--query` result by
 rewriting the CALL PARAMETERS (`--line`/`--level` arrays) before they reach the existing,
-already-tested batch-query resolve/render path (`core._resolve_query_runs` /
-`core._render_query_runs`). Adds no new rendering path and no new engine — only decides
+already-tested batch-query resolve/render path (`views._resolve_query_runs` /
+`views.render_query`). Adds no new rendering path and no new engine — only decides
 WHICH `--line`/`--level` combo to hand to the existing ones.
 
 Design (see `__dev/vision/Vision05__get_codeblock.md` for the full rationale):
-- Resolve-once for the common case: `core.py` resolves the ORIGINAL anchors exactly
+- Resolve-once for the common case: `views.query_view` resolves the ORIGINAL anchors exactly
   once (it would have anyway, escalation or not) and passes those `runs` in here — this
   module only pays for MORE resolves (probing neighbors) when that seed turns out too
   small, never re-derives what's already been computed.
@@ -16,7 +16,7 @@ Design (see `__dev/vision/Vision05__get_codeblock.md` for the full rationale):
   absolute level; the REFERENCE level for sibling-gathering is the MAX (deepest) among them.
   A single anchor is just the n=1 case of the same rule.
 - Never touches the importable `get_codeblock()` API — this lives only in the CLI dispatch
-  path (`core.py`), same boundary Vision04 draws between "core raises structure" and
+  path (`views.query_view`), same boundary Vision04 draws between "core raises structure" and
   "policy decides what to show".
 
 KNOWN, DEFERRED cost: every `handler.get_blocks()`/`line_level()` call re-reads and
@@ -61,18 +61,18 @@ def _cost(n, target, k):
 
 def maybe_escalate(handler, resolve_fn, file_path, lines, line_nums, levels, runs):
     """Returns (new_line_nums, new_levels, note). `note` is None when nothing changed
-    (already informative, or no neighbor could help). Caller (`core.py`) is expected
+    (already informative, or no neighbor could help). Caller (`views.query_view`) is expected
     to skip calling this entirely when `--force` was given — this function doesn't
     know about the flag, it only ever escalates or doesn't based on `runs`' size.
 
     `runs` — the ALREADY-RESOLVED merged ranges from a prior `_resolve_query_runs`
     pass over `line_nums`/`levels` (each `{start, end, parts: [block, ...]}`, per
-    `core._resolve_query_runs`). Reusing them means the common (non-escalating) call
+    `views._resolve_query_runs`). Reusing them means the common (non-escalating) call
     pays for exactly the ONE resolve it would have paid for anyway — this function
     only does NEW work (probing neighbors) when the seed is actually too small,
     instead of re-resolving the original anchors from scratch just to measure them.
 
-    `handler`/`resolve_fn` are the SAME `get_blocks`/`resolve` primitives `core.py`
+    `handler`/`resolve_fn` are the SAME `get_blocks`/`resolve` primitives `views.py`
     already uses for query batches — no new addressing engine, just reuse."""
     FLOOR, TARGET, CEILING, K = _load_thresholds()
 

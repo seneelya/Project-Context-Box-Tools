@@ -222,6 +222,35 @@ parent = get_codeblock("code.cs", line_num=25, level=-1)
 
 Run `help(get_codeblock)` in Python for full docstring reference.
 
+### Every CLI mode as data — `get_codeblock.views`
+
+Each mode is a DATA view plus a renderer of exactly the CLI's picture; the CLI itself is
+`parse_args` -> view -> renderer -> print. Take the data when you frame the result your own
+way, the picture when you want what the CLI shows.
+
+```python
+from get_codeblock import views
+
+src = views.open_source("path/to/file.py")      # FileNotFoundError / EnvError / views.UnsupportedFormat
+
+v = views.outline_view(src)                      # {rows, depth, per_level, base_level, shown, ...}
+v = views.outline_view(src, line=120, level=-1)  # map of the parent of the block at line 120
+v = views.ladder_view(src, [120, 455])           # --line 120,455 (survey): boxed rows
+v = views.outline_batch_view(src, [120, 455], [-1, -1])
+v = views.query_view(src, [120], [0], force=False)  # {runs:[{start,end,parts}], errors, note, jsx_note}
+
+text = views.as_text(views.render_query(v, src, numbered=False))  # == the CLI's stdout
+# render_outline / render_ladder / render_outline_batch / render_query yield ("meta"|"body", text)
+
+views.block_range(src, line=120, count=40)       # {from, to, cut}: both ends snapped to blocks
+```
+
+`block_range` has no CLI mode: it takes `[line, line+count-1]` and snaps the START back to the
+outermost block holding `line` whose head is within `tol` lines, the END forward to the outermost
+block holding the last line whose end is within `tol` (`tol = count // 2`, at least 3). No such
+block at the end -> the end stays and `cut` names the innermost block it falls inside. Two
+lookups, no growth loop; a reader paging forward never gets a line twice.
+
 ## Configuration
 
 When `CONFIG__TOOLS.py` sits next to the tool (`<HQ>/tools/`):
@@ -298,7 +327,9 @@ gets ONE answer to "which block am I in", whether asked as a map or as an addres
 ```
 get_codeblock/
 ├── core.py               # CLI parsing, resolve() logic, file I/O, importable get_codeblock()
-├── escalate.py           # Vision05: --query too-small-result escalation (CLI-only, never the API)
+├── views.py              # every CLI mode as data + its renderer; block_range
+├── escalate.py           # Vision05: --query too-small-result escalation (query mode: CLI and
+│                         #   views.query_view; never get_codeblock())
 ├── jsx_note.py           # stopgap: flags large flat TSX/JSX blocks (see __dev/Plan__jsx-carve-tsx.md)
 ├── reader/               # the engine (Vision03/04)
 │   ├── reader.py           # Reader — façade/router: outline→classify, get_blocks/line_level→address
