@@ -396,9 +396,11 @@ class _Monster:
         _write_raw(target, final.replace("\n", eol), bom)
         print(f"wrote {target_file}: {len(header)} import(s), {len(blocks)} block(s)")
 
-    def cut(self, source_file, blocks):
+    def cut(self, source_file, blocks, imports=None):
         """Remove `blocks`' exact ranges from `source_file` — every block must belong to this
-        same `source_file` (raises otherwise); only ever touches `source_file`, never a target."""
+        same `source_file` (raises otherwise); only ever touches `source_file`, never a target.
+        `imports` (optional add_import list) are added to the source's header AFTER the cut — what
+        the remaining code now needs from the files the blocks moved to."""
         for b in blocks:
             if b.source_file != source_file:
                 raise ValueError(
@@ -412,16 +414,20 @@ class _Monster:
         segs = _segments(raw)
         for b in sorted(blocks, key=lambda b: b.start, reverse=True):
             del segs[b.start - 1 : b.end]
+        added = _insert_imports(segs, imports or [], _eol, Path(source_file).suffix)
+        for text in added:
+            self._added.update(_nonblank(text.encode("utf-8")))
         _write_raw(source_file, "".join(segs), bom)
-        print(f"cut {len(blocks)} block(s) from {source_file}")
+        print(f"cut {len(blocks)} block(s) from {source_file}"
+              + (f", +{len(added)} import(s) into it" if added else ""))
         self.verify()
 
-    def replace(self, source_file, blocks):
+    def replace(self, source_file, blocks, imports=None):
         """Swap each block's [start..end] in `source_file` for its `.replacement` text.
 
         Accepts `Replace` objects from `replace()`. Empty `.replacement` deletes the range
         (like `cut`). Only touches `source_file`. `write()` still uses `.text` — content
-        moved to targets is unchanged.
+        moved to targets is unchanged. `imports`: as in `cut`.
         """
         for b in blocks:
             if b.source_file != source_file:
@@ -444,8 +450,12 @@ class _Monster:
                 repl = repl + "\n"
             self._repl.update(_nonblank(repl.encode("utf-8")))
             segs[b.start - 1 : b.end] = _segments(repl.replace("\n", eol)) if repl else []
+        added = _insert_imports(segs, imports or [], eol, Path(source_file).suffix)
+        for text in added:
+            self._added.update(_nonblank(text.encode("utf-8")))
         _write_raw(source_file, "".join(segs), bom)
-        print(f"replaced {len(blocks)} block(s) in {source_file}")
+        print(f"replaced {len(blocks)} block(s) in {source_file}"
+              + (f", +{len(added)} import(s) into it" if added else ""))
         self.verify()
 
     def verify(self):
@@ -925,6 +935,167 @@ def _orphan_candidates(same_level_rows, block_start, block_end):
     return candidates
 
 
+# --------------------------------------------------------------------------- split-set graph
+
+def _file_spec(from_file, to_file, ext):
+    """Import specifier that `from_file` uses to reach `to_file` (both paths of the split set)."""
+    kind = _lang_kind(ext)
+    fdir = Path(from_file).resolve().parent
+    tpath = Path(to_file).resolve()
+    rel = Path(os.path.relpath(tpath.parent, fdir))
+    if kind == "py":
+        parts = [p for p in rel.parts if p != "."]
+        ups = sum(1 for p in parts if p == "..")
+        downs = [p for p in parts if p != ".."]
+        if (fdir / "__init__.py").exists():
+            return "." * (1 + ups) + ".".join(downs + [tpath.stem])
+        return ".".join(downs + [tpath.stem]) if not ups else tpath.stem
+    spec = Path(os.path.relpath(tpath, fdir)).as_posix()
+    if tpath.suffix.lower() in (".ts", ".tsx"):
+        spec = spec[: -len(tpath.suffix)]
+    return spec if spec.startswith(".") else "./" + spec
+
+
+def _find_cycles(edges, limit=5):
+    """Simple cycles in {node: set(nodes)}, each reported once (rotated to its smallest node)."""
+    found, seen = [], set()
+
+    def dfs(start, node, path):
+        for nxt in sorted(edges.get(node, ())):
+            if nxt == start:
+                cyc = path[:]
+                k = cyc.index(min(cyc))
+                key = tuple(cyc[k:] + cyc[:k])
+                if key not in seen:
+                    seen.add(key)
+                    found.append(list(key) + [key[0]])
+            elif nxt not in path and nxt > start and len(path) < 6:
+                dfs(start, nxt, path + [nxt])
+
+    for n in sorted(edges):
+        dfs(n, n, [n])
+        if len(found) >= limit:
+            break
+    return found[:limit]
+
+
+def _split_graph(file_path, ext, by_target, all_lines):
+    """Dependencies BETWEEN the files of this split — exact, because every moved name is known.
+
+    Not a general resolver: only names declared by the moved blocks (and the names that stay in
+    the source) are tracked, found by the identifier scan. Returns None for languages without
+    name support, else {"cross": {target: {specifier: ("named", [(n, n)])}},
+    "source": {specifier: ("named", [...])}, "notes": [comment lines]}.
+    cross[target] = what that target must import from the OTHER targets and from the source;
+    source = what the source must import back from the targets once the blocks left."""
+    if _lang_kind(ext) not in ("py", "js"):
+        return None
+    moved, owner_block = {}, {}
+    for t, blocks in by_target.items():
+        for b in blocks:
+            for n in _all_names_in_block(b.text, ext):
+                moved.setdefault(n, t)
+                owner_block.setdefault(n, b)
+    moved_idx = set()
+    for blocks in by_target.values():
+        for b in blocks:
+            moved_idx.update(range(b.start - 1, b.end))
+    remaining = [ln for i, ln in enumerate(all_lines) if i not in moved_idx]
+    remaining_names = {n for n in _all_top_level_names(remaining, ext) if n not in moved}
+
+    cross = {t: {} for t in by_target}   # target -> {specifier: [names]}
+    src_back = {}                         # specifier -> [names]
+    edges = {}                            # file -> {files it imports from}
+    used_across = {}                      # name -> who needs it (for export warnings)
+
+    def need(importer, importer_path, name, provider_path):
+        spec = _file_spec(importer_path, provider_path, ext)
+        return spec
+
+    for t, blocks in by_target.items():
+        used = set()
+        for b in blocks:
+            used |= _identifiers(b.text, ext)
+        for name in sorted(used & set(moved)):
+            other = moved[name]
+            if other != t:
+                spec = _file_spec(t, other, ext)
+                cross[t].setdefault(spec, []).append(name)
+                edges.setdefault(Path(t).name, set()).add(Path(other).name)
+                used_across.setdefault(name, set()).add(Path(t).name)
+        for name in sorted(used & remaining_names):
+            spec = _file_spec(t, file_path, ext)
+            cross[t].setdefault(spec, []).append(name)
+            edges.setdefault(Path(t).name, set()).add(Path(file_path).name)
+            used_across.setdefault(name, set()).add(Path(t).name)
+    src_used = _identifiers("\n".join(remaining), ext) if remaining else set()
+    for name in sorted(src_used & set(moved)):
+        spec = _file_spec(file_path, moved[name], ext)
+        src_back.setdefault(spec, []).append(name)
+        edges.setdefault(Path(file_path).name, set()).add(Path(moved[name]).name)
+        used_across.setdefault(name, set()).add(Path(file_path).name)
+
+    notes = []
+    if _lang_kind(ext) == "js":
+        remaining_text = "\n".join(remaining)
+        for name, users in sorted(used_across.items()):
+            if name in moved:
+                text, where = owner_block[name].text, f"{Path(moved[name]).name}"
+            else:
+                text, where = remaining_text, Path(file_path).name
+            if not re.search(rf"^\s*export\b[^\n]*\b{re.escape(name)}\b", text, re.M):
+                notes.append(f"# WARNING export: `{name}` ({where}) is not exported but is used by "
+                             f"{', '.join(sorted(users))} — add `export` by hand (changes block text, "
+                             f"so the tool does not do it)")
+    for cyc in _find_cycles(edges):
+        notes.append("# WARNING cycle: " + " -> ".join(cyc) + " — circular import between the new files")
+    pack = lambda d: {sp: ("named", [(n, n) for n in names]) for sp, names in d.items()}
+    return {"cross": {t: pack(d) for t, d in cross.items()}, "source": pack(src_back), "notes": notes}
+
+
+def _import_insert_index(segs, ext):
+    """Index (0-based, into `segs`) after the file's leading import block / module docstring."""
+    kind = _lang_kind(ext)
+    if kind == "py":
+        tree = _py_parse("".join(segs))
+        if tree is None:
+            return 0
+        last = max([n.end_lineno for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))] or [0])
+        if last:
+            return last
+        if tree.body and isinstance(tree.body[0], ast.Expr) and \
+                isinstance(getattr(tree.body[0], "value", None), ast.Constant) and \
+                isinstance(tree.body[0].value.value, str):
+            return tree.body[0].end_lineno
+        return 0
+    i = last = 0
+    while i < len(segs):
+        st = segs[i].strip()
+        if not st or st.startswith(("//", "/*", "*")):
+            i += 1
+            continue
+        if not st.startswith("import"):
+            break
+        j = i
+        while j < len(segs) and not re.search(r"""['"]\s*;?\s*$""", segs[j].rstrip()):
+            j += 1
+        if j >= len(segs):
+            break
+        last = i = j + 1
+    return last
+
+
+def _insert_imports(segs, imports, eol, ext):
+    """Add import lines to the source's header (skipping ones already present). `segs` mutated."""
+    present = {s.strip() for s in segs}
+    lines = [imp.text for imp in imports if imp.text.strip() not in present]
+    if not lines:
+        return []
+    at = _import_insert_index(segs, ext)
+    segs[at:at] = [ln + eol for text in lines for ln in text.split("\n")]
+    return lines
+
+
 _MANUAL_APPEND_NOTE = [
     "# --- как дополнить перенос вручную (без перезапуска этого генератора) ---",
     "# 'кандидат' ниже (если есть) — не единственный способ забрать что-то ещё в перенос.",
@@ -972,6 +1143,8 @@ def generate(file_path, splits, out_path, project_root="."):
         seen_ranges[key] = target
         by_target.setdefault(target, []).append(block)
 
+    graph = _split_graph(file_path, ext, by_target, all_lines)
+
     out = [
         f"# сгенерировано: split_monster --file {file_path} --split ...",
         "import sys",
@@ -984,6 +1157,10 @@ def generate(file_path, splits, out_path, project_root="."):
         *_MANUAL_APPEND_NOTE,
         "",
     ]
+    if graph and graph["notes"]:
+        out.append("# --- split-set checks (computed from the names of the moved blocks) ---")
+        out.extend(graph["notes"])
+        out.append("")
     if _lang_kind(ext) == "other":
         out.append(f"# note: name hints / import propagation are NOT available for {ext or 'this file type'} — "
                    f"cut/replace work (get_codeblock addresses the blocks); write imports by hand.")
@@ -1053,10 +1230,20 @@ def generate(file_path, splits, out_path, project_root="."):
         out.append(f"{list_name} = [{', '.join(var_names)}]")
 
         needed = _needed_imports_for_target(blocks, source_imports, ext)
+        cross_specs = set()
+        if graph:
+            for spec, (kind, items) in graph["cross"].get(target, {}).items():
+                cross_specs.add(spec)
+                if spec in needed:
+                    needed[spec] = (needed[spec][0], needed[spec][1] + [i for i in items if i not in needed[spec][1]])
+                else:
+                    needed[spec] = (kind, items)
         imp_var_names = []
         for i, (specifier, (kind, items)) in enumerate(needed.items(), start=1):
             line_text = _render_import_line(specifier, kind, items, ext)
             impname = f"{_safe_ident(target)}_IMP{i:02d}"
+            if specifier in cross_specs:
+                out.append("# between the files of this split (names the moved blocks use from each other / the source):")
             out.append(f"{impname} = add_import({line_text!r})")
             imp_var_names.append(impname)
         imports_list_name = f"{_safe_ident(target)}_IMPORTS"
@@ -1071,13 +1258,24 @@ def generate(file_path, splits, out_path, project_root="."):
         )
         out.insert(header_len + 1, "")
 
+    src_imp_arg = ""
+    if graph and graph["source"]:
+        out.append("# the source still uses names that are moving out — it needs these imports back:")
+        names = []
+        for i, (spec, (kind, items)) in enumerate(graph["source"].items(), start=1):
+            out.append(f"SOURCE_IMP{i:02d} = add_import({_render_import_line(spec, kind, items, ext)!r})")
+            names.append(f"SOURCE_IMP{i:02d}")
+        out.append(f"SOURCE_IMPORTS = [{', '.join(names)}]")
+        out.append("")
+        src_imp_arg = ", imports=SOURCE_IMPORTS"
+
     for target, list_name in list_names.items():
         out.append(f"monster.write({target!r}, {list_name}, {import_list_names[target]})")
     all_blocks = " + ".join(list_names.values())
     if is_md:
-        out.append(f"monster.replace({file_path!r}, {all_blocks})")
+        out.append(f"monster.replace({file_path!r}, {all_blocks}{src_imp_arg})")
     else:
-        out.append(f"monster.cut({file_path!r}, {all_blocks})")
+        out.append(f"monster.cut({file_path!r}, {all_blocks}{src_imp_arg})")
 
     Path(out_path).write_text("\n".join(out) + "\n", encoding="utf-8")
     _CLI_STATS.update(lang=_lang_kind(ext), blocks=tag, targets=len(list_names),

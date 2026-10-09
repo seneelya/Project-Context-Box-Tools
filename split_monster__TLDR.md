@@ -50,6 +50,13 @@ python move.py --apply
   read and matching `add_import(...)` calls are emitted per target — only names the moved blocks
   actually USE (identifier scan: words in comments/strings do not count). **`require()` is not
   auto-added**; Markdown — none.
+* **split-set graph** (Python, JS/TS): since every moved name is known, the script also gets
+  (a) imports BETWEEN the new files (`from h import helper`) and from the source into the targets
+  for names that stay there, (b) `SOURCE_IMPORTS` — imports the REMAINING source now needs from the
+  files its blocks moved to (`monster.cut(src, blocks, imports=SOURCE_IMPORTS)` inserts them after
+  the cut), (c) comment warnings: `WARNING export:` (a private JS name now crosses a file
+  boundary — add `export` by hand; the tool never edits block text) and `WARNING cycle:`
+  (circular import among the new files). Identifier scan, not a full resolver.
 * **safety (always on)**: `monster.expect_source(file, hash)` only WARNS if `--file` changed since
   generation; every `cut(..., expect=<block fingerprint>)` re-checks its own block text — same text
   (file changed elsewhere) = proceeds, different text (lines shifted/edited) = stops, unless

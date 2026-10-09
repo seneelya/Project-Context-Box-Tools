@@ -764,3 +764,56 @@ def test_rebase_changed_text_needs_accept_changed():
         assert ok.returncode == 0, ok.stdout
         assert _run(script, "--apply").returncode == 0
         assert "return 33" in Path(d, "b.py").read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- v0.3: split-set graph
+
+GRAPH_PY = (
+    "import os\n\n\ndef helper():\n    return os.name\n\n\n"
+    "def a():\n    return helper()\n\n\ndef b():\n    return helper() + a()\n"
+)
+
+
+def test_graph_cross_import_between_targets_and_back_import_into_source():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "m.py"
+        src.write_bytes(GRAPH_PY.encode("utf-8"))
+        script = str(Path(d) / "move.py")
+        r = run_cli("--file", str(src), "--split", "4", str(Path(d) / "h.py"),
+                    "--split", "8", str(Path(d) / "a.py"), "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "A_IMP" in text and "'from h import helper'" in text   # a -> h (other target)
+        assert "'from a import a'" in text and "'from h import helper'" in text  # source back-imports
+        assert "WARNING cycle" not in text                              # h <- a <- m -> {h,a}: no loop
+        applied = _run(script, "--apply")
+        assert applied.returncode == 0, applied.stderr
+        remaining = src.read_text(encoding="utf-8")
+        assert "from a import a" in remaining and "from h import helper" in remaining
+        assert "def b" in remaining and "def helper" not in remaining
+        # the split result really runs
+        run = subprocess.run([sys.executable, "-c", "import m; print(m.b())"], cwd=d,
+                             capture_output=True, text=True)
+        assert run.returncode == 0, run.stderr
+
+
+def test_graph_warns_about_a_cycle_with_the_source():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "m.py"
+        src.write_bytes(GRAPH_PY.encode("utf-8"))
+        script = str(Path(d) / "move.py")
+        run_cli("--file", str(src), "--split", "8", str(Path(d) / "a.py"), "--out-script", script)
+        text = Path(script).read_text(encoding="utf-8")
+        assert "WARNING cycle: a.py -> m.py -> a.py" in text
+
+
+def test_graph_js_warns_when_a_moved_private_name_crosses_the_boundary():
+    js = ("function helper() {\n  return 1;\n}\n\nexport function user() {\n  return helper();\n}\n")
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "m.js"
+        src.write_bytes(js.encode("utf-8"))
+        script = str(Path(d) / "move.py")
+        run_cli("--file", str(src), "--split", "1", str(Path(d) / "h.js"), "--out-script", script)
+        text = Path(script).read_text(encoding="utf-8")
+        assert "WARNING export: `helper`" in text
+        assert "import { helper } from './h.js'" in text               # source gets it back

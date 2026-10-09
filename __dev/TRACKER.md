@@ -168,5 +168,6 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ Идентификаторы вместо слов (`_identifiers`: ast / tree-sitter) — комментарии и строки больше не рождают ложные `add_import`.
 - ✅ `--rebase move.py [--write] [--accept-changed]` — лёгкая перегенерация: переставляет номера строк в существующем скрипте по отпечаткам блоков, ручные правки не трогает; изменённый текст — только с `--accept-changed`.
 - ✅ Лог использования `split_monster.log.jsonl` (тот же opt-in механизм, `LOG_ENABLED_TOOLS` + `LOG_DIR`): записи `generate` / `rebase` / `run` (исход прогона `move.py`: dry-run / applied_verified / verify_failed / refused_block_mismatch, force, stale_warning). Тесты не пишут в реальный лог (`SPLIT_MONSTER_NO_LOG`).
-- Тесты: test_split_monster 37/0 (+10), check 135/0. → next: Заход 2 (граф по набору разреза: кросс-импорты, обратный импорт, export, циклы), см. Vision06.
+- ✅ Заход 2 (граф по набору разреза, Py/JS/TS): кросс-импорты между целями и из цели в остаток источника, `SOURCE_IMPORTS` (обратный импорт в источник через `monster.cut(..., imports=)`), предупреждения `export` (только предупреждение — текст блока не правим) и `cycle`.
+- Тесты: test_split_monster 40/0 (+13), check 135/0. → next: Заход 2 (граф по набору разреза: кросс-импорты, обратный импорт, export, циклы), см. Vision06.
 
