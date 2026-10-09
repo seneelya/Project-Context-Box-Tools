@@ -92,6 +92,13 @@ To drop something from the plan: **append** a short reassignment at the bottom (
 `SOME_BLOCKS = [c01]` to keep only `c01`) — never edit/comment an existing line, that means
 retyping it in full for no reason.
 
+## Languages (`split_langs/`)
+
+One module per language (python, javascript = js/ts/tsx/jsx/mjs, markdown) behind a registry; the
+core has no `if language == …`. A new language = a new module + its name in `_MODULES` — see
+`split_langs/CONTRACT.md` (required hooks fail loudly at load). Unclaimed extensions fall back to
+`other`: cut/replace work, no hints/imports/graph.
+
 ## Usage log
 
 Same opt-in mechanism as the other tools (`CONFIG__TOOLS.LOG_ENABLED_TOOLS` contains

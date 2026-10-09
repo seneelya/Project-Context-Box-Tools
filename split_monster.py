@@ -19,13 +19,11 @@ import argparse
 import ast
 import hashlib
 import atexit
-import io
 import json
 import os
 import re
 import sys
 import time
-import tokenize
 from collections import Counter
 from pathlib import Path
 
@@ -42,7 +40,8 @@ if str(_HERE) not in sys.path:
 from get_codeblock.core import get_codeblock as _gcb_get_codeblock
 from get_codeblock.reader.classify import outline_rows as _gcb_outline_rows
 
-_MD_EXTS = frozenset({".md", ".markdown"})
+import split_langs
+from split_langs._common import dedup as _dedup_preserve_order
 
 TOOL_NAME = "split_monster"
 
@@ -102,18 +101,9 @@ def _parse_split_line_token(token):
 
 
 def _default_cut_level(source_file):
-    """How get_codeblock `level` picks the block for `--split LINE`.
-
-    Code (JS/TS/…): absolute level 1 = top landmark in the file hierarchy — a function/
-    class line from `--outline` resolves to that whole top-level block.
-
-    Markdown: level 1 is the outermost H1 section (often the whole file). Use 0 =
-    innermost heading section on that line (H1..H6) so `--split` on a `##`/`###` line
-    from `--outline` cuts that section, not the document root.
-    """
-    if Path(source_file).suffix.lower() in _MD_EXTS:
-        return 0
-    return 1
+    """How get_codeblock `level` picks the block for `--split LINE` — the language decides
+    (`split_langs`): code = 1, the top landmark; Markdown = 0, the innermost heading section."""
+    return split_langs.for_file(source_file).CUT_LEVEL
 
 
 # --------------------------------------------------------------------------- primitives
@@ -246,16 +236,6 @@ def _nonblank(data):
     return [ln.strip() for ln in text.splitlines() if ln.strip()]
 
 
-def _dedup_preserve_order(items):
-    seen = set()
-    out = []
-    for it in items:
-        if it not in seen:
-            seen.add(it)
-            out.append(it)
-    return out
-
-
 _HEADER_LINE_RE = re.compile(r"^\s*(import\b|from\s+\S+\s+import\b|const\s+\S+\s*=\s*require\()")
 
 
@@ -288,20 +268,9 @@ def _reconstruct_body(blocks):
 
 
 def _syntax_ok(data, ext):
-    """True / False / None (= this format has no syntax check here)."""
-    ext = ext.lower()
+    """True / False / None (= this format has no syntax check) — the language's own hook."""
     try:
-        if ext == ".py":
-            ast.parse(data.decode("utf-8", "replace").lstrip("﻿"))
-            return True
-        from get_codeblock.reader.registry import resolve
-        backend, _spec = resolve(ext)
-        node = getattr(backend.root(data), "_n", None)
-        if node is None or not hasattr(node, "has_error"):
-            return None
-        return not node.has_error
-    except SyntaxError:
-        return False
+        return split_langs.for_ext(ext).syntax_ok(data, ext)
     except Exception:
         return None
 
@@ -414,7 +383,7 @@ class _Monster:
         segs = _segments(raw)
         for b in sorted(blocks, key=lambda b: b.start, reverse=True):
             del segs[b.start - 1 : b.end]
-        added = _insert_imports(segs, imports or [], _eol, Path(source_file).suffix)
+        added = _insert_imports(segs, imports or [], _eol, split_langs.for_file(source_file))
         for text in added:
             self._added.update(_nonblank(text.encode("utf-8")))
         _write_raw(source_file, "".join(segs), bom)
@@ -450,7 +419,7 @@ class _Monster:
                 repl = repl + "\n"
             self._repl.update(_nonblank(repl.encode("utf-8")))
             segs[b.start - 1 : b.end] = _segments(repl.replace("\n", eol)) if repl else []
-        added = _insert_imports(segs, imports or [], eol, Path(source_file).suffix)
+        added = _insert_imports(segs, imports or [], eol, split_langs.for_file(source_file))
         for text in added:
             self._added.update(_nonblank(text.encode("utf-8")))
         _write_raw(source_file, "".join(segs), bom)
@@ -535,191 +504,16 @@ monster = _Monster()
 
 # --------------------------------------------------------------------------- --generate
 
-_MD_HEADING_RE = re.compile(r"^\s*(#{1,6})\s+(.*)$")
-
-_TOP_LEVEL_NAME_RE = re.compile(
-    r"^(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+(\w+)"
-    r"|^(?:export\s+)?const\s+(\w+)\s*="
-    r"|^(?:export\s+)?class\s+(\w+)"
-    r"|^(?:export\s+)?let\s+(\w+)\s*="
-)
-_WORD_RE = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
-
-_JS_EXTS = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx"})
-# node types that mean "this name is USED/declared here" (not a property key, not a comment,
-# not string content) — what the identifier scan collects
-_JS_IDENT_TYPES = frozenset({"identifier", "type_identifier", "shorthand_property_identifier",
-                             "shorthand_property_identifier_pattern"})
-
-
-def _lang_kind(ext):
-    """'py' | 'md' | 'js' | 'other'. 'other' = cut/replace still work (get_codeblock addresses
-    the blocks) but name hints and import propagation are NOT wired for it — generate says so."""
-    ext = (ext or "").lower()
-    if ext == ".py":
-        return "py"
-    if ext in _MD_EXTS:
-        return "md"
-    if ext in _JS_EXTS:
-        return "js"
-    return "other"
-
-
-def _md_slug(title):
-    """GitHub-style heading anchor: lowercase, drop punctuation, spaces -> '-'."""
-    t = re.sub(r"[`*_~]", "", title.strip().lower())
-    t = re.sub(r"[^\w\s-]", "", t, flags=re.UNICODE)
-    return re.sub(r"\s", "-", t.strip())
-
-
-def _py_parse(text):
-    try:
-        return ast.parse(text)
-    except SyntaxError:
-        return None
-
-
-def _py_target_names(node):
-    if isinstance(node, ast.Name):
-        return [node.id]
-    if isinstance(node, (ast.Tuple, ast.List)):
-        return [n for e in node.elts for n in _py_target_names(e)]
-    return []
-
-
-def _py_declared(tree):
-    names = []
-    for n in tree.body:
-        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            names.append(n.name)
-        elif isinstance(n, ast.Assign):
-            for t in n.targets:
-                names.extend(_py_target_names(t))
-        elif isinstance(n, (ast.AnnAssign, ast.AugAssign)):
-            names.extend(_py_target_names(n.target))
-    return _dedup_preserve_order(names)
-
-
-def _declaration_line(text, ext=""):
-    """The block's own declaration line — NOT necessarily line 0 of `text`, since get_codeblock
-    (correctly) includes a leading comment as part of the same block/range."""
-    kind = _lang_kind(ext)
-    for line in text.splitlines():
-        stripped = line.strip()
-        if _MD_HEADING_RE.match(stripped) and kind in ("md", "other", ""):
-            return stripped
-        if kind == "py":
-            if re.match(r"(async\s+def|def|class)\s", stripped) or \
-                    re.match(r"[A-Za-z_]\w*\s*(:[^=]*)?=[^=]", stripped):
-                return stripped
-        elif _TOP_LEVEL_NAME_RE.match(stripped):
-            return stripped
-    return text.splitlines()[0].strip() if text else ""
-
-
-def _all_names_in_block(text, ext=""):
-    """Every top-level declaration name inside `text`, in order — a banded range (2-3
-    declarations merged by get_codeblock because nothing separates them) carries more than
-    one; a single declaration just returns a one-item list. Markdown: the section's anchor."""
-    kind = _lang_kind(ext)
-    if kind == "py":
-        tree = _py_parse(text)
-        return _py_declared(tree) if tree else []
-    if kind == "md":
-        for line in text.splitlines():
-            hm = _MD_HEADING_RE.match(line.strip())
-            if hm:
-                slug = _md_slug(hm.group(2))
-                return [slug] if slug else []
-        return []
-    names = []
-    for line in text.splitlines():
-        if line[:1].isspace():
-            continue
-        m = _TOP_LEVEL_NAME_RE.match(line)
-        if m:
-            name = next(g for g in m.groups() if g)
-            if name not in names:
-                names.append(name)
-    return names
-
-
-def _all_top_level_names(all_lines, ext=""):
-    """Names declared at file top level. Only unindented lines count for JS (an indented
-    `const x` inside another function is not top level); Python goes through `ast`; Markdown
-    = every heading's anchor."""
-    kind = _lang_kind(ext)
-    if kind == "py":
-        tree = _py_parse("\n".join(all_lines))
-        return {n: True for n in _py_declared(tree)} if tree else {}
-    if kind == "md":
-        out = {}
-        for line in all_lines:
-            hm = _MD_HEADING_RE.match(line.strip())
-            if hm and _md_slug(hm.group(2)):
-                out[_md_slug(hm.group(2))] = True
-        return out
-    names = {}
-    for line in all_lines:
-        if line[:1].isspace():
-            continue
-        m = _TOP_LEVEL_NAME_RE.match(line)
-        if m:
-            names[next(g for g in m.groups() if g)] = True
-    return names
-
-
-def _identifiers(text, ext=""):
-    """Names a snippet actually USES — code identifiers only. Words inside comments and string
-    literals do NOT count (the old `_WORD_RE` scan counted them: a rationale comment that
-    mentioned `buildRailRows` produced a bogus add_import). Python: `ast` (tokenize if the
-    snippet doesn't parse). JS/TS: tree-sitter identifier nodes. Markdown: link anchors.
-    Anything else: plain words (best effort — `_lang_kind` is 'other' there anyway)."""
-    kind = _lang_kind(ext)
-    if kind == "md":
-        return set(re.findall(r"\]\(#([^)\s]+)\)", text))
-    if kind == "py":
-        tree = _py_parse(text)
-        if tree is not None:
-            return {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
-        try:
-            return {t.string for t in tokenize.generate_tokens(io.StringIO(text).readline)
-                    if t.type == tokenize.NAME}
-        except (tokenize.TokenError, IndentationError, SyntaxError):
-            return set(_WORD_RE.findall(text))
-    if kind == "js":
-        try:
-            from get_codeblock.reader.registry import resolve
-            backend, _spec = resolve(ext)
-            found, stack = set(), [backend.root(text.encode("utf-8"))]
-            while stack:
-                n = stack.pop()
-                if n.type in _JS_IDENT_TYPES:
-                    found.add(n.text())
-                stack.extend(n.children())
-            return found
-        except Exception:
-            return set(_WORD_RE.findall(text))
-    return set(_WORD_RE.findall(text))
-
-
-def _ref_pattern(name, ext):
-    """How another line mentions `name`: a word for code, `#anchor` for Markdown."""
-    if _lang_kind(ext) == "md":
-        return rf"\(#{re.escape(name)}\)"
-    return rf"\b{re.escape(name)}\b"
-
-
-def _hint_lines(block, all_lines, top_level_names, ext=""):
+def _hint_lines(block, all_lines, top_level_names, lang, ext=""):
     """Cheap best-effort — NOT a real resolver (Vision06: verify by eye). "Referenced elsewhere"
-    is still a grep over the other lines; "needs" now uses the identifier scan (no comment/string
-    false positives)."""
+    is a grep over the other lines; "needs" uses the language's identifier scan (no comment/string
+    false positives). Languages without name support get no hints."""
     hints = []
-    if _lang_kind(ext) == "other":
+    if not lang.HAS_NAMES:
         return hints
-    names = _all_names_in_block(block.text, ext)
+    names = lang.declared_names(block.text)
     for name in names:
-        pat = re.compile(_ref_pattern(name, ext))
+        pat = re.compile(lang.ref_pattern(name))
         referenced_at = [
             i for i, line in enumerate(all_lines, start=1)
             if not (block.start <= i <= block.end) and pat.search(line)
@@ -732,15 +526,15 @@ def _hint_lines(block, all_lines, top_level_names, ext=""):
                 f"{shown}{more}"
             )
 
-    used = _identifiers(block.text, ext)
+    used = lang.identifiers(block.text, ext)
     needs = sorted(n for n in used if n in top_level_names and n not in names)
     if needs:
         hints.append(f"# best-effort (идентификаторы, не резолв): возможно нужны — {', '.join(needs)}")
     return hints
 
 
-def _preview_line(block, ext=""):
-    return f"# {_declaration_line(block.text, ext)}  [{block.start}-{block.end}]"
+def _preview_line(block, lang):
+    return f"# {lang.decl_line(block.text)}  [{block.start}-{block.end}]"
 
 
 def _safe_ident(target_file):
@@ -800,112 +594,19 @@ def _help_lines(source_kind="code"):
     return lines
 
 
-def _py_source_imports(source_text):
-    """Same shape as the JS reader: {specifier: {"kind", "items"}} for TOP-LEVEL `import` /
-    `from … import` statements. kinds: 'named' (from-import), 'module' (plain import).
-    A relative import keeps its dots in the specifier. `from __future__` and `*` are skipped."""
-    tree = _py_parse(source_text)
-    imports = {}
-    if tree is None:
-        return imports
-    for n in tree.body:
-        if isinstance(n, ast.ImportFrom) and n.module != "__future__":
-            spec = "." * n.level + (n.module or "")
-            entry = imports.setdefault(spec, {"kind": "named", "items": []})
-            for a_ in n.names:
-                if a_.name == "*":
-                    continue
-                pair = (a_.name, a_.asname or a_.name)
-                if pair not in entry["items"]:
-                    entry["items"].append(pair)
-        elif isinstance(n, ast.Import):
-            for a_ in n.names:
-                local = a_.asname or a_.name.split(".")[0]
-                entry = imports.setdefault(a_.name, {"kind": "module", "items": []})
-                if (a_.name, local) not in entry["items"]:
-                    entry["items"].append((a_.name, local))
-    return {k: v for k, v in imports.items() if v["items"]}
-
-
-def _source_imports(source_lines, ext=".js"):
-    """{specifier: {"kind": "named"|"default"|"namespace"|"module", "items": [(original, local), ...]}}
-    for the leading imports of `source_lines`. JS/TS: leading ES imports (stops at the first
-    line that is neither blank, a comment, nor an import), read via find_code_usage's own
-    ts_handler regexes (Находка 1, Vision06) — not reinvented; multi-line `import {...}` collapsed
-    first via ts_handler's own `_join_multiline_imports` (Plan04-CARRY п.4). Python: `ast`.
-    Markdown / other languages: none."""
-    kind = _lang_kind(ext)
-    if kind == "py":
-        return _py_source_imports("\n".join(source_lines))
-    if kind != "js":
-        return {}
-    from find_code_usage.handlers.ts_handler import TypeScriptHandler
-
-    handler = TypeScriptHandler()
-    lines = handler._join_multiline_imports(list(source_lines))
-
-    imports = {}
-
-    def _add(specifier, kind, items):
-        entry = imports.setdefault(specifier, {"kind": kind, "items": []})
-        for pair in items:
-            if pair not in entry["items"]:
-                entry["items"].append(pair)
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith(("//", "*", "/*")):
-            continue
-        m = TypeScriptHandler.ES_NAMED_RE.match(line)
-        if m:
-            _add(m.group(2).strip(), "named", handler._parse_named_items(m.group(1)))
-            continue
-        m = TypeScriptHandler.ES_DEFAULT_RE.match(line)
-        if m:
-            _add(m.group(2).strip(), "default", [(m.group(1), m.group(1))])
-            continue
-        m = TypeScriptHandler.ES_NAMESPACE_RE.match(line)
-        if m:
-            _add(m.group(2).strip(), "namespace", [(m.group(1), m.group(1))])
-            continue
-        if not stripped.startswith("import"):
-            break  # first real line of code — leading-import scan is over
-    return imports
-
-
-def _needed_imports_for_target(blocks, source_imports, ext=""):
+def _needed_imports_for_target(blocks, source_imports, lang, ext=""):
     """{specifier: (kind, [(original, local), ...])} restricted to names these `blocks`
-    actually USE (identifier scan, not words) — union across every block assigned to one target."""
+    actually USE (the language's identifier scan, not words) — union across every block
+    assigned to one target file."""
     used = set()
     for b in blocks:
-        used.update(_identifiers(b.text, ext))
+        used.update(lang.identifiers(b.text, ext))
     needed = {}
     for specifier, info in source_imports.items():
         matched = [(orig, local) for orig, local in info["items"] if local in used]
         if matched:
             needed[specifier] = (info["kind"], matched)
     return needed
-
-
-def _render_import_line(specifier, kind, items, ext=""):
-    """Reconstructs one import statement — NOT copied verbatim from the source (a target may
-    need only a subset of one specifier's names)."""
-    if _lang_kind(ext) == "py":
-        if kind == "named":
-            parts = [orig if orig == local else f"{orig} as {local}" for orig, local in items]
-            return f"from {specifier} import {', '.join(parts)}"
-        if kind == "module":
-            return "\n".join(
-                f"import {orig}" if local == orig.split(".")[0] else f"import {orig} as {local}"
-                for orig, local in items)
-    if kind == "named":
-        parts = [orig if orig == local else f"{orig} as {local}" for orig, local in items]
-        return f"import {{ {', '.join(parts)} }} from '{specifier}'"
-    if kind == "default":
-        return f"import {items[0][1]} from '{specifier}'"
-    if kind == "namespace":
-        return f"import * as {items[0][1]} from '{specifier}'"
-    raise ValueError(f"unknown import kind {kind!r}")
 
 
 def _orphan_candidates(same_level_rows, block_start, block_end):
@@ -937,25 +638,6 @@ def _orphan_candidates(same_level_rows, block_start, block_end):
 
 # --------------------------------------------------------------------------- split-set graph
 
-def _file_spec(from_file, to_file, ext):
-    """Import specifier that `from_file` uses to reach `to_file` (both paths of the split set)."""
-    kind = _lang_kind(ext)
-    fdir = Path(from_file).resolve().parent
-    tpath = Path(to_file).resolve()
-    rel = Path(os.path.relpath(tpath.parent, fdir))
-    if kind == "py":
-        parts = [p for p in rel.parts if p != "."]
-        ups = sum(1 for p in parts if p == "..")
-        downs = [p for p in parts if p != ".."]
-        if (fdir / "__init__.py").exists():
-            return "." * (1 + ups) + ".".join(downs + [tpath.stem])
-        return ".".join(downs + [tpath.stem]) if not ups else tpath.stem
-    spec = Path(os.path.relpath(tpath, fdir)).as_posix()
-    if tpath.suffix.lower() in (".ts", ".tsx"):
-        spec = spec[: -len(tpath.suffix)]
-    return spec if spec.startswith(".") else "./" + spec
-
-
 def _find_cycles(edges, limit=5):
     """Simple cycles in {node: set(nodes)}, each reported once (rotated to its smallest node)."""
     found, seen = [], set()
@@ -979,7 +661,7 @@ def _find_cycles(edges, limit=5):
     return found[:limit]
 
 
-def _split_graph(file_path, ext, by_target, all_lines):
+def _split_graph(file_path, lang, ext, by_target, all_lines):
     """Dependencies BETWEEN the files of this split — exact, because every moved name is known.
 
     Not a general resolver: only names declared by the moved blocks (and the names that stay in
@@ -988,12 +670,12 @@ def _split_graph(file_path, ext, by_target, all_lines):
     "source": {specifier: ("named", [...])}, "notes": [comment lines]}.
     cross[target] = what that target must import from the OTHER targets and from the source;
     source = what the source must import back from the targets once the blocks left."""
-    if _lang_kind(ext) not in ("py", "js"):
+    if not lang.GRAPH:
         return None
     moved, owner_block = {}, {}
     for t, blocks in by_target.items():
         for b in blocks:
-            for n in _all_names_in_block(b.text, ext):
+            for n in lang.declared_names(b.text):
                 moved.setdefault(n, t)
                 owner_block.setdefault(n, b)
     moved_idx = set()
@@ -1001,7 +683,7 @@ def _split_graph(file_path, ext, by_target, all_lines):
         for b in blocks:
             moved_idx.update(range(b.start - 1, b.end))
     remaining = [ln for i, ln in enumerate(all_lines) if i not in moved_idx]
-    remaining_names = {n for n in _all_top_level_names(remaining, ext) if n not in moved}
+    remaining_names = {n for n in lang.top_level_names(remaining) if n not in moved}
 
     cross = {t: {} for t in by_target}   # target -> {specifier: [names]}
     src_back = {}                         # specifier -> [names]
@@ -1015,83 +697,51 @@ def _split_graph(file_path, ext, by_target, all_lines):
     for t, blocks in by_target.items():
         used = set()
         for b in blocks:
-            used |= _identifiers(b.text, ext)
+            used |= lang.identifiers(b.text, ext)
         for name in sorted(used & set(moved)):
             other = moved[name]
             if other != t:
-                spec = _file_spec(t, other, ext)
+                spec = lang.file_spec(t, other)
                 cross[t].setdefault(spec, []).append(name)
                 edges.setdefault(Path(t).name, set()).add(Path(other).name)
                 used_across.setdefault(name, set()).add(Path(t).name)
         for name in sorted(used & remaining_names):
-            spec = _file_spec(t, file_path, ext)
+            spec = lang.file_spec(t, file_path)
             cross[t].setdefault(spec, []).append(name)
             edges.setdefault(Path(t).name, set()).add(Path(file_path).name)
             used_across.setdefault(name, set()).add(Path(t).name)
-    src_used = _identifiers("\n".join(remaining), ext) if remaining else set()
+    src_used = lang.identifiers("\n".join(remaining), ext) if remaining else set()
     for name in sorted(src_used & set(moved)):
-        spec = _file_spec(file_path, moved[name], ext)
+        spec = lang.file_spec(file_path, moved[name])
         src_back.setdefault(spec, []).append(name)
         edges.setdefault(Path(file_path).name, set()).add(Path(moved[name]).name)
         used_across.setdefault(name, set()).add(Path(file_path).name)
 
     notes = []
-    if _lang_kind(ext) == "js":
-        remaining_text = "\n".join(remaining)
-        for name, users in sorted(used_across.items()):
-            if name in moved:
-                text, where = owner_block[name].text, f"{Path(moved[name]).name}"
-            else:
-                text, where = remaining_text, Path(file_path).name
-            if not re.search(rf"^\s*export\b[^\n]*\b{re.escape(name)}\b", text, re.M):
-                notes.append(f"# WARNING export: `{name}` ({where}) is not exported but is used by "
-                             f"{', '.join(sorted(users))} — add `export` by hand (changes block text, "
-                             f"so the tool does not do it)")
+    remaining_text = "\n".join(remaining)
+    for name, users in sorted(used_across.items()):
+        if name in moved:
+            text, where = owner_block[name].text, f"{Path(moved[name]).name}"
+        else:
+            text, where = remaining_text, Path(file_path).name
+        problem = lang.export_problem(name, text)
+        if problem:
+            notes.append(f"# WARNING export: `{name}` ({where}) is {problem} but is used by "
+                         f"{', '.join(sorted(users))} — fix by hand (changes block text, "
+                         f"so the tool does not do it)")
     for cyc in _find_cycles(edges):
         notes.append("# WARNING cycle: " + " -> ".join(cyc) + " — circular import between the new files")
     pack = lambda d: {sp: ("named", [(n, n) for n in names]) for sp, names in d.items()}
     return {"cross": {t: pack(d) for t, d in cross.items()}, "source": pack(src_back), "notes": notes}
 
 
-def _import_insert_index(segs, ext):
-    """Index (0-based, into `segs`) after the file's leading import block / module docstring."""
-    kind = _lang_kind(ext)
-    if kind == "py":
-        tree = _py_parse("".join(segs))
-        if tree is None:
-            return 0
-        last = max([n.end_lineno for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))] or [0])
-        if last:
-            return last
-        if tree.body and isinstance(tree.body[0], ast.Expr) and \
-                isinstance(getattr(tree.body[0], "value", None), ast.Constant) and \
-                isinstance(tree.body[0].value.value, str):
-            return tree.body[0].end_lineno
-        return 0
-    i = last = 0
-    while i < len(segs):
-        st = segs[i].strip()
-        if not st or st.startswith(("//", "/*", "*")):
-            i += 1
-            continue
-        if not st.startswith("import"):
-            break
-        j = i
-        while j < len(segs) and not re.search(r"""['"]\s*;?\s*$""", segs[j].rstrip()):
-            j += 1
-        if j >= len(segs):
-            break
-        last = i = j + 1
-    return last
-
-
-def _insert_imports(segs, imports, eol, ext):
+def _insert_imports(segs, imports, eol, lang):
     """Add import lines to the source's header (skipping ones already present). `segs` mutated."""
     present = {s.strip() for s in segs}
     lines = [imp.text for imp in imports if imp.text.strip() not in present]
     if not lines:
         return []
-    at = _import_insert_index(segs, ext)
+    at = lang.import_insert_index(segs)
     segs[at:at] = [ln + eol for text in lines for ln in text.split("\n")]
     return lines
 
@@ -1116,10 +766,11 @@ def generate(file_path, splits, out_path, project_root="."):
     """
     ext = Path(file_path).suffix.lower()
     all_lines = Path(file_path).read_text(encoding="utf-8").splitlines()
-    top_level_names = _all_top_level_names(all_lines, ext)
-    source_imports = _source_imports(all_lines, ext)
+    lang = split_langs.for_ext(ext)
+    top_level_names = lang.top_level_names(all_lines)
+    source_imports = lang.source_imports(all_lines)
     outline = _gcb_outline_rows(file_path)
-    is_md = ext in _MD_EXTS
+    is_md = lang.STUBS
     src_hash = hashlib.sha256(Path(file_path).read_bytes()).hexdigest()[:16]
 
     by_target = {}
@@ -1143,7 +794,7 @@ def generate(file_path, splits, out_path, project_root="."):
         seen_ranges[key] = target
         by_target.setdefault(target, []).append(block)
 
-    graph = _split_graph(file_path, ext, by_target, all_lines)
+    graph = _split_graph(file_path, lang, ext, by_target, all_lines)
 
     out = [
         f"# сгенерировано: split_monster --file {file_path} --split ...",
@@ -1161,7 +812,7 @@ def generate(file_path, splits, out_path, project_root="."):
         out.append("# --- split-set checks (computed from the names of the moved blocks) ---")
         out.extend(graph["notes"])
         out.append("")
-    if _lang_kind(ext) == "other":
+    if not lang.HAS_NAMES:
         out.append(f"# note: name hints / import propagation are NOT available for {ext or 'this file type'} — "
                    f"cut/replace work (get_codeblock addresses the blocks); write imports by hand.")
         out.append("")
@@ -1200,13 +851,13 @@ def generate(file_path, splits, out_path, project_root="."):
                     f"уровень {b.level}, {position} блока [{b.start}-{b.end}] — забрать: "
                     f"cut({file_path!r}, {cand['start']}), присвоить своему cXX"
                 )
-            for h in _hint_lines(b, all_lines, top_level_names, ext):
+            for h in _hint_lines(b, all_lines, top_level_names, lang, ext):
                 out.append(h)
-            names = _all_names_in_block(b.text, ext)
+            names = lang.declared_names(b.text)
             if len(names) > 1:
                 out.append(f"# банд: {len(names)} объявлений в одном диапазоне — "
                             f"{', '.join(names)}")
-            out.append(_preview_line(b, ext))
+            out.append(_preview_line(b, lang))
             varname = f"c{tag:02d}"
             if is_md:
                 stubname = f"STUB_{tag:02d}"
@@ -1229,7 +880,7 @@ def generate(file_path, splits, out_path, project_root="."):
         list_names[target] = list_name
         out.append(f"{list_name} = [{', '.join(var_names)}]")
 
-        needed = _needed_imports_for_target(blocks, source_imports, ext)
+        needed = _needed_imports_for_target(blocks, source_imports, lang, ext)
         cross_specs = set()
         if graph:
             for spec, (kind, items) in graph["cross"].get(target, {}).items():
@@ -1240,7 +891,7 @@ def generate(file_path, splits, out_path, project_root="."):
                     needed[spec] = (kind, items)
         imp_var_names = []
         for i, (specifier, (kind, items)) in enumerate(needed.items(), start=1):
-            line_text = _render_import_line(specifier, kind, items, ext)
+            line_text = lang.render_import(specifier, kind, items)
             impname = f"{_safe_ident(target)}_IMP{i:02d}"
             if specifier in cross_specs:
                 out.append("# between the files of this split (names the moved blocks use from each other / the source):")
@@ -1251,7 +902,7 @@ def generate(file_path, splits, out_path, project_root="."):
         out.append(f"{imports_list_name} = [{', '.join(imp_var_names)}]")
         out.append("")
 
-    if all_symbols and _lang_kind(ext) in ("py", "js"):
+    if all_symbols and lang.CONSUMERS:
         out.insert(
             header_len,
             f"monster.consumers({file_path!r}, {all_symbols!r}, project_root={project_root!r})",
@@ -1263,7 +914,7 @@ def generate(file_path, splits, out_path, project_root="."):
         out.append("# the source still uses names that are moving out — it needs these imports back:")
         names = []
         for i, (spec, (kind, items)) in enumerate(graph["source"].items(), start=1):
-            out.append(f"SOURCE_IMP{i:02d} = add_import({_render_import_line(spec, kind, items, ext)!r})")
+            out.append(f"SOURCE_IMP{i:02d} = add_import({lang.render_import(spec, kind, items)!r})")
             names.append(f"SOURCE_IMP{i:02d}")
         out.append(f"SOURCE_IMPORTS = [{', '.join(names)}]")
         out.append("")
@@ -1278,7 +929,7 @@ def generate(file_path, splits, out_path, project_root="."):
         out.append(f"monster.cut({file_path!r}, {all_blocks}{src_imp_arg})")
 
     Path(out_path).write_text("\n".join(out) + "\n", encoding="utf-8")
-    _CLI_STATS.update(lang=_lang_kind(ext), blocks=tag, targets=len(list_names),
+    _CLI_STATS.update(lang=lang.NAME, blocks=tag, targets=len(list_names),
                       imports=sum(1 for ln in out if "= add_import(" in ln))
     print(f"generated {out_path} ({tag} block(s), {len(list_names)} target file(s))")
 
@@ -1292,22 +943,6 @@ _REBASE_CALL_RE = re.compile(
 _REBASE_BARE_CALL_RE = re.compile(r"^\s*\w+ = (?:cut|replace)\(")
 _REBASE_PREVIEW_RE = re.compile(r"^# (?P<decl>.*?)  \[(?P<s>\d+)-(?P<e>\d+)\]\s*$")
 _REBASE_HASH_RE = re.compile(r"^(?P<pre>monster\.expect_source\((?:'[^']*'|\"[^\"]*\"), )['\"][0-9a-f]+['\"]")
-
-
-def _name_from_decl(decl, ext):
-    """Declaration name out of a generated preview line (`def user():`, `function f() {`, `## Beta`)."""
-    kind = _lang_kind(ext)
-    if kind == "md":
-        hm = _MD_HEADING_RE.match(decl)
-        return _md_slug(hm.group(2)) if hm else None
-    if kind == "py":
-        m = re.match(r"(?:async\s+def|def|class)\s+(\w+)", decl)
-        if m:
-            return m.group(1)
-        m = re.match(r"([A-Za-z_]\w*)\s*(?::[^=]*)?=", decl)
-        return m.group(1) if m else None
-    m = _TOP_LEVEL_NAME_RE.match(decl)
-    return next(g for g in m.groups() if g) if m else None
 
 
 def rebase(script_path, write=False, accept_changed=False):
@@ -1335,6 +970,7 @@ def rebase(script_path, write=False, accept_changed=False):
         return 0
     src_file = ast.literal_eval(calls[0][1].group("file"))
     ext = Path(src_file).suffix.lower()
+    lang = split_langs.for_ext(ext)
 
     # every block the source offers NOW, resolved the same way the script resolves them
     by_fp, by_range, seen_starts = {}, {}, set()
@@ -1365,8 +1001,8 @@ def rebase(script_path, write=False, accept_changed=False):
             new_block = min(hits, key=lambda b: abs(b.start - old_line))
             how = "same" if new_block.start == old_line else "moved"
         else:
-            name = _name_from_decl(decl, ext) if decl else None
-            named = [b for b in by_range.values() if name and name in _all_names_in_block(b.text, ext)]
+            name = lang.name_from_decl(decl) if decl else None
+            named = [b for b in by_range.values() if name and name in lang.declared_names(b.text)]
             if len(named) == 1:
                 new_block, how = named[0], "changed"
         label = decl or "?"
@@ -1400,7 +1036,7 @@ def rebase(script_path, write=False, accept_changed=False):
         if hm:
             lines[i] = f"{hm.group('pre')}'{new_hash}'" + ln[hm.end():]
     _CLI_STATS.update(
-        lang=_lang_kind(ext), write=bool(write), accept_changed=bool(accept_changed),
+        lang=lang.NAME, write=bool(write), accept_changed=bool(accept_changed),
         blocks=len(calls), unresolved=unresolved,
         moved=sum(1 for r_ in report if r_.lstrip().startswith("moved")),
         accepted=sum(1 for r_ in report if r_.lstrip().startswith("ACCEPTED")),

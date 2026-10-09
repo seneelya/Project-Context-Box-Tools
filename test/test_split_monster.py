@@ -817,3 +817,47 @@ def test_graph_js_warns_when_a_moved_private_name_crosses_the_boundary():
         text = Path(script).read_text(encoding="utf-8")
         assert "WARNING export: `helper`" in text
         assert "import { helper } from './h.js'" in text               # source gets it back
+
+
+# --------------------------------------------------------------------------- v0.3: split_langs
+
+def test_registry_maps_extensions_and_falls_back_to_other():
+    import split_langs
+    assert split_langs.for_ext(".py").NAME == "python"
+    assert split_langs.for_ext(".TSX").NAME == "javascript"
+    assert split_langs.for_ext(".md").STUBS is True and split_langs.for_ext(".md").CUT_LEVEL == 0
+    other = split_langs.for_ext(".zzz")
+    assert other.NAME == "other" and other.HAS_NAMES is False and other.GRAPH is False
+
+
+def test_incomplete_language_module_fails_loudly():
+    import types
+    import split_langs
+    mod = types.ModuleType("fake")
+    mod.NAME, mod.EXTENSIONS = "fake", (".fk",)
+    try:
+        split_langs.Lang(mod)
+        raise AssertionError("an incomplete module must not load")
+    except ValueError as e:
+        assert "declared_names" in str(e) and "render_import" in str(e)
+    full = types.ModuleType("fake2")
+    for k in split_langs._REQUIRED:
+        setattr(full, k, (lambda *a, **k: None) if k not in ("NAME", "EXTENSIONS") else ("x" if k == "NAME" else (".x",)))
+    full.GRAPH = True  # GRAPH promises file_spec + import_insert_index
+    try:
+        split_langs.Lang(full)
+        raise AssertionError("GRAPH=True without file_spec must not load")
+    except ValueError as e:
+        assert "file_spec" in str(e)
+
+
+def test_unknown_language_still_cuts_and_says_no_hints():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "a.cs"
+        src.write_bytes(b"public class A {}" + bytes([10, 10]) + b"public class B {}" + bytes([10]))
+        script = str(Path(d) / "move.py")
+        r = run_cli("--file", str(src), "--split", "1", str(Path(d) / "x.cs"), "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        assert "NOT available for .cs" in Path(script).read_text(encoding="utf-8")
+        assert _run(script, "--apply").returncode == 0
+        assert "class A" in Path(d, "x.cs").read_text(encoding="utf-8")
