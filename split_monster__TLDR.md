@@ -85,6 +85,16 @@ To drop something from the plan: **append** a short reassignment at the bottom (
 `SOME_BLOCKS = [c01]` to keep only `c01`) — never edit/comment an existing line, that means
 retyping it in full for no reason.
 
+## Usage log
+
+Same opt-in mechanism as the other tools (`CONFIG__TOOLS.LOG_ENABLED_TOOLS` contains
+`"split_monster"`, `LOG_DIR` → `<LOG_DIR>/split_monster.log.jsonl`, JSONL, diagnostic only — never
+block text). Three record kinds: `generate` (lang, blocks, targets, imports), `rebase` (moved /
+accepted / same / unresolved / hand-written counts, write flag) and `run` — one per `move.py`
+execution, with `apply`, `force`, `stale_warning`, blocks/targets/imports and `outcome`
+(`dry-run` / `applied_verified` / `verify_failed` / `refused_block_mismatch` / `incomplete`).
+Tests set `SPLIT_MONSTER_NO_LOG=1` so they never touch the real log.
+
 ## Not built yet
 
 `--investigate` (graph block<->block with a real resolver, instead of the grep hint above) is a

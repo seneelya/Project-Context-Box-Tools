@@ -13,6 +13,8 @@ TOOLS_DIR = os.path.dirname(SCRIPT_DIR)                  # __HQ/tools/
 if TOOLS_DIR not in sys.path:
     sys.path.insert(0, TOOLS_DIR)
 
+os.environ["SPLIT_MONSTER_NO_LOG"] = "1"  # tests must not write into the real usage log
+
 import split_monster as sm
 
 TOOL_PATH = os.path.join(TOOLS_DIR, "split_monster.py")

@@ -18,9 +18,13 @@ real reference graph (that's a future v1) — verify them, don't trust them blin
 import argparse
 import ast
 import hashlib
+import atexit
 import io
+import json
+import os
 import re
 import sys
+import time
 import tokenize
 from collections import Counter
 from pathlib import Path
@@ -39,6 +43,51 @@ from get_codeblock.core import get_codeblock as _gcb_get_codeblock
 from get_codeblock.reader.classify import outline_rows as _gcb_outline_rows
 
 _MD_EXTS = frozenset({".md", ".markdown"})
+
+TOOL_NAME = "split_monster"
+
+
+# --------------------------------------------------------------------------- call logging
+# Same opt-in mechanism as get_codeblock / make_interface_card (CONFIG__TOOLS.LOG_ENABLED_TOOLS +
+# LOG_DIR -> "<LOG_DIR>/split_monster.log.jsonl"), kept as its own copy — tools stay independent.
+# Diagnostic only: argv, outcome, counts, duration — never block text. Never raises.
+
+def _is_absolute_path(p):
+    if Path(p).is_absolute():
+        return True
+    return bool(p and len(p) >= 2 and p[1] == ":")
+
+
+def _load_logging_config():
+    """(enabled, log_dir, base) — enabled is False whenever the config is missing/unreadable."""
+    if os.environ.get("SPLIT_MONSTER_NO_LOG"):  # test suites set this — keep real logs clean
+        return False, None, None
+    try:
+        import CONFIG__TOOLS as c
+        schema = getattr(c, "CONFIG_SCHEMA_VERSION", 1) or 1
+        base = _HERE.parent if schema >= 2 else c.PROJECT_ROOT
+        return TOOL_NAME in (c.LOG_ENABLED_TOOLS or []), c.LOG_DIR, base
+    except Exception:
+        return False, None, None
+
+
+def _log_call(record):
+    try:
+        enabled, log_dir, root = _load_logging_config()
+        if not enabled:
+            return
+        log_dir = log_dir or "."
+        base = Path(root) if root and not _is_absolute_path(log_dir) else None
+        log_path = (base / log_dir if base else Path(log_dir)) / f"{TOOL_NAME}.log.jsonl"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        record.setdefault("ts", time.strftime("%Y-%m-%dT%H:%M:%S"))
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+_CLI_STATS = {}  # details the CLI modes (generate / rebase) add to their log record
 
 
 def _parse_split_line_token(token):
@@ -123,8 +172,10 @@ def _check_expected(block, expect, line):
            f"plan was made for (the file changed and this line now resolves to something else)")
     if "--force" in sys.argv:
         print(f"WARNING (--force): {msg}", file=sys.stderr)
+        monster._note(forced_mismatch=monster._run_get("forced_mismatch", 0) + 1)
         return
     print(f"ERROR: {msg}. Regenerate the script, or pass --force to cut it anyway.", file=sys.stderr)
+    monster._note(outcome="refused_block_mismatch")
     sys.exit(2)
 
 
@@ -266,6 +317,28 @@ class _Monster:
         self._before = {}        # path -> original bytes, or None if the file did not exist
         self._added = Counter()  # lines this run is allowed to add: import lines
         self._repl = Counter()   # ... and replacement/stub lines
+        self._run = None         # usage record of this move.py run (logged once, at exit)
+
+    def _note(self, **kv):
+        """Accumulate the run's usage record; the first call arms the at-exit log write."""
+        if self._run is None:
+            self._run = {"tool": TOOL_NAME, "kind": "run", "argv": sys.argv[1:],
+                         "script": Path(sys.argv[0]).name, "apply": _is_apply(),
+                         "force": "--force" in sys.argv, "blocks": 0, "targets": 0,
+                         "imports": 0, "_t0": time.time()}
+            atexit.register(self._flush_run)
+        self._run.update(kv)
+
+    def _run_get(self, key, default=None):
+        return (self._run or {}).get(key, default)
+
+    def _flush_run(self):
+        r = self._run
+        if not r:
+            return
+        r.setdefault("outcome", ("incomplete" if r["apply"] else "dry-run"))
+        r["duration_ms"] = round((time.time() - r.pop("_t0")) * 1000, 2)
+        _log_call(r)
 
     def _snap(self, path):
         key = str(Path(path))
@@ -278,6 +351,7 @@ class _Monster:
         itself: a changed file is fine as long as every block still resolves to the same text —
         each `cut(..., expect=...)` checks that individually (and refuses unless `--force`)."""
         now = hashlib.sha256(Path(source_file).read_bytes()).hexdigest()[:16]
+        self._note(source=str(source_file), stale_warning=(now != sha))
         if now != sha:
             print(f"WARNING: {source_file} changed since this script was generated "
                   f"(hash {sha} -> {now}). Each block is re-checked against its recorded text; "
@@ -308,6 +382,9 @@ class _Monster:
         lines.extend(body)
         final = "\n".join(lines) + ("\n" if lines else "")
 
+        self._note(targets=self._run_get("targets", 0) + 1,
+                   blocks=self._run_get("blocks", 0) + len(blocks),
+                   imports=self._run_get("imports", 0) + len(imports))
         if not _is_apply():
             print(f"[dry-run] would write {target_file}: "
                   f"{len(header)} import(s), {len(blocks)} block(s)")
@@ -409,6 +486,7 @@ class _Monster:
                 else:
                     Path(path).write_bytes(old)
             self._before, self._added, self._repl = {}, Counter(), Counter()
+            self._note(outcome="verify_failed", problems=len(problems))
             print("VERIFY FAILED — rolled every touched file back:", file=sys.stderr)
             for pr in problems:
                 print(f"  - {pr}", file=sys.stderr)
@@ -416,6 +494,7 @@ class _Monster:
         print(f"verified: {sum(before.values())} non-blank line(s) conserved across "
               f"{len(self._before)} file(s), all parse")
         self._before, self._added, self._repl = {}, Counter(), Counter()  # run closed
+        self._note(outcome="applied_verified")
 
     def consumers(self, file_path, symbols, project_root="."):
         """Print (not fix) who outside `file_path` imports each of `symbols` — must be called
@@ -1001,6 +1080,8 @@ def generate(file_path, splits, out_path, project_root="."):
         out.append(f"monster.cut({file_path!r}, {all_blocks})")
 
     Path(out_path).write_text("\n".join(out) + "\n", encoding="utf-8")
+    _CLI_STATS.update(lang=_lang_kind(ext), blocks=tag, targets=len(list_names),
+                      imports=sum(1 for ln in out if "= add_import(" in ln))
     print(f"generated {out_path} ({tag} block(s), {len(list_names)} target file(s))")
 
 
@@ -1120,6 +1201,13 @@ def rebase(script_path, write=False, accept_changed=False):
         hm = _REBASE_HASH_RE.match(ln)
         if hm:
             lines[i] = f"{hm.group('pre')}'{new_hash}'" + ln[hm.end():]
+    _CLI_STATS.update(
+        lang=_lang_kind(ext), write=bool(write), accept_changed=bool(accept_changed),
+        blocks=len(calls), unresolved=unresolved,
+        moved=sum(1 for r_ in report if r_.lstrip().startswith("moved")),
+        accepted=sum(1 for r_ in report if r_.lstrip().startswith("ACCEPTED")),
+        same=sum(1 for r_ in report if r_.lstrip().startswith("unchanged")),
+        hand_written=len(bare))
     print(f"rebase {script_path} against {src_file}:")
     print("\n".join(report))
     if bare:
@@ -1158,6 +1246,29 @@ monster.cut.
 
 
 def _cli(argv=None):
+    """Thin logging wrapper around `_cli_impl` — observes argv in, exit code/duration out."""
+    t0 = time.time()
+    argv_list = list(sys.argv[1:] if argv is None else argv)
+    record = {"tool": TOOL_NAME, "kind": "rebase" if "--rebase" in argv_list else "generate",
+              "argv": argv_list}
+    code = 0
+    try:
+        _cli_impl(argv)
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        raise
+    except BaseException as e:
+        code = 1
+        record["error"] = f"{type(e).__name__}: {e}"
+        raise
+    finally:
+        record.update(_CLI_STATS)
+        record["exit_code"] = code
+        record["duration_ms"] = round((time.time() - t0) * 1000, 2)
+        _log_call(record)
+
+
+def _cli_impl(argv=None):
     p = argparse.ArgumentParser(
         prog="split_monster",
         formatter_class=argparse.RawDescriptionHelpFormatter,

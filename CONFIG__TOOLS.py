@@ -195,6 +195,7 @@ ESCALATE_K = 1.5
 LOG_ENABLED_TOOLS = [
     "get_codeblock",
     "make_interface_card",
+    "split_monster",
 ]
 # Relative to the HQ, so the same value is right in every copy — this neutral one (whose
 # PROJECT_ROOT is ".") and a deployed project alike. The old PROJECT_ROOT-anchored value
