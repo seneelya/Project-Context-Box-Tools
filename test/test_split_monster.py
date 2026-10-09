@@ -134,28 +134,53 @@ def test_monster_cut_rejects_mismatched_source():
             pass
 
 
-# --------------------------------------------------------------------------- CLI: --investigate stub
+# --------------------------------------------------------------------------- CLI: --investigate
 
-def test_investigate_is_a_documented_stub_not_a_crash():
+INV_PY = (chr(10).join([
+    "import os", "", "",
+    "def helper():", "    return os.name", "", "",
+    "def a():", "    return helper()", "", "",
+    "def b():", "    return helper() + a()", "", "",
+    "def lone():", "    return 7", "", "",
+    "def c():", "    return helper() + lone()", ""]))
+
+
+def test_investigate_prints_graph_hubs_clusters_and_a_command():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, "m.py", INV_PY)
+        result = run_cli("--file", src, "--investigate")
+        assert result.returncode == 0, result.stderr
+        out = result.stdout
+        assert "5 named top-level block(s)" in out
+        row_b = [ln for ln in out.splitlines() if ln.split() and ln.split()[0] == "3" and "b" in ln][0]
+        assert "helper" in row_b and "a" in row_b            # b uses helper and a
+        assert "hubs (*)" in out and "helper" in out         # used by a, b, c -> hub
+        assert "clusters" in out and "--split" in out and "--out-script move.py" in out
+        assert not Path(d, "move.py").exists()              # writes nothing
+
+
+def test_investigate_markdown_says_to_use_the_outline():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, "doc.md", "# T" + chr(10) + chr(10) + "## A" + chr(10) + "x" + chr(10))
+        result = run_cli("--file", src, "--investigate")
+        assert result.returncode == 0 and "get_codeblock" in result.stdout
+
+
+def test_dry_run_prints_a_plan_table():
     with tempfile.TemporaryDirectory() as d:
         src = _write_fixture(d)
-        result = run_cli("--file", src, "--investigate")
-        assert result.returncode != 0
-        assert "не реализован" in result.stderr
-        assert "v1" in result.stderr
+        target = str(Path(d) / "t.js")
+        script = str(Path(d) / "move.py")
+        run_cli("--file", src, "--split", "3", target, "--out-script", script)
+        out = subprocess.run([sys.executable, script], capture_output=True, text=True,
+                             encoding="utf-8", errors="replace").stdout
+        assert "[dry-run] plan:" in out and "blocks" in out and "after" in out
 
 
-def test_investigate_does_not_require_split_or_out_script():
-    # would previously fail argparse's own required-arg check before reaching our code
-    result = run_cli("--file", "irrelevant.js", "--investigate")
-    assert "the following arguments are required" not in result.stderr
-
-
-def test_help_mentions_investigate_is_unbuilt():
+def test_help_describes_investigate():
     result = run_cli("--help")
     assert result.returncode == 0
-    assert "--investigate" in result.stdout
-    assert "НЕ РЕАЛИЗОВАНО" in result.stdout
+    assert "--investigate" in result.stdout and "НЕ РЕАЛИЗОВАНО" not in result.stdout
 
 
 # --------------------------------------------------------------------------- --generate CLI

@@ -299,6 +299,7 @@ class _Monster:
         self._added = Counter()  # lines this run is allowed to add: import lines
         self._repl = Counter()   # ... and replacement/stub lines
         self._run = None         # usage record of this move.py run (logged once, at exit)
+        self._plan = []          # (target, blocks, imports, lines) — shown by the dry-run summary
 
     def _note(self, **kv):
         """Accumulate the run's usage record; the first call arms the at-exit log write."""
@@ -369,6 +370,8 @@ class _Monster:
         if not _is_apply():
             print(f"[dry-run] would write {target_file}: "
                   f"{len(header)} import(s), {len(blocks)} block(s)")
+            self._plan.append((str(target_file), len(blocks), len(header),
+                               sum(b.end - b.start + 1 for b in blocks)))
             return
         self._snap(target_file)
         for imp in imports:
@@ -389,6 +392,7 @@ class _Monster:
                 )
         if not _is_apply():
             print(f"[dry-run] would cut {len(blocks)} block(s) from {source_file}")
+            self._dry_summary(source_file, blocks, imports)
             return
         self._snap(source_file)
         raw, _eol, bom = _read_raw(source_file)
@@ -421,6 +425,7 @@ class _Monster:
                 )
         if not _is_apply():
             print(f"[dry-run] would replace {len(blocks)} block(s) in {source_file}")
+            self._dry_summary(source_file, blocks, imports)
             return
         self._snap(source_file)
         raw, eol, bom = _read_raw(source_file)
@@ -438,6 +443,21 @@ class _Monster:
         print(f"replaced {len(blocks)} block(s) in {source_file}"
               + (f", +{len(added)} import(s) into it" if added else ""))
         self.verify()
+
+    def _dry_summary(self, source_file, blocks, imports):
+        """The dry-run table: where the lines go, and what the source ends up with."""
+        try:
+            total = len(_segments(_read_raw(source_file)[0]))
+        except OSError:
+            return
+        moved = sum(b.end - b.start + 1 for b in blocks)
+        print("[dry-run] plan:")
+        print(f"  {'file':<44} {'blocks':>6} {'imports':>7} {'lines':>6}")
+        for target, nb, ni, nl in self._plan:
+            print(f"  {target[-44:]:<44} {nb:>6} {ni:>7} {nl:>6}")
+        print(f"  {str(source_file)[-44:]:<44} {'':>6} {len(imports or []):>7} "
+              f"{total:>6} -> ~{total - moved + len(imports or [])} after")
+        self._plan = []
 
     def verify(self):
         """After-the-fact safety net for the whole run (journaled files only).
@@ -1087,6 +1107,136 @@ def rebase(script_path, write=False, accept_changed=False):
     return unresolved
 
 
+# --------------------------------------------------------------------------- --investigate
+
+def _investigate_blocks(file_path, lang, ext, all_lines):
+    """Top-level blocks of the file with what they declare/use: [{start,end,lines,names,uses,used_by}]."""
+    rows = [r for r in _gcb_outline_rows(file_path)
+            if r["level"] == 1 and not r["text"].startswith("imports: ")]
+    blocks, no_names = [], 0
+    for r in rows:
+        text = "\n".join(all_lines[r["start"] - 1: r["end"]])
+        names = lang.declared_names(text, ext)
+        if not names:
+            no_names += 1
+            continue
+        blocks.append({"start": r["start"], "end": r["end"], "lines": r["end"] - r["start"] + 1,
+                       "names": names, "ids": lang.identifiers(text, ext), "uses": [], "used_by": []})
+    owner = {}
+    for i, b in enumerate(blocks):
+        for n in b["names"]:
+            owner.setdefault(n, []).append(i)
+    for i, b in enumerate(blocks):
+        deps = {j for n in b["ids"] if n in owner for j in owner[n] if j != i}
+        b["uses"] = sorted(deps)
+    for i, b in enumerate(blocks):
+        for j in b["uses"]:
+            blocks[j]["used_by"].append(i)
+    return blocks, no_names
+
+
+_ORCH_MIN = 5   # a block that uses >= this many other blocks of the file is an "orchestrator"
+
+
+def _clusters(blocks, excluded):
+    """Connected components over `uses` edges among the blocks NOT in `excluded` (hubs and
+    orchestrators would otherwise glue every family into one lump)."""
+    parent = list(range(len(blocks)))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i, b in enumerate(blocks):
+        for j in b["uses"]:
+            if j in excluded or i in excluded:
+                continue
+            parent[find(i)] = find(j)
+    groups = {}
+    for i in range(len(blocks)):
+        if i not in excluded:
+            groups.setdefault(find(i), []).append(i)
+    return sorted(groups.values(), key=lambda g: blocks[g[0]]["start"])
+
+
+def investigate(file_path, project_root="."):
+    """The picture of a monster file for the one who decides the split: every top-level block with
+    its size, what it declares, which other blocks of the SAME file it uses and who uses it;
+    shared "hub" blocks; clusters of blocks that belong together; a starting `--split` command.
+    Facts + a proposal — the grouping stays the caller's call. Uses the language's identifier scan
+    (no comment/string noise), not a full resolver."""
+    ext = Path(file_path).suffix.lower()
+    lang = split_langs.for_ext(ext)
+    if not lang.HAS_NAMES or lang.STUBS:
+        print(f"investigate: no name graph for {ext or 'this file type'} — use "
+              f"`get_codeblock --file {file_path} --outline` and pick the lines yourself")
+        return 0
+    all_lines = Path(file_path).read_text(encoding="utf-8").splitlines()
+    blocks, no_names = _investigate_blocks(file_path, lang, ext, all_lines)
+    n = len(blocks)
+    hub_min = max(3, -(-n * 3 // 10))          # used by >= max(3, 30% of blocks) -> shared hub
+    hubs = {i for i, b in enumerate(blocks) if len(b["used_by"]) >= hub_min}
+    _CLI_STATS.update(lang=lang.NAME, blocks=n, hubs=len(hubs))
+
+    def label(i):
+        return ",".join(blocks[i]["names"][:2]) + ("+" if len(blocks[i]["names"]) > 2 else "")
+
+    total = sum(b["lines"] for b in blocks)
+    print(f"investigate {file_path} — {n} named top-level block(s), {total} line(s) "
+          f"of {len(all_lines)}" + (f"; {no_names} unnamed band(s) not listed (comments/glue)" if no_names else ""))
+    print(f"{'#':>3} {'lines':>11} {'size':>5}  {'declares':<28} {'uses (same file)':<30} used by")
+    for i, b in enumerate(blocks):
+        uses = [label(j) for j in b["uses"]]
+        used_by = [label(j) for j in b["used_by"]]
+        cut_ = lambda xs: ", ".join(xs[:5]) + (f" +{len(xs) - 5}" if len(xs) > 5 else "") if xs else "-"
+        mark = " *" if i in hubs else ""
+        print(f"{i + 1:>3} {str(b['start']) + '-' + str(b['end']):>11} {b['lines']:>5}  "
+              f"{label(i):<28.28} {cut_(uses):<30.30} {cut_(used_by)}{mark}")
+    if hubs:
+        print(f"\nhubs (*) — used by >= {hub_min} blocks, kept out of the clusters; usually a shared file "
+              f"or they stay in the source: " + ", ".join(label(i) for i in sorted(hubs)))
+    orch = {i for i, b in enumerate(blocks) if len(b["uses"]) >= _ORCH_MIN and i not in hubs}
+    groups = _clusters(blocks, hubs | orch)
+    families = [g for g in groups if len(g) >= 2]
+    singles = [g[0] for g in groups if len(g) == 1]
+    letter = {}
+    print(f"\nfamilies (>= 2 blocks linked by 'uses'; hubs and orchestrators left out) — {len(families)}:")
+    stem, suffix = Path(file_path).stem, Path(file_path).suffix
+    split_args, taken = [], set()
+    for k, g in enumerate(families):
+        tag = chr(ord("A") + k) if k < 26 else f"F{k}"
+        for i in g:
+            letter[i] = tag
+        lines = sum(blocks[i]["lines"] for i in g)
+        pool = [n for i in g for n in blocks[i]["names"]]
+        first = next((n for n in pool if not n.isupper()), pool[0])      # a function/class, not a CONSTANT
+        print(f"  {tag} [{lines:>4} lines] " + ", ".join(label(i) for i in g))
+        tname = re.sub(r"\W+", "_", first).strip("_") or "part"
+        while tname in taken:
+            tname += "_"
+        taken.add(tname)
+        split_args.append((",".join(str(blocks[i]["start"]) for i in g), f"{stem}_{tname}{suffix}"))
+    if singles:
+        print("lone blocks (no link to another non-orchestrator block): " + ", ".join(label(i) for i in singles))
+    if orch:
+        print(f"orchestrators (use >= {_ORCH_MIN} blocks) and the families they lean on:")
+        for i in sorted(orch):
+            lean = sorted({letter[j] for j in blocks[i]["uses"] if j in letter})
+            print(f"  {label(i)} [{blocks[i]['lines']} lines] -> " + (", ".join(lean) if lean else "no family"))
+    if hubs:
+        split_args.append((",".join(str(blocks[i]["start"]) for i in sorted(hubs)), f"{stem}_shared{suffix}"))
+    print("\nstarting point (a proposal: peel the families off, the core stays — group/rename as you see fit, "
+          "then review the generated script):")
+    if split_args:
+        print(f"  split_monster.py --file {file_path} " +
+              " ".join(f'--split {ln} "{t}"' for ln, t in split_args) + " --out-script move.py")
+    else:
+        print("  (no family to peel off — the blocks are one tangle or independent; decide by the table above)")
+    return 0
+
+
 # --------------------------------------------------------------------------- CLI
 
 _CLI_EPILOG = """
@@ -1115,7 +1265,8 @@ def _cli(argv=None):
     """Thin logging wrapper around `_cli_impl` — observes argv in, exit code/duration out."""
     t0 = time.time()
     argv_list = list(sys.argv[1:] if argv is None else argv)
-    record = {"tool": TOOL_NAME, "kind": "rebase" if "--rebase" in argv_list else "generate",
+    record = {"tool": TOOL_NAME, "kind": ("rebase" if "--rebase" in argv_list else
+                                          "investigate" if "--investigate" in argv_list else "generate"),
               "argv": argv_list}
     code = 0
     try:
@@ -1151,20 +1302,19 @@ def _cli_impl(argv=None):
     p.add_argument(
         "--split", nargs=2, action="append", metavar=("LINE", "TARGET"),
         help="номер строки (или список через запятую: 12,34,45) + целевой файл; "
-             "флаг повторяемый — каждая пара LINE TARGET. Обязателен без --investigate.",
+             "флаг повторяемый — каждая пара LINE TARGET. Обязателен без --investigate/--rebase.",
     )
     p.add_argument(
         "--out-script",
-        help="куда записать сгенерированный скрипт. Обязателен, если не передан --investigate.",
+        help="куда записать сгенерированный скрипт. Обязателен, если не передан --investigate/--rebase.",
     )
     p.add_argument(
         "--investigate", action="store_true",
         help=(
-            "[ЗАДУМАНО, НЕ РЕАЛИЗОВАНО — v1] Граф ссылок блок<->блок ВНУТРИ --file с честным "
-            "резолвом (тем же классом инструментов, что find_code_usage/graph_from_cards), "
-            "вместо дешёвой grep-подсказки из --split. Плюс кэш дампа графа по хэшу файла. "
-            "См. Vision06__monster-file-split.md, секция 'v1'. Сейчас просто печатает это "
-            "сообщение и завершается с ошибкой — используйте --split."
+            "картина файла-монстра для решения о разрезе: все top-level блоки (размер, что объявляют, "
+            "какие другие блоки ЭТОГО файла используют и кто использует их), хабы, кластеры и "
+            "стартовая команда --split. Только факты + предложение; группировку решаете вы. "
+            "Ничего не пишет."
         ),
     )
     p.add_argument("--project-root", default=".", help="для monster.consumers(...)")
@@ -1185,16 +1335,10 @@ def _cli_impl(argv=None):
         p.error("--file обязателен (кроме --rebase)")
 
     if args.investigate:
-        print(
-            "--investigate ещё не реализован — это v1 (граф блок<->блок с честным резолвом), "
-            "задумано, но не построено. См. Vision06__monster-file-split.md, секция 'v1'. "
-            "Сейчас доступна только группировка через --split (v0, дешёвая grep-подсказка).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+        sys.exit(investigate(args.file, project_root=args.project_root))
 
     if not args.split or not args.out_script:
-        p.error("--split и --out-script обязательны (если не передан --investigate)")
+        p.error("--split и --out-script обязательны (кроме --investigate/--rebase)")
 
     splits = []
     for line_token, target in args.split:

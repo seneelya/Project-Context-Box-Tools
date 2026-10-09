@@ -130,9 +130,19 @@ execution, with `apply`, `force`, `stale_warning`, blocks/targets/imports and `o
 (`dry-run` / `applied_verified` / `verify_failed` / `refused_block_mismatch` / `incomplete`).
 Tests set `SPLIT_MONSTER_NO_LOG=1` so they never touch the real log.
 
+## `--investigate` — the picture before you decide
+
+`split_monster.py --file monster.py --investigate` (writes nothing): every named top-level block
+with its line range, size, what it declares, which OTHER blocks of the same file it uses and who uses
+it; **hubs** (`*`, used by many — a shared file or they stay); **families** (>= 2 blocks linked by
+"uses", hubs and orchestrators left out — the natural pieces to peel off); **lone blocks**;
+**orchestrators** (use >= 5 blocks) with the families they lean on (hint where each should live);
+and a starting `--split …` command that peels the families off and leaves the core. Identifier scan,
+not a resolver; the grouping stays your decision. Markdown/other languages: use `get_codeblock
+--outline`. Dry-run of `move.py` now prints a plan table (files / blocks / imports / lines).
+
 ## Not built yet
 
-`--investigate` (graph block<->block with a real resolver, instead of the grep hint above) is a
-documented stub — running it just prints that it isn't implemented (v1, see Vision06's "v1"
-section). Anything ESM auto-import misses (`require`, path aliases, side-effect imports you
+A real resolver for block<->block references (the `--investigate` graph and the hints use the
+identifier scan, so shadowed names / dynamic access can mislead). Anything ESM auto-import misses (`require`, path aliases, side-effect imports you
 still need) — append `add_import(...)` in the script by hand.
