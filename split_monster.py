@@ -22,9 +22,11 @@ the folder that holds split_monster.py; Python >= 3.10, `pip install -r get_code
 Generated move.py files import split_monster by absolute path (sys.path.insert) — regenerate
 them after moving the tool.
 
-v0 scope: I (the LLM) decide which block goes to which file — this tool does not propose
-groupings. The "best-effort hints" it writes into generated scripts are a cheap grep, not a
-real reference graph (that's a future v1) — verify them, don't trust them blindly.
+Scope: the caller (the LLM) decides which block goes to which file — `--investigate` only shows
+the picture and proposes a starting point. Block text never passes through the model; the tool moves
+it byte-for-byte and generates imports / re-exports / appended `export` lines around it. The name
+hints are an identifier scan (ast / tree-sitter), not a full resolver — verify them. Language code
+lives in `split_langs/` (one module per language, see its CONTRACT.md); the core has no `if language`.
 """
 
 import argparse
@@ -1532,24 +1534,38 @@ def investigate(file_path, project_root="."):
 # --------------------------------------------------------------------------- CLI
 
 _CLI_EPILOG = """
-Форматы (--file), резка блоков:
-  Границы блоков — get_codeblock (см. get_codeblock__TLDR.md): в т.ч. .js .mjs .ts .tsx .jsx,
-  .py, .md/.markdown. Строки для --split берите из `get_codeblock --file F --outline`
-  (.md: добавьте --level 4+, строка заголовка).
+Рабочий цикл (вы решаете группировку, тул делает каждый шаг дешёвым и наблюдаемым):
+  1. get_codeblock --file F --outline            — границы блоков (.md: --level 4+)
+     split_monster --file F --investigate        — граф блоков, хабы, семьи, стартовая команда
+  2. split_monster --file F --split LINES TARGET ... --out-script move.py [--check "ТЕСТЫ"]
+  3. python move.py            — dry-run: план, таблица файлов, ничего не пишет
+     python move.py --apply    — разрез; verify (ничего не потеряно/не выдумано, всё парсится,
+                                 иначе откат), затем --check (если задан)
+  4. тесты упали → подсказки покажут, куда переехали имена из ошибок → доправить; либо
+     python move.py --undo     — вернуть всё (оригиналы в move.py.undo/)
+  Источник изменился после генерации → split_monster --rebase move.py [--write] (ручные правки
+  скрипта не трогаются); блок по строке другой текст → стоп, обход --force.
+  Коды выхода move.py: 0 ок · 1 verify откатил · 2 план устарел (блок не тот) · 3 разрез применён,
+  --check упал.
 
-  Smoke на копиях фикстур: test/topLevel (js, ts, tsx, py), test/mdSRC/*.md,
-  test/tsSRC/dyn (*.mjs). Регресс: test/test_split_monster.py.
+Языки (модуль на язык — split_langs/, контракт split_langs/CONTRACT.md):
+  .py                      — имена/импорты через ast; реэкспорт из источника (публичные имена и имена,
+                             которыми пользуются другие файлы проекта); граф между новыми файлами.
+  .js .mjs .jsx .ts .tsx   — ESM-импорты, граф, дописывание `export { x };` для приватных имён,
+                             предупреждения (public API / dangling export / цикл). require() — нет.
+  .cs .c .h .cpp .hpp .cu… — резка + подсказки по именам (get_codeblock); using / безусловные #include
+                             источника переносятся во все цели; предупреждения про namespace и #if.
+  .md                      — секции по заголовкам, STUB_XX + replace; подсказки по ссылкам #anchor.
+  прочее (css, sh, …)      — резка работает, подсказок/импортов нет (скрипт об этом пишет).
 
-Автоподстановка import в сгенерированный скрипт (add_import):
-  Только ведущие ESM-строки `import … from '…'` в --file (парсер find_code_usage/ts_handler).
-  В целевой файл попадает подмножество имён, которые переносимые блоки упоминают (grep по
-  тексту, не резолвер). Подходит для JS/TS/TSX/MJS с таким синтаксисом.
-  CommonJS require() не сканируется; Python import и Markdown — нет (add_import вручную).
+Что в сгенерированном скрипте: cut/replace с отпечатками блоков (expect=…), add_import на каждую цель,
+SOURCE_IMPORTS (что нужно остатку источника), предупреждения (# NOTE / # WARNING), «кандидаты» —
+комментарии-сироты рядом с переносимыми блоками (забрать вручную), monster.consumers (кто снаружи
+импортирует имена). Правка скрипта = ДОПИСАТЬ короткую строку снизу, существующие не переписывать.
+Подсказки по именам — по идентификаторам (ast / tree-sitter), не полноценный резолвер: проверяйте.
 
-Подсказки в скрипте: best-effort grep (имена объявлений в стиле JS); превью .md — строка заголовка.
-
-Markdown: generate() emits STUB_XX + replace() + monster.replace (stub on месте вырезки); код — cut +
-monster.cut.
+Лог использования: CONFIG__TOOLS.LOG_ENABLED_TOOLS содержит "split_monster" → LOG_DIR/split_monster.log.jsonl.
+Подробнее: split_monster__TLDR.md. Тесты: test/test_split_monster.py.
 """.strip()
 
 
@@ -1582,14 +1598,16 @@ def _cli_impl(argv=None):
         prog="split_monster",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Разворачивает line->target_file пары в исполняемый скрипт-перенос (v0). "
-            "Сначала get_codeblock --outline, потом --split; python OUT.py [--apply]."
+            "Разрезает файл-монстр: переносит именованные блоки в другие файлы байт-в-байт, "
+            "импорты/реэкспорты/экспорты и проверки — программно. Вы решаете группировку: "
+            "--investigate (картина файла) → --split … --out-script move.py → python move.py "
+            "[--apply] → --check/--undo. Блок-текст не проходит через LLM."
         ),
         epilog=_CLI_EPILOG,
     )
     p.add_argument(
         "--file",
-        help="файл-монстр (js/mjs/ts/tsx/py/md/… — см. epilog); блоки режет get_codeblock",
+        help="файл-монстр (py/js/ts/tsx/cs/cpp/md/… — см. список языков ниже); блоки режет get_codeblock",
     )
     p.add_argument(
         "--split", nargs=2, action="append", metavar=("LINE", "TARGET"),
@@ -1609,7 +1627,7 @@ def _cli_impl(argv=None):
             "Ничего не пишет."
         ),
     )
-    p.add_argument("--project-root", default=".", help="для monster.consumers(...)")
+    p.add_argument("--project-root", default=".", help="корень проекта: monster.consumers, реэкспорт имён, cwd для --check")
     p.add_argument(
         "--rebase", metavar="SCRIPT",
         help="лёгкая перегенерация: переставить номера строк в УЖЕ существующем move.py под "

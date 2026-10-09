@@ -1143,3 +1143,13 @@ def test_undefined_names_are_reported_statically_after_a_split():
         r = _run(script, "--apply")
         assert r.returncode == 0, r.stderr                   # a warning, not a failure
         assert "UNDEFINED (static)" in r.stderr and "helper" in r.stderr
+
+
+def test_help_is_current():
+    """--help must describe what the tool does NOW (a stale help misleads the agent that reads it)."""
+    out = run_cli("--help").stdout
+    for must in ("--investigate", "--check", "--undo", "--rebase", "split_langs", "move.py.undo",
+                 "verify", "Коды выхода"):
+        assert must in out, must
+    for stale in ("(v0)", "НЕ РЕАЛИЗОВАНО", "Python import и Markdown — нет"):
+        assert stale not in out, stale

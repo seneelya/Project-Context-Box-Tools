@@ -1,10 +1,12 @@
 # split_monster
 
-v0. Moves named top-level blocks between files WITHOUT you retyping their content twice. You
-decide the grouping (`line -> target_file`); it expands that into a throwaway, hand-editable
-Python script; you review/tweak it (cheaply — append short override lines, never rewrite
-existing ones) and run it. See `__dev/vision/Vision06__monster-file-split.md` /
-`__dev/plans/Plan04__split_monster.md` for the full rationale — this is just the quick reference.
+Splits a monster file: moves named top-level blocks into other files **byte-for-byte** (block text
+never passes through the model) and generates the imports / re-exports / `export` lines around
+them. You decide the grouping (`line -> target_file`); it expands that into a throwaway,
+hand-editable Python script; you review/tweak it (append short override lines, never rewrite
+existing ones), run it, run your tests, and fix forward. Rationale and history:
+`__dev/vision/Vision06__monster-file-split.md`; this is the quick reference. `--help` has the same
+workflow in short.
 
 **Target:** `split_monster.py --file <monster.js> --split <LINE> <target.py> [--split ... ...] --out-script <out.py>`
 — `LINE` is a block's start line (get it from `get_codeblock --outline` first), or several lines
@@ -19,10 +21,12 @@ to a `~content` slice without the `##` title).
 ## Quick use
 
 ```
-get_codeblock.py --file monster.js --outline                        # find block start lines first
-split_monster.py --file monster.js --split 123 "a.js" --split 456 "b.js" --out-script move.py
-python move.py            # dry-run — prints the plan, writes nothing
-python move.py --apply     # actually cuts monster.js and writes a.js/b.js
+split_monster.py --file monster.js --investigate                    # the picture: blocks, hubs, families, a starting --split
+get_codeblock.py --file monster.js --outline                        # block start lines
+split_monster.py --file monster.js --split 123 "a.js" --split 456 "b.js" --out-script move.py --check "npm test"
+python move.py            # dry-run — prints the plan table, writes nothing
+python move.py --apply     # cuts monster.js, writes a.js/b.js, verifies, then runs the check
+python move.py --undo      # put everything back (originals in move.py.undo/)
 ```
 
 Markdown example:
@@ -41,9 +45,9 @@ python move.py --apply
 * one `cut(file, line)` or `replace(file, line, STUB_XX)` call per block + a `#N` tag (a stable id for `Edit`-anchoring, not a live
   line number) — the descriptive comment (block's own signature/preview) lives on its OWN line
   ABOVE the code, never mixed into it;
-* a cheap **best-effort grep hint** per block ("who else in the file mentions this name",
-  "which other top-level names does this block's body use") — NOT a real reference graph, just a
-  textual scan. Verify it yourself; it will have false positives/negatives;
+* a **best-effort hint** per block ("who else in the file mentions this name" — a grep; "which other
+  top-level names does this block use" — an identifier scan, comments/strings excluded) — NOT a
+  resolver (shadowed names, dynamic access can mislead). Verify it yourself;
 * `monster.write(target, blocks, imports)` / `monster.cut(source, blocks)` at the bottom — these
   do the actual byte-for-byte move, gated behind `--apply` on the SCRIPT's own invocation.
 * **imports** (ESM `.js` `.mjs` `.ts` `.tsx` `.jsx`, and Python): leading imports of `--file` are
