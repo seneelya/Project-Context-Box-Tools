@@ -54,9 +54,13 @@ python move.py --apply
   (a) imports BETWEEN the new files (`from h import helper`) and from the source into the targets
   for names that stay there, (b) `SOURCE_IMPORTS` — imports the REMAINING source now needs from the
   files its blocks moved to (`monster.cut(src, blocks, imports=SOURCE_IMPORTS)` inserts them after
-  the cut), (c) comment warnings: `WARNING export:` (a private JS name now crosses a file
-  boundary — add `export` by hand; the tool never edits block text) and `WARNING cycle:`
-  (circular import among the new files). Identifier scan, not a full resolver.
+  the cut), (c) comment warnings: `WARNING export:` (a private JS/TS name now crosses a file
+  boundary — add `export` by hand; the tool never edits block text; `export { a }` lists count as
+  exports), `NOTE public API:` (a name the source exports / lists in `__all__` moves out — importers
+  of the source break unless it re-exports; a ready `export { … } from` / `from … import …  #
+  re-export` line is suggested), `WARNING dangling export:` (the source's `export { … }` / `__all__`
+  still lists a name that moved) and `WARNING cycle:` (circular import among the new files).
+  Identifier scan, not a full resolver.
 * **safety (always on)**: `monster.expect_source(file, hash)` only WARNS if `--file` changed since
   generation; every `cut(..., expect=<block fingerprint>)` re-checks its own block text — same text
   (file changed elsewhere) = proceeds, different text (lines shifted/edited) = stops, unless

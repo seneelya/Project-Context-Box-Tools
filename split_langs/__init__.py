@@ -43,9 +43,21 @@ class _Defaults:
         """0-based index into the source's lines where new import lines go (after the header)."""
         return 0
 
+    ENFORCES_PRIVACY = False   # True -> a non-exported name cannot be imported from another file
+
     @staticmethod
-    def export_problem(name, block_text):
-        """A message when `name` — declared in `block_text` — is not visible from other files, else None."""
+    def exported_names(text):
+        """The file's public surface (local names), or None when the language has no such notion."""
+        return None
+
+    @staticmethod
+    def dangling_exports(lines, names):
+        """Of `names`, those the REMAINING source still lists in an export list / `__all__`."""
+        return []
+
+    @staticmethod
+    def reexport_line(names, spec):
+        """A line that lets the source keep exporting moved `names` (suggestion), or None."""
         return None
 
     @staticmethod

@@ -734,17 +734,28 @@ def _split_graph(file_path, lang, ext, by_target, all_lines):
         used_across.setdefault(name, set()).add(Path(file_path).name)
 
     notes = []
-    remaining_text = "\n".join(remaining)
-    for name, users in sorted(used_across.items()):
-        if name in moved:
-            text, where = owner_block[name].text, f"{Path(moved[name]).name}"
-        else:
-            text, where = remaining_text, Path(file_path).name
-        problem = lang.export_problem(name, text)
-        if problem:
-            notes.append(f"# WARNING export: `{name}` ({where}) is {problem} but is used by "
-                         f"{', '.join(sorted(users))} — fix by hand (changes block text, "
-                         f"so the tool does not do it)")
+    original_text = "\n".join(all_lines)
+    exported = lang.exported_names(original_text)          # None = no visibility notion
+    if exported is not None and lang.ENFORCES_PRIVACY:
+        for name, users in sorted(used_across.items()):
+            if name not in exported:
+                where = Path(moved[name]).name if name in moved else Path(file_path).name
+                notes.append(f"# WARNING export: `{name}` ({where}) is not exported but is used by "
+                             f"{', '.join(sorted(users))} — fix by hand (changes block text, "
+                             f"so the tool does not do it)")
+    if exported is not None:
+        for t, blocks in by_target.items():
+            public = sorted({n for b in blocks for n in lang.declared_names(b.text, ext)} & exported)
+            if public:
+                line = lang.reexport_line(public, lang.file_spec(file_path, t))
+                notes.append(f"# NOTE public API: {', '.join(public)} {'is' if len(public) == 1 else 'are'} exported "
+                             f"from {Path(file_path).name} and move{'s' if len(public) == 1 else ''} to {Path(t).name} — "
+                             f"importers of the source break unless it re-exports"
+                             + (f" (e.g. `{line}`)" if line else ""))
+        moved_names = sorted(moved)
+        for name in lang.dangling_exports(remaining, moved_names):
+            notes.append(f"# WARNING dangling export: the source still lists `{name}` in its export list, "
+                         f"but `{name}` moves out — remove it from that list (or re-export it)")
     for cyc in _find_cycles(edges):
         notes.append("# WARNING cycle: " + " -> ".join(cyc) + " — circular import between the new files")
     pack = lambda d: {sp: ("named", [(n, n) for n in names]) for sp, names in d.items()}

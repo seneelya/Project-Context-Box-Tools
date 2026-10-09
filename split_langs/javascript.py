@@ -154,7 +154,42 @@ def import_insert_index(segs, ext=""):
     return last
 
 
-def export_problem(name, block_text):
-    if not re.search(rf"^\s*export\b[^\n]*\b{re.escape(name)}\b", block_text, re.M):
-        return "not exported"
-    return None
+ENFORCES_PRIVACY = True     # a non-exported top-level name really cannot be imported by another file
+
+_EXPORT_DECL_RE = re.compile(
+    r"^\s*export\s+(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:abstract\s+)?"
+    r"(?:function\*?|class|const|let|var|interface|type|enum|namespace)\s+(\w+)", re.M)
+_EXPORT_DEFAULT_NAME_RE = re.compile(r"^\s*export\s+default\s+(\w+)\s*;?\s*$", re.M)
+_EXPORT_LIST_RE = re.compile(r"export\s*(?:type\s*)?\{([^}]*)\}(?!\s*from)", re.S)
+
+
+def _list_locals(body):
+    out = []
+    for part in body.split(","):
+        part = part.strip()
+        if part:
+            out.append(re.split(r"\s+as\s+", part)[0].strip())
+    return out
+
+
+def exported_names(text):
+    """LOCAL names the file exports: `export function/class/const/...`, `export default X`, and
+    the entries of `export { a, b as c }` lists (a, b). Re-exports `export { x } from '...'` are
+    not local names and are skipped."""
+    names = set(_EXPORT_DECL_RE.findall(text)) | set(_EXPORT_DEFAULT_NAME_RE.findall(text))
+    for body in _EXPORT_LIST_RE.findall(text):
+        names.update(_list_locals(body))
+    return names
+
+
+def dangling_exports(lines, names):
+    """Names in `names` still listed in an `export { ... }` of `lines` (the REMAINING source):
+    the entry would point at a name that moved away."""
+    listed = set()
+    for body in _EXPORT_LIST_RE.findall("\n".join(lines)):
+        listed.update(_list_locals(body))
+    return sorted(listed & set(names))
+
+
+def reexport_line(names, spec):
+    return f"export {{ {', '.join(names)} }} from '{spec}';"

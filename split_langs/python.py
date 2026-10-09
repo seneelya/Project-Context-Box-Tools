@@ -156,3 +156,36 @@ def syntax_ok(data, ext):
         return True
     except SyntaxError:
         return False
+
+
+def exported_names(text):
+    """The module's public surface: the `__all__` list when there is one, else every top-level
+    name not starting with an underscore (the convention `from m import *` and readers rely on)."""
+    tree = _parse(text)
+    if tree is None:
+        return set()
+    for n in tree.body:
+        if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "__all__" for t in n.targets) \
+                and isinstance(n.value, (ast.List, ast.Tuple)):
+            return {e.value for e in n.value.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)}
+    return {n for n in _declared(tree) if not n.startswith("_")}
+
+
+def dangling_exports(lines, names):
+    """Names of `names` still listed in the REMAINING source's `__all__` (they would not resolve)."""
+    return sorted(exported_names_from_all("\n".join(lines)) & set(names))
+
+
+def exported_names_from_all(text):
+    tree = _parse(text)
+    if tree is None:
+        return set()
+    for n in tree.body:
+        if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "__all__" for t in n.targets) \
+                and isinstance(n.value, (ast.List, ast.Tuple)):
+            return {e.value for e in n.value.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)}
+    return set()
+
+
+def reexport_line(names, spec):
+    return f"from {spec} import {', '.join(names)}  # re-export"

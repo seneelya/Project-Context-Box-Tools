@@ -965,3 +965,41 @@ def test_cpp_unconditional_includes_carried_conditional_ones_warned():
         assert "WARNING: 1 conditional #include" in text and "cuda.h" in text
         assert _run(script, "--apply").returncode == 0
         assert Path(d, "t.cpp").read_text(encoding="utf-8").startswith("#include <vector>")
+
+
+# --------------------------------------------------------------------------- v0.3: visibility checks
+
+def _script_for(d, name, text, line, target):
+    src = Path(d) / name
+    src.write_bytes(text.encode("utf-8"))
+    script = str(Path(d) / "move.py")
+    r = run_cli("--file", str(src), "--split", str(line), str(Path(d) / target), "--out-script", script)
+    assert r.returncode == 0, r.stderr
+    return Path(script).read_text(encoding="utf-8")
+
+
+def test_js_export_list_counts_as_exported_but_dangles_after_the_move():
+    js = (chr(10).join([
+        "function helper() {", "  return 1;", "}", "",
+        "function priv() {", "  return 2;", "}", "",
+        "export function user() {", "  return helper() + priv();", "}", "",
+        "export { helper };", ""]))
+    with tempfile.TemporaryDirectory() as d:
+        text = _script_for(d, "m.js", js, 1, "h.js")
+        assert "WARNING export: `helper`" not in text            # `export { helper }` IS an export
+        assert "NOTE public API: helper" in text and "export { helper } from './h.js';" in text
+        assert "WARNING dangling export" in text and "`helper`" in text
+        text2 = _script_for(d, "m.js", js, 5, "p.js")             # priv is private, used by user() in the source
+        assert "WARNING export: `priv`" in text2
+
+
+def test_python_public_name_moved_and_all_list_dangles():
+    py = (chr(10).join([
+        '__all__ = ["pub"]', "", "", "def pub():", "    return 1", "", "",
+        "def _priv():", "    return 2", "", "", "def other():", "    return pub() + _priv()", ""]))
+    with tempfile.TemporaryDirectory() as d:
+        text = _script_for(d, "m.py", py, 4, "p.py")
+        assert "NOTE public API: pub" in text and "# re-export" in text
+        assert "WARNING dangling export" in text                  # __all__ still lists pub
+        text2 = _script_for(d, "m.py", py, 8, "q.py")             # underscore name: no privacy warning in Python
+        assert "WARNING export" not in text2
