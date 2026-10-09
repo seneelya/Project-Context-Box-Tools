@@ -46,18 +46,25 @@ python move.py --apply
   textual scan. Verify it yourself; it will have false positives/negatives;
 * `monster.write(target, blocks, imports)` / `monster.cut(source, blocks)` at the bottom — these
   do the actual byte-for-byte move, gated behind `--apply` on the SCRIPT's own invocation.
-* for **ESM** sources (`.js` `.mjs` `.ts` `.tsx` `.jsx`): leading `import … from` lines from
-  `--file` are scanned and matching `add_import(...)` calls are emitted per target (subset of
-  names the moved blocks mention — grep, not a resolver). **`require()` is not auto-added**;
-  Python / Markdown — no auto imports.
+* **imports** (ESM `.js` `.mjs` `.ts` `.tsx` `.jsx`, and Python): leading imports of `--file` are
+  read and matching `add_import(...)` calls are emitted per target — only names the moved blocks
+  actually USE (identifier scan: words in comments/strings do not count). **`require()` is not
+  auto-added**; Markdown — none.
+* **safety (always on)**: `monster.expect_source(file, hash)` only WARNS if `--file` changed since
+  generation; every `cut(..., expect=<block fingerprint>)` re-checks its own block text — same text
+  (file changed elsewhere) = proceeds, different text (lines shifted/edited) = stops, unless
+  `move.py --apply --force` (warning, cuts anyway); `--apply` keeps each file's EOL/BOM byte-for-byte;
+  after the closing cut/replace `verify()` checks no non-blank line was lost or invented and nothing
+  stopped parsing — on failure **every touched file is rolled back** (exit 1).
 
 ## Supported (smoke-checked)
 
 | Kind | Cut blocks | Auto `add_import` |
 | --- | --- | --- |
 | `.js` `.mjs` `.ts` `.tsx` `.jsx` | top-level landmarks (`get_codeblock --outline`) | ESM `import` only |
-| `.py` | top-level (classes/functions, …) | no |
-| `.md` | heading sections (prefer heading line; `--outline --level 4+`) | no |
+| `.py` | top-level (classes/functions, assignments) | `import` / `from … import` (via `ast`) |
+| `.md` | heading sections (prefer heading line; `--outline --level 4+`) | no; hint = other sections linking `#anchor` |
+| other get_codeblock languages | cut/replace work; **no name hints / auto imports** (script says so) | no |
 
 Fixtures used: `test/topLevel/*`, `test/mdSRC/*`, `test/tsSRC/dyn/*.mjs`. Regression:
 `test/test_split_monster.py`.
@@ -66,6 +73,13 @@ Fixtures used: `test/topLevel/*`, `test/mdSRC/*`, `test/tsSRC/dyn/*.mjs`. Regres
 `cut`) and `monster.replace(source, blocks)` instead of `cut`/`monster.cut`. Fill each `STUB_XX`
 (one string, may contain `\n`) before `--apply` — e.g. `> See [Section](part.md#…)`. Empty
 `STUB_XX` deletes the range (same as cut).
+
+**Source changed after the script was made?** Don't regenerate (that would lose your hand edits):
+`split_monster.py --rebase move.py` (report only) / `--rebase move.py --write` re-anchors each
+generated `cut`/`replace` line number by the block's recorded fingerprint and touches nothing else.
+Same text elsewhere = moved; same name but edited text = shown as CHANGED, taken only with
+`--accept-changed`; not found = left as is (the run will still refuse it). Hand-written calls
+without `expect=` are listed for you to check.
 
 To drop something from the plan: **append** a short reassignment at the bottom (e.g.
 `SOME_BLOCKS = [c01]` to keep only `c01`) — never edit/comment an existing line, that means

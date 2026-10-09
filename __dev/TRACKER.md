@@ -158,3 +158,14 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ get_codeblock `views.py` (Plan30 of hermes-filetools): every CLI mode as DATA + its renderer (`outline_view`/`ladder_view`/`outline_batch_view`/`query_view` + `render_*`, `as_text` == CLI stdout), CLI = parse_args -> view -> renderer -> print; `block_range(src, line, count)` — both ends of [line, line+count-1] snapped to blocks (tol = count//2, cut = innermost block when the end can't snap). core.py 1080 -> 717 lines. Output unchanged: check 129/0 (6 skipped, no grammars in this python), replay of 1482 logged calls old vs new — 0 differ. test/test_views.py 27/0. Found, not fixed: `--name` with 2 exact hits in a .cu file crashes in `classify.outline_rows` (`parent_scope` None) — old version too.
 - 📝 REQ-014 (md section body blocks: paragraphs/list items/fences/tables inside `~content`) and REQ-015 (`--name` 2 exact in .cu crashes in classify.outline_rows) filed. Also: views `Source.display`, block_range `tol = count // 2` (`15984b4`, `330f600`); hermes-filetools vendors this repo @ 330f600.
 - ✅ REQ-015 (DONE__): `--name` with 2 exact hits, one inside a bodyless `#else`, no longer crashes the focus outline — `classify._scope_inside` is one scope rule for the ladder and `outline_rows`. Golden `name_ambiguous_else_branch` 14/14, check 129/0, test_views 31/0.
+
+## 2026-10-09 — split_monster: безопасность + Python/Markdown (Vision06 «Заход 1»)
+
+- ✅ Байт-в-байт: LF-файл на Windows превращался в CRLF (text mode) — теперь бинарный IO, EOL/BOM источника сохраняются и наследуются новыми целями.
+- ✅ `monster.verify()` после закрывающего cut/replace: ни строки не потеряно/не выдумано, всё парсится (где парсилось до) — иначе откат всех файлов, exit 1. cut без write теперь отвергается (раньше молча терял блок).
+- ✅ Устаревший план: `expect_source` только ПРЕДУПРЕЖДАЕТ о смене хэша файла; каждый `cut(..., expect=<отпечаток текста блока>)` сверяет свой блок — тот же текст = работаем, другой = стоп, `--force` = предупреждение и режем.
+- ✅ Языки: Python (`ast`: имена, импорты, `def`-превью) и Markdown (якоря-слаги, ссылки `#anchor`) — по-настоящему; прочие — честная пометка в скрипте. `monster.consumers` не падает на `.md`/`.mjs`.
+- ✅ Идентификаторы вместо слов (`_identifiers`: ast / tree-sitter) — комментарии и строки больше не рождают ложные `add_import`.
+- ✅ `--rebase move.py [--write] [--accept-changed]` — лёгкая перегенерация: переставляет номера строк в существующем скрипте по отпечаткам блоков, ручные правки не трогает; изменённый текст — только с `--accept-changed`.
+- Тесты: test_split_monster 37/0 (+10), check 135/0. → next: Заход 2 (граф по набору разреза: кросс-импорты, обратный импорт, export, циклы), см. Vision06.
+

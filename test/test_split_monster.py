@@ -114,6 +114,7 @@ def test_monster_cut_removes_exact_ranges(monkeypatch):
         src = _write_fixture(d)
         monkeypatch.setattr(sys, "argv", ["split_monster", "--apply"])
         block = sm.cut(src, 3)
+        sm.monster.write(str(Path(d) / "t.js"), [block], [])
         sm.monster.cut(src, [block])
         remaining = Path(src).read_text(encoding="utf-8")
         assert "function helperOne" not in remaining
@@ -568,3 +569,196 @@ def test_generated_script_runs_and_moves_the_block():
         assert Path(target).exists()
         assert "function helperOne" in Path(target).read_text(encoding="utf-8")
         assert "function helperOne" not in Path(src).read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- v0.3: safety
+
+def _gen_and_apply(src, target, line="3", apply=True):
+    script = str(Path(src).parent / "move.py")
+    r = run_cli("--file", src, "--split", line, target, "--out-script", script)
+    assert r.returncode == 0, r.stderr
+    args = [sys.executable, script] + (["--apply"] if apply else [])
+    return subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")
+
+
+def test_apply_keeps_lf_line_endings():
+    with tempfile.TemporaryDirectory() as d:
+        src = str(Path(d) / "monster.js")
+        Path(src).write_bytes(FIXTURE_JS.encode("utf-8"))  # pure LF, even on Windows
+        target = str(Path(d) / "t.js")
+        assert _gen_and_apply(src, target).returncode == 0
+        assert b"\r" not in Path(src).read_bytes()
+        assert b"\r" not in Path(target).read_bytes()
+
+
+def test_apply_keeps_crlf_and_bom():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "monster.js"
+        src.write_bytes(b"\xef\xbb\xbf" + FIXTURE_JS.replace("\n", "\r\n").encode("utf-8"))
+        target = Path(d) / "t.js"
+        r = _gen_and_apply(str(src), str(target))
+        assert r.returncode == 0, r.stderr
+        for p in (src, target):
+            data = p.read_bytes()
+            assert data.startswith(b"\xef\xbb\xbf"), p
+            assert data.count(b"\r\n") == data.count(b"\n"), p  # no bare LF anywhere
+
+
+def _plan(d):
+    src = _write_fixture(d)
+    target = str(Path(d) / "t.js")
+    script = str(Path(d) / "move.py")
+    run_cli("--file", src, "--split", "3", target, "--out-script", script)
+    return src, target, script
+
+
+def _run(script, *extra):
+    return subprocess.run([sys.executable, script, *extra], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
+
+
+def test_changed_file_with_same_blocks_only_warns():
+    with tempfile.TemporaryDirectory() as d:
+        src, target, script = _plan(d)
+        Path(src).write_text(FIXTURE_JS + "// appended after the plan was made" + chr(10), encoding="utf-8")
+        r = _run(script, "--apply")
+        assert r.returncode == 0, r.stderr
+        assert "changed since" in r.stderr          # warned ...
+        assert "function helperOne" in Path(target).read_text(encoding="utf-8")  # ... and worked
+
+
+def test_changed_file_with_moved_block_refuses_unless_force():
+    with tempfile.TemporaryDirectory() as d:
+        src, target, script = _plan(d)
+        Path(src).write_text("// edited" + chr(10) + FIXTURE_JS, encoding="utf-8")  # lines shifted by 1
+        r = _run(script, "--apply")
+        assert r.returncode == 2 and "not the text the plan was made for" in r.stderr
+        assert not Path(target).exists()
+        forced = _run(script, "--apply", "--force")
+        assert forced.returncode == 0 and "WARNING (--force)" in forced.stderr
+
+
+def test_verify_rolls_back_when_a_cut_loses_text(monkeypatch):
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d)
+        before = Path(src).read_bytes()
+        monkeypatch.setattr(sys, "argv", ["split_monster", "--apply"])
+        block = sm.cut(src, 3)
+        try:
+            sm.monster.cut(src, [block])  # cut WITHOUT write — the block would vanish
+            raise AssertionError("verify should have exited")
+        except SystemExit as e:
+            assert e.code == 1
+        assert Path(src).read_bytes() == before  # rolled back byte-for-byte
+
+
+# --------------------------------------------------------------------------- v0.3: languages
+
+FIXTURE_PY = '''\
+import os
+from pathlib import Path as P
+import json as js
+
+
+def helper():
+    return 1
+
+
+# mentions Path and json only in prose — must NOT pull imports
+def user():
+    return os.getcwd() + str(helper()) + "json Path"
+'''
+
+
+def test_python_names_hints_and_imports():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, "mod.py", FIXTURE_PY)
+        target = str(Path(d) / "t.py")
+        script = str(Path(d) / "move.py")
+        r = run_cli("--file", src, "--split", "11", target, "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "add_import('import os')" in text         # really used
+        assert "pathlib" not in text.split("monster.expect_source")[1].split("_BLOCKS =")[1]
+        assert "import json" not in text                 # json / Path only in comment+string
+        assert "возможно нужны — helper" in text         # helper() is a top-level name it uses
+        assert "def user" in text                        # preview line understands def
+        applied = subprocess.run([sys.executable, script, "--apply"], capture_output=True,
+                                 text=True, encoding="utf-8", errors="replace")
+        assert applied.returncode == 0, applied.stderr
+        assert "import os" in Path(target).read_text(encoding="utf-8")
+
+
+def test_js_comment_and_string_mentions_do_not_create_imports():
+    src_text = (
+        "import { buildRailRows } from './rows.js';\n"
+        "\n"
+        "// rationale: buildRailRows does the heavy lifting elsewhere\n"
+        "function f() {\n"
+        "  return 'buildRailRows';\n"
+        "}\n"
+    )
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, "m.js", src_text)
+        script = str(Path(d) / "move.py")
+        run_cli("--file", src, "--split", "4", str(Path(d) / "t.js"), "--out-script", script)
+        assert "_IMP01" not in Path(script).read_text(encoding="utf-8")
+
+
+def test_markdown_anchor_hint_and_no_consumers_crash():
+    md = "# T\n\n## Alpha\n\nbody\n\n## Beta\n\nsee [alpha](#alpha)\n"
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d, "doc.md", md)
+        script = str(Path(d) / "move.py")
+        r = run_cli("--file", src, "--split", "3", str(Path(d) / "a.md"), "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "'alpha' встречается ещё на строках 9" in text
+
+
+# --------------------------------------------------------------------------- v0.3: --rebase
+
+REBASE_PY = "def alpha():\n    return 1\n\n\ndef beta():\n    return 2\n\n\ndef gamma():\n    return 3\n"
+
+
+def _rebase_setup(d):
+    src = Path(d) / "m.py"
+    src.write_bytes(REBASE_PY.encode("utf-8"))
+    script = str(Path(d) / "move.py")
+    r = run_cli("--file", str(src), "--split", "1", str(Path(d) / "a.py"),
+                "--split", "9", str(Path(d) / "b.py"), "--out-script", script)
+    assert r.returncode == 0, r.stderr
+    with open(script, "a", encoding="utf-8") as f:
+        f.write("# my manual note\n")
+    return src, script
+
+
+def test_rebase_moves_block_keeps_hand_edits_and_script_then_runs():
+    with tempfile.TemporaryDirectory() as d:
+        src, script = _rebase_setup(d)
+        src.write_bytes(("# new header\n\ndef first():\n    return 0\n\n\n" + REBASE_PY).encode("utf-8"))
+        assert _run(script, "--apply").returncode == 2              # stale lines: refused
+        dry = run_cli("--rebase", script)
+        assert dry.returncode == 0 and "moved" in dry.stdout and "dry" in dry.stdout
+        assert "cut(" in Path(script).read_text(encoding="utf-8")   # dry wrote nothing
+        w = run_cli("--rebase", script, "--write")
+        assert w.returncode == 0, w.stderr
+        assert "# my manual note" in Path(script).read_text(encoding="utf-8")
+        applied = _run(script, "--apply")
+        assert applied.returncode == 0, applied.stderr
+        assert "def alpha" in Path(d, "a.py").read_text(encoding="utf-8")
+        assert "def gamma" in Path(d, "b.py").read_text(encoding="utf-8")
+        assert "def first" in src.read_text(encoding="utf-8")        # untouched block stays
+
+
+def test_rebase_changed_text_needs_accept_changed():
+    with tempfile.TemporaryDirectory() as d:
+        src, script = _rebase_setup(d)
+        src.write_bytes(REBASE_PY.replace("return 3", "return 33").encode("utf-8"))
+        r = run_cli("--rebase", script, "--write")
+        assert r.returncode == 1 and "CHANGED" in r.stdout and "--accept-changed" in r.stdout
+        assert _run(script, "--apply").returncode == 2              # still refused
+        ok = run_cli("--rebase", script, "--accept-changed", "--write")
+        assert ok.returncode == 0, ok.stdout
+        assert _run(script, "--apply").returncode == 0
+        assert "return 33" in Path(d, "b.py").read_text(encoding="utf-8")
