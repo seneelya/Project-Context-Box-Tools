@@ -618,7 +618,8 @@ def _needed_imports_for_target(blocks, source_imports, lang, ext=""):
         used.update(lang.identifiers(b.text, ext))
     needed = {}
     for specifier, info in source_imports.items():
-        matched = [(orig, local) for orig, local in info["items"] if local in used]
+        matched = (list(info["items"]) if info.get("always")
+                   else [(orig, local) for orig, local in info["items"] if local in used])
         if matched:
             needed[specifier] = (info["kind"], matched)
     return needed
@@ -783,7 +784,7 @@ def generate(file_path, splits, out_path, project_root="."):
     all_lines = Path(file_path).read_text(encoding="utf-8").splitlines()
     lang = split_langs.for_ext(ext)
     top_level_names = lang.top_level_names(all_lines, ext)
-    source_imports = lang.source_imports(all_lines)
+    source_imports = lang.source_imports(all_lines, ext)
     outline = _gcb_outline_rows(file_path)
     is_md = lang.STUBS
     src_hash = hashlib.sha256(Path(file_path).read_bytes()).hexdigest()[:16]
@@ -823,6 +824,11 @@ def generate(file_path, splits, out_path, project_root="."):
         *_MANUAL_APPEND_NOTE,
         "",
     ]
+    lang_notes = lang.notes(all_lines, ext)
+    if lang_notes:
+        out.append("# --- notes about this source file ---")
+        out.extend(lang_notes)
+        out.append("")
     if graph and graph["notes"]:
         out.append("# --- split-set checks (computed from the names of the moved blocks) ---")
         out.extend(graph["notes"])

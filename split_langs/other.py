@@ -29,7 +29,7 @@ def name_from_decl(decl):
     return None
 
 
-def source_imports(lines):
+def source_imports(lines, ext=""):
     return {}
 
 

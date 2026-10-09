@@ -49,6 +49,11 @@ class _Defaults:
         return None
 
     @staticmethod
+    def notes(lines, ext):
+        """Warnings about this SOURCE FILE that the generated script should carry (comment lines)."""
+        return []
+
+    @staticmethod
     def syntax_ok(data, ext):
         return treesitter_syntax_ok(data, ext)
 

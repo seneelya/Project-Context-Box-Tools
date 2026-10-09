@@ -924,3 +924,44 @@ def test_cpp_rebase_finds_a_moved_function_by_text():
         r = run_cli("--rebase", script, "--write")
         assert r.returncode == 0 and "moved" in r.stdout, r.stdout
         assert _run(script, "--apply").returncode == 0
+
+
+# --------------------------------------------------------------------------- v0.3: C#/C++ imports + notes
+
+def test_csharp_usings_are_carried_and_namespace_is_warned():
+    src_text = ("using System;" + chr(10) + "using System.Text;" + chr(10) + chr(10) +
+                "namespace App" + chr(10) + "{" + chr(10) + "    public class A { }" + chr(10) +
+                chr(10) + "    public class B { }" + chr(10) + "}" + chr(10))
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "a.cs"
+        src.write_bytes(src_text.encode("utf-8"))
+        script = str(Path(d) / "move.py")
+        r = run_cli("--file", str(src), "--split", "8", str(Path(d) / "t.cs"), "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "add_import('using System;')" in text and "add_import('using System.Text;')" in text
+        assert "WARNING namespace" in text and "namespace App" in text
+        assert "prune unused by hand" in text
+        applied = _run(script, "--apply")
+        assert applied.returncode == 0, applied.stderr
+        target = Path(d, "t.cs").read_text(encoding="utf-8")
+        assert target.startswith("using System;") and "class B" in target
+
+
+def test_cpp_unconditional_includes_carried_conditional_ones_warned():
+    src_text = ('#include <vector>' + chr(10) + '#include "x.h"' + chr(10) + '#ifdef USE_CUDA' + chr(10) +
+                '#include "cuda.h"' + chr(10) + '#endif' + chr(10) + chr(10) +
+                'int helper(int x) { return x; }' + chr(10) + chr(10) +
+                'int user(int y) { return helper(y); }' + chr(10))
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "a.cpp"
+        src.write_bytes(src_text.encode("utf-8"))
+        script = str(Path(d) / "move.py")
+        r = run_cli("--file", str(src), "--split", "9", str(Path(d) / "t.cpp"), "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "add_import('#include <vector>')" in text and "add_import('#include \"x.h\"')" in text
+        assert "cuda.h" not in text.split("add_import('#include \"x.h\"')")[1].split("monster.write")[0]
+        assert "WARNING: 1 conditional #include" in text and "cuda.h" in text
+        assert _run(script, "--apply").returncode == 0
+        assert Path(d, "t.cpp").read_text(encoding="utf-8").startswith("#include <vector>")

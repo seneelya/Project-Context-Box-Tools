@@ -78,7 +78,7 @@ def name_from_decl(decl):
     return _first_group(m) if m else None
 
 
-def source_imports(lines):
+def source_imports(lines, ext=""):
     """{specifier: {"kind": "named"|"default"|"namespace", "items": [(original, local), ...]}} —
     the LEADING ES imports (stops at the first line that is neither blank, comment nor import),
     read with find_code_usage's own ts_handler regexes; multi-line `import {...}` collapsed first."""

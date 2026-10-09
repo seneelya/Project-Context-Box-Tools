@@ -84,7 +84,7 @@ def name_from_decl(decl):
     return m.group(1) if m else None
 
 
-def source_imports(lines):
+def source_imports(lines, ext=""):
     """{specifier: {"kind": "named"|"module", "items": [(original, local), ...]}} for the TOP-LEVEL
     `import` / `from … import` statements. A relative import keeps its dots in the specifier;
     `from __future__` and `*` are skipped."""

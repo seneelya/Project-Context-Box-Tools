@@ -15,7 +15,7 @@ LOUDLY at load (`ValueError`), not as silently empty hints. Unclaimed extensions
 | `identifiers(text, ext) -> set` | names the text USES — never words in comments/strings |
 | `decl_line(text, ext) -> str` | the block's declaration line for the preview comment |
 | `name_from_decl(decl) -> str\|None` | name out of that preview line (used by `--rebase`) |
-| `source_imports(lines) -> {spec: {"kind", "items": [(orig, local)]}}` | the file's leading imports |
+| `source_imports(lines, ext) -> {spec: {"kind", "items": [(orig, local)]}}` | the file's leading imports |
 | `render_import(spec, kind, items) -> str` | one import statement for a SUBSET of a specifier's names |
 
 ## Optional (defaults in `_Defaults`)
@@ -23,7 +23,7 @@ LOUDLY at load (`ValueError`), not as silently empty hints. Unclaimed extensions
 `HAS_NAMES=True` · `CUT_LEVEL=1` (md: 0) · `STUBS=False` (md: True — source keeps a stub) ·
 `CONSUMERS=False` (make_interface_card understands the language) · `GRAPH=False` (True needs
 `file_spec(from, to)` and `import_insert_index(segs, ext)`) · `ref_pattern(name)` · `export_problem(name,
-block_text)` · `syntax_ok(data, ext)` (default: get_codeblock's tree-sitter `has_error`).
+block_text)` · `notes(lines, ext)` (warnings for the generated script) · `syntax_ok(data, ext)` (default: get_codeblock's tree-sitter `has_error`).
 
 `treesitter.py` is the generic module: every tree-sitter language of get_codeblock listed in its
 `EXTENSIONS` gets names / identifiers / import band from get_codeblock's `Spec` — no per-language code.

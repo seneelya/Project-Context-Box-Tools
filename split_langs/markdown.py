@@ -52,7 +52,7 @@ def name_from_decl(decl):
     return _slug(hm.group(2)) if hm else None
 
 
-def source_imports(lines):
+def source_imports(lines, ext=""):
     return {}
 
 

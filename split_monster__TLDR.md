@@ -71,7 +71,7 @@ python move.py --apply
 | `.js` `.mjs` `.ts` `.tsx` `.jsx` | top-level landmarks (`get_codeblock --outline`) | ESM `import` only |
 | `.py` | top-level (classes/functions, assignments) | `import` / `from … import` (via `ast`) |
 | `.md` | heading sections (prefer heading line; `--outline --level 4+`) | no; hint = other sections linking `#anchor` |
-| `.cs` `.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cu` `.cuh` … (generic tree-sitter module) | cut/replace + name hints (names/identifiers come from get_codeblock; namespace/`extern "C"`/`#ifdef` frames are looked into) | **not yet** (donor: find_code_usage, next step) |
+| `.cs` `.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cu` `.cuh` … (generic tree-sitter module) | cut/replace + name hints (names/identifiers come from get_codeblock; namespace/`extern "C"`/`#ifdef` frames are looked into) | every top-level `using` (C#) / unconditional `#include` (C/C++) of the source is carried into each target (no name → header map without a compile; prune by hand); conditional includes and a `namespace` the blocks leave are WARNED about |
 | other get_codeblock languages (css, sh, …) | cut/replace work; **no name hints / auto imports** (script says so) | no |
 
 Fixtures used: `test/topLevel/*`, `test/mdSRC/*`, `test/tsSRC/dyn/*.mjs`. Regression:

@@ -3,8 +3,10 @@ from get_codeblock (its `Spec` says what a landmark/frame is, its backend parses
 code here: C# and C/C++ get name hints for free, and any language added to get_codeblock's registry
 only needs its extensions listed below.
 
-What it does NOT do yet: `source_imports` / `render_import` (imports of the source file — the
-find_code_usage resolvers are the donor, next step), so no import propagation and no graph.
+Imports: C#/C/C++ carry the source's top-level `using` / unconditional `#include` lines into every
+target (kind "always" — there is no name -> import map without a compile; the author prunes). No
+graph: cross-file references in these languages need no import (same namespace / header
+declarations) — a different problem.
 """
 
 import os
@@ -118,12 +120,63 @@ def name_from_decl(decl):
     return m.group(1) if m else None
 
 
-def source_imports(lines):
-    return {}      # next step: find_code_usage handlers (C# using, C++ #include)
+_CS_EXTS = (".cs",)
+_USING_RE = re.compile(r"^(?:global\s+)?using\s+(?:static\s+)?[^(;]+;\s*$")
+_NAMESPACE_RE = re.compile(r"^\s*namespace\s+([\w.:]+)", re.M)
+
+
+def source_imports(lines, ext=""):
+    """Imports a moved block may need. These languages have no name -> import map without a full
+    compile (a `using` names a NAMESPACE, an `#include` a header), so EVERY top-level
+    `using` (C#) / unconditional `#include` (C/C++) of the source is carried — kind "always";
+    over-inclusion is harmless, the author prunes. Donor for C/C++: find_code_usage.cpp_includes."""
+    out = {}
+    if ext in _CS_EXTS:
+        for line in lines:                       # column 0 only: `using (var x = ...)` is a statement
+            if line[:1].isspace() or not _USING_RE.match(line.strip()):
+                continue
+            raw = line.strip()
+            out[raw] = {"kind": "using", "always": True, "items": [(raw, raw)]}
+        return out
+    try:
+        from find_code_usage.cpp_includes import scan_text
+        scan = scan_text(chr(10).join(lines))
+    except Exception:
+        return out
+    for inc in scan.includes:
+        if inc.cond is None and not inc.computed:
+            out.setdefault(inc.raw(), {"kind": "include", "always": True, "items": [(inc.raw(), inc.raw())]})
+    return out
 
 
 def render_import(specifier, kind, items):
-    raise ValueError("import syntax for this language is not wired yet")
+    if kind in ("using", "include"):
+        return items[0][0]
+    raise ValueError(f"unknown import kind {kind!r}")
+
+
+def notes(lines, ext=""):
+    """What the author must know before moving blocks out of this file."""
+    out = []
+    text = chr(10).join(lines)
+    carried = source_imports(lines, ext)
+    if carried:
+        out.append(f"# {len(carried)} top-level {'using' if ext in _CS_EXTS else '#include'}(s) of the source are "
+                   f"carried into every target (no name -> import map for this language) — prune unused by hand")
+    if ext not in _CS_EXTS:
+        try:
+            from find_code_usage.cpp_includes import scan_text
+            cond = [i for i in scan_text(text).includes if i.cond is not None]
+        except Exception:
+            cond = []
+        if cond:
+            out.append(f"# WARNING: {len(cond)} conditional #include(s) are NOT carried (add by hand): "
+                       + ", ".join(sorted({i.raw() for i in cond}))[:200])
+    m = _NAMESPACE_RE.search(text)
+    if m:
+        out.append(f"# WARNING namespace: the source declares `namespace {m.group(1)}`; moved blocks land OUTSIDE it — "
+                   f"wrap each target in the same namespace by hand (else the names change)")
+    return out
 
 
 def import_insert_index(segs, ext=""):
