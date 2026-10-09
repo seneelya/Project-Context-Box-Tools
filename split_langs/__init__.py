@@ -43,11 +43,18 @@ class _Defaults:
         """0-based index into the source's lines where new import lines go (after the header)."""
         return 0
 
+    AUTO_REEXPORT = False      # True -> the source keeps every moved public/used name importable (SOURCE_IMPORTS)
     ENFORCES_PRIVACY = False   # True -> a non-exported name cannot be imported from another file
 
     @staticmethod
     def exported_names(text):
         """The file's public surface (local names), or None when the language has no such notion."""
+        return None
+
+    @staticmethod
+    def export_line(names):
+        """A line that makes `names` exported when APPENDED to the file that declares them (block
+        text untouched), or None when the language has no such line."""
         return None
 
     @staticmethod

@@ -193,3 +193,7 @@ def dangling_exports(lines, names):
 
 def reexport_line(names, spec):
     return f"export {{ {', '.join(names)} }} from '{spec}';"
+
+
+def export_line(names):
+    return f"export {{ {', '.join(names)} }};"

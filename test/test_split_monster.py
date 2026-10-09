@@ -840,8 +840,13 @@ def test_graph_js_warns_when_a_moved_private_name_crosses_the_boundary():
         script = str(Path(d) / "move.py")
         run_cli("--file", str(src), "--split", "1", str(Path(d) / "h.js"), "--out-script", script)
         text = Path(script).read_text(encoding="utf-8")
-        assert "WARNING export: `helper`" in text
+        assert "NOTE export: `helper`" in text and "APPENDED to h.js" in text
+        assert "H_APPEND = ['export { helper };']" in text
         assert "import { helper } from './h.js'" in text               # source gets it back
+        assert _run(script, "--apply").returncode == 0                 # verify accepts the appended line
+        target = Path(d, "h.js").read_text(encoding="utf-8")
+        assert target.rstrip().endswith("export { helper };") and "function helper() {" in target
+        assert target.index("function helper") < target.index("export { helper };")  # block text untouched
 
 
 # --------------------------------------------------------------------------- v0.3: split_langs
@@ -1011,11 +1016,12 @@ def test_js_export_list_counts_as_exported_but_dangles_after_the_move():
         "export { helper };", ""]))
     with tempfile.TemporaryDirectory() as d:
         text = _script_for(d, "m.js", js, 1, "h.js")
-        assert "WARNING export: `helper`" not in text            # `export { helper }` IS an export
+        assert "export: `helper`" not in text                    # `export { helper }` IS an export
         assert "NOTE public API: helper" in text and "export { helper } from './h.js';" in text
         assert "WARNING dangling export" in text and "`helper`" in text
         text2 = _script_for(d, "m.js", js, 5, "p.js")             # priv is private, used by user() in the source
-        assert "WARNING export: `priv`" in text2
+        assert "NOTE export: `priv`" in text2 and "SOURCE_APPEND" not in text2   # priv moved to p.js: appended THERE
+        assert "P_APPEND = ['export { priv };']" in text2
 
 
 def test_python_public_name_moved_and_all_list_dangles():
@@ -1024,7 +1030,116 @@ def test_python_public_name_moved_and_all_list_dangles():
         "def _priv():", "    return 2", "", "", "def other():", "    return pub() + _priv()", ""]))
     with tempfile.TemporaryDirectory() as d:
         text = _script_for(d, "m.py", py, 4, "p.py")
-        assert "NOTE public API: pub" in text and "# re-export" in text
-        assert "WARNING dangling export" in text                  # __all__ still lists pub
+        assert "NOTE public API: pub" in text and "re-exported from the source through SOURCE_IMPORTS" in text
+        assert "add_import('from p import pub')" in text          # Python: re-export is generated
+        assert "WARNING dangling export" not in text              # __all__ is satisfied by that import
         text2 = _script_for(d, "m.py", py, 8, "q.py")             # underscore name: no privacy warning in Python
         assert "WARNING export" not in text2
+
+
+def test_python_names_used_by_other_files_stay_importable_from_the_source():
+    py = (chr(10).join(["def _priv():", "    return 2", "", "", "def other():", "    return 3", ""]))
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "m.py"
+        src.write_bytes(py.encode("utf-8"))
+        Path(d, "use.py").write_bytes(b"from m import _priv" + bytes([10]) + b"print(_priv())" + bytes([10]))
+        script = str(Path(d) / "move.py")
+        r = run_cli("--file", str(src), "--split", "1", str(Path(d) / "p.py"), "--out-script", script,
+                    "--project-root", d)
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "kept importable from the source" in text and "_priv" in text
+        assert _run(script, "--apply").returncode == 0
+        run = subprocess.run([sys.executable, "use.py"], cwd=d, capture_output=True, text=True)
+        assert run.returncode == 0 and run.stdout.strip() == "2", run.stderr   # the importer still works
+
+
+def test_cut_does_not_pile_blank_lines_at_the_seam():
+    py = (chr(10).join(["def a():", "    return 1", "", "", "def b():", "    return 2", "", "",
+                        "def c():", "    return 3", ""]))
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "m.py"
+        src.write_bytes(py.encode("utf-8"))
+        script = str(Path(d) / "move.py")
+        run_cli("--file", str(src), "--split", "5", str(Path(d) / "t.py"), "--out-script", script)
+        assert _run(script, "--apply").returncode == 0
+        left = src.read_text(encoding="utf-8")
+        # (public `b` is re-exported from the source; the seam itself keeps 2 blank lines, not 4)
+        assert left == chr(10).join(["from t import b", "", "def a():", "    return 1", "", "", "def c():", "    return 3", ""])
+        # block at the very start / very end leaves no stray blank lines either
+        src.write_bytes(py.encode("utf-8"))
+        run_cli("--file", str(src), "--split", "1", str(Path(d) / "t2.py"), "--out-script", script)
+        assert _run(script, "--apply").returncode == 0
+        assert src.read_text(encoding="utf-8").startswith("from t2 import a" + chr(10) + chr(10) + "def b")
+
+
+def test_js_private_name_staying_in_source_gets_the_export_line_in_the_source():
+    js = (chr(10).join(["function base() {", "  return 1;", "}", "",
+                        "export function user() {", "  return base();", "}", ""]))
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "m.js"
+        src.write_bytes(js.encode("utf-8"))
+        script = str(Path(d) / "move.py")
+        run_cli("--file", str(src), "--split", "5", str(Path(d) / "u.js"), "--out-script", script)
+        text = Path(script).read_text(encoding="utf-8")
+        assert "SOURCE_APPEND = ['export { base };']" in text and "append=SOURCE_APPEND" in text
+        assert _run(script, "--apply").returncode == 0
+        left = src.read_text(encoding="utf-8")
+        assert left.rstrip().endswith("export { base };") and "function base()" in left
+        assert "import { base } from './m.js'" in Path(d, "u.js").read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- v0.3: undo / check / undefined names
+
+def _plan_py(d, extra=()):
+    src = Path(d) / "m.py"
+    src.write_bytes(GRAPH_PY.encode("utf-8"))
+    script = str(Path(d) / "move.py")
+    r = run_cli("--file", str(src), "--split", "8", str(Path(d) / "a.py"), "--out-script", script, *extra)
+    assert r.returncode == 0, r.stderr
+    return src, script
+
+
+def test_undo_restores_everything_byte_for_byte_and_removes_created_files():
+    with tempfile.TemporaryDirectory() as d:
+        src, script = _plan_py(d)
+        before = src.read_bytes()
+        assert _run(script, "--apply").returncode == 0
+        assert Path(d, "a.py").exists() and src.read_bytes() != before
+        r = _run(script, "--undo")
+        assert r.returncode == 0, r.stderr
+        assert src.read_bytes() == before and not Path(d, "a.py").exists()
+        again = _run(script, "--undo")                       # a second undo must not act on stale data
+        assert again.returncode == 1 and "nothing to undo" in again.stderr
+
+
+def test_check_passing_and_failing_never_rolls_back_and_hints_where_names_went():
+    with tempfile.TemporaryDirectory() as d:
+        ok_cmd = f'"{sys.executable}" -c "pass"'
+        src, script = _plan_py(d, ("--check", ok_cmd))
+        assert "[dry-run] would run the check" in _run(script).stdout
+        r = _run(script, "--apply")
+        assert r.returncode == 0 and "[check] passed" in r.stdout, r.stdout + r.stderr
+        # failing check: split stays, exit code 3, the NameError is traced to the new file
+        _run(script, "--undo")
+        bad = f'"{sys.executable}" -c "import sys; sys.stderr.write(\'NameError: name \\\'a\\\' is not defined\\n\'); sys.exit(1)"'
+        r = _run(script, "--apply", "--check", bad)
+        assert r.returncode == 3, r.stdout + r.stderr
+        assert "hint: `a` was moved" in r.stdout and "a.py" in r.stdout
+        assert "the split IS applied" in r.stderr
+        assert Path(d, "a.py").exists()                      # no rollback
+        assert _run(script, "--undo").returncode == 0 and not Path(d, "a.py").exists()
+        assert _run(script, "--apply", "--no-check").returncode == 0   # --no-check skips the recorded command
+
+
+def test_undefined_names_are_reported_statically_after_a_split():
+    with tempfile.TemporaryDirectory() as d:
+        src, script = _plan_py(d)
+        text = Path(script).read_text(encoding="utf-8")
+        # the author (or a missed import) leaves the target without its imports
+        import re as _re
+        text = _re.sub(r"^(\w+_IMPORTS) = \[.*\]$", lambda m: m.group(1) + " = []", text, flags=_re.M)
+        Path(script).write_text(text, encoding="utf-8")
+        r = _run(script, "--apply")
+        assert r.returncode == 0, r.stderr                   # a warning, not a failure
+        assert "UNDEFINED (static)" in r.stderr and "helper" in r.stderr

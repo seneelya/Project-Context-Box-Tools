@@ -54,13 +54,23 @@ python move.py --apply
   (a) imports BETWEEN the new files (`from h import helper`) and from the source into the targets
   for names that stay there, (b) `SOURCE_IMPORTS` — imports the REMAINING source now needs from the
   files its blocks moved to (`monster.cut(src, blocks, imports=SOURCE_IMPORTS)` inserts them after
-  the cut), (c) comment warnings: `WARNING export:` (a private JS/TS name now crosses a file
-  boundary — add `export` by hand; the tool never edits block text; `export { a }` lists count as
+  the cut), (c) comment warnings: `NOTE export:` (a private JS/TS name now crosses a file
+  boundary — an `export { a };` line is appended, see below; `export { a }` lists count as
   exports), `NOTE public API:` (a name the source exports / lists in `__all__` moves out — importers
   of the source break unless it re-exports; a ready `export { … } from` / `from … import …  #
   re-export` line is suggested), `WARNING dangling export:` (the source's `export { … }` / `__all__`
   still lists a name that moved) and `WARNING cycle:` (circular import among the new files).
   Identifier scan, not a full resolver.
+* **Python re-export (automatic):** every moved name that is public (`__all__` / no leading `_`) or that
+  another file of the project imports (found via `consumers_of`, so tests/callers using `_private`
+  names too) is re-imported into the source through `SOURCE_IMPORTS` — importers keep working with no
+  change on their side. JS/TS: only the `NOTE public API:` + suggested `export { … } from` line.
+* **JS/TS private names:** a non-exported name that now crosses a file boundary gets an appended
+  `export { name };` line at the end of the file that declares it (the target, or the source) —
+  `append=` in `monster.write/cut/replace`; block text is never edited. `NOTE export:` in the script
+  says which. To skip one, append `X_APPEND = []` at the bottom of the script.
+* **tidy seams:** cutting a block leaves the larger of the two surrounding blank runs, not their
+  sum; a new import block gets a blank line before the code below it.
 * **safety (always on)**: `monster.expect_source(file, hash)` only WARNS if `--file` changed since
   generation; every `cut(..., expect=<block fingerprint>)` re-checks its own block text — same text
   (file changed elsewhere) = proceeds, different text (lines shifted/edited) = stops, unless
@@ -129,6 +139,21 @@ accepted / same / unresolved / hand-written counts, write flag) and `run` — on
 execution, with `apply`, `force`, `stale_warning`, blocks/targets/imports and `outcome`
 (`dry-run` / `applied_verified` / `verify_failed` / `refused_block_mismatch` / `incomplete`).
 Tests set `SPLIT_MONSTER_NO_LOG=1` so they never touch the real log.
+
+## Fix forward: `--check`, `--undo`, hints
+
+A split rarely passes the project's tests on the first go — the tool helps you iterate, not hide it.
+
+* `--check "CMD"` (at generation, or `move.py --apply --check CMD`; `--no-check` skips; `--check-cwd`,
+  default = `--project-root`; `--check-timeout`): runs YOUR test command after `--apply` and
+  **reports** — never rolls back. On failure: the output tail, a **hint per moved name** found on error
+  lines (`NameError: name 'X'` → "`X` was moved: make_interface_card.py:507-614 -> mic_prose.py"), exit
+  code **3** = split applied, check failed. The tool never guesses the command.
+* `UNDEFINED (static): file: names` (Python, `symtable`): names a touched file now uses but does not
+  define/import — printed right after `verify`, before any test run. A warning only.
+* `python move.py --undo`: puts every touched file back (originals are saved at `--apply` in
+  `move.py.undo/`) and deletes the files the split created. Regenerating a script keeps the previous
+  `.undo` folder under a time-stamped name. Add `*.undo/` to the project's ignore list.
 
 ## `--investigate` — the picture before you decide
 

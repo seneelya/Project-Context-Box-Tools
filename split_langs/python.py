@@ -13,6 +13,7 @@ NAME = "python"
 EXTENSIONS = (".py",)
 CONSUMERS = True
 GRAPH = True
+AUTO_REEXPORT = True    # `from new import name` in the source: importers and tests keep working
 
 
 def _parse(text):

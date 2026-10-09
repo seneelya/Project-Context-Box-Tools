@@ -29,11 +29,15 @@ real reference graph (that's a future v1) — verify them, don't trust them blin
 
 import argparse
 import ast
+import builtins
 import hashlib
 import atexit
 import json
 import os
 import re
+import shutil
+import subprocess
+import symtable
 import sys
 import time
 from collections import Counter
@@ -279,12 +283,85 @@ def _reconstruct_body(blocks):
     return lines
 
 
+def _append_lines(segs, lines, eol):
+    """Append generated lines (e.g. `export { x };`) to the end of a file's `segs`, one blank line
+    after the code, skipping lines the file already has. Returns the lines really added."""
+    present = {sg.strip() for sg in segs}
+    new = [ln for ln in lines if ln.strip() not in present]
+    if not new:
+        return []
+    if segs and not segs[-1].endswith("\n"):
+        segs[-1] += eol
+    if segs and segs[-1].strip():
+        segs.append(eol)
+    segs.extend(ln + eol for ln in new)
+    return new
+
+
+_MODULE_DUNDERS = {"__name__", "__file__", "__doc__", "__package__", "__spec__", "__loader__",
+                   "__builtins__", "__path__", "__cached__", "__annotations__", "__class__"}
+
+
+def _py_undefined(text):
+    """Names a Python module USES but nowhere defines / imports / finds among the builtins — the
+    classic result of a split that missed an import. Static (`symtable`), no execution. [] when
+    the text does not parse or does `import *` (then nothing can be said)."""
+    try:
+        top = symtable.symtable(text, "<module>", "exec")
+    except SyntaxError:
+        return []
+    if re.search(r"^\s*from\s+\S+\s+import\s+\*", text, re.M):
+        return []
+    module_defined = {sy.get_name() for sy in top.get_symbols()
+                      if sy.is_assigned() or sy.is_imported() or sy.is_namespace()}
+    known = module_defined | set(dir(builtins)) | _MODULE_DUNDERS
+    missing = set()
+
+    def walk(table, is_top):
+        for sy in table.get_symbols():
+            name = sy.get_name()
+            if not sy.is_referenced() or name in known:
+                continue
+            if is_top or (sy.is_global() and not sy.is_assigned()) or \
+                    (table.get_type() == "class" and not sy.is_assigned() and not sy.is_free()):
+                missing.add(name)
+        for child in table.get_children():
+            walk(child, False)
+
+    walk(top, True)
+    return sorted(missing)
+
+
+def _tidy_seam(segs, i):
+    """After a block was cut out at index `i`: the blank lines that framed it now meet. Keep as many
+    as the larger side had (not the sum); drop them all at the very start / end of the file.
+    Whitespace-only lines only — `verify()` counts non-blank lines, so it is unaffected."""
+    def blank(k):
+        return segs[k].strip() == ""
+    before = i
+    while before > 0 and blank(before - 1):
+        before -= 1
+    after = i
+    while after < len(segs) and blank(after):
+        after += 1
+    b1, b2 = i - before, after - i
+    if before == 0:
+        del segs[i:after]                       # file now starts with blanks
+    elif after >= len(segs):
+        del segs[before:after]                  # file now ends with blanks
+    elif b1 and b2:
+        del segs[i:i + min(b1, b2)]             # 2+2 blanks -> 2, not 4
+
+
 def _syntax_ok(data, ext):
     """True / False / None (= this format has no syntax check) — the language's own hook."""
     try:
         return split_langs.for_ext(ext).syntax_ok(data, ext)
     except Exception:
         return None
+
+
+_WORD_FOR_HINT = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
 
 
 class _Monster:
@@ -300,6 +377,7 @@ class _Monster:
         self._repl = Counter()   # ... and replacement/stub lines
         self._run = None         # usage record of this move.py run (logged once, at exit)
         self._plan = []          # (target, blocks, imports, lines) — shown by the dry-run summary
+        self._moved = {}         # name -> {"from": "file:start-end", "to": target} — for failure hints
 
     def _note(self, **kv):
         """Accumulate the run's usage record; the first call arms the at-exit log write."""
@@ -327,6 +405,131 @@ class _Monster:
         if key not in self._before:
             p = Path(path)
             self._before[key] = p.read_bytes() if p.exists() else None
+            self._persist_original(key, self._before[key])
+
+    # ---- persistent undo: the ORIGINAL of every touched file, kept next to the script
+    @staticmethod
+    def _undo_dir():
+        """`<script>.undo/` — only when this process IS a script file (library use / tests: None)."""
+        if not Path(sys.argv[0]).is_file():
+            return None
+        return Path(str(Path(sys.argv[0]).resolve()) + ".undo")
+
+    def _persist_original(self, key, data):
+        try:
+            d = self._undo_dir()
+            if d is None:
+                return
+            (d / "files").mkdir(parents=True, exist_ok=True)
+            mf = d / "manifest.json"
+            manifest = json.loads(mf.read_text(encoding="utf-8")) if mf.exists() else {"files": []}
+            if any(e["path"] == key for e in manifest["files"]):
+                return                                  # keep the FIRST original
+            idx = len(manifest["files"])
+            if data is not None:
+                (d / "files" / f"{idx}.bin").write_bytes(data)
+            manifest["files"].append({"path": key, "existed": data is not None,
+                                      "backup": f"{idx}.bin" if data is not None else None})
+            mf.write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
+        except OSError:
+            pass                                        # a failed backup must not stop the split
+
+    def _persist_map(self):
+        try:
+            d = self._undo_dir()
+            if d is None:
+                return
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "map.json").write_text(json.dumps(self._moved, ensure_ascii=False, indent=1), encoding="utf-8")
+        except OSError:
+            pass
+
+    def _record_moved(self, target_file, blocks):
+        lang = split_langs.for_file(target_file)
+        ext = Path(target_file).suffix.lower()
+        for b in blocks:
+            for name in lang.declared_names(b.text, ext):
+                self._moved[name] = {"from": f"{b.source_file}:{b.start}-{b.end}", "to": str(target_file)}
+        self._persist_map()
+
+    def handle_undo(self):
+        """`python move.py --undo` — put every file this script touched back (originals saved at
+        `--apply` time in `<script>.undo/`) and delete the files it created. Exits."""
+        if "--undo" not in sys.argv:
+            return
+        d = self._undo_dir()
+        mf = d / "manifest.json" if d else None
+        if mf is None or not mf.exists():
+            print(f"nothing to undo: {mf} does not exist (the script was never applied)", file=sys.stderr)
+            sys.exit(1)
+        manifest = json.loads(mf.read_text(encoding="utf-8"))
+        for e in manifest["files"]:
+            p = Path(e["path"])
+            if e["existed"]:
+                p.write_bytes((d / "files" / e["backup"]).read_bytes())
+                print(f"restored {p}")
+            elif p.exists():
+                p.unlink()
+                print(f"removed  {p}  (created by the split)")
+        mf.replace(d / "manifest.undone.json")           # a second --undo would otherwise act on stale data
+        print(f"undone: {len(manifest['files'])} file(s). The script can be regenerated and re-applied.")
+        sys.exit(0)
+
+    # ---- optional check command after the split
+    def check(self, cmd=None, cwd=None, timeout=600):
+        """Run the project's own check (tests, `tsc --noEmit`, ...) after `--apply` and REPORT.
+        Never rolls back — the point is to fix forward: failures are decoded against the move map
+        (a `NameError: X` is traced to where `X` went). Exit code 3 = split applied, check failed.
+        `move.py --apply --check CMD` overrides the recorded command, `--no-check` skips it."""
+        argv = sys.argv
+        if "--no-check" in argv:
+            return
+        if "--check" in argv and argv.index("--check") + 1 < len(argv):
+            cmd = argv[argv.index("--check") + 1]
+        if not cmd:
+            return
+        if not _is_apply():
+            print(f"[dry-run] would run the check after --apply: {cmd}  (cwd {cwd or '.'})")
+            return
+        t0 = time.time()
+        try:
+            r = subprocess.run(cmd, shell=True, cwd=cwd or None, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=timeout)
+            rc, out = r.returncode, (r.stdout or "") + (r.stderr or "")
+        except subprocess.TimeoutExpired as e:
+            rc, out = 124, f"[check timed out after {timeout}s]\n" + str(getattr(e, "stdout", "") or "")
+        secs = round(time.time() - t0, 1)
+        self._note(check="passed" if rc == 0 else "failed", check_exit=rc, check_secs=secs)
+        tail = out.strip().splitlines()[-80:]
+        print(f"[check] {cmd}  (cwd {cwd or '.'}) -> exit {rc} in {secs}s")
+        if rc == 0:
+            print("[check] passed")
+            return
+        print("\n".join("  | " + ln for ln in tail))
+        for h in self._failure_hints(out):
+            print(f"[check] hint: {h}")
+        print(f"[check] FAILED (exit {rc}) — the split IS applied. Fix forward (the hints show where names "
+              f"went), or `python {Path(sys.argv[0]).name} --undo` to put everything back.", file=sys.stderr)
+        sys.exit(3)
+
+    def _failure_hints(self, text, limit=12):
+        """Names mentioned on error-looking lines that this run moved: where they were / are now."""
+        moved = self._moved or {}
+        if not moved:
+            try:
+                moved = json.loads((self._undo_dir() / "map.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                moved = {}
+        hints, seen = [], set()
+        for line in text.splitlines():
+            if not re.search(r"error|not defined|cannot|no attribute|undefined|no module|has no", line, re.I):
+                continue
+            for word in set(_WORD_FOR_HINT.findall(line)):
+                if word in moved and word not in seen:
+                    seen.add(word)
+                    m = moved[word]
+                    hints.append(f"`{word}` was moved: {m['from']} -> {m['to']}  (line: {line.strip()[:90]})")
+        return hints[:limit]
 
     def expect_source(self, source_file, sha):
         """Warn when `source_file` changed since this script was generated. Not a refusal by
@@ -339,9 +542,10 @@ class _Monster:
                   f"(hash {sha} -> {now}). Each block is re-checked against its recorded text; "
                   f"a mismatch stops the run unless --force.", file=sys.stderr)
 
-    def write(self, target_file, blocks, imports=None):
+    def write(self, target_file, blocks, imports=None, append=None):
         """Write `blocks`/`imports` into `target_file` (dedup imports; new blocks go BEFORE
-        whatever body is already there). Only ever touches `target_file` — never `source_file`."""
+        whatever body is already there). `append` = generated lines added at the END (block text is
+        never touched). Only ever touches `target_file` — never `source_file`."""
         imports = imports or []
         header = _dedup_preserve_order([imp.text for imp in imports])
         new_body = _reconstruct_body(blocks)
@@ -362,6 +566,10 @@ class _Monster:
         if header and body:
             lines.append("")
         lines.extend(body)
+        if append:
+            if lines and lines[-1].strip():
+                lines.append("")
+            lines.extend(append)
         final = "\n".join(lines) + ("\n" if lines else "")
 
         self._note(targets=self._run_get("targets", 0) + 1,
@@ -374,13 +582,16 @@ class _Monster:
                                sum(b.end - b.start + 1 for b in blocks)))
             return
         self._snap(target_file)
+        self._record_moved(target_file, blocks)
         for imp in imports:
             self._added.update(_nonblank(imp.text.encode("utf-8")))
+        for ln in append or []:
+            self._added.update(_nonblank(ln.encode("utf-8")))
         target.parent.mkdir(parents=True, exist_ok=True)
         _write_raw(target, final.replace("\n", eol), bom)
         print(f"wrote {target_file}: {len(header)} import(s), {len(blocks)} block(s)")
 
-    def cut(self, source_file, blocks, imports=None):
+    def cut(self, source_file, blocks, imports=None, append=None):
         """Remove `blocks`' exact ranges from `source_file` — every block must belong to this
         same `source_file` (raises otherwise); only ever touches `source_file`, never a target.
         `imports` (optional add_import list) are added to the source's header AFTER the cut — what
@@ -399,15 +610,18 @@ class _Monster:
         segs = _segments(raw)
         for b in sorted(blocks, key=lambda b: b.start, reverse=True):
             del segs[b.start - 1 : b.end]
+            _tidy_seam(segs, b.start - 1)
         added = _insert_imports(segs, imports or [], _eol, split_langs.for_file(source_file), Path(source_file).suffix.lower())
         for text in added:
             self._added.update(_nonblank(text.encode("utf-8")))
+        for ln in _append_lines(segs, append or [], _eol):
+            self._added.update(_nonblank(ln.encode("utf-8")))
         _write_raw(source_file, "".join(segs), bom)
         print(f"cut {len(blocks)} block(s) from {source_file}"
               + (f", +{len(added)} import(s) into it" if added else ""))
         self.verify()
 
-    def replace(self, source_file, blocks, imports=None):
+    def replace(self, source_file, blocks, imports=None, append=None):
         """Swap each block's [start..end] in `source_file` for its `.replacement` text.
 
         Accepts `Replace` objects from `replace()`. Empty `.replacement` deletes the range
@@ -439,10 +653,29 @@ class _Monster:
         added = _insert_imports(segs, imports or [], eol, split_langs.for_file(source_file), Path(source_file).suffix.lower())
         for text in added:
             self._added.update(_nonblank(text.encode("utf-8")))
+        for ln in _append_lines(segs, append or [], eol):
+            self._added.update(_nonblank(ln.encode("utf-8")))
         _write_raw(source_file, "".join(segs), bom)
         print(f"replaced {len(blocks)} block(s) in {source_file}"
               + (f", +{len(added)} import(s) into it" if added else ""))
         self.verify()
+
+    def _report_undefined(self):
+        """Python only: names a touched file now uses but does not define/import (new ones only —
+        what the file already lacked before the split is not our doing). A warning, never a rollback."""
+        total = 0
+        for path, old in self._before.items():
+            if Path(path).suffix.lower() != ".py" or not Path(path).exists():
+                continue
+            now = _py_undefined(Path(path).read_bytes().decode("utf-8", "replace").lstrip("\ufeff"))
+            was = set(_py_undefined(old.decode("utf-8", "replace").lstrip("\ufeff"))) if old else set()
+            fresh = [n for n in now if n not in was]
+            if fresh:
+                total += len(fresh)
+                where = [f"{n} (now in {self._moved[n]['to']})" if n in self._moved else n for n in fresh]
+                print(f"UNDEFINED (static): {path}: {', '.join(where)} — used but not defined/imported there",
+                      file=sys.stderr)
+        self._note(undefined=total)
 
     def _dry_summary(self, source_file, blocks, imports):
         """The dry-run table: where the lines go, and what the source ends up with."""
@@ -504,6 +737,7 @@ class _Monster:
             sys.exit(1)
         print(f"verified: {sum(before.values())} non-blank line(s) conserved across "
               f"{len(self._before)} file(s), all parse")
+        self._report_undefined()
         self._before, self._added, self._repl = {}, Counter(), Counter()  # run closed
         self._note(outcome="applied_verified")
 
@@ -697,7 +931,17 @@ def _find_cycles(edges, limit=5):
     return found[:limit]
 
 
-def _split_graph(file_path, lang, ext, by_target, all_lines):
+def _external_users(project_root, file_path):
+    """{symbol: [consumer files]} — who OUTSIDE the file imports what (make_interface_card.consumers_of,
+    the optional tier); {} when that tool is not around or fails."""
+    try:
+        from make_interface_card import consumers_of
+        return {sym: [c for c, _k, _l in hits] for sym, hits in consumers_of(project_root, file_path).items()}
+    except Exception:
+        return {}
+
+
+def _split_graph(file_path, lang, ext, by_target, all_lines, project_root="."):
     """Dependencies BETWEEN the files of this split — exact, because every moved name is known.
 
     Not a general resolver: only names declared by the moved blocks (and the names that stay in
@@ -754,32 +998,58 @@ def _split_graph(file_path, lang, ext, by_target, all_lines):
         used_across.setdefault(name, set()).add(Path(file_path).name)
 
     notes = []
+    appends = {}                                            # file -> [names needing an appended export line]
     original_text = "\n".join(all_lines)
     exported = lang.exported_names(original_text)          # None = no visibility notion
     if exported is not None and lang.ENFORCES_PRIVACY:
         for name, users in sorted(used_across.items()):
             if name not in exported:
-                where = Path(moved[name]).name if name in moved else Path(file_path).name
-                notes.append(f"# WARNING export: `{name}` ({where}) is not exported but is used by "
-                             f"{', '.join(sorted(users))} — fix by hand (changes block text, "
-                             f"so the tool does not do it)")
+                owner = moved[name] if name in moved else file_path
+                where = Path(owner).name
+                if lang.export_line([name]):
+                    appends.setdefault(owner, []).append(name)
+                    notes.append(f"# NOTE export: `{name}` ({where}) is not exported but is used by "
+                                 f"{', '.join(sorted(users))} — `{lang.export_line([name])}` is APPENDED to "
+                                 f"{where} (the block text itself is untouched)")
+                else:
+                    notes.append(f"# WARNING export: `{name}` ({where}) is not exported but is used by "
+                                 f"{', '.join(sorted(users))} — fix by hand")
     if exported is not None:
+        reexport = set()
+        if lang.AUTO_REEXPORT:
+            # the source stays importable under every name it had: public ones, and any name another
+            # file of the project (tests, callers) pulls from it — found via consumers_of
+            users = _external_users(project_root, file_path)
+            reexport = {n for n in moved if n in exported or n in users}
+            for name in sorted(reexport):
+                spec = lang.file_spec(file_path, moved[name])
+                names = src_back.setdefault(spec, [])
+                if name not in names:
+                    names.append(name)
+                    edges.setdefault(Path(file_path).name, set()).add(Path(moved[name]).name)
         for t, blocks in by_target.items():
             public = sorted({n for b in blocks for n in lang.declared_names(b.text, ext)} & exported)
-            if public:
+            if public and reexport.issuperset(public):
+                notes.append(f"# NOTE public API: {', '.join(public)} moves to {Path(t).name} — re-exported from the "
+                             f"source through SOURCE_IMPORTS, importers keep working")
+            elif public:
                 line = lang.reexport_line(public, lang.file_spec(file_path, t))
                 notes.append(f"# NOTE public API: {', '.join(public)} {'is' if len(public) == 1 else 'are'} exported "
                              f"from {Path(file_path).name} and move{'s' if len(public) == 1 else ''} to {Path(t).name} — "
                              f"importers of the source break unless it re-exports"
                              + (f" (e.g. `{line}`)" if line else ""))
+        kept = sorted(n for n in reexport if n not in exported)
+        if kept:
+            notes.append(f"# NOTE kept importable from the source (other project files use them): {', '.join(kept)}")
         moved_names = sorted(moved)
-        for name in lang.dangling_exports(remaining, moved_names):
+        for name in lang.dangling_exports(remaining, [n for n in moved_names if n not in reexport]):
             notes.append(f"# WARNING dangling export: the source still lists `{name}` in its export list, "
                          f"but `{name}` moves out — remove it from that list (or re-export it)")
     for cyc in _find_cycles(edges):
         notes.append("# WARNING cycle: " + " -> ".join(cyc) + " — circular import between the new files")
     pack = lambda d: {sp: ("named", [(n, n) for n in names]) for sp, names in d.items()}
-    return {"cross": {t: pack(d) for t, d in cross.items()}, "source": pack(src_back), "notes": notes}
+    return {"cross": {t: pack(d) for t, d in cross.items()}, "source": pack(src_back), "notes": notes,
+            "appends": {f: lang.export_line(sorted(set(ns))) for f, ns in appends.items()}}
 
 
 def _insert_imports(segs, imports, eol, lang, ext=""):
@@ -789,7 +1059,12 @@ def _insert_imports(segs, imports, eol, lang, ext=""):
     if not lines:
         return []
     at = lang.import_insert_index(segs, ext)
-    segs[at:at] = [ln + eol for text in lines for ln in text.split("\n")]
+    new = [ln + eol for text in lines for ln in text.split("\n")]
+    segs[at:at] = new
+    nxt = at + len(new)
+    if nxt < len(segs) and segs[nxt].strip() and not _IMPORT_LINE_RE.match(segs[nxt].strip()) \
+            and not segs[nxt].lstrip().startswith("export "):
+        segs.insert(nxt, eol)                   # a fresh import block must not touch the code below it
     return lines
 
 
@@ -805,7 +1080,7 @@ _MANUAL_APPEND_NOTE = [
 ]
 
 
-def generate(file_path, splits, out_path, project_root="."):
+def generate(file_path, splits, out_path, project_root=".", check=None, check_cwd=None, check_timeout=600):
     """Expand `[(line, target_file), ...]` into a full three-layer script at `out_path`.
 
     Grouping (which line goes to which target) is decided by the caller — this only expands
@@ -841,13 +1116,14 @@ def generate(file_path, splits, out_path, project_root="."):
         seen_ranges[key] = target
         by_target.setdefault(target, []).append(block)
 
-    graph = _split_graph(file_path, lang, ext, by_target, all_lines)
+    graph = _split_graph(file_path, lang, ext, by_target, all_lines, project_root)
 
     out = [
         f"# сгенерировано: split_monster --file {file_path} --split ...",
         "import sys",
         f'sys.path.insert(0, r"{_HERE}")',
         "from split_monster import cut, replace, add_import, monster",
+        "monster.handle_undo()  # `python this_script.py --undo` puts every touched file back (originals saved at --apply)",
         f"monster.expect_source({file_path!r}, {src_hash!r})  # warns if the file changed since; blocks re-checked",
         "",
         *_help_lines("md" if is_md else "code"),
@@ -873,6 +1149,7 @@ def generate(file_path, splits, out_path, project_root="."):
     tag = 0
     list_names = {}
     import_list_names = {}
+    append_names = {}
     all_symbols = []
     # a block already being cut (to ANY target in this batch) is not free to grab, must never
     # be offered as a candidate for another one — checked by CONTAINMENT, not exact-tuple
@@ -952,6 +1229,9 @@ def generate(file_path, splits, out_path, project_root="."):
         imports_list_name = f"{_safe_ident(target)}_IMPORTS"
         import_list_names[target] = imports_list_name
         out.append(f"{imports_list_name} = [{', '.join(imp_var_names)}]")
+        if graph and graph["appends"].get(target):
+            append_names[target] = f"{_safe_ident(target)}_APPEND"
+            out.append(f"{append_names[target]} = [{graph['appends'][target]!r}]")
         out.append("")
 
     if all_symbols and lang.CONSUMERS:
@@ -971,15 +1251,27 @@ def generate(file_path, splits, out_path, project_root="."):
         out.append(f"SOURCE_IMPORTS = [{', '.join(names)}]")
         out.append("")
         src_imp_arg = ", imports=SOURCE_IMPORTS"
+    if graph and graph["appends"].get(file_path):
+        out.append(f"SOURCE_APPEND = [{graph['appends'][file_path]!r}]")
+        out.append("")
+        src_imp_arg += ", append=SOURCE_APPEND"
 
     for target, list_name in list_names.items():
-        out.append(f"monster.write({target!r}, {list_name}, {import_list_names[target]})")
+        extra = f", append={append_names[target]}" if target in append_names else ""
+        out.append(f"monster.write({target!r}, {list_name}, {import_list_names[target]}{extra})")
     all_blocks = " + ".join(list_names.values())
     if is_md:
         out.append(f"monster.replace({file_path!r}, {all_blocks}{src_imp_arg})")
     else:
         out.append(f"monster.cut({file_path!r}, {all_blocks}{src_imp_arg})")
 
+    if check:
+        cwd = str(Path(check_cwd or project_root).resolve())
+        out.append(f"monster.check({check!r}, cwd={cwd!r}, timeout={int(check_timeout)})  "
+                   f"# runs after --apply and REPORTS (no rollback); --check CMD overrides, --no-check skips")
+    old_undo = Path(str(Path(out_path).resolve()) + ".undo")
+    if old_undo.exists():                      # a new plan must not inherit the previous plan's originals
+        old_undo.rename(old_undo.with_name(old_undo.name + "." + time.strftime("%Y%m%d%H%M%S")))
     Path(out_path).write_text("\n".join(out) + "\n", encoding="utf-8")
     _CLI_STATS.update(lang=lang.NAME, blocks=tag, targets=len(list_names),
                       imports=sum(1 for ln in out if "= add_import(" in ln))
@@ -1324,6 +1616,12 @@ def _cli_impl(argv=None):
              "изменившийся источник (по отпечаткам блоков), не трогая ручные правки. Без --write — "
              "только отчёт.",
     )
+    p.add_argument("--check", metavar="CMD",
+                   help="команда проверки (тесты, tsc --noEmit, ...), которую move.py запустит ПОСЛЕ --apply и "
+                        "ОТЧИТАЕТСЯ (без отката: цель — доправить; подсказки покажут, куда переехали имена из "
+                        "ошибок; код выхода 3 = разрез применён, проверка упала). Тул не угадывает команду.")
+    p.add_argument("--check-cwd", metavar="DIR", help="откуда запускать --check (по умолчанию --project-root)")
+    p.add_argument("--check-timeout", type=int, default=600, help="секунд на --check (по умолчанию 600)")
     p.add_argument("--write", action="store_true", help="с --rebase: записать изменения в SCRIPT")
     p.add_argument("--accept-changed", action="store_true",
                    help="с --rebase: принять и блоки с тем же именем, но изменённым текстом")
@@ -1344,7 +1642,8 @@ def _cli_impl(argv=None):
     for line_token, target in args.split:
         for line_no in _parse_split_line_token(line_token):
             splits.append((line_no, target))
-    generate(args.file, splits, args.out_script, project_root=args.project_root)
+    generate(args.file, splits, args.out_script, project_root=args.project_root,
+             check=args.check, check_cwd=args.check_cwd, check_timeout=args.check_timeout)
 
 
 if __name__ == "__main__":
