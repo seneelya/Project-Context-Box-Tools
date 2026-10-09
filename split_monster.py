@@ -10,6 +10,18 @@ Two ways to use it:
 See __dev/vision/Vision06__monster-file-split.md and __dev/plans/Plan04__split_monster.md
 for the full design/rationale — this docstring only orients, it does not re-argue decisions.
 
+FILES TO COPY if you take only this tool out of the toolkit (keep the folder layout; run from
+the folder that holds split_monster.py; Python >= 3.10, `pip install -r get_codeblock/requirements.txt`):
+  REQUIRED   split_monster.py  split_langs/  get_codeblock/ (+ its requirements: tree-sitter and
+             the grammars)  find_code_usage/ (JS/TS import parsing reuses its ts_handler regexes)
+  OPTIONAL   `monster.consumers(...)` — the "who outside imports these names" report — needs
+             make_interface_card.py + stamp_langs/ + CARD_FORMAT.py + graph_from_cards.py +
+             seam_scanner/ + termstyle.py (without them it prints one line and skips).
+             CONFIG__TOOLS.py — only for the usage log (LOG_ENABLED_TOOLS/LOG_DIR); missing = log off.
+  NOT NEEDED test/, __dev/, *.md docs (split_monster__TLDR.md is the quick reference).
+Generated move.py files import split_monster by absolute path (sys.path.insert) — regenerate
+them after moving the tool.
+
 v0 scope: I (the LLM) decide which block goes to which file — this tool does not propose
 groupings. The "best-effort hints" it writes into generated scripts are a cheap grep, not a
 real reference graph (that's a future v1) — verify them, don't trust them blindly.
@@ -478,8 +490,11 @@ class _Monster:
     def consumers(self, file_path, symbols, project_root="."):
         """Print (not fix) who outside `file_path` imports each of `symbols` — must be called
         BEFORE any cut, since consumers_of parses live declarations out of `file_path`."""
-        from make_interface_card import consumers_of
-
+        try:
+            from make_interface_card import consumers_of
+        except ImportError as e:  # optional tier not copied along (see the module docstring)
+            print(f"# {file_path}: потребителей не искал — make_interface_card недоступен ({e})")
+            return
         try:
             data = consumers_of(project_root, file_path)
         except ValueError as e:  # no stamp language for this extension (e.g. .md, .mjs)

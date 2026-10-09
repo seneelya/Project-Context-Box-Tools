@@ -92,6 +92,21 @@ To drop something from the plan: **append** a short reassignment at the bottom (
 `SOME_BLOCKS = [c01]` to keep only `c01`) — never edit/comment an existing line, that means
 retyping it in full for no reason.
 
+## Taking only this tool out of the toolkit
+
+Keep the folder layout, run from the folder that holds `split_monster.py` (Python >= 3.10,
+`pip install -r get_codeblock/requirements.txt`). Verified in a clean copy (py / js / md moves,
+`--apply`, verify all pass):
+
+* **required:** `split_monster.py`, `split_langs/`, `get_codeblock/`, `find_code_usage/`
+  (JS/TS import parsing reuses its `ts_handler`);
+* **optional:** the "who outside imports these names" report (`monster.consumers`) also needs
+  `make_interface_card.py`, `stamp_langs/`, `CARD_FORMAT.py`, `graph_from_cards.py`, `seam_scanner/`,
+  `termstyle.py` — without them it prints one line and is skipped; `CONFIG__TOOLS.py` is only for
+  the usage log (missing = log off);
+* not needed: `test/`, `__dev/`. The same list sits at the top of `split_monster.py`.
+* generated `move.py` files hold the tool's absolute path — regenerate them after moving it.
+
 ## Languages (`split_langs/`)
 
 One module per language (python, javascript = js/ts/tsx/jsx/mjs, markdown) behind a registry; the
