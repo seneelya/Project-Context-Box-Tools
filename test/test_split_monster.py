@@ -853,11 +853,74 @@ def test_incomplete_language_module_fails_loudly():
 
 def test_unknown_language_still_cuts_and_says_no_hints():
     with tempfile.TemporaryDirectory() as d:
-        src = Path(d) / "a.cs"
-        src.write_bytes(b"public class A {}" + bytes([10, 10]) + b"public class B {}" + bytes([10]))
+        src = Path(d) / "a.css"
+        src.write_bytes(b"a { color: red; }" + bytes([10, 10]) + b"b { color: blue; }" + bytes([10]))
         script = str(Path(d) / "move.py")
-        r = run_cli("--file", str(src), "--split", "1", str(Path(d) / "x.cs"), "--out-script", script)
+        r = run_cli("--file", str(src), "--split", "1", str(Path(d) / "x.css"), "--out-script", script)
         assert r.returncode == 0, r.stderr
-        assert "NOT available for .cs" in Path(script).read_text(encoding="utf-8")
+        assert "NOT available for .css" in Path(script).read_text(encoding="utf-8")
         assert _run(script, "--apply").returncode == 0
-        assert "class A" in Path(d, "x.cs").read_text(encoding="utf-8")
+        assert "color: red" in Path(d, "x.css").read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- v0.3: generic tree-sitter module
+
+CS_SRC = (
+    "using System;\n\n// Helper mentions Gadget only in a comment\npublic class Helper\n{\n"
+    "    public int Run() { return 1; }\n}\n\npublic class Gadget\n{\n"
+    "    public int Go() { return new Helper().Run(); }\n}\n"
+)
+CPP_SRC = (
+    "#include <vector>\n#include \"x.h\"\n\nnamespace ns {\nint helper(int x) { return x; }\n"
+    "struct Config { int a; };\n}\nint Foo::bar(int y) { return ns::helper(y); }\n"
+)
+
+
+def test_treesitter_module_names_identifiers_and_frames():
+    import split_langs
+    cs = split_langs.for_ext(".cs")
+    assert cs.NAME == "treesitter"
+    assert cs.declared_names(CS_SRC, ".cs") == ["Helper", "Gadget"]
+    ids = cs.identifiers(CS_SRC, ".cs")
+    assert "Helper" in ids and "Gadget" in ids and "mentions" not in ids  # comment words don't count
+    assert cs.decl_line(CS_SRC, ".cs") == "public class Helper"
+    cpp = split_langs.for_ext(".cpp")
+    # names inside `namespace ns { ... }` (a frame) and a C++ declarator `Foo::bar` -> `bar`
+    assert cpp.declared_names(CPP_SRC, ".cpp") == ["helper", "Config", "bar"]
+    assert cpp.name_from_decl("public class Foo : Bar") == "Foo"
+    assert cpp.name_from_decl("int main(int argc)") == "main"
+
+
+def test_treesitter_module_import_band_index():
+    import split_langs
+    cs = split_langs.for_ext(".cs")
+    assert cs.import_insert_index(CS_SRC.splitlines(True), ".cs") == 1     # after `using System;`
+    cpp = split_langs.for_ext(".cpp")
+    assert cpp.import_insert_index(CPP_SRC.splitlines(True), ".cpp") == 2  # after the #include lines
+
+
+def test_csharp_split_gets_hints_and_applies():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "a.cs"
+        src.write_bytes(CS_SRC.encode("utf-8"))
+        script = str(Path(d) / "move.py")
+        r = run_cli("--file", str(src), "--split", "9", str(Path(d) / "t.cs"), "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "возможно нужны — Helper" in text           # Gadget uses Helper
+        assert "NOT available" not in text
+        applied = _run(script, "--apply")
+        assert applied.returncode == 0, applied.stderr
+        assert "class Gadget" in Path(d, "t.cs").read_text(encoding="utf-8")
+
+
+def test_cpp_rebase_finds_a_moved_function_by_text():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d) / "a.cpp"
+        src.write_bytes(b"int helper(int x) { return x; }" + bytes([10, 10]) + b"int user(int y) { return y; }" + bytes([10]))
+        script = str(Path(d) / "move.py")
+        run_cli("--file", str(src), "--split", "3", str(Path(d) / "t.cpp"), "--out-script", script)
+        src.write_bytes(b"// new first line" + bytes([10]) + src.read_bytes())
+        r = run_cli("--rebase", script, "--write")
+        assert r.returncode == 0 and "moved" in r.stdout, r.stdout
+        assert _run(script, "--apply").returncode == 0

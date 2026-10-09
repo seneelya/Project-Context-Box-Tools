@@ -43,13 +43,13 @@ def _declared(tree):
     return dedup(names)
 
 
-def declared_names(text):
+def declared_names(text, ext=""):
     """Top-level names a block declares, in order (a banded range carries several)."""
     tree = _parse(text)
     return _declared(tree) if tree else []
 
 
-def top_level_names(lines):
+def top_level_names(lines, ext=""):
     tree = _parse("\n".join(lines))
     return set(_declared(tree)) if tree else set()
 
@@ -67,7 +67,7 @@ def identifiers(text, ext=""):
         return set(WORD_RE.findall(text))
 
 
-def decl_line(text):
+def decl_line(text, ext=""):
     for line in text.splitlines():
         stripped = line.strip()
         if re.match(r"(async\s+def|def|class)\s", stripped) or \
@@ -135,7 +135,7 @@ def file_spec(from_file, to_file):
     return ".".join(downs + [tpath.stem]) if not ups else tpath.stem
 
 
-def import_insert_index(segs):
+def import_insert_index(segs, ext=""):
     """After the last top-level import, else after the module docstring, else the top."""
     tree = _parse("".join(segs))
     if tree is None:

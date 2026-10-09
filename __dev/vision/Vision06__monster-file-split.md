@@ -485,3 +485,11 @@ get_codeblock (`Spec`, `backend.root`, ряд `imports:` в outline) — C#/C++/
 кода; (3) `source_imports`/`file_spec` через find_code_usage handlers/resolvers (TS-алиасы, C++ include,
 C# using); (4) `export_problem` через `stamp_langs.declared()` (`all_defs` − `exports`). Риски: `declared()`
 тяжёл на C++, голое имя C++-декларатора через `unwrap_def`+поле `name` нужно проверять на фикстурах.
+
+**Шаг 2 (2026-10-10, сделано).** Универсальный модуль `split_langs/treesitter.py` (C#, C/C++): имена —
+через `Spec.role/unwrap_def/body` get_codeblock с обходом рамок (namespace, `extern "C"`, `#ifdef`) и поле
+`name` / дрилл по `declarator` для C++; идентификаторы — узлы identifier/type_identifier/namespace_identifier
+(не комментарии, строки, `field_identifier`); место вставки импорта — ряд `imports:` outline (C#), для C/C++
+фолбек по `#include`. Ограничение: константы/переменные верхнего уровня в TS и C++ у get_codeblock — filler
+(не landmark), поэтому для TS остаётся свой JS-модуль, а C++-переменные имён не дают. Дальше: шаг 3
+(импорты/пути через find_code_usage), шаг 4 (export через stamp_langs).

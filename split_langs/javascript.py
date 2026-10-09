@@ -27,7 +27,7 @@ def _first_group(m):
     return next(g for g in m.groups() if g)
 
 
-def declared_names(text):
+def declared_names(text, ext=""):
     names = []
     for line in text.splitlines():
         if line[:1].isspace():
@@ -38,7 +38,7 @@ def declared_names(text):
     return names
 
 
-def top_level_names(lines):
+def top_level_names(lines, ext=""):
     names = set()
     for line in lines:
         if line[:1].isspace():
@@ -66,7 +66,7 @@ def identifiers(text, ext=".js"):
         return set(WORD_RE.findall(text))
 
 
-def decl_line(text):
+def decl_line(text, ext=""):
     for line in text.splitlines():
         if _TOP_LEVEL_NAME_RE.match(line.strip()):
             return line.strip()
@@ -135,7 +135,7 @@ def file_spec(from_file, to_file):
     return spec if spec.startswith(".") else "./" + spec
 
 
-def import_insert_index(segs):
+def import_insert_index(segs, ext=""):
     """After the leading import block (single- or multi-line statements)."""
     i = last = 0
     while i < len(segs):

@@ -71,7 +71,8 @@ python move.py --apply
 | `.js` `.mjs` `.ts` `.tsx` `.jsx` | top-level landmarks (`get_codeblock --outline`) | ESM `import` only |
 | `.py` | top-level (classes/functions, assignments) | `import` / `from … import` (via `ast`) |
 | `.md` | heading sections (prefer heading line; `--outline --level 4+`) | no; hint = other sections linking `#anchor` |
-| other get_codeblock languages | cut/replace work; **no name hints / auto imports** (script says so) | no |
+| `.cs` `.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cu` `.cuh` … (generic tree-sitter module) | cut/replace + name hints (names/identifiers come from get_codeblock; namespace/`extern "C"`/`#ifdef` frames are looked into) | **not yet** (donor: find_code_usage, next step) |
+| other get_codeblock languages (css, sh, …) | cut/replace work; **no name hints / auto imports** (script says so) | no |
 
 Fixtures used: `test/topLevel/*`, `test/mdSRC/*`, `test/tsSRC/dyn/*.mjs`. Regression:
 `test/test_split_monster.py`.
@@ -109,7 +110,8 @@ Keep the folder layout, run from the folder that holds `split_monster.py` (Pytho
 
 ## Languages (`split_langs/`)
 
-One module per language (python, javascript = js/ts/tsx/jsx/mjs, markdown) behind a registry; the
+One module per language (python, javascript = js/ts/tsx/jsx/mjs, markdown, treesitter = the generic
+one for C#/C/C++ built on get_codeblock) behind a registry; the
 core has no `if language == …`. A new language = a new module + its name in `_MODULES` — see
 `split_langs/CONTRACT.md` (required hooks fail loudly at load). Unclaimed extensions fall back to
 `other`: cut/replace work, no hints/imports/graph.

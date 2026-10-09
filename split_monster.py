@@ -395,7 +395,7 @@ class _Monster:
         segs = _segments(raw)
         for b in sorted(blocks, key=lambda b: b.start, reverse=True):
             del segs[b.start - 1 : b.end]
-        added = _insert_imports(segs, imports or [], _eol, split_langs.for_file(source_file))
+        added = _insert_imports(segs, imports or [], _eol, split_langs.for_file(source_file), Path(source_file).suffix.lower())
         for text in added:
             self._added.update(_nonblank(text.encode("utf-8")))
         _write_raw(source_file, "".join(segs), bom)
@@ -431,7 +431,7 @@ class _Monster:
                 repl = repl + "\n"
             self._repl.update(_nonblank(repl.encode("utf-8")))
             segs[b.start - 1 : b.end] = _segments(repl.replace("\n", eol)) if repl else []
-        added = _insert_imports(segs, imports or [], eol, split_langs.for_file(source_file))
+        added = _insert_imports(segs, imports or [], eol, split_langs.for_file(source_file), Path(source_file).suffix.lower())
         for text in added:
             self._added.update(_nonblank(text.encode("utf-8")))
         _write_raw(source_file, "".join(segs), bom)
@@ -526,7 +526,7 @@ def _hint_lines(block, all_lines, top_level_names, lang, ext=""):
     hints = []
     if not lang.HAS_NAMES:
         return hints
-    names = lang.declared_names(block.text)
+    names = lang.declared_names(block.text, ext)
     for name in names:
         pat = re.compile(lang.ref_pattern(name))
         referenced_at = [
@@ -548,8 +548,8 @@ def _hint_lines(block, all_lines, top_level_names, lang, ext=""):
     return hints
 
 
-def _preview_line(block, lang):
-    return f"# {lang.decl_line(block.text)}  [{block.start}-{block.end}]"
+def _preview_line(block, lang, ext=""):
+    return f"# {lang.decl_line(block.text, ext)}  [{block.start}-{block.end}]"
 
 
 def _safe_ident(target_file):
@@ -690,7 +690,7 @@ def _split_graph(file_path, lang, ext, by_target, all_lines):
     moved, owner_block = {}, {}
     for t, blocks in by_target.items():
         for b in blocks:
-            for n in lang.declared_names(b.text):
+            for n in lang.declared_names(b.text, ext):
                 moved.setdefault(n, t)
                 owner_block.setdefault(n, b)
     moved_idx = set()
@@ -698,7 +698,7 @@ def _split_graph(file_path, lang, ext, by_target, all_lines):
         for b in blocks:
             moved_idx.update(range(b.start - 1, b.end))
     remaining = [ln for i, ln in enumerate(all_lines) if i not in moved_idx]
-    remaining_names = {n for n in lang.top_level_names(remaining) if n not in moved}
+    remaining_names = {n for n in lang.top_level_names(remaining, ext) if n not in moved}
 
     cross = {t: {} for t in by_target}   # target -> {specifier: [names]}
     src_back = {}                         # specifier -> [names]
@@ -750,13 +750,13 @@ def _split_graph(file_path, lang, ext, by_target, all_lines):
     return {"cross": {t: pack(d) for t, d in cross.items()}, "source": pack(src_back), "notes": notes}
 
 
-def _insert_imports(segs, imports, eol, lang):
+def _insert_imports(segs, imports, eol, lang, ext=""):
     """Add import lines to the source's header (skipping ones already present). `segs` mutated."""
     present = {s.strip() for s in segs}
     lines = [imp.text for imp in imports if imp.text.strip() not in present]
     if not lines:
         return []
-    at = lang.import_insert_index(segs)
+    at = lang.import_insert_index(segs, ext)
     segs[at:at] = [ln + eol for text in lines for ln in text.split("\n")]
     return lines
 
@@ -782,7 +782,7 @@ def generate(file_path, splits, out_path, project_root="."):
     ext = Path(file_path).suffix.lower()
     all_lines = Path(file_path).read_text(encoding="utf-8").splitlines()
     lang = split_langs.for_ext(ext)
-    top_level_names = lang.top_level_names(all_lines)
+    top_level_names = lang.top_level_names(all_lines, ext)
     source_imports = lang.source_imports(all_lines)
     outline = _gcb_outline_rows(file_path)
     is_md = lang.STUBS
@@ -868,11 +868,11 @@ def generate(file_path, splits, out_path, project_root="."):
                 )
             for h in _hint_lines(b, all_lines, top_level_names, lang, ext):
                 out.append(h)
-            names = lang.declared_names(b.text)
+            names = lang.declared_names(b.text, ext)
             if len(names) > 1:
                 out.append(f"# банд: {len(names)} объявлений в одном диапазоне — "
                             f"{', '.join(names)}")
-            out.append(_preview_line(b, lang))
+            out.append(_preview_line(b, lang, ext))
             varname = f"c{tag:02d}"
             if is_md:
                 stubname = f"STUB_{tag:02d}"
@@ -1017,7 +1017,7 @@ def rebase(script_path, write=False, accept_changed=False):
             how = "same" if new_block.start == old_line else "moved"
         else:
             name = lang.name_from_decl(decl) if decl else None
-            named = [b for b in by_range.values() if name and name in lang.declared_names(b.text)]
+            named = [b for b in by_range.values() if name and name in lang.declared_names(b.text, ext)]
             if len(named) == 1:
                 new_block, how = named[0], "changed"
         label = decl or "?"

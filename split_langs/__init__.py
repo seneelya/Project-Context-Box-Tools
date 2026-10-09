@@ -13,7 +13,7 @@ import os
 
 from ._common import treesitter_syntax_ok
 
-_MODULES = ("python", "javascript", "markdown")
+_MODULES = ("python", "javascript", "markdown", "treesitter")
 
 _REQUIRED = ("NAME", "EXTENSIONS", "declared_names", "top_level_names", "identifiers",
              "decl_line", "name_from_decl", "source_imports", "render_import")
@@ -39,7 +39,7 @@ class _Defaults:
         return None
 
     @staticmethod
-    def import_insert_index(segs):
+    def import_insert_index(segs, ext=""):
         """0-based index into the source's lines where new import lines go (after the header)."""
         return 0
 

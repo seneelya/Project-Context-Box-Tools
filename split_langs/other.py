@@ -9,11 +9,11 @@ EXTENSIONS = ()
 HAS_NAMES = False
 
 
-def declared_names(text):
+def declared_names(text, ext=""):
     return []
 
 
-def top_level_names(lines):
+def top_level_names(lines, ext=""):
     return set()
 
 
@@ -21,7 +21,7 @@ def identifiers(text, ext=""):
     return set(WORD_RE.findall(text))
 
 
-def decl_line(text):
+def decl_line(text, ext=""):
     return text.splitlines()[0].strip() if text else ""
 
 

@@ -18,7 +18,7 @@ def _slug(title):
     return re.sub(r"\s", "-", t.strip())
 
 
-def declared_names(text):
+def declared_names(text, ext=""):
     for line in text.splitlines():
         hm = _HEADING_RE.match(line.strip())
         if hm:
@@ -27,7 +27,7 @@ def declared_names(text):
     return []
 
 
-def top_level_names(lines):
+def top_level_names(lines, ext=""):
     out = set()
     for line in lines:
         hm = _HEADING_RE.match(line.strip())
@@ -40,7 +40,7 @@ def identifiers(text, ext=""):
     return set(re.findall(r"\]\(#([^)\s]+)\)", text))
 
 
-def decl_line(text):
+def decl_line(text, ext=""):
     for line in text.splitlines():
         if _HEADING_RE.match(line.strip()):
             return line.strip()
