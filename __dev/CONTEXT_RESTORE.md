@@ -40,6 +40,17 @@ commit this repo FIRST (an unknown blob is reported as CONFLICT).
 - **Test beds:** `y:\SRC\llama.cpp_mix` (C/C++; zone = its config `STAMP_DIRS`), `hermes-filetools`,
   `memohood` (Python/JS); sweep-only Python trees: `Y:\SRC\rlm`, `Y:\SRC\TRELLIS.2`.
 
+## split_monster (2026-10-10)
+
+Splits monster files: blocks move byte-for-byte past the model; imports / re-exports / appended
+`export` lines are generated around them. `split_monster.py` + package `split_langs/` (one module
+per language, `CONTRACT.md`), tests `test/test_split_monster.py` (59/0). Read `split_monster__TLDR.md`,
+`--help`, and the chronicle at the bottom of `__dev/vision/Vision06__monster-file-split.md` (decisions
+and two field trials: `make_interface_card.py` on a copy, and a live JS split of hermes-filetools
+`config-pane.js`). Flow: `--investigate` -> `--split ... --out-script move.py` -> `move.py [--apply]
+[--check CMD] [--undo]`, `--rebase` when the source changed. Open: `require()`/CommonJS, a compact
+`--investigate` for 300+ blocks, a trial on a TS/TSX monster.
+
 ## Where copies of the tools live (update after a release)
 
 | Project | What | How |
