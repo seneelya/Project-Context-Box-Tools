@@ -231,7 +231,7 @@ def main():
         for e in sorted(outdated, key=lambda x: str(x["card"])):
             print(f"  {e['card'].relative_to(cards_dir).as_posix()}  lag={_lag(e['lag'])}  {e['note']}")
     if orphan:
-        print("\nORPHAN (no source):")
+        print("\nORPHAN (source file is gone — DELETE these cards):")
         for card in sorted(orphan):
             print(f"  {card.relative_to(cards_dir).as_posix()}")
 

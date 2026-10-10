@@ -1046,6 +1046,19 @@ def _stale_filter(project_root_abs, cards_dir, files):
     return keep, missing
 
 
+def _orphan_cards(cards_dir, project_root_abs):
+    """Root-relative card paths (`<source>.md`) under cards_dir whose source file no longer exists."""
+    out = []
+    base = Path(cards_dir)
+    if not base.is_dir():
+        return out
+    for card in sorted(base.rglob("*.md")):
+        node = card.relative_to(base).as_posix()[:-3]
+        if not (Path(project_root_abs) / node).exists():
+            out.append(card.relative_to(base).as_posix())
+    return out
+
+
 def _stamp_all(project_root_abs, force, language=None, discard_prose=False, record=None, cards_dir=None,
                paths=None, stale=False):
     """BULK: штемпелит ВСЕ исходники под project-root в cards_dir (обычно __map/).
@@ -1073,6 +1086,13 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False, reco
     if zone:
         files = [f for f in files if _in_zone(rel_path(f, project_root_abs), zone)]
         sys.stderr.write(f"[make_interface_card] --all: zone={zone} (links still resolved over the whole root)\n")
+    orphans = _orphan_cards(cards_dir, project_root_abs)
+    if orphans:
+        shown = ", ".join(orphans[:10]) + (f" … (+{len(orphans) - 10})" if len(orphans) > 10 else "")
+        sys.stderr.write(f"[make_interface_card] --all: {len(orphans)} ORPHAN card(s) — source file is gone, "
+                         f"DELETE these cards (never restamped): {shown}\n")
+    if record is not None:
+        record["all_orphans"] = len(orphans)
     # Печатаем ЯЗЫКИ, а не только расширения: молчаливый пропуск JS-файлов в
     # питон-проекте — ровно то, из-за чего эта опция и появилась. Пусть видно,
     # по какому набору шли, даже когда всё нашлось.

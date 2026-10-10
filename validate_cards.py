@@ -186,7 +186,7 @@ def validate_card(path, cards_dir, unresolved_raw, project_root, seam_rows=None)
     if project_root is not None:
         node_id = path.relative_to(cards_dir).as_posix()[:-3]
         if not (project_root / node_id).exists():
-            issues.append("orphan: source file missing")
+            issues.append("orphan: source file missing — delete this card")
 
     # «ждёт агента» — незаполненные директивы `<|Agent:…|>`. НЕ ошибка: статус для
     # оркестратора/автора «эту карточку ещё надо пройти агентом». Перечисляем ГДЕ.
