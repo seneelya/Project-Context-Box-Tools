@@ -307,7 +307,11 @@ def _entry_key(h4_line, lang=None):
             return own
     eq, paren = e.find("="), e.find("(")
     if eq != -1 and (paren == -1 or eq < paren):
-        name = _name_before(e, "=")
+        # Присваивание С АННОТАЦИЕЙ (`STATE: dict = {}`, TS `const x: Map<K, V> = …`): перед `=`
+        # стоит ТИП, а имя — перед одиночным `:` (не `::`). Без этого ключом становился тип
+        # (`dict`), и проза записи терялась на каждой перештамповке (hermes-filetools, 2026-10-11).
+        ann = re.search(r"(?<!:):(?!:)", e[:eq])
+        name = _name_before(e[:ann.start()] + "=", "=") if ann else _name_before(e, "=")
         if name:
             return name
     if paren != -1:
@@ -366,7 +370,10 @@ def _resolve_entry_identities(new_syms, op, report):
             continue
         used_old.add(name)
         desc = old["desc"]
-        if desc and old.get("sig") != sig:
+        # Сравниваем сигнатуры ТЕМ ЖЕ путём, каким старая прочитана из H4: обратная кавычка
+        # внутри (`FENCE = "`" * 4`) рвёт код-спан, старая сигнатура читается обрезанной — и без
+        # этого каждая перештамповка считала запись изменённой и добавляла маркер (2026-10-11).
+        if desc and old.get("sig") != _h4_raw_text(f"#### `{sig}`"):
             desc = [_MARK_SIG_CHANGED + desc[0]] + desc[1:]
         resolved[name] = desc if desc else None
 

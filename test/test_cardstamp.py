@@ -201,6 +201,12 @@ def test_entry_key_survives_language_decorators():
     check("python async def", mic._entry_key("#### `async load_it(x)`", "python") == "load_it")
     check("csharp modifiers+type", mic._entry_key("#### `public static void Foo(x)`", "csharp") == "Foo")
     check("csharp async modifiers", mic._entry_key("#### `public async Task Bar(x)`", "csharp") == "Bar")
+    # присваивание с аннотацией: ключ — имя, не тип (раньше выходило `dict` — проза терялась)
+    check("python annotated assign", mic._entry_key("#### `STATE: dict = {}`", "python") == "STATE")
+    check("python annotated generic", mic._entry_key("#### `CACHE: dict[str, int] = {}`", "python") == "CACHE")
+    check("ts annotated const", mic._entry_key("#### `const LIMITS: Map<string, number> = new Map()`",
+                                                "typescript") == "LIMITS")
+    check("cpp scope is not an annotation", mic._entry_key("#### `std::string NAME = \"x\"`", "cpp") == "NAME")
 
 
 def test_python_public_constant_declared_private_not():
@@ -310,6 +316,14 @@ def test_merge_marker_on_signature_change_and_rename():
         new_syms_sig_changed_again, op_marked, {"new_entries": [], "preserved_entries": [], "salvaged": [], "renamed": []})
     check("marker stacks on repeated drift, no counter needed",
           resolved3["isOurTool"][0].count(mic._MARK_SIG_CHANGED) == 2)
+    # обратная кавычка в сигнатуре рвёт код-спан H4 — это НЕ дрейф, маркер не ставится
+    tick_card = ("# m.py\n\nS.\n\n## Public API\n\n### Constants\n"
+                 "#### `FENCE = \"`\" * 4`\nconsumers 0\nFence.\n")
+    op_tick = mic._parse_old_prose(tick_card, "python")
+    resolved_tick, _ = mic._resolve_entry_identities(
+        [("FENCE", "Constants", 'FENCE = "`" * 4')], op_tick,
+        {"new_entries": [], "preserved_entries": [], "salvaged": [], "renamed": []})
+    check("backtick in signature is not drift", resolved_tick["FENCE"] == ["Fence."])
     check("stable case does not re-add marker",
           mic._resolve_entry_identities(
               [("isOurTool", "Functions", "async function isOurTool(name)")], op_marked,
