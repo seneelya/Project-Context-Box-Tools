@@ -383,7 +383,7 @@ def _resolve_query_runs(handler, file_path, lines, line_nums, levels):
     """Pure resolve step of batch query (no printing): every hit -> block, sorted by
     file position, merged on touch/overlap into `runs` (see `render_query` for
     why merge-on-touch, not just containment). Split out from the old single
-    `_run_query_batch` (Vision05) so escalation can inspect the resolved SIZE before
+    `query_view` (Vision05) so escalation can inspect the resolved SIZE before
     committing to render — the common (non-escalating) call now resolves exactly
     once, same cost as before Vision05 existed; only an actually-undersized result
     pays for a second resolve (with the escalated `--line`/`--level` arrays)."""

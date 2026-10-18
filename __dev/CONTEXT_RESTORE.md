@@ -23,7 +23,7 @@ commit this repo FIRST (an unknown blob is reported as CONFLICT).
 
 ## State (2026-10-07)
 
-- **get_codeblock 0.8.0** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
+- **get_codeblock 0.9.0** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
   frontmatter = `meta:` block), YAML, plain text, shell `.sh`, PowerShell `.ps1`, batch `.bat`.
   `--name` (name -> lines -> the existing `--line` render). C/C++ macros cut before parsing,
   recovery after unparsable function bodies. One ext -> language map: `reader.reader.language_for_ext`.
@@ -65,7 +65,8 @@ ends at `\n` and keeps its ending (a lone `\r` is NOT a break: tree-sitter and g
 API text is byte-exact, the CLI picture is `\n`-only (CONTRACT invariant #10).
 R02 (a reused `Source` mixing two file versions) — NOT fixing, owner's decision: it needs the file
 edited mid-call, and then the caller has bigger problems. The re-parse debt (escalate.py) stays a
-separate performance item. **Next:** `reader/CONTRACT.md` cleanup (still says 0.5.0 and the old `[i/n]` format). After any get_codeblock change: run
+separate performance item. `reader/CONTRACT.md` cleaned the same day; VERSION 0.9.0. The review is
+closed. After any get_codeblock change: run
 `vendor/sync_get_codeblock.py` in hermes-filetools and its pytest (`__HQ\tools\hermes-py.cmd -m pytest tests/ -q`).
 
 ## Where copies of the tools live (update after a release)

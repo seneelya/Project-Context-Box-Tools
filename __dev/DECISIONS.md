@@ -18,7 +18,7 @@ Format: `- <decision> — <one-line why>`
 - Paths in tool output are always `/` (POSIX), regardless of OS — stable, greppable output.
 - All CLI tools force UTF-8 stdout — cards/commits are often Cyrillic; a cp1251 Windows console would crash otherwise.
 - `get_codeblock` levels: `level = 1 + enclosing block bodies`, file root = 1; **`0` is never a real depth** — it is reserved for `--level` addressing (the code line itself). Full ideology in `Vision01__get_codeblock.md`.
-- Card tools' `--project-root` (and so their `__map` dir) resolves per `Vision01__path-and-flag-conventions.md`: not given → implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked against a stale/foreign config; `@`/literal → explicit, unchecked. NOT plain cwd (superseded 2026-08-30 — cwd has no meaning for `__map/`, that was the original bug). Generic fact-fetchers (`find_code_usage`/`get_codeblock`/`show_pyfile_api`) DO default to cwd — the two categories resolve differently on purpose.
+- Card tools' `--project-root` (and so their `__map` dir) resolves per `Vision01__path-and-flag-conventions.md`: not given → implicitly `CONFIG__TOOLS.PROJECT_ROOT`, sanity-checked against a stale/foreign config; `@`/literal → explicit, unchecked. NOT plain cwd (superseded 2026-08-30 — cwd has no meaning for `__map/`, that was the original bug). Generic fact-fetchers (`find_code_usage`/`get_codeblock`/`show_pyfile_api`): a RELATIVE `--file` is looked up under `--project-root` (not given -> `CONFIG__TOOLS.PROJECT_ROOT`) first, then cwd; found in both -> the root wins + a warning (Vision08 §5; was "cwd only" before).
 
 ## Card stamp (make_interface_card)
 
