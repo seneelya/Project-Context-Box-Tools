@@ -1,0 +1,6 @@
+
+--------------------------------------------------
+swept 30 files, 3259 line-probes; 0 files with HIGH/LOW findings
+  HIGH  CONTAIN=0 RANGE=0 CRASH=0 OPEN=0 QUERY=0
+  LOW   LEVEL=0
+  INFO  SIBLING=6 EMPTY=0   (expected noise -- shared close/open brace boundaries; use --show-info to itemize)

@@ -1,0 +1,292 @@
+{
+  "multiline_decorator": {
+    "outline": [
+      {
+        "level": 1,
+        "start": 1,
+        "end": 5,
+        "text": "@decorator( option=True, ) def target()",
+        "frame": false,
+        "filler": false
+      }
+    ],
+    "query": {
+      "level": 1,
+      "start": 4,
+      "end": 5,
+      "text": "def target():\n    return 42\n"
+    },
+    "decorator_line": {
+      "level": 1,
+      "start": 1,
+      "end": 5,
+      "text": "@decorator(\n    option=True,\n)\ndef target():\n    return 42\n"
+    }
+  },
+  "qualified_glob": {
+    "exact": {
+      "query": "A.foo",
+      "hits": [
+        {
+          "line": 2,
+          "name": "A.foo",
+          "how": "exact"
+        }
+      ],
+      "exact": true,
+      "more": 0
+    },
+    "glob": {
+      "query": "A.foo*",
+      "hits": [
+        {
+          "line": 2,
+          "name": "A.foo",
+          "how": "glob"
+        },
+        {
+          "line": 7,
+          "name": "B.foo",
+          "how": "glob"
+        }
+      ],
+      "exact": false,
+      "more": 0
+    }
+  },
+  "batch_parse_count": {
+    "anchors": 3,
+    "query_root_calls": 6,
+    "line_level_root_calls": 3
+  },
+  "multiple_declarations": {
+    "declarations": [
+      {
+        "name": "FIRST",
+        "quals": [],
+        "line": 1,
+        "end": 1
+      }
+    ],
+    "second": {
+      "rc": 2,
+      "stdout": "//name: \"SECOND\" — nothing similar; try --outline\n",
+      "stderr": ""
+    }
+  },
+  "long_fence": [
+    {
+      "level": 1,
+      "start": 1,
+      "end": 3,
+      "text": "Real",
+      "frame": false,
+      "filler": false
+    },
+    {
+      "level": 1,
+      "start": 4,
+      "end": 7,
+      "text": "Fake inside code",
+      "frame": false,
+      "filler": false
+    }
+  ],
+  "markdown_heading_name": {
+    "rc": 0,
+    "stdout": "<!-- name: \"Getting started\" — no exact; closest 1 (words); pick one with --line N --query -->\n<!-- outline — focus line 1 max depth 1, L1=1, showing levels 1..1 -->\n<!-- 1 [1-2] Getting started -->\n",
+    "stderr": ""
+  },
+  "fallback_name": {
+    "rc": 0,
+    "stdout": "#name: \"target\" — no exact; closest 1 (substring); pick one with --line N --query\n#outline — focus line 2 max depth 1, L1=1, showing levels 1..1\n#1 [2-3] def target()\n",
+    "stderr": "[fallback mode] Full analysis is unavailable: tree_sitter_python is not installed, so this Python file is parsed with the stdlib `ast` backend. In this reduced mode, comments and file-level blocks are not tracked. To enable full analysis, install the tree-sitter engine and its Python grammar:  pip install tree-sitter tree_sitter_python\n[fallback mode] Full analysis is unavailable: tree_sitter_python is not installed, so this Python file is parsed with the stdlib `ast` backend. In this reduced mode, comments and file-level blocks are not tracked. To enable full analysis, install the tree-sitter engine and its Python grammar:  pip install tree-sitter tree_sitter_python\n[fallback mode] Full analysis is unavailable: tree_sitter_python is not installed, so this Python file is parsed with the stdlib `ast` backend. In this reduced mode, comments and file-level blocks are not tracked. To enable full analysis, install the tree-sitter engine and its Python grammar:  pip install tree-sitter tree_sitter_python\n"
+  },
+  "unicode_lines": {
+    "lines": [
+      "# First\n",
+      "text continued\n",
+      "## Second\n",
+      "body\n"
+    ],
+    "outline": [
+      {
+        "level": 1,
+        "start": 1,
+        "end": 5,
+        "text": "First",
+        "frame": false,
+        "filler": false
+      },
+      {
+        "level": 2,
+        "start": 4,
+        "end": 5,
+        "text": "Second",
+        "frame": false,
+        "filler": false
+      }
+    ],
+    "query": {
+      "level": 2,
+      "start": 2,
+      "end": 3,
+      "text": "text continued\n## Second\n"
+    }
+  },
+  "snapshot": {
+    "lines": [
+      "def old():\n",
+      "    return 1\n"
+    ],
+    "view": {
+      "runs": [
+        {
+          "start": 1,
+          "end": 4,
+          "parts": [
+            {
+              "level": 1,
+              "start": 1,
+              "end": 4,
+              "label": "def new():"
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "note": null,
+      "jsx_note": null
+    },
+    "rendered": "#File: C:\\Users\\User\\AppData\\Local\\Temp\\gcb-review-m292crzk\\snapshot.py (2 lines)\n#■BLOCK : 1-4\ndef old():\n    return 1\n#■END : 4\n"
+  },
+  "invalid_lines": {
+    "survey": {
+      "rc": 0,
+      "stdout": "#File: C:/Users/User/AppData/Local/Temp/gcb-review-m292crzk/errors.py (2 lines) · 2 hits\n# →| → 999| ERROR: Line out of range (1-2)\n# 1|   1-2| def ok()\n# →|   → 1| def ok():\n",
+      "stderr": ""
+    },
+    "outline": {
+      "rc": 0,
+      "stdout": "#File: C:/Users/User/AppData/Local/Temp/gcb-review-m292crzk/errors.py (2 lines) · outline batch · 2 hits, 1 error(s)\n# →| → 999| ERROR: Line out of range (1-2)\n# 1|   1-2| def ok()\n",
+      "stderr": ""
+    },
+    "query": {
+      "rc": 1,
+      "stdout": "#File: C:/Users/User/AppData/Local/Temp/gcb-review-m292crzk/errors.py (2 lines)\n#ERROR: line 999 out of range (1-2)\n#■BLOCK : 1-2\ndef ok():\n    return 1\n#■END : 2\n",
+      "stderr": ""
+    },
+    "empty_arg": {
+      "rc": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    from get_codeblock import core; core._log_call = lambda *a: None; core.main()\n                                                                      ~~~~~~~~~^^\n  File \"F:\\WORK\\ProjectStarter\\__HQ\\tools\\get_codeblock\\core.py\", line 536, in main\n    _main_impl()\n    ~~~~~~~~~~^^\n  File \"F:\\WORK\\ProjectStarter\\__HQ\\tools\\get_codeblock\\core.py\", line 559, in _main_impl\n    args, config = parse_args()\n                   ~~~~~~~~~~^^\n  File \"F:\\WORK\\ProjectStarter\\__HQ\\tools\\get_codeblock\\core.py\", line 233, in parse_args\n    f\"--line \\\"{token}\\\")\") if token[0].isdigit() or token[0] == '-' and token[1:].isdigit() else \"\"\n                               ~~~~~^^^\nIndexError: string index out of range\n"
+    }
+  },
+  "crlf": {
+    "raw": "def target():\r\n    return 1\r\n",
+    "query": {
+      "level": 1,
+      "start": 1,
+      "end": 2,
+      "text": "def target():\n    return 1\n"
+    }
+  },
+  "one_line_def": {
+    "outline": [
+      {
+        "level": 1,
+        "start": 1,
+        "end": 1,
+        "text": "def first()",
+        "frame": false,
+        "filler": false
+      },
+      {
+        "level": 1,
+        "start": 2,
+        "end": 3,
+        "text": "def second()",
+        "frame": false,
+        "filler": false
+      }
+    ],
+    "query": {
+      "level": 1,
+      "start": 1,
+      "end": 1,
+      "text": "def first(): return 1\n"
+    }
+  },
+  "shell_depth": {
+    "outline": [
+      {
+        "level": 1,
+        "start": 1,
+        "end": 3,
+        "text": "build()",
+        "frame": false,
+        "filler": false
+      }
+    ],
+    "rungs": [
+      {
+        "level": 1,
+        "start": 1,
+        "end": 3,
+        "label": "build()"
+      },
+      {
+        "level": 2,
+        "start": 2,
+        "end": 2,
+        "label": "~command"
+      }
+    ]
+  },
+  "yaml_scalar": {
+    "outline": [
+      {
+        "level": 1,
+        "start": 1,
+        "end": 2,
+        "text": "message: |",
+        "frame": false,
+        "filler": false
+      },
+      {
+        "level": 1,
+        "start": 3,
+        "end": 3,
+        "text": "next: 42",
+        "frame": false,
+        "filler": false
+      }
+    ],
+    "rungs": [
+      {
+        "level": 1,
+        "start": 3,
+        "end": 3,
+        "label": "next: 42"
+      }
+    ],
+    "query": {
+      "level": 1,
+      "start": 3,
+      "end": 3,
+      "text": "next: 42\n"
+    }
+  },
+  "confirmed": {
+    "R01": true,
+    "R02": true,
+    "R03": true,
+    "R04": true,
+    "R05": true,
+    "R06": true,
+    "R07": true,
+    "R08": true,
+    "R09": true,
+    "R10": true
+  }
+}

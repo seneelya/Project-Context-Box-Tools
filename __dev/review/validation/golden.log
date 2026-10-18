@@ -1,0 +1,16 @@
+ok   survey_merged_tree
+ok   survey_header_hit
+ok   outline_batch_merge
+ok   query_merge_touching
+ok   query_real_gap_stays_separate
+ok   query_error_isolation
+ok   outline_single_python
+ok   outline_markdown
+ok   single_line_typescript
+ok   single_line_csharp_query
+ok   escalate_small_csharp_query
+ok   focus_outline_object
+ok   focus_outline_named_parent
+ok   name_ambiguous_else_branch
+
+14/14 passed
