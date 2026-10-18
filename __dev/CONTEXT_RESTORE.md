@@ -63,8 +63,9 @@ reports R09 "confirmed" — expected). Status per finding: `__dev/review/STATUS.
 R03+R08 fixed next (`064540b`): `get_codeblock/physical_lines.py` is the only line splitter — a line
 ends at `\n` and keeps its ending (a lone `\r` is NOT a break: tree-sitter and grep don't count it);
 API text is byte-exact, the CLI picture is `\n`-only (CONTRACT invariant #10).
-**Next:** R02 (one file snapshot per call) together with the re-parse debt, and `reader/CONTRACT.md`
-cleanup (still says 0.5.0 and the old `[i/n]` format). After any get_codeblock change: run
+R02 (a reused `Source` mixing two file versions) — NOT fixing, owner's decision: it needs the file
+edited mid-call, and then the caller has bigger problems. The re-parse debt (escalate.py) stays a
+separate performance item. **Next:** `reader/CONTRACT.md` cleanup (still says 0.5.0 and the old `[i/n]` format). After any get_codeblock change: run
 `vendor/sync_get_codeblock.py` in hermes-filetools and its pytest (`__HQ\tools\hermes-py.cmd -m pytest tests/ -q`).
 
 ## Where copies of the tools live (update after a release)
