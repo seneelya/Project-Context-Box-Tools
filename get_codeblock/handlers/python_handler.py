@@ -531,16 +531,41 @@ def collect_preamble(lines, header_idx):
 
         # Decorators (`@deco`) are part of the definition (the tree-sitter map folds them
         # into the def node's span), so addressing must glue them too or the two engines
-        # report different starts for the same block. NOTE: a multi-line decorator's
-        # continuation lines aren't caught here, only the `@`-leading line — acceptable;
-        # single-line decorators are the norm.
+        # report different starts for the same block. A multi-line decorator
+        # (`@pytest.mark.parametrize(` … `)`) glues whole: a continuation line whose
+        # statement starts with `@` jumps to that `@` line (review R01 — stopping at the
+        # closing `)` left the decorator behind, and split_monster then hung it on the
+        # next function).
         if content.startswith('#') or content.startswith('@'):
             start = i
             i -= 1
+        elif _is_continuation(lines, i) and lines[_statement_start(lines, i)].strip().startswith('@'):
+            start = _statement_start(lines, i)
+            i = start - 1
         else:
             break
 
     return start
+
+
+def decorated_header(lines, idx):
+    """If line idx belongs to a decorator stack — any line of any `@…` statement, the
+    continuation lines of a multi-line one included — the index of the def/class header it
+    decorates; else None. Such a line is part of that definition (the map folds decorators
+    into the def's span), so addressing resolves it as the decorated header."""
+    s = _statement_start(lines, idx)
+    if not lines[s].strip().startswith('@'):
+        return None
+    j = s + 1
+    while j < len(lines):
+        content = lines[j].strip()
+        if not _is_continuation(lines, j):
+            if is_block_header(lines, j):
+                return j if get_keyword(lines[j]) in ('def', 'class', 'async_def') else None
+            if content and not content.startswith('#') and not content.startswith('@'):
+                return None  # some other statement: not a decorator stack after all
+        j += 1
+    return None
 
 
 def find_attached_block(lines, comment_idx):
@@ -685,6 +710,12 @@ class PythonHandler:
     def _ladder(self, lines, idx):
         """Enclosing colon-block ladder (outermost→innermost) for line idx. May be empty
         when the line sits outside every def/class/control block (handled by _orphan)."""
+        # A decorator line (or a line inside a multi-line decorator's brackets) belongs to
+        # the definition it decorates — same block as landing on its `def`/`class`.
+        decorated = decorated_header(lines, idx)
+        if decorated is not None:
+            return self._build_hierarchy_for_header(lines, decorated)
+
         # If comment attached to block below, resolve effective target
         content = lines[idx].strip()
         if content.startswith('#'):

@@ -514,6 +514,17 @@ QUERY = [
     # Bug A: a def-header line belongs to the block it opens, not the parent.
     {"file": 'Edge/Edge.py', "line": 37, "level": 0, "expect": (2, 35, 51)},  # `async def ws_reader`
     {"file": 'Edge/Edge.py', "line": 53, "level": 0, "expect": (2, 53, 62)},  # `async def ws_writer`
+    # Review R01: a MULTI-LINE decorator is part of the definition from every entry point —
+    # the `@` line, a line inside its brackets, its closing `)`, the def, the body (map: 4-10).
+    {"file": 'Edge/multiline_decorator.py', "line": 4, "level": 0, "expect": (1, 4, 10)},   # `@…parametrize(`
+    {"file": 'Edge/multiline_decorator.py', "line": 6, "level": 0, "expect": (1, 4, 10)},   # inside, `)` in a comment
+    {"file": 'Edge/multiline_decorator.py', "line": 7, "level": 0, "expect": (1, 4, 10)},   # closing `)`
+    {"file": 'Edge/multiline_decorator.py', "line": 9, "level": 0, "expect": (1, 4, 10)},   # `def test_pair`
+    {"file": 'Edge/multiline_decorator.py', "line": 10, "level": 1, "expect": (1, 4, 10)},  # body -> parent
+    {"file": 'Edge/multiline_decorator.py', "line": 13, "level": 0, "expect": (1, 13, 14)}, # undecorated neighbour
+    {"file": 'Edge/multiline_decorator.py', "line": 20, "level": 0, "expect": (1, 17, 28)}, # decorated class
+    {"file": 'Edge/multiline_decorator.py', "line": 25, "level": 0, "expect": (2, 23, 28)}, # `"(x"` in a string, method
+    {"file": 'Edge/multiline_decorator.py', "line": 27, "level": 0, "expect": (2, 23, 28)}, # `def get`
 
     # --- ambiguous shared-brace-boundary (invariant #8) ---
     # Line 102 is `} else {`: `if (p)` and `else` are SIBLINGS at the same level (6), neither
