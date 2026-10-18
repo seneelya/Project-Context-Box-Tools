@@ -141,7 +141,30 @@ def test_cli():
     check("cli nothing -> exit 2", rc == 2 and "nothing similar" in out)
 
 
+def test_review_fixes():
+    """Code review 2026-10-18 (`__dev/review/FINDINGS.md`) R07: a display label is not the name."""
+    with tempfile.TemporaryDirectory() as d:
+        md = _tmp(d, "g.md", "# Getting started\ntext\n## Plan 3.2 notes\nmore\n")
+        r = resolve_name(md, "Getting started")
+        check("R07: md heading with spaces is exact", r.exact and [h.line for h in r.hits] == [1])
+        r = resolve_name(md, "Plan 3.2 notes")
+        check("R07: md heading with a dot is exact", r.exact and [h.line for h in r.hits] == [3])
+        # Python WITHOUT tree_sitter_python (stdlib ast fallback): the def's own name, not
+        # its display signature `def target()`. A child process, so the import block can't
+        # leak into this one.
+        py = _tmp(d, "f.py", "X = 1\n\n\ndef target():\n    return 42\n\n\nclass Api:\n"
+                             "    def beta(self):\n        return 1\n")
+        code = ("import sys; sys.modules['tree_sitter_python'] = None; sys.path.insert(0, sys.argv[1]);"
+                "from get_codeblock.name_resolver import resolve_name;"
+                "print([(q, resolve_name(sys.argv[2], q).exact) for q in ('target', 'Api.beta', 'X')])")
+        out = subprocess.run([sys.executable, "-c", code, _TOOLS, py], capture_output=True, text=True,
+                             encoding="utf-8", errors="replace").stdout
+        check("R07: ast fallback — def / method / constant are exact",
+              "[('target', True), ('Api.beta', True), ('X', True)]" in out)
+
+
 if __name__ == "__main__":
+    test_review_fixes()
     test_normalize()
     test_declarations_c_header()
     test_declarations_languages()

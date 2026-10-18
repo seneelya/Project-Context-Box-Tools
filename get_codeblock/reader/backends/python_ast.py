@@ -44,6 +44,17 @@ class AstNode:
         return self._header()
 
     def field(self, name):
+        """Just the fields name_resolver reads: a def/class's `name`, an assignment's `left`
+        (a plain-name target). Without them the resolver fell back to the display label
+        (`def target()`) as the declared name, so `--name target` was never exact (review R07)."""
+        n = self._n
+        if name == 'name' and type(n).__name__ in _DEF_TYPES:
+            return _Ident(n.name)
+        if name == 'left':
+            t = n.targets[0] if isinstance(n, ast.Assign) and len(n.targets) == 1 else \
+                n.target if isinstance(n, ast.AnnAssign) else None
+            if isinstance(t, ast.Name):
+                return _Ident(t.id)
         return None
 
     def _header(self):
@@ -56,6 +67,24 @@ class AstNode:
             e = self.end_row + 1
         raw = "".join(self._lines[s:e])
         return " ".join(raw.split()).rstrip(':').rstrip()
+
+
+class _Ident:
+    """A bare identifier as an RNode leaf (what tree-sitter's `name`/`left` field holds)."""
+    __slots__ = ('_s',)
+    type = 'identifier'
+
+    def __init__(self, s):
+        self._s = s
+
+    def text(self):
+        return self._s
+
+    def field(self, name):
+        return None
+
+    def children(self):
+        return []
 
 
 class PythonAstBackend:

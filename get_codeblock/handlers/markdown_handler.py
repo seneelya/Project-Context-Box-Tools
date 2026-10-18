@@ -38,12 +38,16 @@ def _headings(lines):
             continue
         s = line.strip()
         if fence is not None:
-            if s.startswith(fence):
+            # CommonMark: the closing fence is the SAME character, at least as long as the
+            # opening run, with nothing after it. Matching only a 3-char prefix let a ```
+            # inside a ```` example close it, and the real closer then opened a phantom
+            # fence that swallowed the next headings (review R04).
+            if s and s == fence[0] * len(s) and len(s) >= len(fence):
                 fence = None
             continue
         f = _FENCE.match(s)
         if f:
-            fence = f.group(1)[:3]  # closing fence must be at least as long; match on marker
+            fence = f.group(1)  # the whole run: ```` must be closed by ```` or longer
             continue
         m = _ATX.match(line)
         if m:

@@ -230,7 +230,7 @@ def parse_args():
             # instead of erroring. Fail loud instead: this token belongs to nothing.
             hint = (" (PowerShell splits an unquoted 'a,b, c' on the space after the "
                     "comma into separate arguments — quote the whole list: "
-                    f"--line \"{token}\")") if token[0].isdigit() or token[0] == '-' and token[1:].isdigit() else ""
+                    f"--line \"{token}\")") if token and (token[0].isdigit() or token[0] == '-' and token[1:].isdigit()) else ""
             print(f"Error: unrecognized argument: '{token}'{hint}", file=sys.stderr)
             sys.exit(1)
 
@@ -670,8 +670,10 @@ def _main_impl():
             print(f"Error: outline not supported for {language} yet", file=sys.stderr)
             sys.exit(1)
         if is_batch:
-            out(views.render_outline_batch(
-                views.outline_batch_view(src, lines_batch, levels_batch, deep), src))
+            view = views.outline_batch_view(src, lines_batch, levels_batch, deep)
+            out(views.render_outline_batch(view, src))
+            if view['errors']:      # valid hits printed above; a bad one still fails the call
+                sys.exit(1)
             return
         # Map mode does not take --line. If both are given the user meant to inspect a
         # line — карта ТОЛЬКО блока-цели: K-предок строки (K=--level, по умолч. внутренний).
@@ -711,7 +713,10 @@ def _main_impl():
         if view['errors']:
             sys.exit(1)
     else:
-        out(views.render_ladder(views.ladder_view(src, lines_batch), src))
+        view = views.ladder_view(src, lines_batch)
+        out(views.render_ladder(view, src))
+        if view['errors']:          # same rule as --query: printed what resolved, exit 1
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()

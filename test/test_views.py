@@ -214,12 +214,37 @@ def test_block_range(d):
             check(f"block_range{bad} raises", True)
 
 
+def test_review_fixes(d):
+    """Code review 2026-10-18 (`__dev/review/FINDINGS.md`): R04, R09, R10."""
+    # R04: a ``` inside a ```` example does not close it; the real closer opens nothing
+    md = _tmp(d, "fence.md", "# Real\n````markdown\n```\n# Fake inside code\n````\n## Actual\nbody\n"
+                             "~~~~\n~~~ not a closer: text after it\n# Fake 2\n~~~~\n## Last\n")
+    code, out = _cli("--file", md, "--level", "3", "--outline")
+    check("R04: long fence — real headings only",
+          code == 0 and "Real" in out and "Actual" in out and "Last" in out and "Fake" not in out)
+    # R09: an unresolved line fails the call in every mode; the valid one is still printed
+    py = _tmp(d, "two.py", "def a():\n    return 1\n")
+    for mode in ((), ("--outline",), ("--query", "--force")):
+        code, out = _cli("--file", py, "--line", "1,999", *mode)
+        check(f"R09: {' '.join(mode) or 'survey'} — exit 1, valid hit kept",
+              code == 1 and "out of range" in out and "a()" in out)
+    code, _out = _cli("--file", py, "--line", "1")
+    check("R09: a clean survey still exits 0", code == 0)
+    # R10: an empty argv token is a plain 'unrecognized argument', not a traceback
+    try:
+        code, _out = _cli("--file", py, "")
+        check("R10: empty argument -> exit 1", code == 1)
+    except IndexError:
+        check("R10: empty argument -> exit 1 (got IndexError)", False)
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as d:
         test_open_source(d)
         test_pictures_equal_cli(d)
         test_views_are_data(d)
         test_block_range(d)
+        test_review_fixes(d)
     print("\n" + "-" * 50)
     print(f"{_PASS} passed, {_FAIL} failed")
     sys.exit(1 if _FAIL else 0)

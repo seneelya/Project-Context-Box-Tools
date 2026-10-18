@@ -268,7 +268,8 @@ def ladder_view(src, line_nums):
     grep-hit proof, never enriched/reformatted) is inserted right after the block it
     actually landed in, nested one level deeper than it.
 
-    Returns {n, rows}: rows in the boxed-row shape of `_render_boxed_rows`."""
+    Returns {n, errors, rows}: rows in the boxed-row shape of `_render_boxed_rows`; `errors` =
+    [(line, msg)] of hits that never resolved (also drawn as error rows) — the CLI's exit code."""
     handler, lines, file_path = src.handler, src.lines, src.path
     outline_index = _outline_label_index(handler, lines)
     merged = {}          # (start, end) -> block row
@@ -323,7 +324,7 @@ def ladder_view(src, line_nums):
             all_rows.append({'kind': 'hit', 'line': h['line'],
                               'indent': indent if h['same_level'] else indent + 1,
                               'text': h['text']})
-    return {'n': len(line_nums), 'rows': all_rows}
+    return {'n': len(line_nums), 'errors': error_entries, 'rows': all_rows}
 
 
 def render_ladder(view, src):

@@ -41,6 +41,7 @@ class Decl:
     quals: List[str]
     line: int
     end: int = 0          # last line of the declaring node (body / initializer included)
+    label: bool = False   # `name` is a display label (Markdown heading), not an identifier
 
 
 @dataclass
@@ -183,7 +184,7 @@ def declarations(path):
                 if not nm:                                  # markdown heading etc.: its label
                     label = spec.name(ch)
                     if label:
-                        out.append(Decl(label, list(parents), ch.start_row + 1, ch.end_row + 1))
+                        out.append(Decl(label, list(parents), ch.start_row + 1, ch.end_row + 1, label=True))
                 body = spec.body(ch)
                 if body is not None:
                     walk(body, parents + q + ([nm] if nm else []), in_func or _is_func(d))
@@ -228,8 +229,13 @@ def resolve_name(path, query):
         hits = [Hit(d.line, ".".join(d.quals + [d.name]), "glob") for d in decls
                 if fnmatch.fnmatchcase(d.name, want) or fnmatch.fnmatchcase(".".join(d.quals + [d.name]), pat)]
     else:
+        # A label (Markdown heading `Getting started`, `Plan 3.2 notes`) is matched as the
+        # whole text with whitespace ignored — normalize() would drop its spaces and split it
+        # on `.`, so the label could never equal the query (review R07).
+        flat = "".join(query.split())
         hits = [Hit(d.line, ".".join(d.quals + [d.name]), "exact") for d in decls
-                if d.name == want and (not quals or d.quals[-len(quals):] == quals)]
+                if (d.label and "".join(d.name.split()) == flat)
+                or (not d.label and d.name == want and (not quals or d.quals[-len(quals):] == quals))]
         res.exact = bool(hits)
         if not hits:
             qw = _words(query.replace("::", " ").replace(".", " "))   # words BEFORE spaces go
