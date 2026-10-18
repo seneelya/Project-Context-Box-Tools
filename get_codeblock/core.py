@@ -672,7 +672,7 @@ def _main_impl():
         if is_batch:
             view = views.outline_batch_view(src, lines_batch, levels_batch, deep)
             out(views.render_outline_batch(view, src))
-            if view['errors']:      # valid hits printed above; a bad one still fails the call
+            if _nothing_resolved(view):
                 sys.exit(1)
             return
         # Map mode does not take --line. If both are given the user meant to inspect a
@@ -682,7 +682,11 @@ def _main_impl():
             view = views.outline_view(src, line=args.get('line'), level=args.get('level') or 0,
                                       deep=deep, depth=args.get('depth') or 0)
         except ValueError as e:
-            print(f"Error: {e}", file=sys.stderr)
+            ln = args.get('line')
+            if ln and not 1 <= ln <= len(src.lines):     # the one line asked for: nothing resolved
+                emit(c(f"Missing: line {ln} — out of range (1-{len(src.lines)})"))
+            else:
+                print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
         # Help line ALWAYS on top. Actionable hints are HUMAN guidance, not part of
@@ -710,13 +714,20 @@ def _main_impl():
     if args['query']:
         view = views.query_view(src, lines_batch, levels_batch, force=bool(args.get('force')))
         out(views.render_query(view, src, args.get('numbered')))
-        if view['errors']:
+        if view['errors'] and not view['runs']:
             sys.exit(1)
     else:
         view = views.ladder_view(src, lines_batch)
         out(views.render_ladder(view, src))
-        if view['errors']:          # same rule as --query: printed what resolved, exit 1
+        if _nothing_resolved(view):
             sys.exit(1)
+
+
+def _nothing_resolved(view):
+    """Exit-code rule for every --line mode (survey, outline batch, query): a --line that did
+    not resolve is printed as `Missing: line N — …` and is NOT an error of the call — the
+    call fails (exit 1) only when NONE of the requested lines resolved."""
+    return bool(view['errors']) and not any(r['kind'] == 'block' for r in view['rows'])
 
 if __name__ == "__main__":
     main()

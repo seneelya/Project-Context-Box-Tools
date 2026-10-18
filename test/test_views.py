@@ -222,14 +222,23 @@ def test_review_fixes(d):
     code, out = _cli("--file", md, "--level", "3", "--outline")
     check("R04: long fence — real headings only",
           code == 0 and "Real" in out and "Actual" in out and "Last" in out and "Fake" not in out)
-    # R09: an unresolved line fails the call in every mode; the valid one is still printed
+    # R09 (owner's rule): an unresolved --line is not an error of the call. Every mode prints
+    # what resolved plus a commented `Missing: line N — …`, exit 0; exit 1 only when NOTHING
+    # resolved.
     py = _tmp(d, "two.py", "def a():\n    return 1\n")
     for mode in ((), ("--outline",), ("--query", "--force")):
         code, out = _cli("--file", py, "--line", "1,999", *mode)
-        check(f"R09: {' '.join(mode) or 'survey'} — exit 1, valid hit kept",
-              code == 1 and "out of range" in out and "a()" in out)
+        check(f"R09: {' '.join(mode) or 'survey'} — partial: exit 0, valid hit kept, Missing reported",
+              code == 0 and "a()" in out and "Missing: line 999 — out of range (1-2)" in out
+              and "ERROR" not in out)
+        code, out = _cli("--file", py, "--line", "998,999", *mode)
+        check(f"R09: {' '.join(mode) or 'survey'} — nothing resolved: exit 1",
+              code == 1 and "Missing: line 998" in out and "Missing: line 999" in out)
+    code, out = _cli("--file", py, "--line", "999", "--outline")
+    check("R09: single --line --outline out of range: Missing + exit 1",
+          code == 1 and out.strip() == "#Missing: line 999 — out of range (1-2)")
     code, _out = _cli("--file", py, "--line", "1")
-    check("R09: a clean survey still exits 0", code == 0)
+    check("R09: a clean survey exits 0", code == 0)
     # R10: an empty argv token is a plain 'unrecognized argument', not a traceback
     try:
         code, _out = _cli("--file", py, "")

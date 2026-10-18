@@ -253,7 +253,9 @@ def _render_boxed_rows(rows, c):
     max_indent = max(r.get('indent', 0) for r in rows)
     mark_w = max_indent + 2  # staircase field: leading (indent+1) spaces + 1-char marker
     for r, m, cell in zip(rows, marks, cells):
-        text = f"ERROR: {r['msg']}" if r['kind'] == 'error' else r['text']
+        # an unresolved --line is not an error of the call: the rest is answered, this one
+        # is reported as missing (the CLI fails only when NOTHING resolved)
+        text = f"Missing: line {r['line']} — {r['msg']}" if r['kind'] == 'error' else r['text']
         indent = r.get('indent', 0)
         mark_field = m.rjust(mark_w) if r['kind'] in ('hit', 'error') \
             else (' ' * (indent + 1) + m).ljust(mark_w)
@@ -279,12 +281,12 @@ def ladder_view(src, line_nums):
 
     for ln in line_nums:
         if ln < 1 or ln > len(lines):
-            error_entries.append((ln, f"Line out of range (1-{len(lines)})"))
+            error_entries.append((ln, f"out of range (1-{len(lines)})"))
             continue
 
         blocks = handler.get_blocks(file_path, ln)  # outermost -> innermost
         if not blocks:
-            error_entries.append((ln, "No blocks found"))
+            error_entries.append((ln, "no block found"))
             continue
 
         for b in blocks:
@@ -345,11 +347,11 @@ def outline_batch_view(src, line_nums, levels, deep=False):
 
     for ln, lvl in zip(line_nums, levels):
         if ln < 1 or ln > len(lines):
-            errors.append((ln, f"Line out of range (1-{len(lines)})"))
+            errors.append((ln, f"out of range (1-{len(lines)})"))
             continue
         rows = src.handler.outline(lines, max_level=None, deep=deep, focus_line=ln, focus_level=lvl)
         if not rows:
-            errors.append((ln, "no block found at that line"))
+            errors.append((ln, "no block found"))
             continue
         for r in rows:
             key = (r['start'], r['end'])
@@ -371,7 +373,7 @@ def outline_batch_view(src, line_nums, levels, deep=False):
 
 def render_outline_batch(view, src):
     yield 'meta', src.c(f"{_file_header(src.display, src.lines)} · {view['mode_word']} batch · {_hits(view['n'])}"
-                        + (f", {len(view['errors'])} error(s)" if view['errors'] else ""))
+                        + (f", {len(view['errors'])} missing" if view['errors'] else ""))
     yield from _render_boxed_rows(view['rows'], src.c)
 
 
@@ -390,15 +392,15 @@ def _resolve_query_runs(handler, file_path, lines, line_nums, levels):
 
     for ln, lvl in zip(line_nums, levels):
         if ln < 1 or ln > len(lines):
-            errors.append(f"line {ln} out of range (1-{len(lines)})")
+            errors.append(f"line {ln} — out of range (1-{len(lines)})")
             continue
         blocks = handler.get_blocks(file_path, ln)
         if not blocks:
-            errors.append(f"no blocks found at line {ln}")
+            errors.append(f"line {ln} — no block found")
             continue
         block = resolve(blocks, lvl)
         if not block:
-            errors.append(f"level out of range at line {ln}")
+            errors.append(f"line {ln} — level out of range")
             continue
         resolved[(block['start'], block['end'])] = block
 
@@ -488,8 +490,8 @@ def render_query(view, src, numbered=False):
     if view['jsx_note']:
         yield 'meta', c(view['jsx_note'])
     yield 'meta', c(_file_header(src.display, lines))
-    for msg in view['errors']:
-        yield 'meta', c(f"ERROR: {msg}")
+    for msg in view['errors']:          # not an error of the call — the rest is answered
+        yield 'meta', c(f"Missing: {msg}")
 
     for run in view['runs']:
         start, end = run['start'], run['end']
