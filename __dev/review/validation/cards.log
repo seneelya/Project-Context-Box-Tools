@@ -1,0 +1,7 @@
+[make_interface_card] --all: languages=['python'] exts=['.py']
+.............................[make_interface_card] --all: 4 files -> 4 new, 0 merged, 0 forced, 0 blocked, 0 errors
+[make_interface_card] --all: languages=['python'] exts=['.py']
+[make_interface_card] --all: 4 files -> 0 new, 4 merged, 0 forced, 0 blocked, 0 errors
+..............................................................................................................................
+--------------------------------------------------
+155 passed, 0 failed

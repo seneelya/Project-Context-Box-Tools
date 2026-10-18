@@ -1,0 +1,6 @@
+{
+  "reason": "Full every-line fixture sweep exceeded a practical review runtime; replaced by complete Edge/script sweeps and a step-10 full-tree sample.",
+  "status": "interrupted",
+  "command": "\"C:\\Users\\User\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe\" test/sweep_invariants.py --check-query --show 4",
+  "cpu_seconds": 496.015625
+}

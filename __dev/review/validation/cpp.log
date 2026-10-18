@@ -1,0 +1,22 @@
+[make_interface_card] --all: zone=['ggml/include'] (links still resolved over the whole root)
+[make_interface_card] --all: languages=['cpp'] exts=['.c', '.c++', '.cc', '.cpp', '.cu', '.cuh', '.cxx', '.h', '.hh', '.hpp', '.hxx', '.inl']
+[make_interface_card] --all: 4 files -> 4 new, 0 merged, 0 forced, 0 blocked, 0 errors
+[make_interface_card] --all: suspected dynamic connections (grep detector) in: ggml/include/ggml-backend.h — see '<file> --info-seams' for detail
+[make_interface_card] --all: zone=['ggml/src/ggml-backend-reg.cpp'] (links still resolved over the whole root)
+[make_interface_card] --all: languages=['cpp'] exts=['.c', '.c++', '.cc', '.cpp', '.cu', '.cuh', '.cxx', '.h', '.hh', '.hpp', '.hxx', '.inl']
+[make_interface_card] --all: 1 files -> 1 new, 0 merged, 0 forced, 0 blocked, 0 errors
+[make_interface_card] --all: suspected dynamic connections (grep detector) in: ggml/src/ggml-backend-reg.cpp — see '<file> --info-seams' for detail
+[make_interface_card] --all: zone=['ggml/include'] (links still resolved over the whole root)
+[make_interface_card] --all: languages=['cpp'] exts=['.c', '.c++', '.cc', '.cpp', '.cu', '.cuh', '.cxx', '.h', '.hh', '.hpp', '.hxx', '.inl']
+[make_interface_card] --all: 4 files -> 4 new, 0 merged, 0 forced, 0 blocked, 0 errors
+[make_interface_card] --all: suspected dynamic connections (grep detector) in: ggml/include/ggml-backend.h — see '<file> --info-seams' for detail
+[make_interface_card] --all: zone=['src'] (links still resolved over the whole root)
+[make_interface_card] --all: languages=['cpp'] exts=['.c', '.c++', '.cc', '.cpp', '.cu', '.cuh', '.cxx', '.h', '.hh', '.hpp', '.hxx', '.inl']
+[make_interface_card] --all: 2 files -> 2 new, 0 merged, 0 forced, 0 blocked, 0 errors
+[make_interface_card] --all: zone=['src'] (links still resolved over the whole root)
+[make_interface_card] --all: languages=['cpp'] exts=['.c', '.c++', '.cc', '.cpp', '.cu', '.cuh', '.cxx', '.h', '.hh', '.hpp', '.hxx', '.inl']
+[make_interface_card] --all --stale: 1 of 3 zone file(s) have an outdated card; 1 without a card (run without --stale to create)
+[make_interface_card] --all: 1 files -> 0 new, 1 merged, 0 forced, 0 blocked, 0 errors
+
+--------------------------------------------------
+150 passed, 0 failed

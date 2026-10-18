@@ -1,0 +1,75 @@
+{
+  "python": "C:\\Users\\User\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+  "version": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+  "results": [
+    {
+      "name": "check",
+      "args": [
+        "test/check.py",
+        "--fails"
+      ],
+      "exit_code": 0,
+      "seconds": 9.87
+    },
+    {
+      "name": "golden",
+      "args": [
+        "test/golden_check.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.0
+    },
+    {
+      "name": "views",
+      "args": [
+        "test/test_views.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.79
+    },
+    {
+      "name": "names",
+      "args": [
+        "test/test_name_resolver.py"
+      ],
+      "exit_code": 0,
+      "seconds": 2.35
+    },
+    {
+      "name": "cpp",
+      "args": [
+        "test/test_cpp.py",
+        "--fails"
+      ],
+      "exit_code": 0,
+      "seconds": 12.33
+    },
+    {
+      "name": "cards",
+      "args": [
+        "test/test_cardstamp.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.31
+    },
+    {
+      "name": "restamp",
+      "args": [
+        "test/run_restamp_fixtures.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.42
+    },
+    {
+      "name": "split",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "test/test_split_monster.py"
+      ],
+      "exit_code": 0,
+      "seconds": 41.89
+    }
+  ]
+}
