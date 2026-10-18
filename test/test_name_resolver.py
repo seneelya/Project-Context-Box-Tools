@@ -161,6 +161,20 @@ def test_review_fixes():
                              encoding="utf-8", errors="replace").stdout
         check("R07: ast fallback — def / method / constant are exact",
               "[('target', True), ('Api.beta', True), ('X', True)]" in out)
+        # R05: a qualified glob keeps its scope
+        cls = _tmp(d, "c.py", "class A:\n    def foo(self):\n        pass\n\n    def foobar(self):\n"
+                              "        pass\n\n\nclass B:\n    def foo(self):\n        pass\n")
+        check("R05: A.foo* -> only A's", [h.line for h in resolve_name(cls, "A.foo*").hits] == [2, 5])
+        check("R05: A::foo? style too", [h.line for h in resolve_name(cls, "A::foo*").hits] == [2, 5])
+        check("R05: *.foo -> both classes", [h.line for h in resolve_name(cls, "*.foo").hits] == [2, 10])
+        check("R05: unqualified foo* unchanged", [h.line for h in resolve_name(cls, "foo*").hits] == [2, 5, 10])
+        # R06: every declarator of one statement is a name (the statement is its line)
+        ts = _tmp(d, "m.ts", "export const FIRST = 1, SECOND = 2;\nlet x = 1;\n")
+        r = resolve_name(ts, "SECOND")
+        check("R06: TS second declarator is exact", r.exact and [h.line for h in r.hits] == [1])
+        c = _tmp(d, "m.c", "int a = 1, b = 2;\nvk_t buffer = NULL_HANDLE;\n")
+        check("R06: C init declarators: a and b; a typed one keeps its own name",
+              [x.name for x in declarations(c)] == ["a", "b", "buffer"])
 
 
 if __name__ == "__main__":

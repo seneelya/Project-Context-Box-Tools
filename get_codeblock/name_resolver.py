@@ -33,6 +33,12 @@ _FIELDS = ("declaration", "definition", "name", "declarator", "left")
 _HOW_ORDER = {"exact": 0, "glob": 0, "case": 1, "substring": 2, "words": 3, "typo": 4}
 _FUNC_WORDS = ("function", "method", "constructor", "lambda", "arrow")
 _NAME_RE = re.compile(r"^(~?[A-Za-z_$][\w$-]*|operator\S+)$")   # `-`: PowerShell `Get-Thing`
+# statements that may declare several names side by side, and the children that are those
+# declarators: TS/JS `const a = 1, b = 2`, C/C++ `int a = 1, b = 2;`. Bare identifiers are
+# NOT taken (`int c, d;`): in C/C++ tree-sitter also reads a macro or an unknown type as an
+# `identifier`, and real names went missing on llama.cpp's sources when they were.
+_MULTI_DECL_KINDS = {"lexical_declaration", "variable_declaration", "declaration"}
+_DECLARATOR_KINDS = {"variable_declarator", "init_declarator"}
 
 
 @dataclass
@@ -191,7 +197,36 @@ def declarations(path):
                 continue
             # locals / imports / shell command calls (`build "$@"` names the called command) declare nothing
             if not in_func and spec.filler_kind(ch) not in ("import", "command"):
-                add(ch, parents)
+                add_all(ch, parents)
+
+    def add_all(node, parents):
+        """One statement may declare several names (`export const A = 1, B = 2;`,
+        `int a = 1, b = 2;`): each one is a Decl on the statement's lines.
+        decl_name alone follows the FIRST declarator only (review R06)."""
+        cur = node
+        for _ in range(10):                  # `export` / wrapper -> the statement holding them
+            if cur.type == "template_declaration":
+                add(node, parents)           # template params are not declared names (json.hpp)
+                return
+            nxt = cur.field("declaration")
+            if nxt is None:
+                break
+            cur = nxt
+        # only a real variable/field declaration lists declarators side by side; anything else
+        # (a type `vk::Buffer`, a macro call, a #define) goes the one-name way
+        # ... and only a cleanly parsed one: an `ERROR` child means tree-sitter misread it (an
+        # unknown macro like NLOHMANN_JSON_NAMESPACE_BEGIN turns a template into a broken
+        # `declaration` whose "declarators" are template parameters)
+        children = cur.children() if cur.type in _MULTI_DECL_KINDS else []
+        kids = [] if any(c.type == "ERROR" for c in children) \
+            else [c for c in children if c.type in _DECLARATOR_KINDS]
+        if len(kids) < 2:
+            add(node, parents)
+            return
+        for k in kids:
+            nm, q = decl_name(k)
+            if nm:
+                out.append(Decl(nm, parents + q, node.start_row + 1, node.end_row + 1))
 
     walk(root, [], False)
     out.sort(key=lambda d: d.line)
@@ -225,9 +260,16 @@ def resolve_name(path, query):
     want, quals = comps[-1], comps[:-1]
 
     if any(ch in query for ch in "*?"):
-        pat = ".".join(comps)
+        # A qualified glob (`A.foo*`, `A::foo?`, `*.foo`) keeps its scope: the qualifiers must
+        # match the declaration's innermost scopes too, component by component (same suffix
+        # rule as an exact name). Matching the short name alone let `A.foo*` hit `B.foo` (R05).
+        def scope_ok(d):
+            if not quals:
+                return True
+            tail = d.quals[-len(quals):] if len(d.quals) >= len(quals) else None
+            return tail is not None and all(fnmatch.fnmatchcase(a, b) for a, b in zip(tail, quals))
         hits = [Hit(d.line, ".".join(d.quals + [d.name]), "glob") for d in decls
-                if fnmatch.fnmatchcase(d.name, want) or fnmatch.fnmatchcase(".".join(d.quals + [d.name]), pat)]
+                if fnmatch.fnmatchcase(d.name, want) and scope_ok(d)]
     else:
         # A label (Markdown heading `Getting started`, `Plan 3.2 notes`) is matched as the
         # whole text with whitespace ignored — normalize() would drop its spaces and split it
