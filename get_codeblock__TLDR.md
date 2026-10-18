@@ -116,6 +116,9 @@ excess ignored). Same three modes as single-line, just merged:
   `@mixin`/`@include`/`@function` WITH parameters parse imperfectly (css grammar), but nested
   rule sets, `&` nesting and `@media`/`@supports` are solid; a TOP-LEVEL `$var: value;` used to
   blow up the whole file's parse and is now masked into a comment before parsing.
+- **A `--line` that resolves to nothing is `Missing`, not an error.** Every mode prints what did
+  resolve plus a commented `Missing: line N — out of range (1-M)` / `— no block found`, and exits 0;
+  exit 1 only when NONE of the requested lines resolved (`--name` with nothing similar: exit 2).
 - Outline **numbers named blocks** (functions/classes/methods/rules). In JS/TS that includes
   name-bound arrows/functions (`const Foo = () => {…}`, `value: () => {…}`, class fields) — React
   components show up; expression-bodied arrows and anonymous inline callbacks stay out by design.

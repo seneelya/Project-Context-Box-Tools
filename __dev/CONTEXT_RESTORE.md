@@ -51,6 +51,20 @@ and two field trials: `make_interface_card.py` on a copy, and a live JS split of
 [--check CMD] [--undo]`, `--rebase` when the source changed. Open: `require()`/CommonJS, a compact
 `--investigate` for 300+ blocks, a trial on a TS/TSX monster.
 
+## get_codeblock code review (2026-10-18)
+
+An external review (OpenAI) landed in `__dev/review/` (README, FINDINGS R01–R10, ARCHITECTURE,
+VALIDATION, `probe_cases.py`). Fixed this session, each with regression checks and an old-vs-new
+check on real sources (Hermes, Strata C++, llama.cpp test tree): R01 multi-line decorators, R04 long
+Markdown fences, R05 qualified glob, R06 multi-declarators, R07 `--name` on headings / ast fallback,
+R10 empty argv. R09 was decided by the owner differently from the review: an unresolved `--line` is
+`Missing: line N — …` with exit 0, exit 1 only when nothing resolved (so `probe_cases.py` still
+reports R09 "confirmed" — expected). Status per finding: `__dev/review/STATUS.md`.
+**Next session (bigger):** R08+R03 — one physical line splitter (`\n`/`\r\n`/`\r`, endings kept)
+instead of `readlines`/`splitlines` in core + 4 backends; then R02 (one file snapshot per call) together
+with the re-parse debt, and `reader/CONTRACT.md` cleanup. After any get_codeblock change: run
+`vendor/sync_get_codeblock.py` in hermes-filetools and its pytest (`__HQ\tools\hermes-py.cmd -m pytest tests/ -q`).
+
 ## Where copies of the tools live (update after a release)
 
 | Project | What | How |
