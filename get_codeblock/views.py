@@ -503,7 +503,10 @@ def render_query(view, src, numbered=False):
         last = min(end, len(lines))
         numw = len(str(last)) if numbered else 0
         for j in range(start - 1, last):
-            yield 'body', (f"{j + 1:>{numw}} | " if numw else "") + lines[j]
+            # the picture is `\n`-only (a text-mode stdout turns `\r\n` into `\r\r\n`);
+            # the exact bytes stay in `src.lines` and the API's `text`
+            body = lines[j][:-2] + "\n" if lines[j].endswith("\r\n") else lines[j]
+            yield 'body', (f"{j + 1:>{numw}} | " if numw else "") + body
         if last >= 1 and not lines[last - 1].endswith("\n"):
             yield 'body', "\n"
         yield 'meta', c(f"■END : {end}")

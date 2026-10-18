@@ -10,6 +10,8 @@
 
 import ast
 
+from ...physical_lines import split_lines
+
 _SCOPE = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 _DEF_TYPES = {'FunctionDef', 'AsyncFunctionDef', 'ClassDef'}
 
@@ -90,7 +92,7 @@ class _Ident:
 class PythonAstBackend:
     def root(self, source):
         src = source.decode('utf-8', 'replace')
-        lines = src.splitlines(keepends=True)
+        lines = split_lines(src)
         tree = ast.parse(src)          # SyntaxError пробрасывается — ast не error-tolerant
         return AstNode(tree, lines)
 

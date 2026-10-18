@@ -11,6 +11,8 @@ Addressing takes the generic path (`classify.ladder_at`), the same tree as the m
 
 import re
 
+from ...physical_lines import split_lines
+
 _LABEL = re.compile(r'^\s*:(?!:)([^\s:+=,;]+)')
 _COMMENT = re.compile(r'^\s*@?(rem\b|::)', re.I)
 _SET = re.compile(r'^\s*@?set\s+(?:/[ap]\s+)?"?([^=\s"]+)\s*=', re.I)
@@ -108,7 +110,7 @@ def _statements(lines):
 
 class BatchBackend:
     def root(self, source):
-        lines = source.decode('utf-8', 'replace').splitlines()
+        lines = [ln.rstrip('\r\n') for ln in split_lines(source.decode('utf-8', 'replace'))]
         top, section = [], None
         for s, e, kind, name in _statements(lines):
             if kind == 'label':

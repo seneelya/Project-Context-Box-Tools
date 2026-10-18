@@ -23,6 +23,8 @@ prose paragraph (no marker lines, or just one) is untouched — still one flat l
 
 import re
 
+from ...physical_lines import split_lines
+
 _RULE_RE = re.compile(r'^[ \t]*([-=_*])\1{2,}[ \t]*$')
 _ITEM_RE = re.compile(r'^\s*(?:\d+[.)]|[-*•])\s+')
 _LABEL_CAP = 60
@@ -163,7 +165,7 @@ def _build(lines):
 
 class PlainTextBackend:
     def root(self, source):
-        lines = source.decode('utf-8', 'replace').splitlines(keepends=True)
+        lines = split_lines(source.decode('utf-8', 'replace'))
         kids = _build(lines)
         return TxtNode('document', 0, max(0, len(lines) - 1), kids=kids)
 

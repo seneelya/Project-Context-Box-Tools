@@ -14,6 +14,7 @@ Python/Markdown идут своим (отступным/бesparser) путём �
 
 import os
 
+from ..physical_lines import read_lines
 from .registry import resolve
 
 
@@ -234,8 +235,7 @@ def _bounds(node, parent, bodies, comment_rows, lines, spec):
 
 
 def _read_lines(path):
-    with open(path, 'r', encoding='utf-8') as f:
-        return f.readlines()
+    return read_lines(path)
 
 
 # -- публичный API (зеркалит хендлер) ---------------------------------------

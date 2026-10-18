@@ -676,8 +676,8 @@ class PythonHandler:
         Level = depth from root (1=top-level block).
         start/end = 1-indexed inclusive line numbers.
         """
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+        from ..physical_lines import read_lines
+        lines = read_lines(file_path)
 
         if not lines or target_line < 1 or target_line > len(lines):
             return []

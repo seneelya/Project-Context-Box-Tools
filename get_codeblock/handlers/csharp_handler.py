@@ -601,8 +601,8 @@ class _LegacyBraceNav:
             
             level=1 means top-level block in the file (not inside any other)
         """
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+        from ..physical_lines import read_lines
+        lines = read_lines(file_path)
 
         target_idx = line_num - 1
         

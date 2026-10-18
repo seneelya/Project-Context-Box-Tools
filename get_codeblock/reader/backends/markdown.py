@@ -8,6 +8,7 @@
 landmark (разделы/главы книги), остальной текст = filler-полосы. Рамок нет.
 """
 
+from ...physical_lines import split_lines
 from ..protocol import RNode  # noqa: F401  (документируем, чему соответствуем)
 
 
@@ -66,7 +67,7 @@ def _build(hs, i, parent_level, gap_start, region_end, lines, section_end):
 class MarkdownBackend:
     def root(self, source):
         from ...handlers.markdown_handler import _headings, _section_end, _frontmatter
-        lines = source.decode('utf-8', 'replace').splitlines(keepends=True)
+        lines = split_lines(source.decode('utf-8', 'replace'))
         hs = _headings(lines)
         fm = _frontmatter(lines)
         start = fm[0] + 1 if fm else 0

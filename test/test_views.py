@@ -247,6 +247,36 @@ def test_review_fixes(d):
         check("R10: empty argument -> exit 1 (got IndexError)", False)
 
 
+def test_line_endings(d):
+    """Code review R03, R08: one physical line splitter (`get_codeblock/physical_lines.py`)."""
+    from get_codeblock.physical_lines import split_lines
+    from get_codeblock.core import get_codeblock
+    for t in ("", "a", "a\n", "a\r\nb", "a\r\n\r\nb\n", "a\rb\n", "x y\x0cz\n"):
+        check(f"split_lines round-trips {t!r}", "".join(split_lines(t)) == t)
+    check("split_lines: only \\n ends a line",
+          split_lines("a b\x0bc\rd\r\ne\n") == ["a b\x0bc\rd\r\n", "e\n"])
+    # R03: U+2028 inside a line does not shift Markdown coordinates
+    md = _tmp(d, "u2028.md", "# First\ntext continued\n## Second\nbody\n")
+    src = views.open_source(md)
+    rows = views.outline_view(src, depth=9)["rows"]
+    check("R03: md map in physical lines",
+          len(src.lines) == 4 and all(r["end"] <= 4 for r in rows)
+          and any(r["start"] == 3 and "Second" in r["text"] for r in rows))
+    qv = views.query_view(src, [3], [0], force=True)
+    check("R03: --line 3 is the Second section", [(r["start"], r["end"]) for r in qv["runs"]] == [(3, 4)])
+    # R08: the API keeps the file's endings; the picture stays `\n`
+    for name, text in (("crlf.py", "def target():\r\n    return 1\r\n"),
+                       ("mixed.py", "def a():\n    return 1\r\n\r\ndef target():\r\n    return 2"),
+                       ("lf.py", "def target():\n    return 1\n")):
+        p = _tmp(d, name, text)
+        ln = text.split("\n").index(next(x for x in text.split("\n") if "target" in x)) + 1
+        got = get_codeblock(p, ln, query=True)["text"]
+        check(f"R08: {name} API text is byte-exact", got == text[text.index("def target"):])
+        src = views.open_source(p)
+        pic = views.as_text(views.render_query(views.query_view(src, [ln], [0], force=True), src))
+        check(f"R08: {name} picture has no \\r", "\r" not in pic and "def target():\n" in pic)
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as d:
         test_open_source(d)
@@ -254,6 +284,7 @@ if __name__ == "__main__":
         test_views_are_data(d)
         test_block_range(d)
         test_review_fixes(d)
+        test_line_endings(d)
     print("\n" + "-" * 50)
     print(f"{_PASS} passed, {_FAIL} failed")
     sys.exit(1 if _FAIL else 0)

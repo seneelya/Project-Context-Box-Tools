@@ -18,6 +18,8 @@ import os
 import sys
 from pathlib import Path
 
+from . import physical_lines
+
 # Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
 # gcb now has real external consumers (Hermes agents), so the CLI contract is no
 # longer a private implementation detail. See CONTRACT.md for what's covered.
@@ -306,8 +308,7 @@ def parse_args():
 
 
 def read_lines(file_path):
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.readlines()
+    return physical_lines.read_lines(file_path)
 
 
 def _innermost_unambiguous_idx(blocks):
@@ -451,8 +452,7 @@ def get_line_levels(file_path: str, line_nums: list) -> dict:
         FileNotFoundError: file doesn't exist
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+        lines = read_lines(file_path)
     except FileNotFoundError:
         raise FileNotFoundError(f"File not found: {file_path}")
 

@@ -80,8 +80,8 @@ class MarkdownHandler:
 
     def get_blocks(self, file_path, target_line):
         """Enclosing heading sections for a line, outermost → innermost."""
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+        from ..physical_lines import read_lines
+        lines = read_lines(file_path)
         if not lines:
             return []
         idx = target_line - 1
