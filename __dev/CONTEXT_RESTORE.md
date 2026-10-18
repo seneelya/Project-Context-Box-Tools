@@ -60,9 +60,11 @@ Markdown fences, R05 qualified glob, R06 multi-declarators, R07 `--name` on head
 R10 empty argv. R09 was decided by the owner differently from the review: an unresolved `--line` is
 `Missing: line N — …` with exit 0, exit 1 only when nothing resolved (so `probe_cases.py` still
 reports R09 "confirmed" — expected). Status per finding: `__dev/review/STATUS.md`.
-**Next session (bigger):** R08+R03 — one physical line splitter (`\n`/`\r\n`/`\r`, endings kept)
-instead of `readlines`/`splitlines` in core + 4 backends; then R02 (one file snapshot per call) together
-with the re-parse debt, and `reader/CONTRACT.md` cleanup. After any get_codeblock change: run
+R03+R08 fixed next (`064540b`): `get_codeblock/physical_lines.py` is the only line splitter — a line
+ends at `\n` and keeps its ending (a lone `\r` is NOT a break: tree-sitter and grep don't count it);
+API text is byte-exact, the CLI picture is `\n`-only (CONTRACT invariant #10).
+**Next:** R02 (one file snapshot per call) together with the re-parse debt, and `reader/CONTRACT.md`
+cleanup (still says 0.5.0 and the old `[i/n]` format). After any get_codeblock change: run
 `vendor/sync_get_codeblock.py` in hermes-filetools and its pytest (`__HQ\tools\hermes-py.cmd -m pytest tests/ -q`).
 
 ## Where copies of the tools live (update after a release)
