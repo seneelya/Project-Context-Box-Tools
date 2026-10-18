@@ -1,6 +1,6 @@
 # Статус исправлений по ревью 2026-10-18
 
-Ревью — файлы этой папки (`FINDINGS.md` и др.), их не правим. Здесь — что с каждой находкой сделано.
+Ревью — файлы этой папки (`FINDINGS.md` и др.), их не правим (кроме итога в конце `FINDINGS.md`). Здесь — что с каждой находкой сделано.
 Проверка: `python __dev/review/probe_cases.py` → `validation/probes.json`, поле `confirmed`
 (`true` = дефект ещё воспроизводится). После прогона верните `probes.json` (`git checkout`), это снимок ревью.
 
@@ -18,4 +18,5 @@
 | R10 пустой аргумент | исправлено | `e9de3e1` | |
 
 Плагин hermes-filetools получил все правки через `vendor/sync_get_codeblock.py` (последний вендор
-`@ a55e85a`), его pytest 1175 passed / 2 skipped; `read_file` тоже пишет `Missing:` вместо `ERROR:`.
+`@ 049f6a0`, get_codeblock 0.9.0), его pytest 1175 passed / 2 skipped; `read_file` тоже пишет
+`Missing:` вместо `ERROR:`. Задеплоено в Hermes 2026-10-18, шлюз перезапустила владелица.
