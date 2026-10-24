@@ -19,6 +19,15 @@ check_cards_freshness.py --project-root <R>     # a foreign project -> <R>/__map
   in the working tree (uncommitted source edit while the card is clean) OR by history (source's
   last commit newer than the card's). For stale cards it also lists the commits that touched the
   source after the card — the agent sees immediately what to look at.
-* **mtime** (fallback) — compares card vs source mtime when git isn't available.
+  **Git calls are BATCHED per repo, never per file** (one full history walk `-z --name-only`,
+  one `log -c --merges` pass for evil merges — files changed inside a merge vs both parents,
+  exactly what per-file history simplification kept before, one `status --porcelain`, one
+  `ls-files --others --ignored`, one `rev-parse` per .git dir found). ~9 subprocesses per side
+  regardless of card count — seconds even where each subprocess over a container mount costs ~0.1 s
+  (measured: 361 cards, 3m03 -> 6s, verdicts byte-identical to the old per-file version).
+* **mtime** (fallback) — compares card vs source mtime when git isn't available. Watch the
+  `mode=` line: a worktree created by another OS (its `.git` file points to an absolute path
+  the local git cannot resolve, e.g. a container Linux path read from Windows) silently lands
+  HERE and the verdict is mostly noise — run the tool in the environment that owns the worktree.
 
 Use it to decide WHICH cards to re-stamp (`make_interface_card --force`) after code changes.

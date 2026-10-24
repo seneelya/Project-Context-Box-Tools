@@ -8,6 +8,16 @@
   часы, так что сравнимо и между двумя репо).
 - mtime: сторона вне git (или игнорируемая своим репо) — её mtime.
 
+GIT ЗАПРОСЫ ПАКЕТОМ (REQ: скорость в контейнерах, где каждый subprocess через монт стоит ~0.1 c):
+на каждое найденное репо — ровно несколько вызовов, НЕ на файл: `rev-parse --show-toplevel`
+(на каждый каталог с .git), один `status --porcelain` (dirty-набор), один
+`ls-files --others --ignored --exclude-standard` (игноры) и один обход истории
+`log --no-renames --name-only -z` (последний коммит + список коммитов для каждого пути).
+Полугодичный прогон 361 карточки: ~1500 git-вызовов -> ~8. Отличие от прежнего per-file
+`log -1 -- path`: merge-коммиты в обходе не показывают изменённых путей, поэтому для ЗЛОУМЫШЛЕННОГО
+merge (изменение файла прямо в merge-коммите, «evil merge») датой останется последний нормальный
+коммит файла, а не merge. Обычные (--no-ff) мерджи дают тот же вердикт, что и раньше.
+
 Вывод намеренно скупой: без рамок и эмодзи (шум/токены + cp1251-краш на Windows),
 отставание — числом. Для устаревших в git-режиме добавляются коммиты, тронувшие
 исходник после карточки — агент сразу видит, что смотреть.
@@ -25,6 +35,9 @@ from pathlib import Path
 
 from graph_from_cards import resolve_cards_dir, resolve_project_root
 
+# сколько коммитов на путь храним из обхода истории (для перечня у outdated-карточек)
+_HIST_CAP = 30
+
 
 def get_mtime(path):
     return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
@@ -38,7 +51,7 @@ def _git(root, *args):
     try:
         proc = subprocess.run(
             ["git", "-c", "core.quotepath=off", "-C", str(root), *args],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
         )
         return proc.returncode, proc.stdout
     except (OSError, subprocess.SubprocessError):
@@ -67,63 +80,138 @@ def _dirty_paths(root):
     return dirty
 
 
-def _last_commit_ts(root, rel_path):
-    code, out = _git(root, "log", "-1", "--format=%ct", "--", rel_path)
-    out = out.strip()
-    if code != 0 or not out:
-        return None
-    try:
-        return int(out)
-    except ValueError:
-        return None
-
-
-def _commits_since(root, rel_path, since_ct, limit=5):
-    """Коммиты, тронувшие rel_path и новее since_ct: ['<hash> <subject>', ...]."""
-    code, out = _git(root, "log", f"-n{limit * 4}", "--format=%h\x1f%ct\x1f%s", "--", rel_path)
+def _ignored_paths(root):
+    """Один вызов вместо per-file `check-ignore`: набор игнорируемых НЕотслеживаемых путей."""
+    code, out = _git(root, "ls-files", "--others", "--ignored", "--exclude-standard")
     if code != 0:
-        return []
-    res = []
-    for line in out.splitlines():
-        parts = line.split("\x1f")
-        if len(parts) != 3:
+        return set()
+    return {line.strip() for line in out.splitlines() if line.strip()}
+
+
+def _history_maps(root):
+    """Один обход истории репо -> (last_ct[path], hist[path]) по всем путям сразу.
+
+    Формат: записи коммитов отделены \x1e, имена файлов NUL- terminated (-z, чтобы пути
+    с пробелами/кавычками не ломали разбор). --no-renames: путь меняется именно там, где
+    менялся (переименование даёт строку и для старого имени — old-файлы всё равно вымерли).
+    """
+    code, out = _git(root, "log", "--no-renames", "--name-only", "-z",
+                     "--format=%x1e%ct\x1f%h\x1f%s")
+    if code != 0:
+        return {}, {}
+    last_ct, hist = _fold_log(out)
+    # merge-коммиты в обычном обходе путей не показывают; combined-diff (-c) от merge-ов даёт
+    # ровно «злые» merge-и: файлы, изменённые в merge и отличающиеся от ОБОИХ родителей —
+    # те же, которые per-file `log -- path` оставлял в истории раньше (дефолтная сепарация).
+    code, out = _git(root, "log", "--no-renames", "--merges", "-c", "--name-only", "-z",
+                     "--format=%x1e%ct\x1f%h\x1f%s")
+    if code == 0:
+        m_last, m_hist = _fold_log(out)
+        for path, ct in m_last.items():
+            if ct > last_ct.get(path, -1):
+                last_ct[path] = ct
+        for path, entries in m_hist.items():
+            h = hist.setdefault(path, [])
+            h.extend(entries)
+            h.sort(key=lambda e: e[0], reverse=True)
+            del h[_HIST_CAP:]
+    return last_ct, hist
+
+
+def _fold_log(out):
+    """Разбор `-z`-потока `log --name-only`: -> (last_ct[path], hist[path])."""
+    last_ct, hist = {}, {}
+    cur = None
+    for chunk in out.split("\0"):
+        if chunk.startswith("\x1e"):
+            rec = chunk[1:].split("\x1f")
+            if len(rec) == 3:
+                try:
+                    cur = (int(rec[0]), rec[1], rec[2])
+                except ValueError:
+                    cur = None
+            else:
+                cur = None
             continue
-        h, ct, subj = parts
-        try:
-            if int(ct) > since_ct:
-                res.append(f"{h} {subj}")
-        except ValueError:
+        if cur is None or not chunk:
             continue
-        if len(res) >= limit:
-            break
-    return res
+        path = chunk.strip()
+        if not path:
+            continue
+        if path not in last_ct:                      # log идёт от новых к старым
+            last_ct[path] = cur[0]
+        h = hist.setdefault(path, [])
+        if len(h) < _HIST_CAP:
+            h.append(cur)
+    return last_ct, hist
 
 
 class _Repos:
     """Каждый файл — у СВОЕГО git (Vision08 §3 п.5): исходники и карточки могут жить в разных
     репо (форк + штаб со своим git, скрытый от форка). Репо файла = ближайший `.git` вверх от его
-    папки (`git -C <dir> rev-parse --show-toplevel`); файл, который этот репо ИГНОРИРУЕТ (напр.
-    карточки в `__HQ`, исключённом из git форка, когда у штаба своего git нет), — «без git» ->
-    mtime. dirty-набор считается один раз на репо."""
+    папки (fs-обход + ОДИН `rev-parse --show-toplevel` на найденный каталог с .git); файл,
+    который этот репо ИГНОРИРУЕТ (напр. карточки в `__HQ`, исключённом из git форка, когда у штаба
+    своего git нет), — «без git» -> mtime. dirty-набор, игноры и обход истории — по ОДНОму
+    вызову на репо (пакетный режим, см. докстринг)."""
 
     def __init__(self):
         self._top_by_dir, self._dirty_by_top = {}, {}
+        self._ignored_by_top, self._hist_by_top = {}, {}
 
     def top(self, path):
         d = path.parent
         if d not in self._top_by_dir:
-            code, out = _git(d, "rev-parse", "--show-toplevel")
-            self._top_by_dir[d] = Path(out.strip()).resolve() if code == 0 and out.strip() else None
+            top, cur = None, d
+            while True:
+                if (cur / ".git").exists():
+                    code, out = _git(cur, "rev-parse", "--show-toplevel")
+                    top = Path(out.strip()).resolve() if code == 0 and out.strip() else None
+                    break
+                parent = cur.parent
+                if parent == cur:
+                    break
+                cur = parent
+            self._top_by_dir[d] = top
         top = self._top_by_dir[d]
         if top is None:
             return None
-        code, _ = _git(top, "check-ignore", "-q", "--", _rel(path, top))
-        return None if code == 0 else top
+        if _rel(path, top) in self._ignored(top):
+            return None
+        return top
 
     def dirty(self, top, path):
         if top not in self._dirty_by_top:
             self._dirty_by_top[top] = _dirty_paths(top)
         return _rel(path, top) in self._dirty_by_top[top]
+
+    def _ignored(self, top):
+        if top not in self._ignored_by_top:
+            self._ignored_by_top[top] = _ignored_paths(top)
+        return self._ignored_by_top[top]
+
+    def _history(self, top):
+        if top not in self._hist_by_top:
+            self._hist_by_top[top] = _history_maps(top)
+        return self._hist_by_top[top]
+
+    def last_commit_ts(self, top, rel_path):
+        if top is None:
+            return None
+        last_ct, _ = self._history(top)
+        return last_ct.get(rel_path)
+
+    def commits_since(self, top, rel_path, since_ct, limit=5):
+        """Коммиты, тронувшие rel_path и новее since_ct: ['<hash> <subject>', ...]."""
+        if top is None:
+            return []
+        _, hist = self._history(top)
+        res = []
+        for ct, h, subj in hist.get(rel_path, []):
+            if ct > since_ct:
+                res.append(f"{h} {subj}")
+                if len(res) >= limit:
+                    break
+        return res
 
 
 def _rel(path, root):
@@ -165,14 +253,14 @@ def check(cards_dir, root):
         if src_dirty or card_dirty:
             fresh.append(card)
             continue
-        src_ct = _last_commit_ts(s_top, _rel(source, s_top)) if s_top else int(source.stat().st_mtime)
-        card_ct = _last_commit_ts(c_top, _rel(card, c_top)) if c_top else int(card.stat().st_mtime)
+        src_ct = repos.last_commit_ts(s_top, _rel(source, s_top)) if s_top else int(source.stat().st_mtime)
+        card_ct = repos.last_commit_ts(c_top, _rel(card, c_top)) if c_top else int(card.stat().st_mtime)
         if src_ct is None:
             fresh.append(card)
             continue
         if card_ct is None or src_ct > card_ct:
             base = card_ct if card_ct is not None else 0
-            commits = _commits_since(s_top, _rel(source, s_top), base) if s_top else []
+            commits = repos.commits_since(s_top, _rel(source, s_top), base) if s_top else []
             note = "commits: " + " | ".join(commits) if commits else "history newer"
             outdated.append({"card": card, "lag": float(src_ct - base), "note": note})
         else:
@@ -209,7 +297,6 @@ def main():
         # раньше эти два случая были неотличимы, оба читались как «карточек нет вообще».
         print(f"cards dir not found: {cards_dir}", file=sys.stderr)
         sys.exit(1)
-
     result = check(cards_dir, project_root)
     mode = ",".join(f"src:{s} cards:{c}" for s, c in sorted(result["layouts"])) or "-"
     fresh, outdated, orphan = result["fresh"], result["outdated"], result["orphan"]
