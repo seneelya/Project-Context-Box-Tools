@@ -19,11 +19,17 @@ functions, structures, interface blocks and global declarations.
 > `pip install` command for the interpreter that ran it (no traceback) — just run it and retry.
 
 > **GLSL dependency:** install the supplied capsule1 wheel separately; see
-> [wheels/README.md](wheels/README.md). Ready wheel: CPython >=3.10, Windows x64.
+> [wheels/README.md](wheels/README.md). Ready wheels: CPython >=3.10, Windows x64 and Linux x86_64 (glibc >=2.17).
 > Other platforms need a build. The tool prints the absolute wheel command for
 > the current Python and refuses the incompatible upstream 1.0.0 binding cleanly.
 > Preprocessor branches are retained; recovery around ERROR/MISSING may return
 > a larger containing block.
+
+Vulkan GLSL navigation covers `[[unroll]]`/`[[dont_unroll]]` control-flow attributes
+and parameterized `coopmat`, `tensorLayoutNV`, `tensorViewNV` types. Queries retain
+the original attributes/type arguments; map labels may omit those arguments.
+Macro expansion and resolving `#include` are outside this reader; some conditional
+preprocessor regions still require a broader containing block.
 
 ## Route yourself
 

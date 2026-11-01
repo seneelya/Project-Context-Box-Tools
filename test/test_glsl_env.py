@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -19,7 +20,10 @@ def main():
         root = Path(tmp)
         # -S prevents the real venv grammar from leaking into the isolated test.
         shutil.copytree(Path(tree_sitter.__file__).parent, root / 'tree_sitter')
-        wheel = TOOLS / 'wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl'
+        sys.path.insert(0, str(TOOLS))
+        from get_codeblock.env_check import LANGUAGE_MODULES
+        artifacts = LANGUAGE_MODULES['glsl']['artifacts']
+        wheel = TOOLS / artifacts[sysconfig.get_platform()]
         fixture = TOOLS / 'test/glslSRC/declarations.glsl'
 
         def run(extra='', prelude='pass', file=fixture, base=TOOLS):
@@ -51,7 +55,12 @@ def main():
         assert '--force-reinstall --no-deps' in message
         print('PASS legacy integer binding / refusal before Language(int)')
 
-        message = refused(run(prelude="import sysconfig; sysconfig.get_platform = lambda: 'linux-x86_64'"))
+        for target, artifact in artifacts.items():
+            message = refused(run(prelude=f"import sysconfig; sysconfig.get_platform = lambda: {target!r}"))
+            assert str(TOOLS / artifact) in message and '--force-reinstall --no-deps' in message, message
+            print('PASS artifact command for ' + target)
+
+        message = refused(run(prelude="import sysconfig; sysconfig.get_platform = lambda: 'linux-aarch64'"))
         assert 'No prebuilt wheel for this platform' in message and 'README.md' in message
         assert 'pip install' not in message, message
         print('PASS unsupported platform / build instructions / no invalid install command')

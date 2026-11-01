@@ -29,6 +29,8 @@ Format: `- <decision> — <one-line why>`
 
 ## Tests
 
+- GLSL Vulkan extensions use byte-preserving LangSpec.preprocess, not a grammar rebuild (Plan13 V1–V3) — shield comments/strings, mask attributes and only known coopmat/tensor type parameters with conservative context; original query bytes and every CR/LF position stay unchanged.
+
 - Tree-sitter Point reads use indices only (Plan11 D2) — runtime 0.26.0 attribute getters lose references; test/point_guard.py guards tools except historical __dev probes.
 - GLSL uses Caellian glsl-spec capsule1, accepted with indexed coordinates (Plan11 D1/D3) — 480/480 and fewer parse errors than old glsl.
 - .glsl/.vert/.frag/.geom/.comp/.tesc/.tese/.vs/.fs map to GLSL (Plan11 D4) — F# is unsupported; revisit only if F# is added, in reader._LANG_MAP.
@@ -62,3 +64,6 @@ Format: `- <decision> — <one-line why>`
 - Entry-name matching for merge is by POSITION in the signature (before `(`/`=`, else after known per-language keywords), never by guessing the "first word" of the signature text — that broke on any JS/TS/C#/async-Python file (see `__dev/Requests/DONE__REQ-004+005_merge-identity-design.md`).
 - `--force` on a card that already has prose REFUSES without `--discard-prose` (exit 2) — force is a muscle-memory flag, prose is expensive; the two must not collide silently.
 - No shared resolver module across the 9 CLI tools (deliberate — see path/flag conventions below); a shared helper WITHIN the closely-coupled card family (`graph_from_cards.resolve_project_root`, reused by `validate_cards`/`check_cards_freshness`) is fine — that coupling already existed.
+
+
+- Plan13 V3 accepts no NEW #6 mismatches after full before/after comparison (owner decision, 2026-11-01) — five identical blank-preamble cases are known REQ-017; general preamble addressing stays outside Plan13.

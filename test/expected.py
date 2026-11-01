@@ -323,6 +323,10 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
 }
 
 LADDER = [
+    {'file': 'glslSRC/vulkan-extensions.comp', 'line': 17, 'expect': [(2, 16, 18), (1, 12, 26)]},
+    {'file': 'glslSRC/vulkan-extensions.comp', 'line': 21, 'expect': [(2, 20, 22), (1, 12, 26)]},
+    # The attribute-only line sits in the map's merged band of two adjacent for statements.
+    {'file': 'glslSRC/vulkan-extensions.comp', 'line': 19, 'expect': [(2, 16, 22), (1, 12, 26)]},
     {'file': 'glslSRC/declarations.glsl', 'line': 14, 'expect': [(2, 14, 14), (1, 12, 16)]},
     {'file': 'glslSRC/declarations.glsl', 'line': 11, 'expect': [(1, 11, 11)]},
     {'file': 'glslSRC/noise-field.fs', 'line': 41, 'expect': [(1, 40, 46)]},   # signature 41, comment preamble 40

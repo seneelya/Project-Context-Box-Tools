@@ -1,2 +1,4 @@
 # Unified diffs require LF and use a single context-marker space on blank lines.
 wheels/*.patch text eol=lf whitespace=-blank-at-eol
+# Shell scripts run in Linux (Docker/WSL): LF on every checkout.
+*.sh text eol=lf

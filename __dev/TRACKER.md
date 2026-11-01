@@ -230,3 +230,30 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ Hermes только прочитан и vendor --check (exit 1 / 12 tracked differences). Уточнено: --check сравнивает tracked working paths, новый untracked glsl.py не включает; нормальный sync требует чистый commit. Help needs GLSL extensions; wheels не копируются sync, доставка/установка отдельно при решении владельца.
 - Ничего не закоммичено, не скопировано в vendor, не задеплоено; Hermes Python/gateway/службы/оригинальные шейдеры не тронуты. Все новые временные данные на T:.
 - → next: Claude ревью/коммит Plan11; после этого разрешённая синхронизация и решение владельца о поставке колеса в Hermes. Plan11 оставлен активным до ревью.
+
+
+## 2026-11-01 — Plan12 выполнен (Sol), далее Plan13
+
+- Linux capsule1 cp310-abi3 manylinux2014/manylinux_2_17_x86_64 собран в официальном Docker; parser.c/grammar.js идентичны Windows, patch не менялся. auditwheel: GLIBC_2.2.5, внешних shared libraries нет. Image1,704,774,662 bytes; всё рабочее/venv/cache на T:.
+- WSL Python3.12.3/tree-sitter0.26.0: capsule ABI15, 480/480 strict acceptance, синтетика5/178/21, личные22/4464/348 PASS; все сырьевые результаты вне репо. Windows/Linux outline/name совпали после OS-path/CRLF normalization. Point.row defect воспроизведён, index корректен.
+- Production только Linux artifacts entry; env-тест6PASS на Windows/WSL. Windows wheel и installed binding hashes прежние. Регресс150/160/21/16/150/55/57, GLSL fixturesPASS; sweep152файла/52083probes сохранил cp1252 CRASH71/LOW5, других HIGH нет.
+- Отчёт __dev/review/GLSL_LINUX.md; wheels README/manifest/build-linux.sh и platform docs обновлены. Без коммита/деплоя/Hermes. → next: Plan13, до/после Vulkan + PlanetWeather, только синтетические фикстуры в репо.
+
+
+## 2026-11-01 — Plan13: Vulkan-маски готовы, V3 ожидает решения по K1 (Sol)
+
+- До:185 shaders,118 файлов с ERROR/MISSING,1164 узла; после атрибутов16/481; после известных coopmat/tensor типов13/124. Все676 атрибутов и148 type-списков обработаны; ошибки на этих конструкциях ушли. Прямых функций368, всех634 — до/после без потерь.
+- LangSpec.preprocess, byte-preserving glsl_source.py; имена/arity типов — данные GLSL-профиля. Защита комментариев/строк/CRLF/UTF8/сравнений/неполных конструкций,19 adversarial кейсов; никакой пересборки/веток в движке.
+- Проверены ровно185 файлов/25036 физических строк, sweep20968 непустых probes: HIGH0/LOW0 до/после, каждый query byte-exact. Дополнительный #6 контроль нашёл5 предсуществующих blank-preamble mismatch; полный before/after список идентичен. Общее исправление не применялось самовольно. KICKBACK __dev/plans/Plan13__KICKBACK.md, вопрос владельцу отправлен асинхронно.
+- PlanetWeather22/4464/348 PASS,88 полных CLI-выводов до/после байт-в-байт, сама маска тождественна исходнику на22/22. В repo только новая синтетическая Vulkan-фикстура; ни личного, ни llama.cpp кода/сырья не добавлялось.
+- Регресс: check153/0,cardstamp160/0,restamp21/0,golden16/16,cpp150/0,names55/0,views57/0; GLSL6/204/22 на Windows и WSL; env6PASS. Общий sweep154/52171 сохранил прежние cp1252 CRASH71/LOW5, других HIGH нет.
+- Отчёт __dev/review/GLSL_VULKAN.md, CONTRACT/TLDR/DECISIONS/context обновлены. Сырьё и воспроизводящие scripts — T:/AgentsWork/glsl-wheel-plan10/plan13/. Без коммита/деплоя/Hermes, VERSION0.10.0.
+- → next: решение по K1 (отдельный дефект и приёмка без новых #6 либо расширение scope общей blank-preamble правкой), затем Claude review/commit Plan12+Plan13. Строгий V3 пока не назван выполненным.
+
+
+## 2026-11-01 — Plan13 принят по уточнённому V3; K1 CLOSED
+
+- Владелица выбрала вариант 1: отсутствие НОВЫХ #6 при полном сравнении списков до/после. Проверено: пять исходных случаев полностью идентичны, новых нет; все пять перечислены в GLSL_VULKAN.md как известные.
+- Общий механизм преамбул не менялся и по прямому указанию не входит в Plan13. Исправление — отдельный REQ-017 (__dev/Requests/REQ-017_blank-line-in-comment-preamble-addresses-file.md), после Plan13.
+- KICKBACK CLOSED; критерий в Plan13, отчёт, DECISIONS и оба контекста обновлены. Код/проверенные результаты не менялись; повтор регресса для документирования решения не требуется.
+- ✅ Plan12 и Plan13 выполнены, готовы к ревью/коммиту Claude. Ничего не закоммичено/не задеплоено; Hermes не тронут. → next: Claude review/commit, REQ-017 отдельно.

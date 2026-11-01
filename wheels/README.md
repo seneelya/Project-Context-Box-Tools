@@ -7,9 +7,9 @@
 Поставляется только capsule1; диагностические варианты сохранены в manifest и
 в сборочной папке на T:, строки ниже — историческая provenance.
 
-Все колёса: CPython stable ABI `cp310-abi3`, Windows x64 `win_amd64`, Python >=3.10.
-Фактические прогоны выполнены только на Python 3.12.10 Windows x64; Hermes и другие
-версии Python не проверялись.
+Поставляемые колёса: CPython stable ABI `cp310-abi3`, Python >=3.10; Windows x64
+и Linux x86_64 (glibc >=2.17). Проверены Windows Python 3.12.10 и WSL Ubuntu Python
+3.12.3 с tree-sitter 0.26.0; Hermes не менялся.
 
 | Wheel | Источник / commit | ABI | SHA256 wheel |
 |---|---|---:|---|
@@ -70,7 +70,7 @@ T:\AgentsWork\venv\Scripts\python.exe -m build --wheel --no-isolation --outdir T
 <python> -m pip install --force-reinstall --no-deps <tools>/wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl
 ```
 
-Готового колеса для Linux/macOS/Windows ARM нет: соберите из закреплённого исходника
+Готового колеса для macOS/ARM нет: соберите из закреплённого исходника
 с capsule1.patch по процедуре выше, выбрав свой компилятор и тег платформы. Не используйте
 upstream 1.0.0 вместо capsule1 на tree-sitter 0.26.0.
 
@@ -88,3 +88,32 @@ T:\AgentsWork\venv\Scripts\python.exe -m pip install --target T:\AgentsWork\glsl
 `<python> -m pip install --force-reinstall --no-deps <точный путь wheel>`.
 Основное колесо принято по Plan11 D1; устанавливать выбранным Python этой командой. Команды приёмки, варианты
 и минимальный повтор приведены в GLSL_BUILD.md.
+
+
+## Linux x86_64 — Plan12
+
+Принятое колесо: `tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl`.
+SHA256: `55e402505beb13b1f9e91af4d83cc3540d0e71b677d4bc02ca227b57b199cc2b`.
+Тот же source commit/capsule1.patch, parser.c/grammar.js SHA256 — как у Windows.
+Linux binding SHA256: `f07cdb7b394461eda738422b9ddb9ef50a8caa0e19012da49bba41255fca0ebc`.
+
+```bash
+python -m pip install --force-reinstall --no-deps /absolute/path/to/tools/wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl
+```
+
+Сборка: официальный `quay.io/pypa/manylinux2014_x86_64` digest
+`sha256:dc58399aca4cfb0de257f92e2de71b4f8421e60cce8542fcd5e28df0c0760942`
+(1,704,774,662 bytes). В build-root подготовить `source/` (точный commit + patch),
+`downloads/` с offline build wheels (build 1.6.1, setuptools 84.2.1, wheel 0.48.0,
+packaging 26.3, pyproject_hooks 1.3.3, tomli 2.5.0). Скопировать build-linux.sh туда.
+Все каталоги сборки и pip target — в bind mount на T:; образ — в Docker storage.
+
+```powershell
+docker run --rm --mount 'type=bind,source=T:\AgentsWork\glsl-wheel-plan10\plan12,target=/work' --env TMPDIR=/work/tmp --env TEMP=/work/tmp --env TMP=/work/tmp quay.io/pypa/manylinux2014_x86_64@sha256:dc58399aca4cfb0de257f92e2de71b4f8421e60cce8542fcd5e28df0c0760942 bash /work/build-linux.sh
+```
+
+`auditwheel repair --plat manylinux_2_17_x86_64` добавил также более ранние теги;
+`auditwheel show`: GLIBC_2.2.5, внешних shared libraries нет. Все четыре тега
+cp310-abi3 присутствуют в WHEEL; manylinux2014/manylinux_2_17 — подтверждены.
+WSL приёмка 480/480, GLSL fixture/full corpus PASS; отчёт —
+`../__dev/review/GLSL_LINUX.md`. Проверка не означает live-тест всех Linux/Python.

@@ -1,6 +1,11 @@
 """GLSL glsl-spec: grammar data shared by map and addressing."""
+from functools import partial
 from ...handlers._treesitter_blocks import LangSpec
 from .base import TSProfile
+from ...glsl_source import preprocess_bytes
+
+# Scalar argument counts from the Vulkan extension type declarations. No generic ident<...>.
+PARAMETERIZED_TYPES = {'coopmat': (5, 5), 'tensorLayoutNV': (1, 2), 'tensorViewNV': (3, 7)}
 
 
 def _load_glsl():
@@ -19,7 +24,8 @@ GLSL = TSProfile(
              container={'struct_specifier', 'interface_block'},
              control={'if_statement', 'else_clause', 'for_statement', 'while_statement',
                       'do_statement', 'switch_statement'},
-             scope_body='compound_statement'),
+             scope_body='compound_statement',
+             preprocess=partial(preprocess_bytes, type_parameters=PARAMETERIZED_TYPES)),
     extra_frames={'preproc_if', 'preproc_ifdef', 'preproc_else', 'preproc_elif'},
     node_rules={
         'inline_comments': {'comment'},

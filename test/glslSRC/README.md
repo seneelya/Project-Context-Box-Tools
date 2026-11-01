@@ -1,5 +1,11 @@
 # GLSL fixtures
 
+Plan13 adds `vulkan-extensions.comp`: an independently written synthetic fixture
+for control-flow attributes, cooperative/tensor types in fields and locals,
+constructors and nearby comparisons. No llama.cpp source is copied here.
+Run `test/test_glsl_preprocess.py` for protected strings/comments, malformed input,
+false comparisons, byte offsets, CRLF/UTF-8 and idempotence. It also runs from test_glsl.py.
+
 All fixtures are synthetic, written for the tests (no third-party or private shader code):
 noise-field.fs — one-line functions, comment preamble, top-level #ifdef, and an #ifdef that
 splits if/else in main (MISSING #endif); particles.fs — layout(location), struct, outputs;

@@ -163,7 +163,8 @@ When `--line` falls between blocks at file-level scope (no containing block foun
 GLSL needs the supplied capsule wheel; install it separately with the Python that
 runs this tool: `<python> -m pip install --force-reinstall --no-deps <tools>/wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl`.
 See [wheels/README.md](wheels/README.md) for hashes and build instructions. The ready
-wheel is for CPython >=3.10 on Windows x64; other platforms require a build.
+wheels are for CPython >=3.10 on Windows x64 and Linux x86_64 (glibc >=2.17);
+other platforms require a build.
 The preflight prints an absolute install path from any working directory and refuses
 the legacy upstream 1.0.0 binding cleanly.
 

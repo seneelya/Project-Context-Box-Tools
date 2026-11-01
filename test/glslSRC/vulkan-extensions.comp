@@ -1,0 +1,26 @@
+#version 450
+#extension GL_EXT_control_flow_attributes : enable
+#extension GL_KHR_cooperative_matrix : enable
+#extension GL_NV_cooperative_matrix2 : enable
+layout(local_size_x = 1) in;
+struct MatrixPayload {
+    coopmat<float, gl_ScopeSubgroup, 8, 8, gl_MatrixUseAccumulator> tile;
+    tensorLayoutNV<2> layout;
+    tensorViewNV<2, false, 1, 0> view;
+};
+
+void main() {
+    coopmat<float, gl_ScopeSubgroup, 8, 8, gl_MatrixUseAccumulator> localTile = coopmat<float, gl_ScopeSubgroup, 8, 8, gl_MatrixUseAccumulator>(0.0);
+    tensorLayoutNV<2, gl_CooperativeMatrixClampModeConstantNV> tensorLayout;
+    int sum = 0;
+    [[unroll]] for (int i = 0; i < 4; ++i) {
+        sum += i;
+    }
+    [[dont_unroll]]
+    for (int j = 0; j < sum; ++j) {
+        sum -= j;
+    }
+    if (sum < 4 && 10 > sum) {
+        sum++;
+    }
+}

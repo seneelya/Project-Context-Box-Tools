@@ -13,13 +13,15 @@ from pathlib import Path
 import platform
 import subprocess
 import sys
+import sysconfig
 import time
 import traceback
 
 HERE = Path(__file__).resolve().parent
-BUILD = Path('T:/AgentsWork/glsl-wheel-plan10')
-SHADERS = Path('Y:/AgentsWork/PlanetWeather/viewer_layered/export/shaders')
-RUNTIME = Path(sys.prefix) / 'Lib/site-packages'
+BUILD = Path('T:/AgentsWork/glsl-wheel-plan10' if os.name == 'nt' else '/mnt/t/AgentsWork/glsl-wheel-plan10')
+SHADERS = Path('Y:/AgentsWork/PlanetWeather/viewer_layered/export/shaders' if os.name == 'nt'
+               else '/mnt/y/AgentsWork/PlanetWeather/viewer_layered/export/shaders')
+RUNTIME = Path(sysconfig.get_path('platlib'))
 
 
 def sha(path):
@@ -177,7 +179,7 @@ def main():
     ap.add_argument('--runtime-version', default='0.26.0')
     ap.add_argument('--baseline', type=Path)
     ap.add_argument('--make-baseline', action='store_true')
-    ap.add_argument('--out', type=Path, default=HERE / 'glsl_probe_results_runtime26.json')
+    ap.add_argument('--out', type=Path, default=BUILD / 'glsl_probe_results_runtime26.json')
     ap.add_argument('--work-dir', type=Path, required='--worker' not in sys.argv)
     ap.add_argument('--repeats', type=int, default=20)
     ap.add_argument('--timeout', type=int, default=45)
@@ -195,7 +197,8 @@ def main():
     assert not args.out.exists(), 'refusing to overwrite existing report'
     files = sorted(p for p in SHADERS.iterdir() if p.suffix in ('.fs', '.vs'))
     assert len(files) == 22, 'expected exactly 22 shaders'
-    binaries = list((args.grammar_root / args.grammar_module).glob('_binding*.pyd'))
+    binaries = [p for p in (args.grammar_root / args.grammar_module).glob('_binding*')
+                if p.suffix in ('.pyd', '.so')]
     assert len(binaries) == 1
     cfg = dict(python=sys.executable, runtime_root=str(args.runtime_root.resolve()),
                runtime_version=args.runtime_version, grammar_root=str(args.grammar_root.resolve()),

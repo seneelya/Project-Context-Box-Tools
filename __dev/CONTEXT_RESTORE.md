@@ -3,11 +3,13 @@
 This file is about the tools and the template only. A downstream project's state (its plans,
 tracker, task) lives in that project's `__HQ/` — restore it from there, never from here.
 
-**Sol resuming GLSL / Plan11 (2026-11-01):** first read
-`__dev/CONTEXT_RESTORE_SOL.md` — the current task, accepted review decisions,
-exact wheel/install/acceptance commands, T:-only temporary-data rule and next step.
-Plan11 implementation is complete in the working tree; read GLSL_INTEGRATION.md for review and pending Claude commit/vendor sync. Other work follows the
-general reading order below.
+**Sol resuming Plan12/Plan13 (2026-11-01):** first read
+`__dev/CONTEXT_RESTORE_SOL.md`, then `__dev/review/GLSL_LINUX.md` and
+`__dev/review/GLSL_VULKAN.md`. Plan12 and Plan13 are complete. Owner accepted Plan13
+with no NEW #6 mismatches; the five identical pre-existing cases are tracked as
+REQ-017, a separate task. KICKBACK is CLOSED; do not change the general preamble
+mechanism in Plan13. Changes are uncommitted;
+Claude reviews/commits. All raw/private shader evidence stays OUTSIDE this repo on T:.
 
 ## Read, in order (don't wander the repo)
 
@@ -87,7 +89,7 @@ closed. After any get_codeblock change: run
 
 GLSL binary distribution: keep `wheels/` alongside the tools, including the supplied
 `tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl`; installation is separate,
-not a common requirements dependency. Windows x64 CPython >=3.10; other platforms build
+not a common requirements dependency. Windows x64 and Linux x86_64 (glibc >=2.17), CPython >=3.10; other platforms build
 from the pinned source (wheels/README.md). Hermes has NOT received this wheel.
 
 Copy = `git ls-files` of this repo minus `__dev/`, `test/`, `CONFIG__TOOLS.py`, `CLONE_TOOLS_HERE.md`;
@@ -99,15 +101,15 @@ Reference interpreter `T:/AgentsWork/venv/Scripts/python.exe` (3.12, ALL grammar
 gives `N skipped (grammar missing)` — that is "not checked", not "ok".
 
 ```bash
-T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 150/0
+T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 153/0
 T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py         # 160/0
 T:/AgentsWork/venv/Scripts/python.exe test/run_restamp_fixtures.py   # 21/0
 T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py           # 16/16
 T:/AgentsWork/venv/Scripts/python.exe test/test_cpp.py               # 150/0
 T:/AgentsWork/venv/Scripts/python.exe test/test_name_resolver.py     # 55/0
 T:/AgentsWork/venv/Scripts/python.exe test/test_views.py             # 57/0
-T:/AgentsWork/venv/Scripts/python.exe test/test_glsl.py              # 5 files / 178 lines / 21 functions (test/glslSRC, all synthetic)
-T:/AgentsWork/venv/Scripts/python.exe test/test_glsl_env.py          # 4 PASS: no-wheel / legacy / other platform / vendored copy (+1 with --before SNAPSHOT)
+T:/AgentsWork/venv/Scripts/python.exe test/test_glsl.py              # 6 files / 204 lines / 22 functions + mask adversarial checks (all synthetic)
+T:/AgentsWork/venv/Scripts/python.exe test/test_glsl_env.py          # 6 PASS: native missing / legacy / Windows+Linux artifacts / other platform / vendored
 T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py --quiet  # HIGH 0 except CRASH=71 (old cp1252 fixture); LOW LEVEL=5 known
 ```
 

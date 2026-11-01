@@ -100,7 +100,7 @@ def main():
     import sweep_invariants
     results = []
     for path in sorted(root.iterdir()):
-        if path.suffix not in ('.fs', '.vs', '.glsl'):
+        if path.suffix not in ('.fs', '.vs', '.glsl', '.comp'):
             continue
         result = check_file(path, baseline.get(path.name))
         results.append(result)
@@ -117,6 +117,8 @@ def main():
     if args.out:
         args.out.write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(f"PASS {len(results)} files / {report['lines']} lines / {report['functions']} functions")
+    from test_glsl_preprocess import check_masks
+    check_masks()
 
 
 if __name__ == '__main__':

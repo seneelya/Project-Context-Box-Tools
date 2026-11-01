@@ -28,7 +28,8 @@ LANGUAGE_MODULES = {
     # A dict entry = a language shipped as our own wheel (``wheels/`` of the tools repo):
     # ``artifacts`` maps sysconfig.get_platform() -> wheel path from the tools root.
     "glsl": {"modules": ["tree_sitter", "tree_sitter_glsl_spec"],
-             "artifacts": {"win-amd64": "wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl"},
+             "artifacts": {"win-amd64": "wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl",
+                           "linux-x86_64": "wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl"},
              "capsule_module": "tree_sitter_glsl_spec"},
     "cpp": ["tree_sitter", "tree_sitter_cpp"],
     "csharp": ["tree_sitter", "tree_sitter_c_sharp"],
