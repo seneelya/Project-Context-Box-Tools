@@ -29,6 +29,8 @@ Format: `- <decision> — <one-line why>`
 
 ## Tests
 
+- REQ-017: blank rows inside a named comment preamble use the full map's canonical owner (including leaf definitions); gaps before the true preamble/after its block stay outside — full outline and nonblank addressing remain unchanged, PREAMBLE HIGH guards blanks in sweep.
+
 - GLSL Vulkan extensions use byte-preserving LangSpec.preprocess, not a grammar rebuild (Plan13 V1–V3) — shield comments/strings, mask attributes and only known coopmat/tensor type parameters with conservative context; original query bytes and every CR/LF position stay unchanged.
 
 - Tree-sitter Point reads use indices only (Plan11 D2) — runtime 0.26.0 attribute getters lose references; test/point_guard.py guards tools except historical __dev probes.

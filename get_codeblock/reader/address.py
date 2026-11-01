@@ -248,7 +248,7 @@ def get_blocks(path, target_line):
     содержащие строку; тычок в коммент-преамблу → её блок (`_preamble_owner`); если ни
     в один не попали — честный file-scope `[1,N]` (инвариант #7). Контракт наружу совпадает с хендлером
     (его ест `core.resolve`/query/staircase). Внутренний вход: `Reader.get_blocks`."""
-    from .classify import filler_container_at, leaf_landmark_at
+    from .classify import filler_container_at, leaf_landmark_at, blank_preamble_at
     lines = _read_lines(path)
     if not lines or target_line < 1 or target_line > len(lines):
         return []
@@ -257,16 +257,25 @@ def get_blocks(path, target_line):
     blocks, bodies = _collect(root, spec.ls)
     comment_rows = _comment_rows(root, spec)
     row = target_line - 1
+    mapped = blank_preamble_at(path,target_line) if not lines[row].strip() else None
 
     containing = [(n, p) for n, p in blocks
                   if n.start_row <= row <= _own_end_row(n, spec.ls)]
 
-    if row in comment_rows:                            # тычок в преамбулу → её блок
+    if row in comment_rows:                            # comment preamble: existing route
         owner = _preamble_owner(blocks, row, comment_rows, bodies, lines)
         if owner is not None and all(owner is not n for n, _ in containing):
             containing.append(next((n, p) for n, p in blocks if n is owner))
 
+    # The map also owns preambles of bodyless/wrapped definitions. Keep brace
+    # ancestors/control rungs, but use its canonical named owner for this blank.
+    if mapped is not None:
+        containing = [(n,p) for n,p in containing if n.start_row != mapped[1]]
+        mapped = {**mapped[0], 'level':_level_of_row(mapped[1],bodies)}
+
     if not containing:
+        if mapped is not None:
+            return [mapped]
         # ИНВАРИАНТ #7 (CONTRACT): строка вне всех addressable-блоков (top-level import/
         # декларация или гэп) → честный контейнер, который ГАРАНТИРОВАННО её содержит. НЕ
         # «ближайший» блок — он строку не покрывает (в TS/CSS таких строк много: импорты,
@@ -281,13 +290,18 @@ def get_blocks(path, target_line):
         filler = filler_container_at(path, target_line)
         if filler is not None:
             return [filler]
-        leaf = leaf_landmark_at(path, target_line)     # bodyless landmark the map shows (#6)
+        # Blank preambles already use the full map above; the legacy focus-chain
+        # leaf fallback can mistake a previous statement's trailing comment for glue.
+        leaf = leaf_landmark_at(path, target_line) if lines[row].strip() else None
         if leaf is not None:
             return [leaf]
         return [{'level': 1, 'start': 1, 'end': len(lines), 'label': '<file>'}]
 
     containing.sort(key=lambda np: (np[0].start_row, -np[0].end_row))
     result = [_bounds(n, p, bodies, comment_rows, lines, spec) for n, p in containing]
+    if (mapped is not None and result[-1]['start'] <= mapped['start']
+            and mapped['end'] <= result[-1]['end']):
+        result.append(mapped)
 
     # ИНВАРИАНТ #9 (расширение): даже когда есть охватывающий адресуемый рунг, ВНУТРИ его
     # тела может сидеть более узкая filler-полоса — поле класса, топ-левел-подобный член,

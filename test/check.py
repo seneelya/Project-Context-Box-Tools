@@ -231,6 +231,9 @@ def main():
     line("== LEVELS (line = level) ==")
     from point_guard import violations
     check('tree-sitter indexed Point access', [], violations(_TOOLS))
+    from test_preamble import check_preambles
+    check('blank preamble map/focus/query and boundaries', True,
+          _optional_grammar(check_preambles)(verbose=False))
     for fx, cases in getattr(exp, "LEVELS", {}).items():
         got = levels_for(fx, [ln for ln, _w, _s in cases])
         line(f"\n[{fx}]")

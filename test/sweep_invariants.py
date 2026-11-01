@@ -24,6 +24,9 @@ Checks per (file, line):
                        contain the probed line's real content at the right row. Exercises
                        `resolve()` (the invariant #8 ambiguity climb) and the text slice —
                        neither is touched by the plain ladder checks above.
+  * PREAMBLE  (HIGH) — a blank row inside the map's glued comment preamble is
+                       missing its named owner in the ladder (invariant #6, REQ-017).
+                       Those blanks are checked even without --check-query.
 
 Usage:
     py test/sweep_invariants.py [ROOT ...] [--file F] [--step N] [--max-lines M]
@@ -52,6 +55,8 @@ if _TOOLS not in sys.path:
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from get_codeblock.reader.reader import Reader  # noqa: E402
+from get_codeblock.physical_lines import split_lines
+from test_preamble import blank_preamble_ranges, findings as preamble_findings
 
 
 def _speed_up():
@@ -223,6 +228,13 @@ def line_kinds(blocks, line, lines):
     return out
 
 
+def _read_physical(path):
+    # Retain the legacy invalid-UTF8 diagnostic policy, but use the same physical
+    # boundaries as the tool (CRLF/lone CR/U+2028 are not extra line breaks).
+    with open(path,'rb') as source:
+        return split_lines(source.read().decode('utf-8','replace'))
+
+
 def query_violation(path, line, lines):
     """Cross-check the CORE API's default `--query` (level 0): `get_codeblock(path, line,
     query=True)['text']` — the same function other tools will soon call directly (Vision04:
@@ -239,7 +251,7 @@ def query_violation(path, line, lines):
     start, end, text = result["start"], result["end"], result["text"]
     if not (start <= line <= end):
         return f"query block [{start}-{end}] does not contain line {line}"
-    rows = text.splitlines(keepends=True)
+    rows = split_lines(text)
     idx = line - start
     if not (0 <= idx < len(rows)):
         return f"query block [{start}-{end}] text has {len(rows)} row(s), line {line} is row {idx} (out of range)"
@@ -253,21 +265,25 @@ def query_violation(path, line, lines):
 def sweep_file(path, step, max_lines, check_query=False):
     """Return (checked, [violation]) for one file. violation = (line, kind, detail)."""
     try:
-        lines = open(path, encoding="utf-8", errors="replace").readlines()
+        lines = _read_physical(path)
     except OSError as e:
         return 0, [(0, "OPEN", repr(e))]
     n = len(lines)
     if n == 0:
         return 0, []
     reader = Reader.open(path, lines)
+    try:
+        preambles = blank_preamble_ranges(path, lines)
+    except Exception as e:
+        return 0, [(0, 'CRASH', f'preamble map: {e!r}')]
     hi = min(n, max_lines) if max_lines else n
     viol = []
     checked = 0
     saw_any_block = False
     for line in range(1, hi + 1, step):
-        # Only poke NON-BLANK lines: a blank line genuinely between blocks legitimately
-        # belongs to no block, so "not contained" there is expected, not a bug.
-        if not lines[line - 1].strip():
+        # Also poke blank rows the map already glues into a named preamble (#6).
+        # Ordinary file/body gaps keep the old skip policy.
+        if not lines[line - 1].strip() and line not in preambles:
             continue
         checked += 1
         try:
@@ -282,6 +298,8 @@ def sweep_file(path, step, max_lines, check_query=False):
             continue
         for kind, detail in line_kinds(blocks, line, lines):
             viol.append((line, kind, detail))
+        for detail in preamble_findings(blocks, line, preambles):
+            viol.append((line, 'PREAMBLE', detail))
         if check_query:
             detail = query_violation(path, line, lines)
             if detail is not None:
@@ -314,7 +332,7 @@ def write_level_map(path, out_dir):
     Output goes to `out_dir` (not next to the source) so review copies always land in one
     place — nothing to hunt for afterwards."""
     try:
-        lines = open(path, encoding="utf-8", errors="replace").readlines()
+        lines = _read_physical(path)
     except OSError as e:
         return None, repr(e)
     reader = Reader.open(path, lines)
@@ -355,7 +373,7 @@ def write_level_map(path, out_dir):
     return out_path, None
 
 
-SEVERITY = {"CONTAIN": "HIGH", "CRASH": "HIGH", "OPEN": "HIGH", "RANGE": "HIGH", "QUERY": "HIGH",
+SEVERITY = {"CONTAIN": "HIGH", "CRASH": "HIGH", "OPEN": "HIGH", "RANGE": "HIGH", "QUERY": "HIGH", "PREAMBLE": "HIGH",
             "LEVEL": "LOW", "SIBLING": "INFO", "EMPTY": "INFO"}
 
 
@@ -419,12 +437,12 @@ def main():
                 if len(itemizable) > args.show:
                     print(f"  … +{len(itemizable) - args.show} more")
 
-    high = counts["CONTAIN"] + counts["CRASH"] + counts["OPEN"] + counts["RANGE"] + counts["QUERY"]
+    high = sum(counts[k] for k, severity in SEVERITY.items() if severity == 'HIGH')
     print("\n" + "-" * 50)
     print(f"swept {totals['files']} files, {totals['lines']} line-probes; "
           f"{bad_files} files with HIGH/LOW findings")
     print(f"  HIGH  CONTAIN={counts['CONTAIN']} RANGE={counts['RANGE']} CRASH={counts['CRASH']} "
-          f"OPEN={counts['OPEN']} QUERY={counts['QUERY']}")
+          f"OPEN={counts['OPEN']} QUERY={counts['QUERY']} PREAMBLE={counts['PREAMBLE']}")
     print(f"  LOW   LEVEL={counts['LEVEL']}")
     print(f"  INFO  SIBLING={counts['SIBLING']} EMPTY={counts['EMPTY']}   "
           "(expected noise -- shared close/open brace boundaries; use --show-info to itemize)")

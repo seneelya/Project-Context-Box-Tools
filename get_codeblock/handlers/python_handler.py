@@ -718,9 +718,21 @@ class PythonHandler:
 
         # If comment attached to block below, resolve effective target
         content = lines[idx].strip()
-        if content.startswith('#'):
+        if content.startswith('#') or (not content and not _in_string_mask(lines)[idx]):
             attached = find_attached_block(lines, idx)
-            if attached is not None:
+            if attached is None and not content:
+                # A comment preamble can end at a decorator stack rather than
+                # directly at def/class. Keep the existing nonblank route intact.
+                j = idx + 1
+                while j < len(lines) and (not lines[j].strip() or lines[j].lstrip().startswith('#')):
+                    j += 1
+                if j < len(lines):
+                    attached = decorated_header(lines, j)
+            # Blank rows only attach when collect_preamble already includes them;
+            # never pull a gap before the first comment toward the following def.
+            if attached is not None and (content or (
+                    get_keyword(lines[attached]) in ('def','class','async_def')
+                    and collect_preamble(lines, attached) <= idx)):
                 blocks = self._build_hierarchy_for_header(lines, attached)
                 # Include the comment itself in the innermost block's start
                 if blocks:

@@ -374,6 +374,32 @@ def leaf_landmark_at(path, line):
     return rungs[-1]
 
 
+def blank_preamble_at(path, line):
+    """(map rung, raw header row) for a blank inside a named preamble, or None.
+
+    The full Classifier is authoritative about glued starts, including trailing
+    companion comments and definitions without brace bodies (REQ-017).
+    """
+    chain, _rungs, _n = _chain_rungs(path, line)
+    if not chain or isinstance(chain[-1], Block):
+        return None
+    node = chain[-1]
+    if line >= node.start_row + 1:
+        return None  # body/file gaps are not a preamble
+    _backend, spec = resolve(os.path.splitext(path)[1])
+    if spec.unwrap_def(node) is None or spec.unwrap_frame(node) is not None:
+        return None
+    name = spec.name(node)
+    if name is None:
+        return None
+    for row in outline_rows(path, deep=True):  # unfocused map; no recursion into this helper
+        if (not row['frame'] and not row['filler'] and row['end'] == node.end_row + 1
+                and row['start'] <= line
+                and (row['text'] == name or row['text'].startswith(name + '  '))):
+            return ({'start':row['start'], 'end':row['end'], 'label':row['text']}, node.start_row)
+    return None
+
+
 def line_level_at(path, idx):
     """Generic `line_level` (0-based `idx`), пара к `ladder_at`: глубина = уровень
     последнего звена цепочки (`_containing_chain`) — landmark/frame level или, если
@@ -427,10 +453,23 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
     уровне 1, её тело — вглубь. Решает монстро-классы: развернуть один блок как отдельный файл."""
     backend, spec = resolve(os.path.splitext(path)[1])
     with open(path, 'rb') as f:
-        root = backend.root(f.read())
+        source = f.read()
+        root = backend.root(source)
     clf = Classifier(spec)
     if focus_line is not None:
         chain, levels = _containing_chain(root, spec, focus_line)
+        from ..physical_lines import split_lines
+        preamble = None
+        if not split_lines(source.decode('utf-8','replace'))[focus_line - 1].strip():
+            preamble = blank_preamble_at(path, focus_line)
+            # A trailing comment belonging to the previous statement is not the
+            # next definition's preamble. For blanks, keep only the full map's owner.
+            keep = [(n,lvl) for n,lvl in zip(chain,levels)
+                    if isinstance(n,Block) or n.start_row + 1 <= focus_line
+                    or spec.unwrap_def(n) is None or spec.unwrap_frame(n) is not None
+                    or (preamble is not None and n.start_row == preamble[1]
+                        and n.end_row + 1 == preamble[0]['end'])]
+            chain, levels = [n for n,_ in keep], [lvl for _,lvl in keep]
         target = _pick_focus(chain, focus_level)
         if target is None:
             tree = []
@@ -454,6 +493,9 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
                 parent_scope = _scope_inside(spec, link, parent_scope)
             _n, glued = _owning_block(spec, parent_scope.children(), target.start_row + 1,
                                       want_glue=True)
+            if (preamble is not None and preamble[1] == target.start_row
+                    and preamble[0]['end'] == target.end_row + 1):
+                glued = preamble[0]['start']
             head = _focus_head(spec, target, base, start_override=glued)
             body = _scope_inside(spec, target, None)
             if body is not None:

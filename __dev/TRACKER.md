@@ -257,3 +257,13 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - Общий механизм преамбул не менялся и по прямому указанию не входит в Plan13. Исправление — отдельный REQ-017 (__dev/Requests/REQ-017_blank-line-in-comment-preamble-addresses-file.md), после Plan13.
 - KICKBACK CLOSED; критерий в Plan13, отчёт, DECISIONS и оба контекста обновлены. Код/проверенные результаты не менялись; повтор регресса для документирования решения не требуется.
 - ✅ Plan12 и Plan13 выполнены, готовы к ревью/коммиту Claude. Ничего не закоммичено/не задеплоено; Hermes не тронут. → next: Claude review/commit, REQ-017 отдельно.
+
+## 2026-11-01 — REQ-017 выполнен, get_codeblock 0.10.1 (Sol)
+
+- ✅ Пустые строки внутри mapped-преамбулы получают её именованного владельца в brace-адресации и focus; сохраняются вложенные предки/leaf-блоки. Python исправлен тем же правилом, включая декораторы и защиту multiline strings. Непустые маршруты не менялись; языковых веток в общем движке нет.
+- ✅ Пять синтетических языков,30 основных случаев плюс вложенность/границы/literals;15 ручных ladder-эталонов. Sweep PREAMBLE HIGH доказан на старом движке. Сам фаззер переведён на общий physical_lines, чтобы не считать lone CR/Unicode separator новыми строками.
+- ✅ Все пять прежних Vulkan #6 расхождений устранены:185 файлов/25036 строк,20973 sweep probes,HIGH0/LOW0; точный query и map containment PASS.
+- ✅ Old/new:253 кандидата,250 декодируемых файлов/185720 физических строк. Все500 outline/dot и185259 неизменившихся line-выводов совпали. Только461 пустая строка изменилась:459 mapped-преамбул и2 исключения ложного владельца перед настоящим комментарием. Три invalid-UTF8 отказа одинаковы; байты исходников не менялись.
+- ✅ check169/0,cardstamp160/0,restamp21/0,golden16/16,cpp150/0,names55/0,views57/0,GLSL6/204/22+19 masks,env6PASS. Полный sweep160/52603:CONTAIN0/RANGE0/OPEN0/PREAMBLE0,CRASH71/QUERY23/LOW5,SIBLING431,exit1. Все QUERY23 — старый cp1252 README.md, архив446411f воспроизводит те же23; новых HIGH нет.
+- Отчёт __dev/review/REQ017_PREAMBLE.md; CONTRACT,DECISIONS,request и оба контекста актуальны. Сырьё/логи исключительно T:/AgentsWork/glsl-wheel-plan10/req017/; в repo только собственная синтетика. Колёса/venv/Hermes/оригинальные shaders не тронуты.
+- → next: Claude review/commit REQ-017. HEAD446411f, без самостоятельного коммита/push/деплоя. Request остаётся без DONE до ревью.

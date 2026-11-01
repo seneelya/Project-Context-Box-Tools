@@ -782,3 +782,11 @@ OUTLINE['glslSRC/declarations.glsl'] = [
     (1, 11, 11, '~preproc_def'),
     (1, 12, 16, 'float transform(float x)  // Transform one sample.'),
 ]
+
+# REQ-017: hand-counted shared preamble layout; blank before it stays file scope.
+for _ext in ('cpp', 'ts', 'cs', 'glsl', 'py'):
+    LADDER.extend([
+        {'file': 'Edge/preamble_gap.' + _ext, 'line': 3, 'expect': [(1, 2, 8)]},
+        {'file': 'Edge/preamble_gap.' + _ext, 'line': 11, 'expect': [(1, 10, 14)]},
+        {'file': 'Edge/preamble_gap.' + _ext, 'line': 1, 'expect': [(1, 1, 15)]},
+    ])

@@ -3,13 +3,11 @@
 This file is about the tools and the template only. A downstream project's state (its plans,
 tracker, task) lives in that project's `__HQ/` — restore it from there, never from here.
 
-**Sol resuming Plan12/Plan13 (2026-11-01):** first read
-`__dev/CONTEXT_RESTORE_SOL.md`, then `__dev/review/GLSL_LINUX.md` and
-`__dev/review/GLSL_VULKAN.md`. Plan12 and Plan13 are complete. Owner accepted Plan13
-with no NEW #6 mismatches; the five identical pre-existing cases are tracked as
-REQ-017, a separate task. KICKBACK is CLOSED; do not change the general preamble
-mechanism in Plan13. Changes are uncommitted;
-Claude reviews/commits. All raw/private shader evidence stays OUTSIDE this repo on T:.
+**Sol completed REQ-017 (2026-11-01):** first read `__dev/CONTEXT_RESTORE_SOL.md`
+and `__dev/review/REQ017_PREAMBLE.md`. Base commit446411f already includes Plan12/13.
+REQ-017 implementation0.10.1, all-line comparison and enhanced sweep are complete;
+next Claude review/commit. No commits/deploys. All raw/private evidence remains outside
+this repo under T:/AgentsWork/glsl-wheel-plan10/req017/.
 
 ## Read, in order (don't wander the repo)
 
@@ -31,7 +29,7 @@ commit this repo FIRST (an unknown blob is reported as CONFLICT).
 
 ## State (2026-10-07)
 
-- **get_codeblock 0.10.0** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
+- **get_codeblock 0.10.1** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
   frontmatter = `meta:` block), YAML, plain text, shell `.sh`, PowerShell `.ps1`, batch `.bat`,
   GLSL `.glsl .vert .frag .geom .comp .tesc .tese .vs .fs` (supplied capsule1 wheel).
   `--name` (name -> lines -> the existing `--line` render). C/C++ macros cut before parsing,
@@ -84,13 +82,14 @@ closed. After any get_codeblock change: run
 |---|---|---|
 | `y:\SRC\llama.cpp_mix` | whole HQ (tools, guides, roles) | `deploy_hq.py --apply` (commit its HQ first) |
 | `t:\AgentsWork\hermes-filetools` | all tools, NOT the deploy | copy git-tracked tool files; keep its `CONFIG__TOOLS.py`, `hermes_python.py`, `hermes-py.cmd` |
-| `t:\AgentsWork\hermes-filetools\vendor\get_codeblock` | get_codeblock package, shipped inside that plugin | its own `vendor/sync_get_codeblock.py` mirrors a COMMIT of this repo (commit here first) |
+| `t:\AgentsWork\hermes-filetools\vendor\get_codeblock` | get_codeblock package, shipped inside that plugin | its own `vendor/sync_get_codeblock.py` mirrors a COMMIT of this repo (commit here first); it also UNPACKS `wheels/*.whl` into `vendor/tree_sitter_glsl_spec/` (no install: Hermes rebuilds its venv in a new folder) |
+| `y:\AgentsWork\dVOrbitals\sim` | whole HQ (tools, guides, roles) | `deploy_hq.py --apply`; deploy from a clean `git worktree` of the COMMIT when this working copy has uncommitted work; its 8 project-modified HQ docs stay CONFLICT (never `--force`) |
 | `t:\AgentsWork\dVOrbitals\dvOrbital__GDD` | get_codeblock only | copy `get_codeblock/`, `get_codeblock.py`, `get_codeblock__*.md`; keep its config |
 
-GLSL binary distribution: keep `wheels/` alongside the tools, including the supplied
-`tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl`; installation is separate,
-not a common requirements dependency. Windows x64 and Linux x86_64 (glibc >=2.17), CPython >=3.10; other platforms build
-from the pinned source (wheels/README.md). Hermes has NOT received this wheel.
+GLSL binary distribution: keep `wheels/` alongside the tools (Windows x64 and Linux x86_64 glibc >=2.17,
+CPython >=3.10); installation is separate, not a common requirements dependency — the refusal message
+on a shader prints the exact `pip install` of the shipped wheel for the running Python. Other platforms
+build from the pinned source (wheels/README.md). Hermes gets the grammar unpacked into its vendor (above).
 
 Copy = `git ls-files` of this repo minus `__dev/`, `test/`, `CONFIG__TOOLS.py`, `CLONE_TOOLS_HERE.md`;
 never delete files in the target. Smoke after a copy: `validate_cards.py`, `get_codeblock --file <x>`.
@@ -101,7 +100,7 @@ Reference interpreter `T:/AgentsWork/venv/Scripts/python.exe` (3.12, ALL grammar
 gives `N skipped (grammar missing)` — that is "not checked", not "ok".
 
 ```bash
-T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 153/0
+T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 169/0
 T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py         # 160/0
 T:/AgentsWork/venv/Scripts/python.exe test/run_restamp_fixtures.py   # 21/0
 T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py           # 16/16
