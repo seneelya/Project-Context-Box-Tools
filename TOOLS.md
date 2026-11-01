@@ -141,8 +141,9 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
 - **Language auto-detected from extension.** Python (indentation, stdlib `ast`); `.ts`/`.js`, `.cs`,
   `.cpp`/`.h`/…, `.yaml`/`.yml` (tree-sitter); Markdown (`.md`) and plain text (`.txt`,
   experimental) for `get_codeblock`.
-  GLSL shaders (`.glsl .vert .frag .geom .comp .tesc .tese .vs .fs`) are supported by
-  `get_codeblock`; install the supplied capsule wheel separately — [wheels/README.md](wheels/README.md).
+  GLSL shaders (`.glsl .vert .frag .geom .comp .tesc .tese .vs .fs`, Vulkan extensions too) are
+  supported by `get_codeblock`; install the supplied wheel separately (the tool prints the command) —
+  [wheels/README.md](wheels/README.md).
 - **Dependencies are minimal and OPTIONAL per language.** Python, Markdown and plain text work
   with **zero** third-party packages. The tree-sitter languages (incl. YAML) need grammar
   packages — see `get_codeblock/requirements.txt`.

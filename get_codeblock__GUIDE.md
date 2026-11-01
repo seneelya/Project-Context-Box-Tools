@@ -179,6 +179,11 @@ Run Python, Markdown and plain text with nothing extra. For the tree-sitter lang
 the exact `pip install …` command **for the interpreter that ran it** (no traceback) — run that,
 retry. Nothing fails silently.
 
+GLSL is the one grammar not on PyPI: it ships with the tools as a wheel file in `wheels/`
+(Windows x64, Linux x86_64). The missing-grammar message for a shader already points `pip` at
+that file with an absolute path — run it once per Python environment. On another platform the
+message says there is no ready wheel and points to `wheels/README.md` (build steps).
+
 ---
 
 ## Follow the typical workflow
