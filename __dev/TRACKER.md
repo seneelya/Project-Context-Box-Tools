@@ -267,3 +267,10 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ check169/0,cardstamp160/0,restamp21/0,golden16/16,cpp150/0,names55/0,views57/0,GLSL6/204/22+19 masks,env6PASS. Полный sweep160/52603:CONTAIN0/RANGE0/OPEN0/PREAMBLE0,CRASH71/QUERY23/LOW5,SIBLING431,exit1. Все QUERY23 — старый cp1252 README.md, архив446411f воспроизводит те же23; новых HIGH нет.
 - Отчёт __dev/review/REQ017_PREAMBLE.md; CONTRACT,DECISIONS,request и оба контекста актуальны. Сырьё/логи исключительно T:/AgentsWork/glsl-wheel-plan10/req017/; в repo только собственная синтетика. Колёса/venv/Hermes/оригинальные shaders не тронуты.
 - → next: Claude review/commit REQ-017. HEAD446411f, без самостоятельного коммита/push/деплоя. Request остаётся без DONE до ревью.
+
+## 2026-11-01 — ревью REQ-017 и раскатка 0.10.1 (Claude)
+
+- ✅ REQ-017 принят (`dd16993`): независимое old/new на 556 файлах sim (C++/шейдеры) и 184 Python memohood — карты и все непустые строки побайтно те же; скорость на пустых строках +~9%. Request → `DONE__`.
+- ✅ Раскатано 0.10.1: Hermes (vendor + распакованная грамматика GLSL, задеплоено, шлюз — владелица), hermes-filetools `__HQ/tools`, `Y:\AgentsWork\dVOrbitals\sim` (новый клиент, ветка gfx), `Y:\SRC\llama.cpp_mix` (весь HQ). sim и llama.cpp_mix — записано, НЕ закоммичено (коммит — их сессии/владелица).
+- Колесо GLSL в проектах ставится по команде из отказа get_codeblock (владелица предупредила Opus в sim). В Hermes — распаковано в vendor, без установки.
+- → open: `dvOrbital__GDD` больше нет — это, видимо, `dvOrbital__DESIGN` (чекауты на T: от 31.10 и на Y: от 17.10, оба get_codeblock 0.8.0) и второй чекаут `T:\AgentsWork\dVOrbitals\sim` (main, 0.9.0): обновлять ли и какие — спросить владелицу, затем поправить таблицу копий в CONTEXT_RESTORE.
