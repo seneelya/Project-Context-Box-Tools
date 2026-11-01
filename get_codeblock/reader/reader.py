@@ -20,6 +20,8 @@ _PY_EXTS = {'.py'}
 
 # Один маппинг ext -> language (позже вытеснит 3 копии lang_map в core.py).
 _LANG_MAP = {
+    '.glsl': 'glsl', '.vert': 'glsl', '.frag': 'glsl', '.geom': 'glsl', '.comp': 'glsl',
+    '.tesc': 'glsl', '.tese': 'glsl', '.vs': 'glsl', '.fs': 'glsl',
     '.py': 'python',
     '.ts': 'typescript', '.js': 'typescript', '.mjs': 'typescript',
     '.tsx': 'tsx', '.jsx': 'tsx',

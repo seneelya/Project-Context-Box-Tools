@@ -3,6 +3,12 @@
 This file is about the tools and the template only. A downstream project's state (its plans,
 tracker, task) lives in that project's `__HQ/` — restore it from there, never from here.
 
+**Sol resuming GLSL / Plan11 (2026-11-01):** first read
+`__dev/CONTEXT_RESTORE_SOL.md` — the current task, accepted review decisions,
+exact wheel/install/acceptance commands, T:-only temporary-data rule and next step.
+Plan11 implementation is complete in the working tree; read GLSL_INTEGRATION.md for review and pending Claude commit/vendor sync. Other work follows the
+general reading order below.
+
 ## Read, in order (don't wander the repo)
 
 1. Tail of `__dev/TRACKER.md` — where we are, what just landed.
@@ -23,8 +29,9 @@ commit this repo FIRST (an unknown blob is reported as CONFLICT).
 
 ## State (2026-10-07)
 
-- **get_codeblock 0.9.0** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
-  frontmatter = `meta:` block), YAML, plain text, shell `.sh`, PowerShell `.ps1`, batch `.bat`.
+- **get_codeblock 0.10.0** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
+  frontmatter = `meta:` block), YAML, plain text, shell `.sh`, PowerShell `.ps1`, batch `.bat`,
+  GLSL `.glsl .vert .frag .geom .comp .tesc .tese .vs .fs` (supplied capsule1 wheel).
   `--name` (name -> lines -> the existing `--line` render). C/C++ macros cut before parsing,
   recovery after unparsable function bodies. One ext -> language map: `reader.reader.language_for_ext`.
   `get_codeblock/views.py` — every CLI mode as DATA + its renderer (`*_view` / `render_*`,
@@ -78,6 +85,11 @@ closed. After any get_codeblock change: run
 | `t:\AgentsWork\hermes-filetools\vendor\get_codeblock` | get_codeblock package, shipped inside that plugin | its own `vendor/sync_get_codeblock.py` mirrors a COMMIT of this repo (commit here first) |
 | `t:\AgentsWork\dVOrbitals\dvOrbital__GDD` | get_codeblock only | copy `get_codeblock/`, `get_codeblock.py`, `get_codeblock__*.md`; keep its config |
 
+GLSL binary distribution: keep `wheels/` alongside the tools, including the supplied
+`tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl`; installation is separate,
+not a common requirements dependency. Windows x64 CPython >=3.10; other platforms build
+from the pinned source (wheels/README.md). Hermes has NOT received this wheel.
+
 Copy = `git ls-files` of this repo minus `__dev/`, `test/`, `CONFIG__TOOLS.py`, `CLONE_TOOLS_HERE.md`;
 never delete files in the target. Smoke after a copy: `validate_cards.py`, `get_codeblock --file <x>`.
 
@@ -87,12 +99,15 @@ Reference interpreter `T:/AgentsWork/venv/Scripts/python.exe` (3.12, ALL grammar
 gives `N skipped (grammar missing)` — that is "not checked", not "ok".
 
 ```bash
-T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 135/0
-T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py         # 155/0
+T:/AgentsWork/venv/Scripts/python.exe test/check.py --fails          # 150/0
+T:/AgentsWork/venv/Scripts/python.exe test/test_cardstamp.py         # 160/0
 T:/AgentsWork/venv/Scripts/python.exe test/run_restamp_fixtures.py   # 21/0
-T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py           # 13/13
+T:/AgentsWork/venv/Scripts/python.exe test/golden_check.py           # 16/16
 T:/AgentsWork/venv/Scripts/python.exe test/test_cpp.py               # 150/0
-T:/AgentsWork/venv/Scripts/python.exe test/test_name_resolver.py     # 36/0
+T:/AgentsWork/venv/Scripts/python.exe test/test_name_resolver.py     # 55/0
+T:/AgentsWork/venv/Scripts/python.exe test/test_views.py             # 57/0
+T:/AgentsWork/venv/Scripts/python.exe test/test_glsl.py              # 5 files / 178 lines / 21 functions (test/glslSRC, all synthetic)
+T:/AgentsWork/venv/Scripts/python.exe test/test_glsl_env.py          # 4 PASS: no-wheel / legacy / other platform / vendored copy (+1 with --before SNAPSHOT)
 T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py --quiet  # HIGH 0 except CRASH=71 (old cp1252 fixture); LOW LEVEL=5 known
 ```
 

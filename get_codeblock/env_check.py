@@ -15,6 +15,9 @@ underscores (``tree-sitter-c-sharp`` -> ``tree_sitter_c_sharp``).
 """
 
 import importlib.util
+import importlib
+import platform
+import sysconfig
 import sys
 from pathlib import Path
 
@@ -22,6 +25,11 @@ REQUIREMENTS = Path(__file__).parent / "requirements.txt"
 
 # Which importable modules each language needs. Python/Markdown need none.
 LANGUAGE_MODULES = {
+    # A dict entry = a language shipped as our own wheel (``wheels/`` of the tools repo):
+    # ``artifacts`` maps sysconfig.get_platform() -> wheel path from the tools root.
+    "glsl": {"modules": ["tree_sitter", "tree_sitter_glsl_spec"],
+             "artifacts": {"win-amd64": "wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl"},
+             "capsule_module": "tree_sitter_glsl_spec"},
     "cpp": ["tree_sitter", "tree_sitter_cpp"],
     "csharp": ["tree_sitter", "tree_sitter_c_sharp"],
     "typescript": ["tree_sitter", "tree_sitter_typescript"],
@@ -104,6 +112,9 @@ def ensure_language(language, path=REQUIREMENTS):
     """Try importing `language`'s modules; if any are missing, raise EnvError
     with a crisp install message scoped to just those packages."""
     needed = LANGUAGE_MODULES.get(language, [])
+    if isinstance(needed, dict):
+        _ensure_artifact(language, needed)
+        return
     absent = [m for m in needed if importlib.util.find_spec(m) is None]
     if not absent:
         return
@@ -113,3 +124,36 @@ def ensure_language(language, path=REQUIREMENTS):
     missing = [reqs.get(m, {"pip": m.replace("_", "-"), "module": m, "note": ""}) for m in absent]
     raise EnvError(f"'{language}' files need packages that are not installed.\n"
                    + missing_report(missing, path))
+
+
+def _ensure_artifact(language, entry):
+    """Optional local distribution + capsule validation; never load legacy pointers."""
+    tools = Path(__file__).resolve().parent.parent
+    absent = [m for m in entry['modules'] if importlib.util.find_spec(m) is None]
+    failure = None
+    if absent:
+        failure = f"'{language}' files need packages that are not installed: {', '.join(absent)}."
+    elif entry.get('capsule_module'):
+        try:
+            value = importlib.import_module(entry['capsule_module']).language()
+            if type(value).__name__ != 'PyCapsule':
+                raise ValueError('language() must return a PyCapsule, not a legacy pointer')
+            from tree_sitter import Language
+            Language(value)  # validate capsule name and supported grammar ABI as well
+        except (ImportError, OSError, TypeError, ValueError, OverflowError) as exc:
+            failure = f"'{language}': incompatible installed build ({exc})."
+    if failure is None:
+        return
+    rel = entry['artifacts'].get(sysconfig.get_platform())
+    if rel is None or platform.python_implementation() != 'CPython':
+        raise EnvError(f"{failure}\nNo prebuilt wheel for this platform; build instructions: "
+                       f"wheels/README.md in the tools repo (Project-Context-Box-Tools).")
+    python = _quote(sys.executable or 'python')
+    artifact = tools / rel
+    if not artifact.is_file():
+        # a vendored copy (e.g. hermes-filetools/vendor) has no wheels/ next to it
+        raise EnvError(f"{failure}\nInstall {Path(rel).name} from wheels/ of the tools repo "
+                       f"(Project-Context-Box-Tools), see wheels/README.md there:\n"
+                       f"  {python} -m pip install --force-reinstall --no-deps <path to that wheel>")
+    raise EnvError(f"{failure}\nInstall the supplied build:\n"
+                   f"  {python} -m pip install --force-reinstall --no-deps {_quote(str(artifact))}")

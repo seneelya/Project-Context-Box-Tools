@@ -160,8 +160,16 @@ When `--line` falls between blocks at file-level scope (no containing block foun
 
 ## Supported Languages
 
+GLSL needs the supplied capsule wheel; install it separately with the Python that
+runs this tool: `<python> -m pip install --force-reinstall --no-deps <tools>/wheels/tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl`.
+See [wheels/README.md](wheels/README.md) for hashes and build instructions. The ready
+wheel is for CPython >=3.10 on Windows x64; other platforms require a build.
+The preflight prints an absolute install path from any working directory and refuses
+the legacy upstream 1.0.0 binding cleanly.
+
 | Language | Extension(s) | Detection Method | Notes |
 |----------|--------------|------------------|-------|
+| GLSL | `.glsl` `.vert` `.frag` `.geom` `.comp` `.tesc` `.tese` `.vs` `.fs` | tree-sitter (`tree_sitter_glsl_spec`, supplied capsule1 wheel) | Functions, structs and interface blocks; global uniform/in/out/const names and multi-declarators. All preprocessing branches remain visible. Preprocessor-split control flow may require a broader containing block in ERROR/MISSING zones. `.fs` currently means GLSL; F# is unsupported. |
 | Python | `.py` | Indentation-based (no AST) | Multiline signatures, compound blocks (`try/except`, `if/elif` — sibling branches share one depth), docstrings/comments glued to the block they precede. |
 | TypeScript / JS / TSX | `.ts` `.js` `.mjs` `.tsx` `.jsx` | tree-sitter (`tree_sitter_typescript`) | Real syntax tree (`typescript` grammar for `.ts`/`.js`/`.mjs`, `tsx` for `.tsx`/`.jsx` — `.mjs` is the same JS grammar, just Node's ESM marker, not a syntax difference). Named blocks + name-bound arrows (`const Foo = () => {…}`, `value: () => {…}`, class fields); multi-line object literals & arrow bodies count as blocks. `declarations()` (for make_interface_card) preserved. A big flat `return (...)` full of JSX isn't broken into landmarks yet — `--outline`/`--query` flag it with a `known limitation: …` note instead of silently handing over an unstructured wall (see `__dev/Plan__jsx-carve-tsx.md`). |
 | C / C++ | `.cpp` `.cc` `.cxx` `.c++` `.h` `.hpp` `.hh` `.hxx` `.c` | tree-sitter (`tree_sitter_cpp`) | Real syntax tree: multi-line signatures, `template<...>`, `Class::method`, macros, raw string literals `R"(...)"`. `namespace`/`extern "C"` are **transparent** (shown in `--outline`, add no depth). |

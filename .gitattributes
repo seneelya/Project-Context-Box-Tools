@@ -1,0 +1,2 @@
+# Unified diffs require LF and use a single context-marker space on blank lines.
+wheels/*.patch text eol=lf whitespace=-blank-at-eol

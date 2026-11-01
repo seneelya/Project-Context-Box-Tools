@@ -1,0 +1,58 @@
+{
+  "source_url": "https://github.com/Caellian/tree-sitter-glsl",
+  "source_commit": "3a00d49a88cb53eec519b49d8e234e77d916f8ac",
+  "source_commit_info": "3a00d49a88cb53eec519b49d8e234e77d916f8ac\n2026-04-07T15:43:13+02:00\nFix CI workflows",
+  "cli_version": "0.27.1",
+  "variants": {
+    "capsule1": {
+      "commit": "3a00d49a88cb53eec519b49d8e234e77d916f8ac",
+      "parser_sha256": "d8759daf83d69862a25417a98807b09b7ac32f15625706b839057e2df3d898e6",
+      "grammar_sha256": "fd517076cfac59fc52bb07ae45f1495cba2a1d831ad8660ff67c90a43128fbe5",
+      "binding_sha256": "5d9ffb9d6bf2741225edbe42f6906e49c8456dc0b206a7caa2fb206b91034a20"
+    },
+    "regen15": {
+      "commit": "3a00d49a88cb53eec519b49d8e234e77d916f8ac",
+      "parser_sha256": "d8759daf83d69862a25417a98807b09b7ac32f15625706b839057e2df3d898e6",
+      "grammar_sha256": "fd517076cfac59fc52bb07ae45f1495cba2a1d831ad8660ff67c90a43128fbe5",
+      "binding_sha256": "5d9ffb9d6bf2741225edbe42f6906e49c8456dc0b206a7caa2fb206b91034a20"
+    },
+    "regen14": {
+      "commit": "3a00d49a88cb53eec519b49d8e234e77d916f8ac",
+      "parser_sha256": "4e357d2a9978c951f7cb408d78199cd448944ee8e43ea7e9e6470155c1bd3b38",
+      "grammar_sha256": "fd517076cfac59fc52bb07ae45f1495cba2a1d831ad8660ff67c90a43128fbe5",
+      "binding_sha256": "5d9ffb9d6bf2741225edbe42f6906e49c8456dc0b206a7caa2fb206b91034a20"
+    },
+    "old-capsule1": {
+      "commit": "e47b8b62b59d0e3529f1c31b03e025d6bd475044",
+      "parser_sha256": "a175dc73eab717b1b745a6d1826ac1ddef1a46c72dc174f07ec721ac1f32e9ad",
+      "grammar_sha256": "8e4348daa59e73aab734a074b66bb84808629bdd38dbb2bb8ed27faf32ff75a6",
+      "binding_sha256": "71734acbc0d829cd38f4f9fe6b002c50a90088652a55cfb3668ff4cb96eb3ae1"
+    }
+  },
+  "wheels": {
+    "tree_sitter_glsl-0.2.0+capsule1-cp310-abi3-win_amd64.whl": {
+      "sha256": "5f9c3874f95655b1c9d52c268c6f2ca04aa7c4f54b265543007b39b8cfbe0892",
+      "size": 98893
+    },
+    "tree_sitter_glsl_spec-1.0.0+capsule1-cp310-abi3-win_amd64.whl": {
+      "sha256": "6c18b83d121fa32da65c45e86c670d53e9ad4bf8793cbc59235d924c8193ba2a",
+      "size": 100133
+    },
+    "tree_sitter_glsl_spec-1.0.0+regen14-cp310-abi3-win_amd64.whl": {
+      "sha256": "e5746ffee7ec4ae2230d6fe715d293aa3b1119f640393a3ff03844207163ea5d",
+      "size": 99904
+    },
+    "tree_sitter_glsl_spec-1.0.0+regen15-cp310-abi3-win_amd64.whl": {
+      "sha256": "8d661660b2d7fc06b8f2886fced0471c0941448bff9b7217828a142bab65d07d",
+      "size": 100124
+    }
+  },
+  "build_dependencies": {
+    "build": "1.6.1",
+    "colorama": "0.4.6",
+    "packaging": "26.3",
+    "pyproject_hooks": "1.3.3",
+    "setuptools": "84.2.1",
+    "wheel": "0.48.0"
+  }
+}

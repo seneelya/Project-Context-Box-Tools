@@ -1,0 +1,7 @@
+//outline — max depth 1, L1=3, showing levels 1..1
+//. [1-1] ~preproc_version
+//. [2-3] decl: uTime, alpha, beta
+//1 [4-7] struct Particle
+//1 [8-10] layout(std140) uniform Camera
+//. [11-11] ~preproc_def
+//1 [12-16] float transform(float x)  // Transform one sample.

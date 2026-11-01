@@ -30,3 +30,8 @@ test/LEVELMAP_*.txt
 # Scratch output from run_restamp_fixtures.py — the re-stamped copies, for eyeballing.
 # The pristine `before` fixtures next to them ARE committed.
 test/restamp_fixtures/*/.actual/
+
+# GLSL probe outputs embed the owner's private shader source: never commit them
+__dev/review/glsl_*.json
+!__dev/review/glsl_other_languages_comparison.json
+__dev/review/glsl_adapter_outline.txt

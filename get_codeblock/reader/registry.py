@@ -25,7 +25,7 @@ def _python_backend_spec():
         return PythonAstBackend(), PythonAstSpec()
     from .profiles.python import make_python_profile
     prof = make_python_profile()
-    return TSBackend(prof.langspec), TreeSitterSpec(prof)
+    return TSBackend(prof.langspec, prof.node_rules), TreeSitterSpec(prof)
 
 
 def resolve(ext):
@@ -53,4 +53,4 @@ def resolve(ext):
     prof = profiles.ts_profile_for_ext(ext)            # core1 — tree-sitter, плагин языка
     if prof is None:
         raise ValueError(f"reader: формат {ext} пока не поддержан")
-    return TSBackend(prof.langspec), TreeSitterSpec(prof)
+    return TSBackend(prof.langspec, prof.node_rules), TreeSitterSpec(prof)

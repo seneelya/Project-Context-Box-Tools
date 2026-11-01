@@ -1,0 +1,4 @@
+//File: test\glslSRC\declarations.glsl (16 lines) · 1 hit
+// 1 | 12-16| float transform(float x)  // Transform one sample.
+//  2| 14-14|   ~expression_statement
+//  →|  → 14|   x *= SCALE;

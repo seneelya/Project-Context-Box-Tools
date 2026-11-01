@@ -5,6 +5,8 @@ Returns a self-contained structural block containing a line — for code
 (`.md`: heading sections; YAML frontmatter = one `meta: <keys>` block), YAML (`.yaml .yml`: key/list nesting), plain text (`.txt`:
 paragraphs/sections, experimental) and scripts (`.sh .bash` · `.ps1 .psm1` · `.bat .cmd`). Lets an agent get precise context around any location, or a
 file's table of contents, without reading the whole file.
+GLSL is supported too: `.glsl .vert .frag .geom .comp .tesc .tese .vs .fs` —
+functions, structures, interface blocks and global declarations.
 
 > **Paths:** absolute `--file` -> as is. Relative -> first under `--project-root` (not given ->
 > `CONFIG__TOOLS.PROJECT_ROOT`), then cwd; found in BOTH (different files) -> the root wins + a
@@ -15,6 +17,13 @@ file's table of contents, without reading the whole file.
 > C/C++, C#, TypeScript/JS/TSX, CSS/SCSS, YAML, shell and PowerShell use tree-sitter grammars — see
 > `get_codeblock/requirements.txt`. If a needed package is missing, the tool prints the exact
 > `pip install` command for the interpreter that ran it (no traceback) — just run it and retry.
+
+> **GLSL dependency:** install the supplied capsule1 wheel separately; see
+> [wheels/README.md](wheels/README.md). Ready wheel: CPython >=3.10, Windows x64.
+> Other platforms need a build. The tool prints the absolute wheel command for
+> the current Python and refuses the incompatible upstream 1.0.0 binding cleanly.
+> Preprocessor branches are retained; recovery around ERROR/MISSING may return
+> a larger containing block.
 
 ## Route yourself
 

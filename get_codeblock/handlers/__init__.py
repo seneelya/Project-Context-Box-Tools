@@ -7,6 +7,7 @@ def get_handler(language: str):
     Raises ValueError if the language is not supported.
     """
     handlers = {
+        "glsl": _make_text_handler,
         "python": _make_python_handler,
         "py": _make_python_handler,
         "typescript": _make_ts_handler,

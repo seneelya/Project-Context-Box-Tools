@@ -21,6 +21,7 @@ from .registry import resolve
 # brace-семейство: reader-нативная адресация. Python (отступной) и Markdown
 # (беsparser) НАМЕРЕННО исключены — идут своим хендлером до обёртки в backend.
 _BRACE_EXTS = frozenset({
+    '.glsl', '.vert', '.frag', '.geom', '.comp', '.tesc', '.tese', '.vs', '.fs',
     '.ts', '.js', '.mjs', '.tsx', '.jsx', '.cs',
     '.cpp', '.cc', '.cxx', '.c++', '.hpp', '.hh', '.hxx', '.h', '.c', '.cu', '.cuh',
     '.scss', '.sass', '.css',

@@ -23,7 +23,7 @@ from . import physical_lines
 # Bump on any change that affects OUTPUT FORMAT (columns, labels, flag semantics) —
 # gcb now has real external consumers (Hermes agents), so the CLI contract is no
 # longer a private implementation detail. See CONTRACT.md for what's covered.
-VERSION = "0.9.0"
+VERSION = "0.10.0"
 
 
 def normalize_path(p):
@@ -365,7 +365,7 @@ def make_comment_delims(language):
     an H1 heading. The line-comment languages just get a prefix and an empty closer.
     """
     return {"python": ("#", ""), "typescript": ("//", ""), "tsx": ("//", ""),
-            "csharp": ("//", ""), "cpp": ("//", ""), "css": ("//", ""),
+            "csharp": ("//", ""), "cpp": ("//", ""), "css": ("//", ""), "glsl": ("//", ""),
             "markdown": ("<!-- ", " -->"), "text": ("#", ""),
             "yaml": ("#", ""), "shell": ("#", ""), "powershell": ("#", ""), "batch": ("REM ", "")}.get(language, ("#", ""))
 

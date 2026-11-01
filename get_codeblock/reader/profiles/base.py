@@ -12,10 +12,11 @@
 
 class TSProfile:
     """Декларации плагина языка для tree-sitter-бэкенда. Только данные, без логики."""
-    __slots__ = ('langspec', 'extra_frames', 'binders', 'value_types')
+    __slots__ = ('langspec', 'extra_frames', 'binders', 'value_types', 'node_rules')
 
-    def __init__(self, langspec, extra_frames=(), binders=(), value_types=()):
+    def __init__(self, langspec, extra_frames=(), binders=(), value_types=(), node_rules=None):
         self.langspec = langspec
+        self.node_rules = node_rules or {}  # optional grammar-owned RNode normalization
         self.extra_frames = frozenset(extra_frames)   # рамки вне LangSpec.transparent_parents
         self.binders = tuple(binders)                 # узлы-привязки NAME = value (промоушен)
         self.value_types = tuple(value_types)         # типы значения, промотируемого в landmark

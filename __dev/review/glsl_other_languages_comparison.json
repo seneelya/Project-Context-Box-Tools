@@ -1,0 +1,4670 @@
+{
+  "file_count": 222,
+  "zone_files": 104,
+  "comparisons": 666,
+  "differences": [],
+  "results": [
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Component.tsx",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "fe46cb44af2305277a1b5e116c64c04353b398f07c30a3fe7d786281040bd3eb"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Component.tsx",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "36d7fab38ae02059e9a774a30d3d45e99153f2412e7b71d6d9492d9ac193d623"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Component.tsx",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "8c6a7d40ea1b48a19b5c64a968a33f5eac42dcac097f92674fe58bfa62ef8dae"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.comments.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "39da56a3a156873b17923f904365e9ffbdc91f4acbb8ff40087bfdf616aebbca"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.comments.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "4e4d50bd0c727f54bf69e2f74fbf9913eb77ba812be016c7b882b06fe0586b0d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.comments.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5ec83ea67b934171e8f53a42a718ef1a09b13d769f2b061bfd86bb3ee0170033"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "01d2431ffc3acb286a45a0a023060a7b087ff86ea93ab1d4c8a91a5f55341e9c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "5bfcf197c946ef562e715220437da83fa130bc7814affe98f052868832c3200f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5d64454213508ec799733ac8cf54af738bbaace7049ab930d2133a2a5353a508"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "cc7310ef7a8670fe579cfa051865eadb258a2f5406337a74ecd8582560439f24"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "8bb825ff57569e88c024338453e885c71f80b8dca14f5d7d7af42695d06107ba"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "577d4d6430b4cac2bc1ac76fbf622419ca5a6ff87d59632ba2411131f0d3239f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.else_branch.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "d6efe9b8f708c0b3dca8056b383ca8dd25a022b67850daf064bc26305d2e5498"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.else_branch.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "04e044d2f93c7019d8818e252977deced952614a887038e677de6dc5fc8e6304"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.else_branch.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "8d28905c0fa8bd08d98755e82ae04ac4025405f5eba771ea754702caab987650"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "366b4e0cd7824c8ec8b52568703fe54258089df05f965c3d619fedf3bca71fac"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "2c4730b754c56b654e400e8f2f1b14108ed00aa5ea639dfba384fbb39e412ea3"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "b230c84f3c0cff45d1d7515a5a5711bba9205bbb027603b78b32be19ec57326a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.js",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2ffe9ddba81731bc8bca27b81526b30db76633476b14be299f5abcdf34d471ab"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.js",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "4d8bb74e3182f72936fd232591337bdcd8d1888ad6665768042c102bbbb72ad0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.js",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "ea9471e05374681fb01cdfb6e4e2cdf2847ba976e3cfca6d5f12c48ff1aa8dec"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.namespace.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "34b3034e54ef05d93f7b1a94c43cefb5d25f0bb95dc8c3562b7ca2b4a9da0513"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.namespace.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "817c88107e2ea89b7ab716f95555f66f77f9401f9a5b8959712abb12015bb3e8"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.namespace.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "05d5429e8061f88a0db7af716536867918080c998fd7883be8045ec7b2d08901"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "be39c00f0d0ce0511dae2df880b140641093f02aa451c352f4c2f08b79fb5c2a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "e1b5fd58da1d82669c16c5e38a16db8f27851b8c6d5524c88b8a1a64a539b900"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "fc5f6e463691ee959327a71569fb911404924fa61b55dc749e2121ec08997bfb"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.scss",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "39082bd54475771e58eaab480d2975c1006abf44de4ef495ce8fb1b17f105a41"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.scss",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "0d0113ac0a438a566919e43857004fc144f36479b86f5ba8f72a0b2ad57ced86"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.scss",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "03275ea704b2403c15cf97d5225454311aa2c22e1c3c85dafa6b3f4347e7fb69"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4d04d004d2d7d4bfb8c5fe1812d84a9b4ff333cbce141ca18ebb4435611465d6"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f7b6291155daaa9c5c1d1c548ea67dd54f8072ee39540138993977f31ada8fef"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\Edge.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "88d13c3a34eeaf0295f537d305265e1cb1c06c2bbed94cbf56ece11433920cd2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\dedented_string.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "15fdb0c09d362a379b8386ddb5d2e6ca29d28319fdd273ae22e58cf86f1d9da2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\dedented_string.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "267039d86b290d0871b018acc6cac35852b2e0136b17895a25695857771976af"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\dedented_string.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "b39eac94b61047cd96920eb3ae23159619afbee01c2c5e2432c96a4537e8e229"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\multiline_decorator.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4753cb0ee4a21f060c8c8de874590ee17bd3f29cbd28e6c337a5b1258b31211f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\multiline_decorator.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "ec9f395be42309ae2d1dd736ed0020b225adf7468aaa543f46324ea629c104fd"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\Edge\\multiline_decorator.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "8afc747a4cd77ad466a4b522087cab2270626e8d8cd81f3955ef22e7c075947b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\README.md",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "906d3c58679a03e6be5ff43e1ff1d8005570d564ab6af2cd3106c2d3180a4eea"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\README.md",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6517eae2fbf29a7470c113934a8c02493905794c1815693b007b423f6b6e6acd"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\README.md",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e2e10b789c0dafc93e1e13673e9413b0596f8a76f393b10cccd216820b871ccb"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\__HQ\\tools\\CONFIG__TOOLS.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "762fbb1e38b8582d077ebf29b64d5be49c6a85f5def5ac77c279ea8051daeec1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\__HQ\\tools\\CONFIG__TOOLS.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "1f9403b9e7689afdc676713a4a9ab7607587275c0c167e0173f7d626a913d21e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\__HQ\\tools\\CONFIG__TOOLS.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "ad22ec3d214050866a9e5fbe0dde351853ed813d2f5608c27f7e303d9b9f7555"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-backend.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "ff65bde8ce2bce15b1702ebad8d3ccc9465d82d561a497cb775f4e2eea585d53"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-backend.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "d0dca5009e38df88bc47d2e28b03e072bd950dd81518fb44121b24bd5fdf3d8f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-backend.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "14b43028faffaba7d04168196c3b9b0461b89c2dcf1ecbef907aac479c4e2b62"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-cuda.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "cca9cc1e9b7edd1505731e9ecec9e430c13452311d28a4c2b6b9f95b04a5e990"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-cuda.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "3ed28d3f5416e02327f417d62e04319f1676f831d29fde3d40a6b1b9b0c433e0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-cuda.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c6f89f48e8125746992d5121580a398e99bee42717b765f2b88117361b8ab1cd"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-vulkan.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "1c6cc7d936b7071206dc6f6825e78eb55ed155be57d78d93cc611dded4714d6f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-vulkan.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f84068a2a6fde20c38f0518d7081721dc65f834b86ffd1beaf07e69a52888ddb"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml-vulkan.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0ce4d8962a0a41e9c843eebd6d65093ba3d10eb4778ce4cf3a11eafe4b9a9272"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "13143731b8f9a95e3941572f6b8d002983dc6b6c49ad9ebf5fd8ed8b01c3bb5b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f3cd377649556675ede41d46e76b901f17affecb614e99bbc6831c47860fa65b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\include\\ggml.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a47a17aef848a5fe94b98545aad295614f5b5b1791b28f4d0b20a8ef7695a4be"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-dl.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "642d31c111b96340bafcaad095bacf72a827092dab11be27aba319d7c93239cf"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-dl.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "7d15eb7341d650131611ef7ff0721f780b4888555ee19d9a641049b5dae05318"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-dl.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e5faa8cfa5428468cd8c2afa82896e2002aa592649482e901ac9683db149bf63"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-dl.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e9229d3a9162a6dddd90eeee2170288544e4e89267699530bf3f6c7afc8374d1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-dl.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "9eda96d86e3d2b46b092d5d5b5c4365121ae363da86398200c93786d8f241e55"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-dl.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9dd957cbb5b7b8e91bbff05a9f0c723226bb0580b5c0ddb4bf3f8f0adec338a0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-impl.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4211be2bcd656126fb349ba1c7e3bdf37efd67fa347ccc7a1f4ad3737884b2a8"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-impl.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "7434d7b26903445e538cfade7622a5b8f01ae3db9c501961c974eee5620e325d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-impl.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "4c33daebe9ad4601f10a4691eb299108fd227683d57ab49bfda92df4663cefe1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-reg.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5370267fb4d5400e3919fede00b78fefd295dd9f63dd427a0841be9bdb0c1990"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-reg.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "1b66d229eb946651bd997cece3f3e4b59cebecfc976cafcf63afe2c5f84de720"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-backend-reg.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "aae12ff2bde2c5ca2e0bbf687c39d6b738333454bf46ef85667e7b5d9914df41"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-cuda\\ggml-cuda.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "b7a8a62e1937a9db94dde815b71ea81149d994005eaf118cebd6d64200d228bd"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-cuda\\ggml-cuda.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "99fc71895e98addd6509b9ce07ea8cf4dba53c1b8d42de47d2581d18987b418c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-cuda\\ggml-cuda.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "21cfe28fc2eb5c37b0c9e8ddff90fe7f27f8a7304f4e9e747235fb2c1672f3d4"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-common.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5f64085e4e9a8fbe2ee16be33fdec0bc1db8409894d95db4ee6aeb1a0fe3bd6c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-common.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "53d99e42f3f04ff093d57207900c7a80edc3d7274d694b8aa9f174b0138420f5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-common.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "6bd43e1af054f06d6f18ab66d09921e0c06e05e5c548323b6406225671868c6c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-push-constants.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e8858e2e2fb14648e129c261b560798206615cbc1a6836361189a40e66732c3e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-push-constants.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "eb374102476701b4d98ffd3d76ba7ba1ee60b58f685c72a42d3c186ee164053c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-push-constants.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "aa26b1684b88de6b513c305dcd9463d378df1f32b11257b7a25715f5ba176bbe"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-types.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2e088d0f9b05e209d4ca3ef4f5db988caa9855b4fecd9063054563da2f3279db"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-types.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "85f985118effe5fbb045665d390ae23b274183c4e2177ead2cef9e1e6499a256"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan-types.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "aea3dee45199626b118a8f4bae368ac6a87c9ced8d3707a67bde7dde77a4f23b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "88ff441247dcd77fab70de166f1b59b537b0ee97ee6d4c2c9bcbda3a4bfb3140"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "12b99e52f974e99a4a6151ce1b05abdb6a39e3a6e376c7abcdbc898b843369cc"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cppSRC\\ggml\\src\\ggml-vulkan\\ggml-vulkan.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "71adeac525e69dedd8cbd9b5acfd6ca3ac5cdf47820cf6802292c10f062df36b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Extension.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "98ebce55a73292fb049acb536eae0da65bd28adeff20ff47b5d5e1fdf7f2973c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Extension.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "fb98bb36094de6656e14803a7605431f6495969ef7a5461f2b8caa44120f1466"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Extension.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "033431bdea0251e5eca0c9c71366abd6a2d38ff633dde1c76c61d7c5a9a0b9b2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\ExtensionsManager.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "d74636dde9d8d4c61f8a6b260d56b31184435821bfa0dc56f3a7701a3b242ac7"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\ExtensionsManager.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "e1c7d5a126052c107da2be437e64fbb69bbdc9401becda5938cb671ece71c4d7"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\ExtensionsManager.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e28f8c0fff8a36e33407d12e4de4036697e39ffc54fdf58e9e91aa98dd1b9f8c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\InstallableFeatures.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e965fcac7ab77a37c0e17f36351f2be7e34a7b04c9ddfb6b16c98a0ee82f2ec4"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\InstallableFeatures.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "d98b6e44f3ac1f305505619f45497c42a6fafab219b8f83b69308367c8201dca"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\InstallableFeatures.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5f87e9b4838b83151375f85f8d075a17a41aa39a604c9ca4e7be424b0bc084e2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Installation.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2898e108f08baeed19c7557166fd055547c034b91ea0562e35bf9b3e35073b6c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Installation.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c52c7700b2951b2857f594199e834f0d0dd75145c8ae52d034be10516717bf66"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Installation.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "4e881fd20bdc7c4dd10d70cc30b825e9cd34d132b4bf49d0b83e0170b8569425"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\LICENSE.txt",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "0cb4255b12ccc7cc49aeaa1b021b7ac353c4a2e7bb168eb8a5141da68eff5e62"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\LICENSE.txt",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "0a9743bd25fd5f6195663b2bc8a5a1c3b520541c35dfece8ba545844dca4d027"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\LICENSE.txt",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9921e56cf7a5bc0e679127557504b33251cfbd283b1eee38b0efec7b092633cb"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Program.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "65dd699d89930238aa199e95717611b019b9449c20f4f7b6cdc846a00a07eb7d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Program.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "30b48d976c4e1cd39186e0666a3e4ec69d69e82a0e59893dc378b21f37d93cb3"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Program.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0fd28973430fcf73cced570a164a5c0c4ea61cc19f1e4b6a6ddef370c726dad7"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Settings.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "47b5898ba9f06bee8a3d7597ffa2500b69e4c574062b360b073b8e9ad1c99265"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Settings.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "1fa5e8dc62c8121f6a3b40a951e1262623d80326708b0d6142f25a1b60857828"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\Settings.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "66749c7c04ba3c849fd8f4b4da5688c71f3a76fd49bf445b5e3e1e971a371559"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\WebServer.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "8d168bd7db52075a96a956510c8ab64210c6a8d05ecbc91685134bf4dc2b3d3e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\WebServer.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f3b87039b4c280ec7d43dd6d0ca78b78fa6819be084f076ec545f2767f384860"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC2\\Core\\WebServer.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "91b0e9d998069d3f6c97a5b39ced86afdfd19820b8ba26df15a89a685161e291"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC\\Core\\GlobalStopWatchInstance.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "0dae9fe0978b5932792c7607a3d4953ec97c6e0eb5c185b0b0aaed4b16362655"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC\\Core\\GlobalStopWatchInstance.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "e23e9ca88e99127605d309c07ea374048df0cb7f1e800d26de39a9a5b47c65ec"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC\\Core\\GlobalStopWatchInstance.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "59485ab04dbb5653fd3488968bf2d69fe60d9da36b02d6abaf056d2c66a3cd1f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC\\Core\\IGlobalStopWatch.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "a5d29db21a457a06acb0baec4d381aec0f0efa0f61783e79510edcec179a0af4"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC\\Core\\IGlobalStopWatch.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "8bf7bff195b17ac8cffad9886d408c3389d49ddf2e885b270f6e8408e4561d0e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\csharpSRC\\Core\\IGlobalStopWatch.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7ab635c39b7d7f99ca9a2eeef2e9cba0a9912f544811cda0fe724fd3ee969776"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\ChatViewer.css",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c7efc41c6c41a530059bc583b1385e2ab04c47479f83585a1383c45225f5388d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\ChatViewer.css",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "93773a523bc0aa64ce74d35d3e4e7df0aad5103f82bb856035aab133a978daea"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\ChatViewer.css",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "46731dd7659402f906ed2d6160b2967d5baa6e0ed77c6d824c4c75105acaa34d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\custom.css",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "b33572ae9ec80018e63e822cb9b7d8d9d91a6f973432e06e3526b466b1c4ab45"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\custom.css",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "b795a4f851ee15e974abf3027677d0541ba3dfccf566655e4f702c2c9398e1c3"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\custom.css",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7a2c6f2c0e25d3f401d582de3a28e055fb772baa695dc456dbb82405a03ccb01"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\vars.scss",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "05c090b0dfb5206316f5007d9d74feb230dd85246b58d3d06c9ad01780f16847"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\vars.scss",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "2865e151354bc938b4a4b6e3bebbcd98af9d1257ad62a45ec50e14c537f1d15d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\cssSRC\\vars.scss",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "620e0449384c4f3363c39e4a6b441b312de02fac9b74d9c0427c0f541af064b9"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\capture.py.md",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "f8492bc301794a5866c2471af0eb86b34566af7362c407141aa0fe4c211ace37"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\capture.py.md",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6a996cd4f8b1798fcc76b2da7a6fc12a936a6b8069a91ac409c02be0e834a0c6"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\capture.py.md",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "396c9d1dd998d8c59da0249361916cce9446580be43a01477b2d3ab5c55545ab"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\cli.py.md",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "22f4716bf68b6845edad9b04517bdcd9e3392a117473aee95687e7a0c12033ea"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\cli.py.md",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a696f2279431dd368b74840322c1264a861aa39aeb2d4d319d7707b7dc11a8aa"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\cli.py.md",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5f60b40a0c3f33dff2ec304d86a1de41765005581eed1ef7410530cb21be8ff5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\frontmatter.md",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "a54a6ba6b672cbb79208c05303f236e5b79a442d6a2d000cad0f89685be22671"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\frontmatter.md",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a22c920db4d2244c8ce473c64cbdbf97c0367170a55d1cf48fde9b1cea5ad60b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\mdSRC\\frontmatter.md",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "b341ccd83f2a0f17eef411d78dc74d80a3153818a0cd42067413813c4abeb835"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\edge_cases.txt",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e1b14e961904e3e0e83e425c90b2742382e914d1db642bfccc5730d61accffbb"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\edge_cases.txt",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c70c906552be9d77aede83382dc40991d72625576653dc702884e54ac18b050b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\edge_cases.txt",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "b1abacc72da7daf172cc0276d3fd1b1818a11303c7459a3f962f3a96b5e8d02e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\notes_meeting.txt",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "bd939fee4c13980ff0cbf9fe1f7830dc7a505aea4a4593f88d01ea1c62a2a1f1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\notes_meeting.txt",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "4d217252280e3c0f997bc7832f22fffb9c883a4aa787b4d7d2b006f376c7d01a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\notes_meeting.txt",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "527a991991aeb83a061ce2ae777fcae08bf106cb2a45b8af5efa048f084c17a9"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\text1.txt",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c862cc210945471787926c30f5814abdb0611c1ecb5b8b4389db806964399b4b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\text1.txt",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a07138f7e7aedcfc4f94a18b62d3f68f75072465e1b8866bf3846bbb4e14c304"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\text1.txt",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "670ed724c31f78aa8557ffb8b43489ddf59ea51c8afcc42e77bb3a17d0c2106e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\text1_smal.txt",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "51d2c2a2f4f44caf3136afbe16950528f60ca5d1305f4f0ecae89b58e0e85199"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\text1_smal.txt",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "29cd3860977ed48b8ad370b69e38ef7ca3eb416ab77a23bf99690dfb4f4d1a70"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\nonCode\\text1_smal.txt",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "aa1b8336a4ad06494b38d2b953093dabdca2ea95ce7ec5018a96470f039eafae"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\README.md",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "18a21cf0b2c6ada8ccd67dbd24dd73d32a77b1168284e8918615a61a4a19bb7a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\README.md",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "836e34fb3f50d25ae2a187bdf9da7590e6dde19450b7fa0945653658b71dcce2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\README.md",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0549a7578731a3d441bbd586b046bfbc1b28a025ee7b13d1ded6446ce78ff184"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\golden_capture.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c9eba56ccd3d3e3ff2db61f729b1b2e2de6fbd4ae1582b64290bc402201d6e45"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\golden_capture.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "8c6d8a7d25573f68c9a15b53d1a466a3f5a8f89576e53434b00de232ebe3086f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\golden_capture.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a0f53749713c87bd0955990ed9f529b7c6efafed8ac8a761b0d6afecde5bbfef"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\golden_old.txt",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "7262dba353e29d2518b486db3f313d45b71ee789ece84d51c3079411ff25e49d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\golden_old.txt",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "af68fdc04c858b60cc94a43d6a0cb652a5804f45916c89c01720805a28338b1f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\parity\\golden_old.txt",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "2be81563977748baeea41ef84a20027b0767cf24ea86489581ec7c59d8f22d1c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\other_pkg\\__init__.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "dc62195ceff0a45025887691f0ac9cc444459276324a8ee14ca328f0b031d300"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\other_pkg\\__init__.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "38843c81cc1442ae0f2d90dbc58a612bb13c31f856400486ce6a4ac86878a5c5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\other_pkg\\__init__.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "88c8f5598ce8deaa01a184dc9722c6a098b4d8c6863d10a89c69790030243862"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\other_pkg\\delegate_core.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e4e9dd5ef132c26def30e0f7575af6eeef7791ade2b93d423ceb5525ae513498"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\other_pkg\\delegate_core.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a2a27ffcc2c2aa80a3435ea673e854dbdca734daf93ff8909050872142520946"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\other_pkg\\delegate_core.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "d3afdb41fd5e259440f651a022fdae8a0005ff7212e1aa1ae28da49a068cbae9"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\self_delegate\\plugin\\self-delegate\\__init__.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "1a04a99bdf5d0d19df5d6ca5fc2e0b16f76a5f81a3bdcf090a64da31bcf1fe46"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\self_delegate\\plugin\\self-delegate\\__init__.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a78bf9b4ba167559960142aa579f4644e7b57c85beacb0821700e6ea42401c48"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\self_delegate\\plugin\\self-delegate\\__init__.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "14647441456ff9d28d0eabd7a38575326b56753a71b6138faaf56aa1ba664e76"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\self_delegate\\plugin\\self-delegate\\delegate_core.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "18f6e887b0c60eec6bc32b3db72ae6b0bcde9b808103d8f05f379701f3fd772d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\self_delegate\\plugin\\self-delegate\\delegate_core.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "b9ad0ba4c20cc66170e1e6b85948b204aa1cff580ac57ac89a9f6ca958ec4ee0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC2\\self_delegate\\plugin\\self-delegate\\delegate_core.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "4162e54a4988daef1d422afd0582d927f66b50a66a3a1218aa0b69ea28119bbf"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\__init__.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "cf498bb1be24dd62cb50d36abf259cfa3e2d02b9c2b68513fef9db56179d4543"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\__init__.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "380c152392e94f9a84ac85a4e5ae2444b7d2da0b56d8e5c3d468ebd52845b2f5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\__init__.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f5b1df11fe0a46c43ebe5df9ff5b7400a8748a6f2e751544ac7896c7989e3a9c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\_http.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "a71b598f7f82dfb93a5d2b373ba2c12ddce34e308ddcc67dfae48093a962f210"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\_http.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "fcb7fc7db4067c5472b61a7854a57c81372a5012619f4845328726075446cc8e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\_http.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "cbc14ae073695f0e55998b41c62cd384d04ea44ce1d12048509ecc8f76870eb6"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\chat.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "fbda734b568534894ec83bf8bd2e3ef90fff17637f883f58afbfae9ac6a3a68c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\chat.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "cfadcec6433da6acffd1b4d1d182cce48e8e2dffcac3f6b4da31db0cd3139042"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\chat.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9dd4de171397f01db50e8d32e0343e9d2ccda74cbdaa787ff25b7d81d98f5b34"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\embed_driver.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "a828fb55719186b584e2c5ec366be97572cc0bb25c29d61cf6fb9fa60114497b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\embed_driver.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c93a8ed0a09b8e1756f756f1adbbcc53823f7f34ebfe1d540898ae72496fa411"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\embed_driver.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "946c2ab03a67b40816d8cb6587c0ec943d9d2efdfbfd9a0d500cc04156236802"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\rerank_driver.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "cf3558ed12b8bcc59d70b4c2fae2283c9e5aaf1bf274bed4e466ce37ae3c017d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\rerank_driver.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "0048cb069a810772505bc98761ede91081d6f4582cfe01e5a504bb178df32c39"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\rerank_driver.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9eee8890ff8e7f258d66e0146a98e761cc5d33335ce5ccfed6d5ead0b5166d92"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\resolve.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "ffc3d517f1d7d910380c0b0a522d8caee0add2f07280472c8d2a3d5f9aeee14b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\resolve.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "3d0b0d128cf3a8c09ab6b80b57197a15294359acb12363cbe5012ccbe0b2650c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\backends\\resolve.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0471b2b1c178bc71ef2bf4cb769ad36813c23da3895ba299105f9145bf2d22c2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\consts.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "689435942c741e644b119fdf48eeacb5958db45460eff353361b8f151222e483"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\consts.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "5597a586aa96d82b914f319f042477774a9f79e72365a17172935cde276db97d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\consts.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e439cc045a91647cc2b5fe5c9b62757d3f96d99c41473250dffe99b98e07ab0f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\hanging_sig.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c0c75d88da32b340bb3efe931ef5ff06d5d1aa9edf53eaa9dfb1d14ea3bf2842"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\hanging_sig.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "34106bde81d303605549a51d1f88e558dcf2037f747db8df5f5366c9126fc865"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\pythonSRC\\hanging_sig.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "6685d3f469460f04c0753c235ea4dc377ee7c6f62a017d2d70d8db88e0a98352"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.bat",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "dae39ad93e8e6d9da858b44fb6152084bbae00e09c1ddaed5edcd1df2d6f14a6"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.bat",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "bde54e650b6c91ea8079e40b0c43b2df62ec9cd509c36b7c74421853eff65fee"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.bat",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5394f40b9971f3e1425898e0febb04273a7ea6581a738a0dde1ae30318461a17"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.ps1",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "975b1532175445726b9ccbadee5065e6952a68b20bf4880328f74ba3b174f3e7"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.ps1",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "bc30b26ac41e7a3f71408814c705d64d650e01111299f9589659298caef72fd3"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.ps1",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "21a20c65bf15e1848549f82971c5e6f4dfd96a2c356de2db906e845a2480ff51"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.sh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "7092e454ce263e721d9c99569eb4f4a411cfbc9b024509ae5163f5c43d11b920"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.sh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6102cc3c78bcf148332813e7da7e648dad81584ed0778d2bc512d42707b6d051"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\scriptSRC\\sample.sh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "d88fd46c4c95a2a50cd60b58eede550c2ad25525f7b2e025f48a8fbf64cd9cce"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\ast_dump.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "eb3aa36cd6dfdded033a15de892aa7b467e0245482967876bdfb1bbda4374f17"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\ast_dump.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "b2cfb0b3d87ca1b6ec2d86da104072db2036117ce21276da11fbd5848d6dd3b5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\ast_dump.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "59549186cf42bc06f9c0dc3fafcd86e363aec547ec0d4a727d38a0455ce740c6"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "34b3034e54ef05d93f7b1a94c43cefb5d25f0bb95dc8c3562b7ca2b4a9da0513"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "817c88107e2ea89b7ab716f95555f66f77f9401f9a5b8959712abb12015bb3e8"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "1861ce5067119ad2b20cdcf1e89a430ff37a16627abc3c4ddb1848a0eb88c9fb"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "16716c8cb3acfb4fa2b046c6e6d2a453e7a9e60a9c28953447d152fd9c2e036b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "53ae01fb7694e175eebe6520691ab63a0198b3c61ef81b0b3ad7a4f5566f1dea"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7d3a492cc02360377b5f9913e0352085455a12c5b6ce764eeaa12a9bf5d12459"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "f712d15a5fe8b352a94d1dcc3eea2d3fece1921053dfddd284531d4fb697fc0e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "dae20b18ba5d569882b47b5477d8863538d3284add50653df55362f644a4aa1e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c4a6c81d507e7e19023f5636fb8a046fbe81df9ba2d35cfbc7726713fa8527e5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.js",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "b474450cf676401109e1c2102df46b3d47520f0a42218d281a251fd9803ee6f5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.js",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a02868a7992c25335acbccb935e88bf801ead2bc57911e19fefce86de51805a6"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.js",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9af35349600a547ea09f77a97bdda8918c49bc09bdbc2a46d01addf2c4e77580"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.py",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "60111890ee907692441288bcde9ac0e534d7daeefb61468ab76470d4445307a0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.py",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "56555663e0ada47d8c1fcf1e575e58c87128add985bb5cd30cafba017921c7bc"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.py",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "83cf58d7e0f0ccccc9b4bf545221c474eb7322846af61531c79d0647ff81b803"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.scss",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "a2309118dd6814d26b5ec9bec2c58a05e4b57e3612fb2eb43ea4ebbb5682bd88"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.scss",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "aa9690530174ea0bbbf82343cbe7363c5ebdaeeedf0476472e84c9654d51ef05"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.scss",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c0cf8818f4fd55207949e860aa16fe6b2510e621b1b2b4bf8e4a65812043411b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "03fe6ff98e7cdb1ca0e001b8542790a1dc72dd8cc8b359105f2a20e14cb556f4"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "339dbe982579430681226c60cd8f45ae06e61fedd2a64773605d00d166e1137d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "8d5bc3d88b3ca81d4d20a7699097ae83404e73f80afe92c7b1bd9db06b7d07cd"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.tsx",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "0ec2bc50b88a9f9a53ec9f6a3304b91a57ca1b945c1d37c9171222b50139703b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.tsx",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "1bcf4775b590cb72185635bec4f2340a5de7528663509a94ce10dc95a13c6ff1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\topLevel\\toplevel.tsx",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "ae384e1c3b6262d6c96429887a7731bbb882ceed42964362ace1568fcfab5bfe"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\api.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "a0ac1535d15813654c97b60b949c9018d99e5f6c1686f5d52767348b9a815cef"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\api.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "ff1d77df186087c6b2234e750605153b443341851c23de927819ca6a77275abd"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\api.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "ca1c9cd7faa63260d4e7789ae14176769396b4ac3463ab958135c2c943ee3926"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\checks.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "518df621df0c20721ff47edae73c609e5e3d9a8eb9ec6f5a09c47ef46ced51a8"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\checks.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "e3fa71729aaa7f1f0645f55e30a717b569e7813f2ec4161ef9f77130b295f74e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\checks.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f3c6835de783e2384235b97ba5ff710971a27530fc5591e21fec7c6d5abcba31"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\config.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "58fa1a0d793a29f6e1d46577c2654f9d11faa33e4697ef4757f431f73fd5d1da"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\config.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "13fcc52d26d71b96414aaefc30a8d72594fb128ebcce4d71b58d11315190f42b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\config.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "902fb1448df4a9de443c1c4bc5185615e4ded1c1fe34965fe08f67123213b4ae"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\core.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4d04d004d2d7d4bfb8c5fe1812d84a9b4ff333cbce141ca18ebb4435611465d6"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\core.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f7b6291155daaa9c5c1d1c548ea67dd54f8072ee39540138993977f31ada8fef"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\core.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "1d8e18f7f7fb34b0350d677f72512df71d74895f8b6f01133c5e4b3166dae0de"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\doc.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2cba3394944a6cd8e71d3389b9a4377ec355a7e2ca156d79ff09604f92b14f1b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\doc.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "cf2585f89338c01be5351ef417dbbe3679602a86f592ea25bd8026c6585c2992"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\doc.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "61de15ec7e0e8db0f7ed7e2e83eba2a7a0a51c12d509370e6e55f2d06c39c2f5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\errors.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4969b116e9ca7995efda002ff78eaf93ef0c52a856f3489d0e0dc865406f09c5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\errors.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "326556bf0a96179e8dadc119533a8394a190875a88789faa1d18ac4372f3ae16"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\errors.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "4bf3b04bf064a3e5660c616b65f1193da654e3d05e9567f27f5123e217803446"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\index.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "bf084a5141e749954118cbd78c0e96591c917e9031253edf3728d3166913c2b3"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\index.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c6207ecf73a543cb1ff93809c4b897deed2d10e386eab5a6a79955b843c9393e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\index.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "70e1002914eb3f72123ff310f74fc9163b613e8b7df7f0b89504c55e4d7970ce"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema-generator.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "0283133499392b2a9b860efee2de8212de0c0ee89d5f61f69206ffa0591602b0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema-generator.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "4cc7f3076e4635270ea5c955486106e190880054a4481fa28f252582fbcd080b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema-generator.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "1c45dd61093f46d60601ebf3e0d3210a940aa9d378d3c987f50739f122fb7e62"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema-processors.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "334a6f476f588a43224f1b1981f9d205a04b1786493ff2b3ab6d897302445b8d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema-processors.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6c364753506fbe3f988f5c2c5cf9d830be91e966bc24f0a835e40ad0a2140d64"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema-processors.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "1a63e6bca5a564e59302a7be353f74babec35da86b51e270678b07dfe17bf068"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "16ad679ad1160db907646166cb328c8ad7176be9355f364d4afe0909e74ef84e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "69737abbda1882aac46c1d1615dd7aa2ec57bf518e815d3666ee13ae44cd770a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\json-schema.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5e192758f678c2b35139e9a842a33701f1c94c30145a375675f01b8b89c4176d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\parse.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5c661b37763ad3f4fc97a7e0db059608594eff2b2ba868f5d068edbff47720fd"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\parse.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "68ad819d21ffa6b0181bd22dca479a3def763039fbc3922da2e7a8703fea1340"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\parse.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "870e9507286f0db0e9513fdc48ac2d600d2389411f091dad6329d996bb8a37a1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\regexes.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2c540f44872e71201dcdf100d6258ff733139904ff351a2137350885bf99d239"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\regexes.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "2ed0775c79619fd728146126826467ac958cc9fb6be07242a2e5c5f12434c4d7"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\regexes.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "ffc5e00c60037ca5840a26565b69bf23a600f075a13ee519c1d4d288bd7a8e43"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\registries.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "6753d879ac09d2709751fa8ddeb51bffe624101295093ec4ade0fca3147c2b17"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\registries.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "9b3a003edee76d2ab3421eb41313d75bec305c26de9b14362ee94c459432dd0d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\registries.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "3d59edbb1803f670c9d7ef82ae66ed9b076841ecdd2920102bfc7b1a0d2ebbe0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\schemas.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "41344db2be63de74c84995f210e1f225ef552d957655c6d9e675624f98aa1b7b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\schemas.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6987669ac5d5b7fd2755575f8456e2e8440e8280e2454529f7d99dc56c642b88"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\schemas.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "bc4611f5cccf1ad03d92391a727e1d600721a71914f9fdf498ee37a7bbc7d4e9"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\standard-schema.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "072b49a91ccaaff2e92f79e0fe2b80b30284a4c78039b48ca030885f72a28d33"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\standard-schema.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "02e0751c7034901ca7feea9cc07733e3d9e0ebf1a212177982787f2ed74f583e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\standard-schema.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "d04b6b6c8d64846fb39f55bbdf64eab7801e219dbe746dca09e8e2a3eb356cc7"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\to-json-schema.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "aede1660d24274b38ba97ae196aed50c7732a6d26358b251cb12f79ab1ff31fc"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\to-json-schema.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c1ead309ff1a0120ae8838f5224ba1283f6e3853ea0c84e26f7e55178f3aa08b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\to-json-schema.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "6b55b9316e0af78fb71604610b1956bc79c31c5963aafa3b8f5edbca9dfd53e8"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\util.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5a31bfc4fbddae4389fd2894b06dd14d5450a3cd5a31e1a35da1d0bc6d899013"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\util.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "ba44fa1ce2b046fa18a91b3828f584a969ecff3eceda82b17f23604223dc2e5d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\util.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "26642476f12536222a89e4d60af97b7142adf0408a4b42b706d75cfa02b52ad1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\versions.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "84d4b70f3ddf8071da3958ab719bd0e34abd7b7d832086329ee9cb8a3974603d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\versions.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "8fd60302a0d78d48a72923287721b7af9f16c4b437df9104f94fa3e31fcbd33b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\versions.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "846a874d95ebae6e1138c20df0c23ce44d90454cc3f31acfb7078a1b31432a11"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\zsf.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5420c778b576a6a3f13d905d90873c3f2ede441dcb0bcb2ee352155dcd868214"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\zsf.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "822ba1e2194247235c52d3560525a0a40a3297e056e01e87036c604d869257f4"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC2\\core\\zsf.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "8e501d823a2a2551b2e3d566a94ee7832650eefe5f3fdb23f70ae9182767dcf7"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\dynamic_consumer.mjs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "24b6a9292dfb932d5d2d408b7095eb85e9ec787ed37597a1b80b48692f0a42a2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\dynamic_consumer.mjs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "9fac3a6a4e2e558d38944e30459f611f6151174b2d0672cf9dccaf88f13ea3b3"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\dynamic_consumer.mjs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0a996e576e92ea3f5fbbf5db91f597ea0085c5b61a7c465f25092f9761c0231a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\multiline_consumer.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "455445c14d1954620dc49c7dc1ef59969fb178f64814b4bdee19bc543ffe414b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\multiline_consumer.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "fe341feb6a5ff94561d65e3d7b5533b05180b6f3a6cfc8acec0719f82c0dff96"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\multiline_consumer.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "80409fabba794ca585de8d381d8cf7f509b874fd676d2f422d60ade8bdf318b9"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\nested\\deep_consumer.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "d2bbbb82064baee1f206be8c809fdf5dbac19fc27288b1fd02610c04fd5ed074"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\nested\\deep_consumer.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "295b81c87da275d262632498d76e486cfb7e752e180dd2af4c535b295c561ab5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\nested\\deep_consumer.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0a1e9de91117ede22bd2be1d40bcb10e62b6f6bb70124656ef1b2ca55c7e8ae1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\target.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4797e63303d9105987043dc53cefafc1e0e0ff33f9a7130fc1b0c8fabdde1d26"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\target.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c6cb5693f6105ec3ef6ca29d2212e29c1388e2d9cbb412ef5f4392ac8effca6d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\dyn\\target.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "87a05330835ef304c5209b13f8b828b53a6a0b66330a34ead159e1fe5fc04dfa"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\analyzer.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "40570414c9168bb2f7437ed55b94615c013fa765d2592a36b0598e408574bf5c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\analyzer.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c3a371b9e5bd9eba7c42cd3a660a94aba386828212a64c36919b7ee42b72a84c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\analyzer.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a40033067e9b42e97380bb1649e5fbff5866b3445f26319f87e19394a69a32af"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\configurator.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "cce3ab83d39be5c3edaf711ce1cab94fb74b3fd0411a5fcfa0f69eb816ebf43e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\configurator.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "9a22307bba1984207c7bf34e5b0f77fcff2ba585d5a178dd62a2b74c2c710f2d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\configurator.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "08d774b563dbd07ed093757f3d721343ccf9c3b34e249f933ac83a7998767b41"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\constants.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "483bb23b0320fea9c3ca8a736475b0e25dd0a39c57e34d6393e1b8e340cbebf1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\constants.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "ca6f811093045b0b3930042d348614616c1823ef21d8e9c1d36474f580ff5aca"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\constants.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "ebcd80d483dea894b8e92c0423fddaaa1f672b1c73e5c9d1931c10a35288b338"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\runner.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "3d548f08ba56dd0d6c982077d13ad8f6fa4d61fd32310e5414de27cf8fb0945d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\runner.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6d3bbc8af459484cb6ebcec66f42b33276e1aeadf80405eb2a1f1e99017a7946"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\runner.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a0095d951f16f25af12f536418205bed502f381c44faac7bbf1a33521839fa12"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\getModuleSourceFile.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e91c8a0e78d68b1196d3fd870864f97d1abcb7fed7d4dccba8782d22d0070ab0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\getModuleSourceFile.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a8c60c5e9f868479cbea3c76a7c441fc028a286e2ac23c296a7797791163698a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\getModuleSourceFile.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "bab6fccc895c3cbcb073775942d503edb128f95774848fee8c808e85633a7606"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\getNodesOfKind.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "f27b0a39573c9ecaaab5a5aaa370f418810db5ce86f1542f4991080287b23647"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\getNodesOfKind.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a3eeb256b9c1e1368f9a10a1dc5f994704a7d5c9f0e08c672b574372f07aebd0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\getNodesOfKind.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "b8e9f87bf6c8ec666e53a67c982b8c3daa047129b46257486c4473833f11f10d"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\isDefinitelyUsedImport.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "203154a8d9bef613a9964e6ee4372da72a1812f458166f10d7603142b1d86766"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\isDefinitelyUsedImport.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "527cef761e59502ea926ca23d3413bfc2b0b5ac809f47a2c5266fc282cd77290"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\util\\isDefinitelyUsedImport.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "2178c926621f69ed9634eb30ce58105f43f0236c9b240473c4622a086cf9af0c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\utils\\common.ts",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2459c37ccccd6ff83e1e8b65c66c25359411a1dd1391ee7692576191223b3f8a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\utils\\common.ts",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "7ae79fdc72d238124080fd3eb454db3de1a35edc6357e5eb9c0e7d7c96c6db2f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\tsSRC\\src\\utils\\common.ts",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7f1d189da31364952473619f896cb9795268ce84ef64796076378ca6aefba95c"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\CompositeAnalyticsAdapter.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "d9b801267e566a6477b93ace4b15ce85068d9d0e3d62fc5da16e5aac404d66c2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\CompositeAnalyticsAdapter.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6149821ccba475f362a06c41d867fb0c645dd859c9a8cec3e1295841764cb0c7"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\CompositeAnalyticsAdapter.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "1444807e79ccadc68f277c24f367499c53bc3d27638520ed13ff8df43e90c7fe"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\FirebaseAnalyticsAdapter.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "ca19ad896ddcfddc913aa6e2ea9a5e6f7b98733aaa1b20cd24704064e24ecd96"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\FirebaseAnalyticsAdapter.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "560e7d7e0e3cb81b323c452637dd3182f84f8a55e7ce87df58f1145b70d4dcc8"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\FirebaseAnalyticsAdapter.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7122588270b56d99060670082d2d8eb6a2fa142e80a1c980fecc0214d30422e4"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\NullAnalyticsAdapter.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "8cc5a1a4926e6ef4490244a5814bdbb3c59158c844a3531a4b910cd4604b15d5"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\NullAnalyticsAdapter.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "40de2e50d7e7af0b4bc60208c7b5aa73d677e71ca6f1b1fca1a05610e46b8aba"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\Adapters\\NullAnalyticsAdapter.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5c2a7d7de4fd9b2eb7794eb7964b941ec597fef83eb94e21695647beedecc92a"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\AnalyticsEvents.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "bab731fcc61ac1a60e0d8b041f17f6ca26704b15447ac5ccbcd05124dc1416ed"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\AnalyticsEvents.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "aac18489d08619baab5ba74675587b17820ba2c4d4a2209996ffde1205a55690"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\AnalyticsEvents.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c7392592e3ab414b2a69fdb46351b15613cadd1f393bf4ce402e488166c0bc4b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\AnalyticsService.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "f68ac834190385b290e9fcacd53b191c649865bbe5f50048eead7b14a89ed0b8"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\AnalyticsService.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "2869cd097d2c47e384333c1a559f275c866733168077895d42ba95c10798d1fa"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\AnalyticsService.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c8c0e920f55817b0988d4e5bbfb98157eb0e928576a862815afcc2bc78f00e81"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\IAnalyticsAdapter.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "29a52a24982e8e122ceceadaada76782e04515205c04d989e0094aeb17e953e0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\IAnalyticsAdapter.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "d42128f22b0560dbd11d40948ed2083ff2bc5ef48543b57182814e62e318d6cf"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\IAnalyticsAdapter.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "96ad2f1dc9e1436fe0f602cb3c9d006483a1d1c86f11367dc5ce657cd4ede44b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\IAnalyticsService.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "7ddfd6e44303a21f955d8b509412feaaabe2ddd7d2bafa13d5d5fdc40394b8a9"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\IAnalyticsService.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "2467e9d169e3f38b2ed0c55c396124c0a3bbcfa2a72de808ae379dc3ecb2e899"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Analytics\\IAnalyticsService.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5db4af00cf3a347a0497d1d1d10c458a0a83416fb2fa4e39418019b0e95749e2"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Input\\InputContext.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "88980ab4c7777a75355699993acad4494788d0e09f1851fe42799fa8fada58c1"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Input\\InputContext.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "36915746f55c2a470938930b9bd2ecd402ab0f7ea000f39d89910112d08684c0"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Input\\InputContext.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "bf4022743ef1695ae8d6e419c21b9ad0d66b6ba0e532436a78f2c1e0126b1513"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Input\\InputService.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "45e14e7a524d1f92b085fef5bfa3bba1e3373e449c17fd8f0db0da2f8074d163"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Input\\InputService.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "53b9a754a9789562516f89975b85f882e315c5298d12309fa0f2e33e05efbe6f"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Input\\InputService.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "05227c3f63e9d4cf80040b1b883e8d8bdd9b76a75e014747f60a9ea894ee19de"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Map\\IMapService.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4440e5b5807f609a5491912ff8792bdf2af1612a91225379a52c02991b58cfaf"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Map\\IMapService.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "0431bf41e2851126f75e9a483329e3a06b215ea64094b5db9610c12386dff06e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Map\\IMapService.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "fa74f489eb224f50fe5d4d8b21e8b680a764a39c1ce2133c2855e01e6db5d06e"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Map\\MapService.cs",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2332b6a05571ec7fbcfab0944f17e92e91608842bc44b741722417ad4c34b528"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Map\\MapService.cs",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "96a5e016a364b8ea7059679cde75d07a9734979c73c2ae0aae8129d77df8e6e6"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\unitySRC\\Services\\Map\\MapService.cs",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "3979694080f32e722f8a7772c0a8da605a125a0fbebf660e7c851fd06d79e7fb"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\yamlSRC\\config.yaml",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "cbb8ceede2ddf9d7bf1a58f5912ddf9c63c5af0cf8fe3057fbbdc7117b3a68b9"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\yamlSRC\\config.yaml",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f1cc8697a007a11024323914200ea71d3e4cbde36071f67b3ab36d731ec23c9b"
+    },
+    {
+      "file": "T:\\AgentsWork\\ProjectStarter\\__HQ\\tools\\test\\yamlSRC\\config.yaml",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "19d2a0795e53d105f3973a5df8421f5faea1fd95593254edb31d0d525a9a7dd7"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\arg.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "0c8d96a8a1e5a35dc965f77e23d5c7732febd0040318d7c17bf0382ef923319a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\arg.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "42236470505ba0d8e30782c9d6382d1aca94db9ea516303ea4d4adc8ed7c597d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\arg.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "785328400b3fd1360c3283efc2d264f65a6e611fbb34c94a6ccf77fad4a369c5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\arg.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "fd9086f7c1d572cfe4376c355bc66d8d29876dbb1f2a8e6651381437cccfac4b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\arg.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "33a260a8a5e88fabd737985939b58adf0168a97e72dbb75e054dc2b110273a18"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\arg.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "8c93d46e53b4b6c5b495c3f633368bbdfaae426c87d525446f4d72377445a959"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\common.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c2c2b920d598cb400b0ff75467fe6f51291449b12d87e717db2dcc9b0dd2475a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\common.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "889880ec32ddbdcb43a489cf6b57e817d5d925965ad3b0bd30f00c2dc01cc5d9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\common.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "330931fc90faad820dcf6c2578a1fb2c944dde6dbf351ce055d4b6e9eb299a6e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\common.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "1a132c7d6d9280b79527035831d79c8b98616621568368cdc7e3b4ab82c87f0e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\common.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c891320e39e249eed5745b681ecb1af303c22dcf854884033d967684266b1f6d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\common.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "664177f71b7c7c0d099140e577d20f42d6fb9c910983bf569468fe2bd5500f6a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\fit.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "9290e38c8bdf93310d8a322e965572b1344340ada642964e5ebfc2a291369072"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\fit.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f2c849b5c4a7099472e61c6194dc1e6d20794012eef7de5b03864bc8670c50e9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\fit.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "2ed604931a608255ef8e72fb0aebd12045e372e38c11b94b6b96e06f026e110c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\fit.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "a172616eeda0c43969fddccf1c8ac5f9e2fdc5812704f69e90a7d388d4c79534"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\fit.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "091f85825a41213590b0c44d90202fa54622c02c1c6b5fee5580a736b3602e92"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\fit.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "2a7062cb6083f84cfa1fe0946a4007288bed82db103ee69a8d1170bc0b16520f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-cache.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "6b4caf50d77af12534ae5c8340a6ee0052fbd057fc0c19ab19029a06e7bc320a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-cache.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "fbd1b08b1c222dc70337f94d4883187a09e9a2ddd35271de4b1be83e0e31c678"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-cache.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "b5b9bf4fce5e1f15d667880b5d30496871783ebc3d596156c104c317af1a3458"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-cache.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "220253d3e6a9ab6e317257448f14dca167d8ce6c5f57585b6dfb1f84a338bbdb"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-cache.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "23ffa260b6c3f046b4f288aa3fd47f4013de1eb8d3e8549a74cf54cc596b42da"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-cache.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "552760a04d2f893dbafc245b11a055f1d64378f320fce4b6ab28cd7f85bcc2bf"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-map.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "47f49ace70fd28b580e822b11ba44587619e68f33b0c05e4405748fc95cfb445"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-map.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "95424db5ea39b7c7952ccfbb27af03fc11c317ac58fa8241b6c2923b0f69643c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-map.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "12268b525f4e7fa287ec8b3be87e02d881affb62fba8240e453dcc66cfc7c959"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-map.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4304dc4fdf79bc0ffde2cae2b67a9ae9b72010f967bcaab71f8b1c1d1597124e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-map.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "90eab3d96f62bcc9146a393fc763cf5d1b733dbf606f62124336f86c4c0b47f5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-map.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "de6d288b695c9b6b7d5e43aeeb7f4fe67307f5dce92708c4bb4d105dce0ce03d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-mod.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "44c52178be4783b4c8f3f2cad4e29fc6eaae7e32b41071a19b9db024e01d3732"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-mod.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "200e2454d0ed615160aae848d8a4a29c7fe0a4492f890aff26b0ec373ca7182e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-mod.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a324c830330a1e078e2eea498f4377151e332141df00659667c4b0a7dcba25c2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-mod.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "64ecb8b6ed7b421a6ea3ffe2be00b067a12405fdcb040b7611824be83c7f49b9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-mod.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6555bb3d53752cfd82becb63d8147a9baea833f7d527db601e1d54a22d8c9b51"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\ngram-mod.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9b01bbfc707c60130bfc162c41bd3c1c5330cd7b14f46bfa1b9c13d131480ac0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\sampling.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "805c1f9a0bebf71143efe863b4628c47872d01b225602dc9d880c7b9e26ad9c5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\sampling.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "9fe64529cbc787c95537b30638df94879e8a59c87f1e490e9bb311ebd60070ca"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\sampling.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "46d548696e944605aaa53f1f527beb5a31cb62b48c16a718ca70f0628b820963"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\sampling.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "798d1b823a837274b6a9ed286133d9485a6729c756390c1596e0782babfdce1b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\sampling.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c77af7d0905d0c92cf17b6f88d532e08f2722de8407e2c7d5a66c65beadf1f45"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\sampling.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "eafe0cf68dc569ae44b158a7c1bbd9069454afc68d5d39dd83af02fd4b699933"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\speculative.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "b8483336fe38ad79f4fef14b0d2349bd93df282d36945bce0f438a249a2e85f7"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\speculative.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "3ca9501fa22ed499576344806f0d9b917374308cc65cb575bf895c6c2b016b2c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\speculative.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "353517773877415c103f64d3ad82b80dabe0eb76bb7d64244b351a2091b67a84"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\speculative.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "535543f0c6b721ac6990929c8360c286425e6af3f10f7da40663a77bd559be67"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\speculative.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "0705e5fb823750e561d867928756354d1a7cfd604a05dde310ad23cc4a1b8e3d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\common\\speculative.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "4e1da63155cc10883e84ddcae428d3bd2d31849c034f2ed8af05a8c7822f0fd1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-alloc.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "0a91d5460c527dcafd9679f68f23dc0f7c7c2a210c01c609a9b12953953ca71b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-alloc.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "2173baf84fb13758de55b4bca99553758295892f9695fe638f7fe683c1674344"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-alloc.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c07363e28d6226c2afcabf4f33c78eef5f48aeb0ecd7440511df9bb9b9830d30"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-backend.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "ff65bde8ce2bce15b1702ebad8d3ccc9465d82d561a497cb775f4e2eea585d53"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-backend.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "d0dca5009e38df88bc47d2e28b03e072bd950dd81518fb44121b24bd5fdf3d8f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-backend.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c5a8dd9a316348235c15984c337a6519a150cd478cf41e4422086f9f6327c665"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-blas.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "aab907dffd04defea98d9c5274717c07c6584949efbe8d364ff9178d8904bd5d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-blas.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "e4243e403f360df94f8a341042b39f1a49dd92c8df237b8aaeb6cf77ec3f1cf5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-blas.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "78084b318389b0fc1d5ea6f533cb4d9344d69fba07eba49edd704b10b2a5d50e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cann.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "9ad603d6354b9a824134090413ac960879ff9d027e801fdce828ed488bfa73a8"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cann.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "10a63bd66f25f91effe267033490c5da99993d5d6c638717d185f4f31ebe8d7a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cann.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "815ef76752b50e7ccbe151a65ec8029e58676aa8ee730a31f2a701c5f4a006a2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cpp.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "1ae283baa3f5b610e647e079c01a048eccc6ddafef148a21bfc502640ac3726b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cpp.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "3480a5f90f74bc9881a03b9f4cbba6ca03a1ffeac50ba08a190b8607ffdd2668"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cpp.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f2e6563788b45bebeb57cd1d36f961b95ef46389fb347b60d9ef0d51866423f3"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cpu.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "886bca169b4cf15c5d6e137dd7ea6c2f04855d37907195a1e6c257be0fe936b1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cpu.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "10ba77c2f234954bc4d256c1aa81d54e1ea3f15df68b984f610cd95f61998962"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cpu.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "85aec460ae0ce8ee4edd386cdf997c71996c962ec902efb16d77b167d60a1464"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cuda.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "cca9cc1e9b7edd1505731e9ecec9e430c13452311d28a4c2b6b9f95b04a5e990"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cuda.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "3ed28d3f5416e02327f417d62e04319f1676f831d29fde3d40a6b1b9b0c433e0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-cuda.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9384363aefd2a4cd61bff2ca7b82be61dc4fca9df52597d6f5ca9316088d80aa"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-et.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "795b420151cf2868b36df28e2bb3ff8ba422ad6e2663dd03f7f953bbd0419518"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-et.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "8d09c86c40eea8950d4778de221694ef01f634ffc6cdda3721f530c1f5eb13c4"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-et.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e96b6db7189fbd00069bc4f597abf60af1f984f2aa3c0822dc076840bd86eda0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-hexagon.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "f90ae56f609d6a1fa0449526f49b142f06c40cb98b12293b4d9cb4663460cff3"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-hexagon.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c00695f0ab226c9f94aaec0fd84933ce41961ffc15ac89234d5293a9f9ab576a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-hexagon.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "3ff2ca51c0e63e3ff9047b83005b4800b35079dac0ed9995af5cc81fa9a97ad0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-metal.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "fa981da12d33b15aa23e4422b9cdcc315e832e7881ed0ed74a91c701b03d6949"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-metal.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "eb5dd5d6c44d5b5ef78b6108b8517797432d786659c8b4d51ebe6520d117cd5e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-metal.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7fc295b871ecb12f6b788d18647cb980dbb43184685901bb481bdd49cf003932"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-opencl.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "d8b28acae0efbed1187d72ff86c87d8a6dddb45e24fb87879477fe6beea847fc"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-opencl.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "474a1861493a35d00aa1308b05df65e8cbab069e4284dbae0ed713bebb3316b5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-opencl.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "91e08545b3685323e8bfb860583a9f5333fc7a8044fa7a18839828c6479e9730"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-openvino.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "3422c1048291a463af5570762ce02f754298ce7a9475ddf93bd038615a49ce90"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-openvino.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "178cdc10cd42b38bb8b9df0a69c2d6d5786e0610c700fcd514ff031c54841cf7"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-openvino.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5b85806ce6339468277478569bec8f9e63d3ad902926bbadc77cf03402297178"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-opt.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "f4b20e602f8722bbcfbbe310fbff68376285848d71a9dbcf440eea1056c3f38b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-opt.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "30dce6b116430f67d6e7384341a3e1894afa4a91ae88467e34fd0f6ef1d7c7d8"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-opt.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "19acd547c1dcb455688cded9cd1bfeca66d1e19e466afbc8a7a7713e4f7dafc7"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-rpc.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "cc2bcabceeb304ad1c1d97d80cd0ee8817bb6fdf76fd11a252614df777a38f36"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-rpc.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "d5cbff60fe4611644e7225d717a55fec9e8e2f09ec18e3b72d0490630ec40490"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-rpc.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "d728eac21364be58e97129bc94c9d59ba0932bf9e15e195ba41b20be94099b91"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-sycl.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4ca51e593e3d82af03935daa3869c4b36ae5888b18efb3b595df59fecbccbfaa"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-sycl.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "da61e9d74f373fa61ae8b757db0f2ede1f856b2da757909981b73a90df966bbb"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-sycl.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "d98cb387505cca1ad7d3cb7a65395c2992df2211faa32d63e25da296453500d2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-virtgpu.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4af6a7d506c07bdb687fc81f7ed03fb13f14883ff54ba5d23fdab342accb3b0e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-virtgpu.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "d2f8e13f2ba46552971f39b2203ecec6be1bfc5778655a262803226b4ddae8c0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-virtgpu.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "2b37c2c99fd5eca4109949a33463dbb6a56d58083c87d04abb7bf4a72933666a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-vulkan.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "1c6cc7d936b7071206dc6f6825e78eb55ed155be57d78d93cc611dded4714d6f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-vulkan.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f84068a2a6fde20c38f0518d7081721dc65f834b86ffd1beaf07e69a52888ddb"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-vulkan.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0ca11f2c281373b239e61c54d48c8d70459e9b8b3b702ce4c09b0b2f284e9383"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-webgpu.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "155b42fa59880dad771ee88c2671b411cd12d1e4046996eabe217d177cbbe2bc"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-webgpu.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "ac0114f4b2b476839f7aa4768bb185d28b84fb6e4d375323f8858cee7333fd8f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-webgpu.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a7920f26d7ae0dec5650bcf8218c6344114185d7d8545afd03410c10f09f1aaf"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-zdnn.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "337e17879c9c1b77c48a29e863472428ad32e85870060c5657a0b16590dab23b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-zdnn.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "11074b08fa0a5ad20c33da4496cc694ce3915d5aceb20ec14b2ae730d02983e9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-zdnn.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "14f385bf20c1d5fc1cef559c99f12a301682ee88f9e76e99438d0866e35c5fe0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-zendnn.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "6bc0922b36003c0e0ea42e3b46a19f3ea38e04231cc664c5ae913ecee5d49b4a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-zendnn.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "19ed7f7ab48b27a39e9e8e55f0273c9818e45ddbe6831572fb469cb0cd7cfe3d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml-zendnn.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c5869acf89768e9b2dd6955eea52d7e078a94c4cad44bc59b59ea2a0268219a8"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "13143731b8f9a95e3941572f6b8d002983dc6b6c49ad9ebf5fd8ed8b01c3bb5b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f3cd377649556675ede41d46e76b901f17affecb614e99bbc6831c47860fa65b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\ggml.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a207e6427f8fb61a6b3c139f186efba2788d7023acd89b638a2a38ff154f19d1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\gguf.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "574d34c6248a0593135c13846bdbdd91b7d9b69b51dbade4ed91e5ca74c42169"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\gguf.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "97a9a3adacff1bc17033916af6fe6d8b1a1a2c970d33534dfe4b141ab634f59b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\include\\gguf.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5b895409da59ab73a4df528957f6d7de224a0d69570ee2740c9b08864a6f23e3"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-dl.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "642d31c111b96340bafcaad095bacf72a827092dab11be27aba319d7c93239cf"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-dl.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "7d15eb7341d650131611ef7ff0721f780b4888555ee19d9a641049b5dae05318"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-dl.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a5034fbe4e316f2d5638bc538c16fbbc05debf60cb54744b5c58293dae27ecd3"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-dl.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e9229d3a9162a6dddd90eeee2170288544e4e89267699530bf3f6c7afc8374d1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-dl.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "9eda96d86e3d2b46b092d5d5b5c4365121ae363da86398200c93786d8f241e55"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-dl.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f990f7c9393f2d1f6e6aa6c5d10cc1423389d2218d7b5d9182d4fc2361517bd1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-impl.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4211be2bcd656126fb349ba1c7e3bdf37efd67fa347ccc7a1f4ad3737884b2a8"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-impl.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "7434d7b26903445e538cfade7622a5b8f01ae3db9c501961c974eee5620e325d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-impl.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9960b5032f5e3ab023a5d604d8c0f8aa58b8368ed2295b1493bdf37556a24b03"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-meta.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "08feadde344f037936a1357514cb62006e6b3b9f22931b6a6dedb4324507228d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-meta.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "0c31a4090602a6c1163a6c5a9e951b316a0f589cc040b7ce580b610efe710bd9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-meta.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "dd8359c54f3a4287d78fedee13c3650d237580d135a31f41c486b8af3f43b38f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-reg.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5370267fb4d5400e3919fede00b78fefd295dd9f63dd427a0841be9bdb0c1990"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-reg.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "1b66d229eb946651bd997cece3f3e4b59cebecfc976cafcf63afe2c5f84de720"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend-reg.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "996e3d1674dca988a260b180da886ef92178b98bb4934bf6eed11b46b040960e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e6689a2a12533c2b18b87bb7c59e2a0d7899b32caafb48291a3f2b13ed26fba0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "812cdc9fa5eed4b80dc417303dce071e4311526f8de15b63a2a0bce3cb3c871d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-backend.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "40743d2349f99b69d8a278a2fac02e8dbe1d5eebcd814e8e1b105205b52cb9d9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\add-id.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "6fad9b8ec903dc73b07e2a411871ff005bada99678c31570fb73ee658a2a8827"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\add-id.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "5575e7577cdcfb1b0d38553db986b05e55be277db6a814f8605843f2b59c174f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\add-id.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "3d894346997c4c7aea4f408ead896268c044bc5532c4ead9f12ccb083c0b7ac2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\allreduce.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "6cfe2d0698fd0e7837c06d41248ef0367e6e320cab2c9ffc9501b5326e58fa7d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\allreduce.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "4071bd3511a9664ce9fee9f3f23344e4c70ce5440e7bc4de41911f6b51572c34"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\allreduce.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "62b467dfa671fd4c0aec1b19380324d7a2e814e81541680ed0f9de2869559835"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\allreduce.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "68bccd3a91cb2a72304c97155c51e91f07047b781f950e0210d2a9fd063043e8"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\allreduce.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6f58fe0c463117a89605a707553c3e77bd331da26d2cfed668fc175bf8cc816f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\allreduce.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0aa692fef913ae1cb1ab639533eb6e0b3c4b75a5f39e3f00b701361957919603"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\common.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c9356d4da28a79f2f84affac03fe6c3c29c1cbb2e261bacb4f22dab880d0aa82"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\common.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "223dbee71459cdf7b87599ce8e5643d8b49c4f2a4785b1fc27fc25b6f0fcf434"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\common.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7a2d40f627f6ab18ca3645571792f4b259e19bf6bdf3fb645d322e70976d213e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\ggml-cuda.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "b7a8a62e1937a9db94dde815b71ea81149d994005eaf118cebd6d64200d228bd"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\ggml-cuda.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "99fc71895e98addd6509b9ce07ea8cf4dba53c1b8d42de47d2581d18987b418c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\ggml-cuda.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "2d8943bfd54d52dc8a064565824f971a9d0cff50018b61d69be05a800d3d7f88"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmf.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "05ff89dfdaf0e7824f374508dd4bfb02a4ac8bb7cd57accba114ff5c75af4777"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmf.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "bf1aa8d8f4fe40886ae57718a4ff0739e12a37726e03361051df3e245b9e021a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmf.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "3cd9c8d6b06fedfacccad0d25ea5465b75d8cd43b60366eb6f1335d5dc7bc45a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmf.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "d5a31681999741ad050fb435d40a13081073b377f3cac66308feadb80265b71f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmf.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "694bd4013c615eb2d609f2fce1d3c75b9f08f25da008511e7a10b34d8bf8e68b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmf.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "1e388fa90c85851bf4058b6b0ff57616e57956e01079e28595cbb51f5d6cb2b9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmid.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "27a73816bd51b3ea01257c3950b4fd901d5eb1f4dbf9e84780da134057d139b7"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmid.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "ab02c782cc1fb298880e40175c25aa0f32461dfe16abcb34427fbb2d8296cd86"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmid.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f994221bdf59d354541078575a2c81018d78ccaea6d32328544e720028df4774"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmid.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "1cc7e13bd1f912126e3373b92a9355c96bfd7175172701046fedaaf47b973c77"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmid.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "5917dfd822d3d28897ab8270d33fc6ce269ac87c8a4d245f01d3f49f617ca278"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmid.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "54ec75b1bee03f2e506b3d14b4f6715540a3ceffb6d5859430e760f7e302206e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmq.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2764f024c50429cdc6b870f420ba3cb9aea8e1a093b1e130488d19d77c9c1df9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmq.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "40b7670f57cdf73e6105801ca82bb3b8fac55fd103474bef05728f0573a55591"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmq.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f90143b7bacb9395a832fcb908bb1f78e34a15d05843f52b662d56cafbf74c44"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmq.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "9253992f24e5376c9e725782ce367fee47f11135cf1f2e43916c65d1c777b446"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmq.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "9576d855c156269a473085f526faab78a347951c52d765d9944f70459517f81f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmq.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "08ea83a72ea1113863d127656b4e332efe37a51e8e883a0f1b7e4e803b1fe59c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmvq.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "169b7395e85ce3f1fcab99a1dc0affd54e120283e584dc3153875c476f08e505"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmvq.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "61230ffafd50b6a49d1de1999e882f16773e3caa7636dc559c6b275f31a655a9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmvq.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "efdafd90e0216dcc229f2f8a895101a13a7a58dfafc016bb0520a189a50851a1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmvq.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5630e1eb0520b3038ed02b2794247ada52d572055dd6f4867bafe15501dc8915"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmvq.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "ddb7a74d43cc9e4f6e78280e2fea6b891cfdbed2ab01c3b8aebdff7814d1b33b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\mmvq.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "71d831c1fec7b6018af71ae206bbdc1117c64ce08cf1872ab844e341b1ec3843"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\moe-weighted-reduction.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "d739c350fd36fe55df5fb1caf63ab8da0547f60db9ed544489ef09e80c8a0557"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\moe-weighted-reduction.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "753f62e383b3aacb6c5a84535875d19e4013f7a2280d079d8dea33cedd5fca2e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\moe-weighted-reduction.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "b70b1f6b316445c08a0fed1be839adb077f45b0bb4e5164f89715344fa0ebff1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\moe-weighted-reduction.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "94d16a3621d1189e955075df5c41b86cfc5b1280798a25e176004b34dc5155c5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\moe-weighted-reduction.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "e6d668f43b8f4c8506fabeabb6104f8d9f6d600d0e917b4cc50d60005d6ccfae"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\moe-weighted-reduction.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0a78c4958763cdda18d500d4182d6d85e1066a2eb9e0adf9cf5245a58e6f5a5d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\topk-moe.cu",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c8fd8da6bd8f3c61e1f5a64fd742a1ecffb9ea917dd71713eaff0c2f802a25f0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\topk-moe.cu",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "75b6ae5483cb4eb76219d3fd52f64b15cbf72706339516d333821a3b3188d4f0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\topk-moe.cu",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c9f64d274c733cf57f6192cc3b735d867848e1a07f9294a217e84595faec4048"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\topk-moe.cuh",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "b1f62b0d9b6780dd1b2ee028f79a0c2954f24ae82943607276dc034c5354c1a7"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\topk-moe.cuh",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "42863aa781e7a5418ceb496817f08a3eca72c653c0926c4bab611833a6cbdec9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-cuda\\topk-moe.cuh",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f0870ac79589ca7d0643fba49a0735754d857ff671ca2c9c1a625ffb6a4cb977"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-buffers.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "8c0ad965db2f9d664a5209ebc3b38f657b06fdd82eba136d76aa10fa4bfd9282"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-buffers.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "61892edce48f2fca59c1acc7135edb324e455d945ba417493d9a7fcbfbb8c996"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-buffers.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7e688b206fef07b57e929551a1f9e88bb2d7f002ec93a6522f098c192f90a061"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-common.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5f64085e4e9a8fbe2ee16be33fdec0bc1db8409894d95db4ee6aeb1a0fe3bd6c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-common.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "53d99e42f3f04ff093d57207900c7a80edc3d7274d694b8aa9f174b0138420f5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-common.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "3f9a7328208b7b79a2ca74c0e4a70b47d1017ebc385a879c8880f055dd5d4afe"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-debug.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "f675564a398d18526f5b2dd4f825aa888096a52eab18e2efc0540009d69917c0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-debug.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "40330009162d7c3eaf9912e8f30025cfe761dc9bd46f2f9da983359527ccd827"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-debug.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "b7ca46016e000fd1415cafb08939db62fa73e1d0bfa8c7151dc4999b0875a188"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-push-constants.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e8858e2e2fb14648e129c261b560798206615cbc1a6836361189a40e66732c3e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-push-constants.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "eb374102476701b4d98ffd3d76ba7ba1ee60b58f685c72a42d3c186ee164053c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-push-constants.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "019f2d6d29f8a5abfe4a42e41de5cc41dc1e9bd0a6ab6e497a418c2eb66fb8f4"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-types.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2e088d0f9b05e209d4ca3ef4f5db988caa9855b4fecd9063054563da2f3279db"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-types.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "85f985118effe5fbb045665d390ae23b274183c4e2177ead2cef9e1e6499a256"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan-types.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5d590e0f77b2886c3b651baaa60491948b0f503dee6991db106ff72c28e49470"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "88ff441247dcd77fab70de166f1b59b537b0ee97ee6d4c2c9bcbda3a4bfb3140"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "12b99e52f974e99a4a6151ce1b05abdb6a39e3a6e376c7abcdbc898b843369cc"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\ggml-vulkan.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5bb668ae33062be0939b8224dd8b6696d1cfa4833510ffde0e017977ea352882"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\vulkan-shaders\\vulkan-shaders-gen.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "6ec8351f154a287ec992fa70cdc764846888167eec860ae75ba499cc557b1f38"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\vulkan-shaders\\vulkan-shaders-gen.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "2610b69de270b0f08fb892e4b5a3bd933b0000e85acad58da6682c50636aa782"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml-vulkan\\vulkan-shaders\\vulkan-shaders-gen.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "1b9d4336d0ffc4d1d5cb71f7fd146f31123fae97f351e1721670c9a0957ca73d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml.c",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "ea7856c23d4d22f4c44eac99c7f05cab38503970d1345fbe119961f60a6833c0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml.c",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f092c87c594366813d0989934353a7c808962ccb7dbaba9bce531756aa555c0e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\ggml\\src\\ggml.c",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7a01a62ff4c4c705ee91405bee71a037e687540820ea2cba8ffaa0de753714ba"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\include\\llama.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "2042856e22682d0fc1faab17dc247904cf249b71a954d9a22f8356e91772bee5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\include\\llama.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "f8b0c43c54e6108a4ad4c455b7d17b231eb6d822980b8808be9dd6a7b3f251b2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\include\\llama.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7bfbbf6a50d32d8be9f5c78af4a6a101776e326cf0226dd87c77dfa8f6c7813b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-arch.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "274c76e244160c7fd0e4dcd94fe0ed33c059f243947c66af1f38d754acfa9c62"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-arch.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "83f28f646d6db579310b1169a13edf2831d42865f4b95ba6f125a9110f009eb0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-arch.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "c6dc49fecfe5597b8535b0ed11121b4bb2066b63b18259992166f0937cdc17af"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-arch.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "1c677962576ae63aec538ef6290238ea63ab37f8afce600b91d1cb631466bdb2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-arch.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "b87a20ed832ce4bb511c25f49e615fdfd28dc10c21bec67354c219747e70f42f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-arch.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "2cc4342edeffc44dc0a4b8ba296f7a6f98a068d318f4511ca279be732b7181be"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-batch.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "ca91efa2b1f0a0f6a114f9fe509500bd3179eab5e8efe40ab6393538c68f737c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-batch.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "fb8e1dd185f294fdb9346cd00f43191d54d9464b6a316ae78a3d90d21707f204"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-batch.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "a5716bf9197c5f66d9f51ec55986f079811fb07085c3e51dd0a351a88366d3f4"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-batch.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "3806009c3670ac4745f23ac44c962b6cdb51ae5a4a246bf082f4329b51237ca4"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-batch.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "af0eaef985520033058549ffc46e13ff0d37913f3fb70a618638e8e896ab5ba2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-batch.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e6163a6f0c87047885a060a4664fc00db8fe2f8893d35397b08d758a53048ad5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-context.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "92d6eca47722192f84ba470ff1c8c380d12c5dd19ec04a69335334bb48aa6b66"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-context.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "381c018c75dede115db98650a99cd70576067ff958498f7549c51aeae0b4e1c6"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-context.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "eed4914c63d18bb2060c75c0dd9216677a3615095796afcea122d93b869bb881"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-context.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "0816a9b79e79c5d9b9e1a41c882f67821e075cc89d5eb55da417f16bf097d058"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-context.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "4fdbf4807da61cdfd01b8fa86fbbe9e4ab954f908ecb044bd20d0065b4cee1fe"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-context.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "302efb44c03398a30afbe2762cdaf157a1a2baa8c37d11419a124255d92ce0b6"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-cparams.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "9251f0d0a5c32fd43ef1daf287d7b3b26706cd7f0844139b3cf4708c19268ae2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-cparams.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c74614b8237c28962300e2735180739201d229da2908519733bf474bf43bec23"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-cparams.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "9c85848ed08af5b618ea26da30a353cba5b309f7293268febcb04a77b114ce1a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-cparams.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "494ecc02cd463ee2454355376d80120aac7955fe9b4c63f2fa09f6982e4b41c4"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-cparams.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "891880897804cf56bbcedb44a9a24489752dacb1654dc7b6962fd3e1a282560a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-cparams.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e5d738a02377fcb110da54cc6a0376cd0f066f5730189753bf64cddf5e283adb"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-ext.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "17abfe2d6cc21635a0e9d11b66112e86f610c2220fd3e6f6f523e892d8e79dc9"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-ext.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "c4cd545c4fed9f8729f6a1de9714e39652bc09652aef2ec0394d41c4c1d85fc2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-ext.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e8637eadcbda4d0438bb5877bfbb2c411f5a48671dc57e26300f176f48af65a1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-graph.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "ef0fe85b0aee002b11e66f4455c6dde6963cdcd8926a6a21157df3afccd1861b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-graph.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "0aacf4a67ea437eacf89f14229a00b6d25d2ad95629fa3c08712cdc712092c66"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-graph.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "95839e501e78e9cdc7b797278f5c8fee4f1277fb3ff90ee7af72aea7e48de65c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-graph.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c6457b6587a36870a645678d820f61b816bedb0af45d81898af6b728060b7789"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-graph.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "4d8e88ee8c7e76c442233f97b717ba013ef515ac04581255d1bf196ff99b897d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-graph.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0a7ea333be714138a663a2d881af7d92337149e607e77f8bccf7f9c02e280271"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-hparams.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "acf0d857ecd5197e94211c84582211cb8fe04b838a8f02614b32afb93481f65f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-hparams.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "e910333560842ede14c03f2f182e87d86a39238bdde5b4c88da9c19292970460"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-hparams.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "41f525ad059c6d0ab19e2272ad3d2653ad3ea0f8c3ea820e6746297bd9b531a7"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-impl.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c798abf35ac5266fcdf74185cd0aec2c974485bbac97eab301b4413e18f317eb"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-impl.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "b96b79fed4e17e66ca32e089885a0cc14d043b534d0e9e3ea789f1ce215ab6b2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-impl.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "03fc789a01f99f4625447f2bc949567febd1a9964a1ef7cd9da9182d01c99b75"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-kv-cache.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "70d89505bbacc1f16131db69a7e8b395d649ab91c32068086e032f320694c610"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-kv-cache.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "616f33967e57b308358943f37e68ee7eb79f9e0b56c968b59103cb69c3c10b74"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-kv-cache.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "08b935930a81aea9b3dab4d288c7575e31374bf9093b249b52343d9c02a650a0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-kv-cache.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5ba6b09702c7b6014d087cfcc8f5df2ca7253e94fdeca472995e0098879118c4"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-kv-cache.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "7720fa955826902048316dcbd60c61ec30a796c355b9805a0ce7192309b4f1cd"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-kv-cache.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "d3d6868af8cf2ffd77f0078655ce4862f97e0228556c24ef72ce4eac38a4aa7a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-hybrid-idx.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "14a213006eca3eabdfb34acf57e030834b42d25fb6d9aeff98703a9ff0aa566c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-hybrid-idx.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "06b2906d25b4df32eca342711441145904d126566419defec692906619eb5e3d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-hybrid-idx.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "afb322468ea1859f835d7f8fe78cc6a76918840b0595d044f817cd85e97d231c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-hybrid-idx.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "8a9fca550d971a7bff86d184330601ef855a8fbfaf6f58d37867d34b0e099ab8"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-hybrid-idx.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "aa20ae679feffedec3dc2adfae3b9bd8ddd8ca39d3983116cf33a35a21cc897b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-hybrid-idx.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "436b716fc644cdf52203b1d3f0f0dc0c8680ce20bb1adfa83ebe87eba429e804"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-recurrent.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "5743715207d9306fa505c2b8b126113f3ad33afbc3e1cbf07bef3df758ceb659"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-recurrent.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "528aa7dad7b059e7f6736708e9fd66b05e520cc66f13c00458eb23954c5cdbf7"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-recurrent.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "d2ffb5cd6bd41f84b2998a51068dc1d5ecfe412cd82165787a0d450fccd3d238"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-recurrent.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "e74313f9ca074848ae6da33d5ad267780e3c10fd0554506e663777fb83b9e15a"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-recurrent.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "8acb314a3d696eed120ef6ea4fb46f7e303a0ff12a84d16547b75a5b8d284e06"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-memory-recurrent.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "caf68db353c0f5f7eb4cdda15470f6e3374d90f365258a3519f3fc6a8c452d7f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-mmap.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "1a2c732860f492b0783fcc90a15c2be020e08b04c5b812184cf61c604484432d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-mmap.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "593163173ad443569517b74d637e7a1f940c018b7d800f2553726263bcdbeca3"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-mmap.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "0d0f4f5fbe0512393c42e9e112444b556612bef3f18dbcc479f251eb7a7394f1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-mmap.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "17fd6527adaea91fdd2e3ad45bc7f1676db3472e4a456f683bfcc4c39b07448d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-mmap.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "64eca060a65896cbe99c75cc5f038dcbb96939e0d8a37cf7b61d963d169b6c6d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-mmap.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "048a5f6e34e6e610fad3f4912a5b133de7e7b35fc383ae137bfcb6306a27bd1d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model-loader.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "43a0352a8e5c114166d2aa41cf52189107f66a6b18322d0ad807fe78e010745b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model-loader.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "147146d2b1300fa6a24f1c29c6d694c793f0b02d3d043899cb3d72a92618543f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model-loader.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f8cd0d7ed91928341206b829bf3fd30e0d7663cbd99c6822e38ca517e9b35a30"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model-loader.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "35f770a002a3a56f0c2b6fb270c71c7dbc14024cdc05cea51a37e4e3abd5950e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model-loader.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "6486db7057a4f9ed45035a0ff6bb6f1615d97cb47cea4dbd95fa8d23446f5c69"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model-loader.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "e8f2f5a9aa1baad704942e8d2e8c9fabc57ab7175ef591c41c593a17e060b0b0"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "a29a3ac924104adab8e24c1f5cdfd5115d43024cfb478ce4a86d280c3dcaac17"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "3c48cce2995deb52003fe7e148e5bf543e67fe3e31f78554187252497cb5fa02"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "d7e0606a2a581fb88632711c7285b27c1526aee488472bd2d64cf3229d82dbe4"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "92608cb0cbeeab11f62209e44ba9023362699bc1c3b8ff373b1662515b15147d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "82501be703e0bf8bb5685d3c5efacc33e2532d8620721f19d4247b86cb9b9e9e"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\llama-model.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "338442ee5ae1c0ffc229c8dca553eb6ff75a1c92343e178a3d3431b65d4855fa"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen35moe.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "00091fe2fbad11f3c488346ff230f89bb10f3a0f8e6236bae8efc1cf50dd0212"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen35moe.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "1e5d1bada1a85d476aaca45f4269408ce9ea1c95f6edbb632fe9d4b0d5ff5c31"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen35moe.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "fab23cccda57cfddbbafd653ba66b607def006b5feb23b2be1d203e419c7cad5"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen3moe.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "4d578dad3a319690439c852018924bedbf4f39f940838b0ae5cc6c8c37b829fe"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen3moe.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "a2e8388ee2d92e0e3df90f5f3554d05614c016a69db583bdbd1f7dd016ad3eef"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen3moe.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "5462a7f0bfe88cc77734516f76a7cb2fde8c2642a710751914e41234b161175f"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen3next.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "9f896afd9d4e0062725bda63703f9532ba2d3f336bb6500873b84462d9af45a1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen3next.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "d102348ab5fe7c98dd229373c078b99e440658e6130c4eea7ba4ec37d5f9fe04"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen3next.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "10ccc88fe6ec8d95a2b2087664b3003e7354275cecd666dc399cc1b465b7b482"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen4exp.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "75b9525388919c4e10de57969c6d923588ffe6ddc4c5458014ebb8a516f82a66"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen4exp.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "43652265ceba5b9b2034ca109068598c6e3875125fd050e2b627daf804611284"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\src\\models\\qwen4exp.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "7eabc9f655186fdd8b99692defa28f19531a0e4f5ce23f4357fd5cd646a319d2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\imatrix\\imatrix.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "f5850bfa2c3a377e2cd66cf8034f87b52dcd7c383e83f1fede07685b6f9dfa38"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\imatrix\\imatrix.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "82d2503ac1a1c7e6a5db9b32a3887e8b54226fe060f3d2a59d0687ba9a5f9cc8"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\imatrix\\imatrix.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "df1de1ee4344b3cdea09f3ac68096c6e6a8db9d4c80f0212b7811655db2d2b32"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-common.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "dae207dc802d848ce3846505038392a7a4958689f62a3d528d465e72906fef0c"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-common.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "71997d6f11d9a5810e98c2caa45c761ab88110a65d2c3afb6a78a1743f8fdf52"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-common.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "648e87010ba5f3cd8531c23275fd7a29724dc335796353095511725802a40298"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-context.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "785a72f1e1c2a9a37076fa5d77dd1c21f6f5438279f17aaf0a859d3ac606bad6"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-context.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "9beb751fc28786fa5bb20283ee71d04c35492011d5ad5041e17344a90c47780d"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-context.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "de1efd7775cd1d6e65a7412d0dc1ab5cec65946d52065bc6122a99d2568a3155"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-context.h",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "ed846956b1bdb971fdbd0fdb84d480b8a784b76a270f06072f7350500591fea2"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-context.h",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "2ba32c170b893b4420ad9897d22febe13a9a5b56376f29def35ef719ea009b17"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-context.h",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "971b9c032b96f1af4a5fb0361e1a96b60eba53ed978299b7d7368be0456bde7b"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-task.cpp",
+      "mode": 0,
+      "equal": true,
+      "code": 0,
+      "sha256": "c9032b3eb15253b66d5e67b46f8d7a796f97a21ae5bf607bf4efd2a763fd3e45"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-task.cpp",
+      "mode": 1,
+      "equal": true,
+      "code": 0,
+      "sha256": "17501a4273610b2fa6b9b0fde9ebad3e8635d9efb71c8cff58a35e8774fa11a1"
+    },
+    {
+      "file": "Y:\\SRC\\llama.cpp_mix\\tools\\server\\server-task.cpp",
+      "mode": 2,
+      "equal": true,
+      "code": 0,
+      "sha256": "f2a30396c9a8fb130716d305134bc129585de9ad2a69fe553dd0afda868a2df0"
+    }
+  ]
+}

@@ -177,7 +177,21 @@ def test_review_fixes():
               [x.name for x in declarations(c)] == ["a", "b", "buffer"])
 
 
+def test_glsl():
+    path = os.path.join(_HERE, 'glslSRC', 'declarations.glsl')
+    n = names(path)
+    check('GLSL: function', ('transform', 13) in n)
+    check('GLSL: uniform', ('uTime', 2) in n)
+    check('GLSL: struct', ('Particle', 4) in n)
+    check('GLSL: interface', ('Camera', 8) in n)
+    check('GLSL: multi-declarator', ('alpha', 3) in n and ('beta', 3) in n)
+    for name in ('transform', 'uTime', 'Particle', 'Camera', 'beta'):
+        rc, out = _run('--file', path, '--name', name, '--force')
+        check('GLSL --name ' + name, rc == 0 and '■BLOCK' in out)
+
+
 if __name__ == "__main__":
+    test_glsl()
     test_review_fixes()
     test_normalize()
     test_declarations_c_header()

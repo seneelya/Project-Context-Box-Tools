@@ -323,6 +323,9 @@ OUTLINE = {  # НОВЫЙ путь: .0-рендер Reader.outline (регрес
 }
 
 LADDER = [
+    {'file': 'glslSRC/declarations.glsl', 'line': 14, 'expect': [(2, 14, 14), (1, 12, 16)]},
+    {'file': 'glslSRC/declarations.glsl', 'line': 11, 'expect': [(1, 11, 11)]},
+    {'file': 'glslSRC/noise-field.fs', 'line': 41, 'expect': [(1, 40, 46)]},   # signature 41, comment preamble 40
     # (1,*) glued to 89: the '# chat ...' banner above `def chat` (94) is its preamble
     # — every ladder rung now reports the same glued range as a direct query (tool-verified).
     {"file": 'pythonSRC/backends/__init__.py', "line": 140, "expect": [(3, 139, 145), (2, 137, 160), (1, 89, 166)]},
@@ -460,6 +463,10 @@ LADDER_LABEL = [
 ]
 
 FOCUS_OUTLINE = [
+    {'file': 'glslSRC/noise-field.fs', 'line': 7, 'deep': True,
+     'expect': [(1, 7, 11, 'vec3 hash3(vec3 p)'),
+                (2, 8, 9, '~expression_statement x2'),
+                (2, 10, 10, '~return_statement')]},
     # `--dot --line N` focus mode never had oracle coverage at all before invariant #9 (it
     # was newly able to terminate on a bare filler leaf). Two real bugs found via manual
     # --dot testing on namespaced C# files, both in `_containing_chain`'s level bookkeeping:
@@ -761,3 +768,13 @@ DECLARATIONS = {
         "expect": [('version', 'const', True, 0)],
     },
 }
+
+# GLSL: independently counted from declarations.glsl (16 physical lines).
+OUTLINE['glslSRC/declarations.glsl'] = [
+    (1, 1, 1, '~preproc_version'),
+    (1, 2, 3, 'decl: uTime, alpha, beta'),
+    (1, 4, 7, 'struct Particle'),
+    (1, 8, 10, 'layout(std140) uniform Camera'),
+    (1, 11, 11, '~preproc_def'),
+    (1, 12, 16, 'float transform(float x)  // Transform one sample.'),
+]

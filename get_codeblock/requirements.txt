@@ -40,3 +40,6 @@ tree-sitter-python>=0.23 # Python (.py) — OPTIONAL UPGRADE, not a hard require
 # КОГДА выйдет починенная версия — раскомментировать строку ниже и подключить в
 # reader/profiles/ (registry: .scss -> scss-профиль на этой грамматике).
 # tree-sitter-scss>=1.1   # SCSS/Sass (.scss .sass) — раскомментировать после фикса ABI
+
+# GLSL: install the supplied capsule wheel separately; see ../wheels/README.md.
+# Upstream tree-sitter-glsl-spec 1.0.0 has an incompatible legacy pointer binding.

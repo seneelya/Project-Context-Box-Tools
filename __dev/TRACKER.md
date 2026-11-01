@@ -183,3 +183,50 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ 2026-10-18 get_codeblock code review (`__dev/review/`, status `__dev/review/STATUS.md`): fixed R01 (multi-line decorators), R04 (long md fences), R05 (qualified glob), R06 (multi-declarators), R07 (--name on headings / ast fallback), R10 (empty argv); R09 decided by the owner: unresolved --line = `Missing: line N — …`, exit 0, exit 1 only if nothing resolved. Checked old vs new on Hermes, Strata C++ and llama.cpp sources; all suites green; vendored into hermes-filetools (pytest 1175/2). → next: R08+R03 (one physical line splitter), then R02 + re-parse debt, CONTRACT.md cleanup.
 - ✅ 2026-10-18 R03+R08 (`064540b`): one physical line splitter `get_codeblock/physical_lines.py` (line ends at `\n`, ending kept) replaces readlines/splitlines in core, 4 handlers, address and 4 backends. API text byte-exact (was inexact on 656/1843 real files), picture stays `\n`; 1178 CRLF twins render as their LF originals. Vendored into hermes-filetools. → next: R02 + re-parse debt, CONTRACT.md cleanup.
 - ✅ 2026-10-18 review closed: R02 not fixing (owner), `reader/CONTRACT.md` cleaned (Missing rule, `■BLOCK` instead of `[i/n]`/`Block level`, views names, no hard-coded version), DECISIONS fact-fetcher root line brought up to date. get_codeblock VERSION 0.8.0 -> 0.9.0 (Missing instead of ERROR, md fences, multi-declarators, CRLF-exact API).
+
+## 2026-11-01 — GLSL: проверка грамматик для get_codeblock
+
+- Скачаны в рабочий venv tree-sitter-glsl-spec 1.0.0 и tree-sitter-glsl 0.2.0. Рабочий tree-sitter остаётся 0.26.0; диагностический 0.25.2 установлен отдельно в TEMP/projectstarter-glsl-runtime25.
+- На всех 22 шейдерах PlanetWeather: glsl-spec 18 чистых файлов, 10 ERROR/MISSING; glsl 16 чистых, 51 ERROR/MISSING. На 0.25.2 обе нашли 348 функций, все диапазоны совпали с независимой проверкой сигнатур и фигурных скобок.
+- Ограничения glsl-spec: условный препроцессор разрывает if/else в cover-map/color-map/cloud-layer/cloud-near; statement_list и declarator_list требуют адаптации. На 0.26 прямой Language(int) даёт OverflowError; диагностический PyCapsule-мост сопровождался повреждёнными координатами и нативными падениями (причина пока не локализована).
+- Существующий Classifier проверен с временной нормализацией statement_list: карта строится. Production-профиль НЕ подключён; --name/--query и полный sweep инвариантов не проверены.
+- Отчёт и воспроизведение: __dev/review/GLSL_PROBE.md; скрипты glsl_probe.py, glsl_adapter_probe.py; JSON и пример карты рядом. Нет production-правок, коммита или выкладки.
+- → next: glsl-spec предпочтителен как основа; перед интеграцией решить совместимость runtime и корректную адресацию на ошибках препроцессора.
+
+## 2026-11-01 — Plan10: GLSL wheel собран; дефект Point в runtime 0.26 локализован
+
+- По указанию владельца вся сборка и временные данные в T:/AgentsWork/glsl-wheel-plan10 (TEMP/TMP/pip/npm-кэш на T:, C: только чтение установленных инструментов). Точный publishing commit 3a00d49 получен явным fetch, сборка через предоставленный vcvars64.bat / MSVC 14.39.
+- Собраны cp310-abi3-win_amd64: glsl-spec 1.0.0+capsule1, +regen15, +regen14 и старая glsl 0.2.0+capsule1. Основной parser.c/grammar.js не изменён; CLI 0.27.1 / ABI 15 воспроизводит тот же parser.c побайтно. Колёса, hashes/diff/команды — wheels/.
+- Строгий runner: исходная приёмка main 380/480 (exit 1); регенерации 360/460 каждая; old 380/460. Без таймаутов. Повтор с индексами Point[0/1]: 480/480 (exit 0), все данные совпали с baseline 0.25.2; C++ контроль 20/20 в обоих режимах.
+- Причина native-сбоев прежних проб локализована до Point.row/column в Python-привязке runtime 0.26.0: getters возвращают borrowed ref, теряется ссылка; воспроизводится без GLSL/парсера. На 0.25.2 и при индексах refcount корректен. Production-get_codeblock уже использует индексы. Исправление GLSL-обёртки устранило только первоначальный OverflowError.
+- Исходные критерии Plan10 НЕ пройдены из-за .row-повтора. Новое колесо в эталонный venv НЕ установлено (там tree-sitter 0.26.0 / GLSL 1.0.0); production/Hermes/шейдеры не тронуты, ничего не закоммичено. Индексный PASS не подменяет исходную приёмку.
+- Сдача: __dev/review/GLSL_BUILD.md, glsl_wheel_accept.py, glsl_point_probe.py, все JSON повторов; исторические probes/JSON сохранены. План оставлен для разбора владелицей и Claude.
+- → next: решение Plan о критерии индексного доступа / отдельной правке runtime. GLSL-профиль get_codeblock остаётся отдельным шагом.
+
+## 2026-11-01 — Plan11: ревью перед интеграцией GLSL
+
+- Plan11 найден в tools/__dev/plans/ (указанный путь memohood/__dev/plans отсутствует). Memohood не менялся.
+- Решения D1–D8 поддержаны; вопросы записаны в __dev/plans/Plan11__KICKBACK.md: K1 — сырые диапазоны baseline против публичной преамбулы/эскалации --name; K2 — локальный Windows wheel, корректные install hints, чистый отказ при старом upstream и переносимость общего requirements.
+- Исполнение Plan11 НЕ начиналось, stage 0 не выполнен. В KICKBACK сохранён контекст продолжения после компактизации, включая запрет временных данных на C:, путь сборки на T: и SHA256 capsule1.
+- → next: согласовать K1/K2; после компактизации исполнять обновлённый Plan11 целиком. Ничего не коммитить/не деплоить, Hermes не трогать.
+- ✅ Повторное ревью обновлённого Plan11: K1/K2 закрыты (D9, D7/D8 и тесты шага 4); существенных возражений нет. → next после компактизации: исполнять актуальный Plan11 с шага 0. Исполнение ещё не начиналось.
+
+## 2026-11-01 — checkpoint перед следующей сессией Sol
+
+- По прямому запросу владелицы подготовлен __dev/CONTEXT_RESTORE_SOL.md: порядок чтения, решения Plan11 D1–D9, состояние venv, точные команды установки/приёмки capsule1, hashes, тесты, ограничения и инвентарь сборки на T:. Ссылка добавлена в общий __dev/CONTEXT_RESTORE.md.
+- Сохраняется checkpoint-коммит исследования/колёс/планов. Это отдельное разрешение владелицы; запрет коммитов и деплоя при исполнении Plan11 остаётся в силе до нового указания.
+- Проверены SHA256 всех колёс, синтаксис диагностических скриптов, читаемость JSON, результат индексного прогона 480/480 и пути сборки. Production не менялся; полный регресс для этого checkpoint не запускался.
+- → next: в следующей сессии прочитать CONTEXT_RESTORE_SOL.md и выполнять актуальный Plan11 с шага 0. Wheel ещё не установлен в эталонный venv; Plan11 не начинался. Не использовать C: для временных данных.
+
+
+## 2026-11-01 — Plan11 выполнен: GLSL в get_codeblock 0.10.0 (Sol)
+
+- ✅ capsule1 установлен в эталонный venv, tree-sitter остаётся 0.26.0; SHA256 совпал, повтор индексной приёмки без PYTHONPATH 480/480. Три варианта убраны из wheels (копии на T:), оба Plan10-файла в done, README актуализирован по D1.
+- ✅ GLSL-профиль и все девять расширений; единый optional TSProfile.node_rules для нормализации дерева карты/адресации/имён; #define, structs/interfaces, multi-declarators, комментарии. Без GLSL-веток в classify/render/address и без изменения общих LangSpec.
+- ✅ Point guard + доказанная временная вставка; D7 чистый отказ для отсутствующего модуля, настоящего upstream 1.0.0/int и другой платформы. Сообщения прежних языков не изменились.
+- ✅ 22 реальных шейдера: все 4464 строки, 348 сырых функций и 348 пар реальных CLI --name/--line PASS; map/address и исходный текст проверены. GLSL sweep HIGH=0, LOW=2 (косметические однострочные ties); локальные фикстуры HIGH/LOW=0.
+- ✅ Регресс: check 150/0, cardstamp 160/0, restamp 21/0, golden 16/16, cpp 150/0, names 55/0, views 57/0. Общий sweep сохранил известный CRASH=71 cp1252 / LOW=5, других HIGH нет. Old/new: 222 файла (104 — вся настроенная C/C++/CUDA зона llama.cpp_mix), 666 сравнений, 0 отличий.
+- ✅ TLDR/README/TOOLS/CONTRACT/DECISIONS/context/wheels docs обновлены; VERSION 0.10.0. Отчёт __dev/review/GLSL_INTEGRATION.md, JSON рядом. Sol journal обновлён до итогового состояния.
+- ✅ Hermes только прочитан и vendor --check (exit 1 / 12 tracked differences). Уточнено: --check сравнивает tracked working paths, новый untracked glsl.py не включает; нормальный sync требует чистый commit. Help needs GLSL extensions; wheels не копируются sync, доставка/установка отдельно при решении владельца.
+- Ничего не закоммичено, не скопировано в vendor, не задеплоено; Hermes Python/gateway/службы/оригинальные шейдеры не тронуты. Все новые временные данные на T:.
+- → next: Claude ревью/коммит Plan11; после этого разрешённая синхронизация и решение владельца о поставке колеса в Hermes. Plan11 оставлен активным до ревью.

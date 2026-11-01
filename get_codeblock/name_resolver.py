@@ -38,7 +38,7 @@ _NAME_RE = re.compile(r"^(~?[A-Za-z_$][\w$-]*|operator\S+)$")   # `-`: PowerShel
 # NOT taken (`int c, d;`): in C/C++ tree-sitter also reads a macro or an unknown type as an
 # `identifier`, and real names went missing on llama.cpp's sources when they were.
 _MULTI_DECL_KINDS = {"lexical_declaration", "variable_declaration", "declaration"}
-_DECLARATOR_KINDS = {"variable_declarator", "init_declarator"}
+_DECLARATOR_KINDS = {"variable_declarator", "init_declarator", "declarator", "field_declarator"}
 
 
 @dataclass

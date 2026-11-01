@@ -1,0 +1,48 @@
+diff --git a/bindings/python/tree_sitter_glsl_spec/binding.c b/bindings/python/tree_sitter_glsl_spec/binding.c
+index e437caf..d83f2b9 100644
+--- a/bindings/python/tree_sitter_glsl_spec/binding.c
++++ b/bindings/python/tree_sitter_glsl_spec/binding.c
+@@ -5,7 +5,7 @@ typedef struct TSLanguage TSLanguage;
+ TSLanguage *tree_sitter_glsl(void);
+ 
+ static PyObject* _binding_language(PyObject *self, PyObject *args) {
+-    return PyLong_FromVoidPtr(tree_sitter_glsl());
++    return PyCapsule_New(tree_sitter_glsl(), "tree_sitter.Language", NULL);
+ }
+ 
+ static struct PyModuleDef_Slot slots[] = {
+diff --git a/pyproject.toml b/pyproject.toml
+index 8d1853e..5712456 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
+ [project]
+ name = "tree-sitter-glsl-spec"
+ description = "GLSL grammar for tree-sitter"
+-version = "0.0.0-dev"
++version = "1.0.0+capsule1"
+ keywords = ["incremental", "parsing", "tree-sitter", "glsl"]
+ classifiers = [
+   "Intended Audience :: Developers",
+diff --git a/setup.py b/setup.py
+index efb3018..8a93f4e 100644
+--- a/setup.py
++++ b/setup.py
+@@ -19,7 +19,7 @@ class BdistWheel(bdist_wheel):
+     def get_tag(self):
+         python, abi, platform = super().get_tag()
+         if python.startswith("cp") and not get_config_var("Py_GIL_DISABLED"):
+-            python, abi = "cp38", "abi3"
++            python, abi = "cp310", "abi3"
+         return python, abi, platform
+ 
+ 
+@@ -43,7 +43,7 @@ setup(
+                 ["-std=c11"] if system() != 'Windows' else []
+             ),
+             define_macros=[
+-                ("Py_LIMITED_API", "0x03080000"),
++                ("Py_LIMITED_API", "0x030A0000"),
+                 ("PY_SSIZE_T_CLEAN", None)
+             ],
+             include_dirs=["src"],

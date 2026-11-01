@@ -229,6 +229,8 @@ def main():
             print(f"  FAIL {name}\n         want {want}\n         got  {got}")
 
     line("== LEVELS (line = level) ==")
+    from point_guard import violations
+    check('tree-sitter indexed Point access', [], violations(_TOOLS))
     for fx, cases in getattr(exp, "LEVELS", {}).items():
         got = levels_for(fx, [ln for ln, _w, _s in cases])
         line(f"\n[{fx}]")

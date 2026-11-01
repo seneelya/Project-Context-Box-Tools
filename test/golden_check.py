@@ -28,6 +28,8 @@ GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 # SMALL (test/Edge, test/pythonSRC/backends/rerank_driver.py, ...) — a golden file is
 # meant to be eyeballed in a diff, not scrolled through.
 CASES = [
+    ('glsl_outline', ['--file', 'test/glslSRC/declarations.glsl', '--outline']),
+    ('glsl_ladder', ['--file', 'test/glslSRC/declarations.glsl', '--line', '14']),
     ("survey_merged_tree", ["--file", "test/csharpSRC2/Core/Settings.cs", "--line", "75,239,253"]),
     ("survey_header_hit", ["--file", "test/Edge/Edge.py", "--line", "54,38"]),
     ("outline_batch_merge", ["--file", "test/csharpSRC2/Core/Settings.cs", "--outline",

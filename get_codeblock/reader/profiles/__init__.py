@@ -9,6 +9,9 @@
 def ts_profile_for_ext(ext):
     """TSProfile под расширение, или None (тогда registry решает: markdown/py/ошибка)."""
     ext = ext.lower()
+    if ext in ('.glsl', '.vert', '.frag', '.geom', '.comp', '.tesc', '.tese', '.vs', '.fs'):
+        from .glsl import GLSL
+        return GLSL
     if ext in ('.ts', '.js', '.mjs'):
         from .typescript import TS
         return TS

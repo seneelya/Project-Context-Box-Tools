@@ -20,37 +20,85 @@ _LABEL_CAP = 350   # max chars in a landmark/frame header label (cursor_feedback
 class TSNode:
     """Обёртка tree-sitter-узла под RNode. Дополнительно несёт start_byte/helpers
     для нарезки заголовка — TreeSitterSpec ими пользуется (RNode это не требует)."""
-    __slots__ = ('_n', '_src')
+    __slots__ = ('_n', '_src', '_rules')
 
-    def __init__(self, node, src):
+    def __init__(self, node, src, rules=None):
         self._n = node
         self._src = src
+        self._rules = rules or {}
+
+    def _wrap(self, node):
+        return TSNode(node, self._src, self._rules)
+
+    def _flattened(self):
+        rules = self._rules.get('flatten', {})
+        if self._n.type not in rules:
+            return False
+        missing_field = rules[self._n.type]
+        return missing_field is None or self._n.child_by_field_name(missing_field) is None
+
+    def _inline_comment(self):
+        if self._n.type in self._rules.get('inline_comments', ()):
+            line_start = self._src.rfind(b'\n', 0, self._n.start_byte) + 1
+            if self._src[line_start:self._n.start_byte].strip():
+                return True
+        return False
 
     @property
     def type(self):
+        for child_type, alias in self._rules.get('aliases', {}).get(self._n.type, ()):
+            if any(c.type == child_type for c in self._n.named_children):
+                return alias
         return self._n.type
 
     @property
     def start_row(self):
+        if self._n.type in self._rules.get('body_span_from_parent', ()) and self._n.parent is not None:
+            return self._n.parent.start_point[0]
         return self._n.start_point[0]
 
     @property
     def end_row(self):
+        if self._n.type in self._rules.get('body_span_from_parent', ()) and self._n.parent is not None:
+            return self._n.parent.end_point[0]
+        if (self._n.type in self._rules.get('exclusive_end', ())
+                and self._n.end_point[1] == 0 and self._n.end_point[0] > self.start_row):
+            return self._n.end_point[0] - 1
         return self._n.end_point[0]
 
     def children(self):
-        return [TSNode(c, self._src) for c in self._n.named_children]
+        if not self._rules:
+            return [TSNode(c, self._src) for c in self._n.named_children]
+        out = []
+        for c in self._n.named_children:
+            child = self._wrap(c)
+            if child._inline_comment():
+                continue  # source stays on its owner's physical line; no separate preamble/rung
+            out.extend(child.children() if child._flattened() else [child])
+        return out
 
     def text(self):
         return self._src[self._n.start_byte:self._n.end_byte].decode('utf-8', 'replace')
 
     def field(self, name):
         c = self._n.child_by_field_name(name)
-        return TSNode(c, self._src) if c is not None else None
+        if c is not None:
+            return self._wrap(c)
+        for path in self._rules.get('fields', {}).get(self.type, {}).get(name, ()):
+            cur = self
+            for kind in path:
+                cur = next((ch for ch in cur.children() if ch.type == kind), None)
+                if cur is None:
+                    break
+            if cur is not None:
+                return cur
+        return None
 
     def parent(self):
         p = self._n.parent
-        return TSNode(p, self._src) if p is not None else None
+        while p is not None and self._wrap(p)._flattened():
+            p = p.parent
+        return self._wrap(p) if p is not None else None
 
     # -- TS-специфичные helper'ы (вне минимального RNode) ------------------
 
@@ -66,14 +114,15 @@ class TSNode:
 
 
 class TSBackend:
-    def __init__(self, langspec):
+    def __init__(self, langspec, node_rules=None):
         self._langspec = langspec
+        self._node_rules = node_rules
 
     def root(self, source):
         if self._langspec.preprocess is not None:
             source = self._langspec.preprocess(source)
         node = self._langspec.parser().parse(source).root_node
-        return TSNode(node, source)
+        return TSNode(node, source, self._node_rules)
 
 
 class TreeSitterSpec:
@@ -187,4 +236,11 @@ class TreeSitterSpec:
     def filler_label(self, nodes):
         """Заголовок filler-полосы: список имён (импорты/привязки). См. reader/label.py."""
         from ..label import band_label, ts_name_of
-        return band_label(nodes, ts_name_of)
+        if not self.profile.node_rules:
+            return band_label(nodes, ts_name_of)
+        def name_of(node):
+            kinds = self.profile.node_rules.get('declarators', ())
+            names = [c.field('name').text() for c in node.children()
+                     if c.type in kinds and c.field('name') is not None]
+            return ', '.join(names) if names else ts_name_of(node)
+        return band_label(nodes, name_of)
