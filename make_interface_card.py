@@ -899,10 +899,9 @@ def build_card(project_root, file, old_prose=None, report=None):
     # протянутого через каждое место emit'а, и по построению покрывает любую
     # директиву, включая протащенную merge'ем из старой карточки (старые формы -> <|fillN|>).
     text = cf.number_directives("\n".join(lines) + "\n")
-    # Шапка — только пока есть что заполнять (REQ-018): заполненная карточка выходит без неё.
-    if cf.has_agent_directive(text):
-        text = cf.FILL_HEADER + "\n\n" + text
-    return text
+    # Шапка — ВСЕГДА (REQ-018): если снимать её у заполненной карточки, она мигала бы в git на
+    # каждом заполнении и на каждой новой записи в коде — дифф без смысла. Цена — ~20 токенов.
+    return cf.FILL_HEADER + "\n\n" + text
 
 
 def _card_path(cards_dir, file_rel):

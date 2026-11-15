@@ -6,7 +6,7 @@ complete after reading the source. It analyzes nothing new — it ORCHESTRATES t
 
 **Directives (card-format 1.4.0):** every slot is the same short `<|fillN|>`; WHAT to write is
 given by the slot's place (`__HQ/guides/Guide__MakeCard.md` Step 3); a one-line
-`<!-- Fill each … -->` header above the H1 points there while a slot is left. A re-stamp rewrites old `<|Agent:NN … |>` / `<Agent: …>` into
+`<!-- Fill each … -->` header above the H1 points there (always present, filled or not). A re-stamp rewrites old `<|Agent:NN … |>` / `<Agent: …>` into
 `<|fillN|>` and keeps the prose.
 
 **Target:** `make_interface_card.py <file> [--project-root R] [--out PATH | --cards-dir D] [--force [--discard-prose]]` — multilingual (py/ts/cs/C/C++/CUDA). `<file>` also as `--file`, same thing.

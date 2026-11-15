@@ -455,7 +455,7 @@ def test_number_directives_migrates_old_forms():
 
 def test_restamp_old_format_keeps_prose_and_drops_header_when_done():
     """REQ-018: карточка в старом формате 1.3 перештамповывается в новый — проза на месте,
-    пустые слоты становятся `<|fillN|>`; когда всё заполнено, шапки нет."""
+    пустые слоты становятся `<|fillN|>`; шапка стоит и у заполненной (не мигает в git)."""
     fresh = mic.build_card(_PR, _FILE)
     old = cf.number_directives(fresh)          # та же карточка, но маркеры в форме 1.3:
     old = re.sub(r"<\|fill(\d+)\|>", lambda m: f"<|Agent:{int(m.group(1)):02d} some old text |>", old)
@@ -473,9 +473,12 @@ def test_restamp_old_format_keeps_prose_and_drops_header_when_done():
     op2 = mic._parse_old_prose(done, "python")
     again = mic.build_card(_PR, _FILE, op2, {"new_entries": [], "preserved_entries": [],
                                              "salvaged": [], "renamed": [], "kept_sections": []})
-    check("filled card re-stamps without header", not again.startswith("<!--")
-          and again.startswith("# "))
+    check("filled card keeps the header (no git flicker)",
+          again.startswith(cf.FILL_HEADER + "\n\n# ") and again.count(cf.FILL_HEADER) == 1)
     check("filled card re-stamps without markers", not cf.has_agent_directive(again))
+    report = {"new_entries": [], "preserved_entries": [], "salvaged": [], "renamed": [], "kept_sections": []}
+    check("filled card re-stamp is byte-stable",
+          mic.build_card(_PR, _FILE, mic._parse_old_prose(again, "python"), report) == again)
 
 
 def test_validate_pending_vs_broken():
