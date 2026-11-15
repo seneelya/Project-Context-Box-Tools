@@ -213,7 +213,7 @@ def test_merge_and_validate():
         st, _ = mic._stamp_to_file(_PR, "ggml/include/ggml-cuda.h", str(out), force=False)
         check("fresh stamp", st == "new")
         text = out.read_text(encoding="utf-8")
-        filled = text.replace("- `(whole file)` — <|Agent:02 what this family is for — one line |>",
+        filled = text.replace("- `(whole file)` — <|fill2|>",
                               "- `(whole file)` — CUDA backend entry points.", 1)
         # a family that no longer exists + an old-form H4 entry with prose (pre-1.3.0 card)
         filled = filled.replace("\n## In-Project Dependencies",
@@ -504,7 +504,7 @@ def test_cpp_source_macros():
 def test_keyed_bullets_key_with_dash():
     body = ["### What each family is for (one line per family — free text)",
             "- `Utils — old style` — Helpers for graphs.",
-            "- `Backend buffer` — <|Agent:03 what this family is for — one line |>"]
+            "- `Backend buffer` — <|fill3|>"]
     got = mic._parse_keyed_bullets(body, "What each family is for")
     check("keyed bullets: key in backticks may hold ' — '; placeholders skipped",
           got == {"Utils — old style": "Helpers for graphs."})
@@ -600,8 +600,8 @@ def test_merge_keeps_prose_of_qualified_methods():
         out = root / "cards" / "impl.cpp.md"
         mic._stamp_to_file(str(root), "impl.cpp", str(out), force=False)
         text = out.read_text(encoding="utf-8")
-        text = text.replace("<|Agent:02 write short does+role, or remove |>", "Returns its argument.", 1)
-        text = text.replace("<|Agent:03 write short does+role, or remove |>", "Does nothing.", 1)
+        text = text.replace("<|fill2|>", "Returns its argument.", 1)
+        text = text.replace("<|fill3|>", "Does nothing.", 1)
         out.write_text(text, encoding="utf-8")
         mic._stamp_to_file(str(root), "impl.cpp", str(out), force=False)
         again = out.read_text(encoding="utf-8")

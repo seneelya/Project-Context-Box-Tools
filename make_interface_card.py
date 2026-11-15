@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """make_interface_card.py — штемпель карточки: ОДНА команда -> готовый .md-скелет карточки, где
 ФАКТИЧЕСКИЕ секции заполнены детерминированно, а прозаические — строки-ДИРЕКТИВЫ
-`<|Agent: … |>`, которые ЛЛМ дописывает, прочитав исходник.
+`<|fillN|>`, которые ЛЛМ дописывает, прочитав исходник (что писать — по месту, шапка над H1).
 
 Ничего нового не анализирует — ОРКЕСТРИРУЕТ три факта:
   - объявленная поверхность + сигнатуры   <- единый источник:
@@ -102,12 +102,11 @@ def _lang(file):
 
 # The LLM fills prose; the stamp keeps the machine FACT line and the agent DIRECTIVE line
 # separate so line-based patch edits never collide (the fact is editable too — just a line).
-# Все директивы строятся через cf.agent() -> единый маркер `<|Agent: … |>` (детект в CARD_FORMAT).
-DIRECTIVE_DESC = cf.agent("write short does+role, or remove")
-DIRECTIVE_SUMMARY = cf.agent("replace with a concise one-line summary — what this file is and does")
-DIRECTIVE_HOWITWORKS = cf.agent("describe the actual mechanism/flow after reading the source; keep it precise — do NOT generalize a per-case detail to \"each/every\" unless it holds for all")
-DIRECTIVE_FAMILY = cf.agent("what this family is for — one line")
-DIRECTIVE_WHY = cf.agent("why?")
+# Все директивы строятся через cf.agent() -> единый маркер `<|fillN|>` (детект в CARD_FORMAT).
+# Маркер один и тот же: ЧТО писать, агент узнаёт по месту слота (Guide__MakeCard.md Step 3, REQ-018).
+# Имена ниже — только чтобы в коде было видно, какой слот ставится.
+DIRECTIVE = cf.agent()
+DIRECTIVE_DESC = DIRECTIVE_SUMMARY = DIRECTIVE_HOWITWORKS = DIRECTIVE_FAMILY = DIRECTIVE_WHY = DIRECTIVE
 
 # H4 declaration kind -> H3 subsection label (order below drives emission order).
 _KIND_H3 = {"function": "Functions", "class": "Classes", "interface": "Interfaces",
@@ -238,10 +237,11 @@ def _families_fact(fams, consumers, file_rel, n_decls):
 # --- merge: сохранить прозу человека, освежить факты -------------------------
 # Проза висит на КЛЮЧЕ-имени (символа/секции), не на позиции и не на сигнатуре —
 # поэтому переезд заголовков и смена сигнатуры прозу не роняют. Незаполненный слот =
-# строка-директива `<|Agent: … |>`; её мы прозой не считаем.
+# строка-директива `<|fillN|>` (или старая форма); её мы прозой не считаем — слот получает
+# свежую директиву, так перештамп переводит старые формы в новую, не трогая прозу.
 
 def _is_ph(line):
-    """True, если строка — незаполненная директива агенту (`<|Agent: … |>`, терпит легаси)."""
+    """True, если строка — незаполненная директива агенту (`<|fillN|>`, терпит старые формы)."""
     return cf.is_agent_directive(line)
 
 
@@ -519,7 +519,8 @@ def _parse_old_prose(text, lang=None):
     # globally, before any section splitting, so no individual section parser (summary,
     # Discrepancies, Salvage, whichever happens to be physically last) needs its own
     # special-case to avoid swallowing it as content.
-    lines = [ln for ln in lines if not cf.is_version_comment(ln)]
+    # Same for the FILL_HEADER (REQ-018): it sits above the H1, rebuilt every stamp.
+    lines = [ln for ln in lines if not cf.is_version_comment(ln) and not cf.is_fill_header(ln)]
     P = {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {},
          "family_why": {}}
 
@@ -732,7 +733,7 @@ def build_card(project_root, file, old_prose=None, report=None):
             lines.extend(pl)
             report["kept_sections"].append("Package layout")
         else:
-            lines.append(cf.agent("one line per submodule — what it holds"))
+            lines.append(DIRECTIVE)
         lines.append("")
 
     # ---- Public API ----
@@ -831,7 +832,7 @@ def build_card(project_root, file, old_prose=None, report=None):
             lines.extend(op["ext_note"])
             report["kept_sections"].append("External Dependencies")
         else:
-            lines.append(cf.agent("one line ONLY if a lib above is non-obvious; else write (none) (do NOT edit the import list)"))
+            lines.append(DIRECTIVE)
     else:
         lines.append(cf.EMPTY)
     lines.append("")
@@ -849,7 +850,7 @@ def build_card(project_root, file, old_prose=None, report=None):
     lines.append("")
     prose_section("Doc links", cf.EMPTY)
     lines.append("")
-    prose_section("Discrepancies", cf.agent("docstring vs code contradictions; else write (none)"))
+    prose_section("Discrepancies", DIRECTIVE)
 
     # ---- Runtime seams (optional; Plan03/Vision07) ----
     # Never created empty and never carries a directive — the stamp cannot reconstruct a runtime
@@ -896,8 +897,12 @@ def build_card(project_root, file, old_prose=None, report=None):
 
     # Нумерация — ПОСЛЕДНИМ шагом, над готовым текстом: одна точка вместо счётчика,
     # протянутого через каждое место emit'а, и по построению покрывает любую
-    # директиву, включая протащенную merge'ем из старой карточки.
-    return cf.number_directives("\n".join(lines) + "\n")
+    # директиву, включая протащенную merge'ем из старой карточки (старые формы -> <|fillN|>).
+    text = cf.number_directives("\n".join(lines) + "\n")
+    # Шапка — только пока есть что заполнять (REQ-018): заполненная карточка выходит без неё.
+    if cf.has_agent_directive(text):
+        text = cf.FILL_HEADER + "\n\n" + text
+    return text
 
 
 def _card_path(cards_dir, file_rel):

@@ -48,20 +48,47 @@ def check(name, cond):
         sys.stdout.write(f"\nFAIL: {name}\n")
 
 
-def _directive_re(directive):
-    """build_card прогоняет вывод через cf.number_directives — «<|Agent: xxx |>» становится
-    «<|Agent:07 xxx |>». Точное совпадение с сырой DIRECTIVE_* строкой поэтому никогда не находится
-    (само число между ':' и текстом — единственная разница), матчим с учётом опционального номера."""
-    prefix, _, rest = directive.partition(":")
-    return re.compile(re.escape(prefix + ":") + r"\d*\s*" + re.escape(rest.lstrip()))
+_FILL_RE = re.compile(r"<\|fill\d*\|>")
+# Раздел карточки -> вид слота (REQ-018: маркер у всех один `<|fillN|>`, вид задаёт МЕСТО —
+# так же его видит агент по шапке FILL_HEADER).
+_SEC_KIND = {"In-Project Dependencies": "why", "External Dependencies": "ext",
+             "Package layout": "sub", "How it works": "how", "Discrepancies": "contra"}
+
+
+def _slot_kind(sec, line):
+    if sec is None:
+        return "summary"
+    if sec == "Public API":
+        return "family" if line.lstrip().startswith("- `") else "desc"
+    return _SEC_KIND.get(sec, sec)
+
+
+def _sub_slot(kind, repl, text, count=0):
+    """Заменить директивы вида `kind` (по месту в карточке) на repl (строка или f(match)).
+    count=0 — все. Так тест «заполняет» слот, как агент: по месту, а не по тексту маркера."""
+    out, sec, n = [], None, 0
+    for line in text.split("\n"):
+        s = line.strip()
+        if s.startswith("## "):
+            sec = s[3:].strip()
+        elif _FILL_RE.search(line) and _slot_kind(sec, line) == kind and (not count or n < count):
+            left = count - n if count else 0
+            line, k = _FILL_RE.subn(repl, line, count=left)
+            n += k
+        out.append(line)
+    return "\n".join(out)
+
+
+def _has_slot(kind, text):
+    return _sub_slot(kind, "\0", text, count=1) != text
 
 
 def _fill(text):
     """Впечатать «человеческую» прозу в свежий штемпель (как это делает агент)."""
-    text = _directive_re(mic.DIRECTIVE_SUMMARY).sub("SUMMARY_MARK", text)
-    text = _directive_re(mic.DIRECTIVE_DESC).sub("DESC_MARK", text, count=1)
-    text = _directive_re(mic.DIRECTIVE_WHY).sub("WHY_MARK", text, count=1)
-    text = _directive_re(mic.DIRECTIVE_HOWITWORKS).sub("HOWITWORKS_MARK", text)
+    text = _sub_slot("summary", "SUMMARY_MARK", text)
+    text = _sub_slot("desc", "DESC_MARK", text, count=1)
+    text = _sub_slot("why", "WHY_MARK", text, count=1)
+    text = _sub_slot("how", "HOWITWORKS_MARK", text)
     return text
 
 
@@ -179,10 +206,15 @@ def test_migrate_legacy_format():
 
 def test_fresh_has_no_salvage_and_placeholders():
     fresh = mic.build_card(_PR, _FILE)
-    check("fresh has summary placeholder", _directive_re(mic.DIRECTIVE_SUMMARY).search(fresh) is not None)
-    check("fresh has entry desc placeholder", _directive_re(mic.DIRECTIVE_DESC).search(fresh) is not None)
-    check("fresh desc directive is the short form", "write short does+role, or remove" in fresh)
+    check("fresh has summary placeholder", _has_slot("summary", fresh))
+    check("fresh has entry desc placeholder", _has_slot("desc", fresh))
     check("fresh has no salvage", "## Salvage" not in fresh)
+    # REQ-018: короткий маркер, правила — одной шапкой над H1
+    check("fresh starts with the fill header", fresh.startswith(cf.FILL_HEADER + "\n\n# "))
+    check("fresh markers are <|fillN|> numbered 1..N",
+          [int(x) for x in re.findall(r"<\|fill(\d+)\|>", fresh)]
+          == list(range(1, len(_FILL_RE.findall(fresh)) + 1)) and _FILL_RE.search(fresh))
+    check("fresh has no old marker", "<|Agent" not in fresh)
 
 
 # --- REQ-004+005: устойчивая идентичность записи (не угадывание по первому слову) ------
@@ -247,7 +279,7 @@ def _fill_all_descs(text):
         counter[0] += 1
         return f"DESC_{counter[0]}."
 
-    return _directive_re(mic.DIRECTIVE_DESC).sub(repl, text)
+    return _sub_slot("desc", repl, text)
 
 
 def test_merge_ts_multi_const_no_collision():
@@ -339,7 +371,7 @@ def test_force_guard_refuses_on_prose_then_discard_prose_works():
     out = root / "__map" / "m.py.md"
     status, _ = mic._stamp_to_file(str(root), "m.py", str(out), force=False)
     check("first stamp is new", status == "new")
-    filled = _directive_re(mic.DIRECTIVE_DESC).sub("REAL PROSE.", out.read_text(encoding="utf-8"), count=1)
+    filled = _sub_slot("desc", "REAL PROSE.", out.read_text(encoding="utf-8"), count=1)
     out.write_text(filled, encoding="utf-8")
 
     before = out.read_text(encoding="utf-8")
@@ -389,18 +421,61 @@ x
 
 
 def test_agent_directive_marker():
-    """Единый маркер `<|Agent: … |>`: конструктор + детекторы (терпят легаси `<Agent:…>`)."""
-    d = cf.agent("why?")
-    check("agent() builds the uniform marker", d == "<|Agent: why? |>")
+    """Единый маркер `<|fillN|>` (REQ-018): конструктор + детекторы (терпят старые формы)."""
+    d = cf.agent()
+    check("agent() builds the uniform marker", d == "<|fill|>")
     check("is_agent_directive: new form", cf.is_agent_directive(d))
+    check("is_agent_directive: numbered", cf.is_agent_directive("<|fill12|>"))
+    check("is_agent_directive: 1.3 form", cf.is_agent_directive("<|Agent:07 why? |>"))
     check("is_agent_directive: legacy form", cf.is_agent_directive("<Agent: why?>"))
-    check("is_agent_directive: strips backticks", cf.is_agent_directive("`<|Agent: x |>`"))
+    check("is_agent_directive: strips backticks", cf.is_agent_directive("`<|fill3|>`"))
     check("is_agent_directive: real prose is not a directive", not cf.is_agent_directive("does the thing"))
-    check("has_agent_directive: finds inline new", cf.has_agent_directive("consumers 2: a, b  <|Agent: note |>"))
+    check("is_agent_directive: prose that starts with 'fill'", not cf.is_agent_directive("<|filler|> x"))
+    check("has_agent_directive: finds inline new", cf.has_agent_directive("consumers 2: a, b  <|fill4|>"))
+    check("has_agent_directive: finds inline 1.3", cf.has_agent_directive("x <|Agent: note |> y"))
     check("has_agent_directive: finds inline legacy", cf.has_agent_directive("foo <Agent: note> bar"))
     check("has_agent_directive: none when filled", not cf.has_agent_directive("consumers 2: a, b"))
+    check("has_agent_directive: code is not a directive",
+          not cf.has_agent_directive("std::array<int, 2> a{{1, 2}}; [[nodiscard]] f(); x || y > z"))
+    check("fill header is not a directive", not cf.has_agent_directive(cf.FILL_HEADER)
+          and cf.is_fill_header(cf.FILL_HEADER))
     # marker must not collide with code punctuation the stamp emits around it
-    check("marker uses collision-proof <| |>", cf.AGENT_OPEN == "<|Agent:" and cf.AGENT_CLOSE == "|>")
+    check("marker uses collision-proof <| |>", cf.AGENT_OPEN == "<|fill" and cf.AGENT_CLOSE == "|>")
+
+
+def test_number_directives_migrates_old_forms():
+    """REQ-018: перенумерация переводит любую форму в `<|fillN|>`; `fill1` не префикс `fill10`."""
+    src = "a <|Agent:07 why? |>\nb <Agent: legacy>\nc <|fill9|>\nd <|fill|>\n"
+    check("all forms -> fill 1..4",
+          cf.number_directives(src) == "a <|fill1|>\nb <|fill2|>\nc <|fill3|>\nd <|fill4|>\n")
+    check("idempotent", cf.number_directives(cf.number_directives(src)) == cf.number_directives(src))
+    many = cf.number_directives("<|fill|>\n" * 12)
+    check("fill1 is not a substring-prefix of fill10..12", many.count("<|fill1|>") == 1)
+
+
+def test_restamp_old_format_keeps_prose_and_drops_header_when_done():
+    """REQ-018: карточка в старом формате 1.3 перештамповывается в новый — проза на месте,
+    пустые слоты становятся `<|fillN|>`; когда всё заполнено, шапки нет."""
+    fresh = mic.build_card(_PR, _FILE)
+    old = cf.number_directives(fresh)          # та же карточка, но маркеры в форме 1.3:
+    old = re.sub(r"<\|fill(\d+)\|>", lambda m: f"<|Agent:{int(m.group(1)):02d} some old text |>", old)
+    old = old.replace(cf.FILL_HEADER + "\n\n", "")
+    # заполнить summary в старой форме (маркер 1.3 стоит первой строкой после H1)
+    old = re.sub(r"(# [^\n]+\n\n)<\|Agent:\d+ some old text \|>", r"\1KEPT SUMMARY.", old, count=1)
+    op = mic._parse_old_prose(old, "python")
+    merged = mic.build_card(_PR, _FILE, op, {"new_entries": [], "preserved_entries": [],
+                                             "salvaged": [], "renamed": [], "kept_sections": []})
+    check("old-format summary prose kept", "\nKEPT SUMMARY.\n" in merged)
+    check("no 1.3 markers after re-stamp", "<|Agent" not in merged)
+    check("empty slots became <|fillN|>", _FILL_RE.search(merged) is not None)
+    check("header present while slots remain", merged.startswith(cf.FILL_HEADER))
+    done = _FILL_RE.sub("PROSE.", merged)
+    op2 = mic._parse_old_prose(done, "python")
+    again = mic.build_card(_PR, _FILE, op2, {"new_entries": [], "preserved_entries": [],
+                                             "salvaged": [], "renamed": [], "kept_sections": []})
+    check("filled card re-stamps without header", not again.startswith("<!--")
+          and again.startswith("# "))
+    check("filled card re-stamps without markers", not cf.has_agent_directive(again))
 
 
 def test_validate_pending_vs_broken():
@@ -420,10 +495,11 @@ def test_validate_pending_vs_broken():
     check("source-without-card is NOT an issue", not any("config.py" in i for i in issues))
     check("filled card is not awaiting", awaiting == [])
 
-    # карточка с оставшимися директивами `<|Agent:…|>` -> статус awaiting (new + legacy формы)
+    # карточка с оставшимися директивами -> статус awaiting (new + legacy формы); шапка над H1
+    # (REQ-018) не мешает найти H1 и сводку
     (root / "bar.py").write_text("x=1\n", encoding="utf-8")
-    tmpl = _CARD_TMPL.replace("# foo.py", "# bar.py")
-    tmpl = tmpl.replace("summary.", cf.agent("one-line summary"))     # summary = директива (new)
+    tmpl = cf.FILL_HEADER + "\n\n" + _CARD_TMPL.replace("# foo.py", "# bar.py")
+    tmpl = tmpl.replace("summary.", "<|fill1|>")                       # summary = директива (new)
     tmpl = tmpl.replace("\nx\n", "\n<Agent: how it works>\n")          # How it works = директива (legacy)
     wcard = cards / "bar.py.md"
     wcard.write_text(tmpl, encoding="utf-8")
@@ -487,7 +563,7 @@ def test_stamp_all_recursive():
           made == ["pkg/__init__.py.md", "pkg/a.py.md", "pkg/b.py.md", "pkg/sub/deep.py.md"])
     # проза сохраняется, а __map сам себя не штемпелит (EXCLUDED_DIRS)
     card = root / "__map" / "pkg" / "a.py.md"
-    card.write_text(_directive_re(mic.DIRECTIVE_SUMMARY).sub("KEPT", card.read_text(encoding="utf-8"), count=1),
+    card.write_text(_sub_slot("summary", "KEPT", card.read_text(encoding="utf-8"), count=1),
                      encoding="utf-8")
     check("stamp_all rerun exit 0", mic._stamp_all(str(root), force=False) == 0)
     check("stamp_all rerun keeps prose", "KEPT" in card.read_text(encoding="utf-8"))
@@ -823,6 +899,8 @@ def test_stamp_langs_registry():
 def main():
     test_is_empty()
     test_agent_directive_marker()
+    test_number_directives_migrates_old_forms()
+    test_restamp_old_format_keeps_prose_and_drops_header_when_done()
     test_validate_pending_vs_broken()
     test_resolver_submodule_and_docstring()
     test_stamp_all_recursive()

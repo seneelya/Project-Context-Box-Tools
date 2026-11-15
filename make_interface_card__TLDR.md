@@ -1,8 +1,13 @@
 # make_interface_card
 
 The card **STAMP**: ONE command → a ready `.md` card skeleton where the FACT sections are
-filled deterministically and the prose is left as `<Agent: …>` directive lines for the LLM to
+filled deterministically and the prose is left as `<|fillN|>` directive lines for the LLM to
 complete after reading the source. It analyzes nothing new — it ORCHESTRATES three facts.
+
+**Directives (card-format 1.4.0):** every slot is the same short `<|fillN|>`; WHAT to write is
+given by the slot's place (`__HQ/guides/Guide__MakeCard.md` Step 3); a one-line
+`<!-- Fill each … -->` header above the H1 points there while a slot is left. A re-stamp rewrites old `<|Agent:NN … |>` / `<Agent: …>` into
+`<|fillN|>` and keeps the prose.
 
 **Target:** `make_interface_card.py <file> [--project-root R] [--out PATH | --cards-dir D] [--force [--discard-prose]]` — multilingual (py/ts/cs/C/C++/CUDA). `<file>` also as `--file`, same thing.
 
@@ -94,7 +99,7 @@ shared with get_codeblock).
   no counter). No exact name, but a similar one → treated as a rename, prose kept with a
   `⚠ похоже на переименование, было …` marker. Neither → the entry goes to `## Salvage` as before.
 * **`--force`** — write a FRESH stamp instead of merging: **every line of prose in that card is
-  discarded**, replaced by `<|Agent:NN …|>` directives. Use it to deliberately reset a card you
+  discarded**, replaced by `<|fillN|>` directives. Use it to deliberately reset a card you
   intend to rewrite, never as "overwrite" — the merge path is the one that overwrites safely.
   On a card that still has EMPTY prose (never filled in), `--force` works exactly as before. On a
   card with FILLED prose, `--force` alone is **REFUSED** (exit 2, nothing written) — pass

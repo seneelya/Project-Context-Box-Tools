@@ -16,7 +16,7 @@
   свободный текст (URL/внешняя шина/бинарник) — не резолвится, не ошибка.
 
 Отдельные НЕ-ошибочные статусы (exit не роняют): `pending` — dep на исходник без карточки;
-`awaiting agent` — в карточке ещё остались директивы `<|Agent:…|>`, т.е. её надо пройти агентом.
+`awaiting agent` — в карточке ещё остались директивы `<|fillN|>`, т.е. её надо пройти агентом.
 
 Выход 1, если есть проблемы. Использование:
     python validate_cards.py [--cards-dir PATH] [--project-root PATH]
@@ -188,7 +188,7 @@ def validate_card(path, cards_dir, unresolved_raw, project_root, seam_rows=None)
         if not (project_root / node_id).exists():
             issues.append("orphan: source file missing — delete this card")
 
-    # «ждёт агента» — незаполненные директивы `<|Agent:…|>`. НЕ ошибка: статус для
+    # «ждёт агента» — незаполненные директивы `<|fillN|>`. НЕ ошибка: статус для
     # оркестратора/автора «эту карточку ещё надо пройти агентом». Перечисляем ГДЕ.
     awaiting = []
     if summary and cf.is_agent_directive(summary):
@@ -264,11 +264,11 @@ def main():
         for nid, raws in sorted(pending_all.items()):
             print(f"  {nid}: {', '.join(raws)}")
 
-    # «Ждёт агента» — НЕ ошибка: в карточке ещё остались директивы `<|Agent:…|>`, значит
+    # «Ждёт агента» — НЕ ошибка: в карточке ещё остались директивы `<|fillN|>`, значит
     # её нужно пройти агентом (заполнить прозу). Печатаем статусом, exit не роняем.
     if awaiting_all:
         print(f"\nawaiting agent ({len(awaiting_all)}) — карточки с незаполненными "
-              f"`<|Agent:…|>` (ждут прохода агента; не ошибка):")
+              f"`<|fillN|>` (ждут прохода агента; не ошибка):")
         for nid, secs in sorted(awaiting_all.items()):
             print(f"  {nid}: {', '.join(secs)}")
 

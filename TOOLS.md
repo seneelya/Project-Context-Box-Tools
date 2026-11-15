@@ -17,7 +17,7 @@ Match your current goal to exactly one path below. Do not guess which tool fits;
 | "Who uses this file / symbol? What breaks if I change it?" | `find_code_usage --file PATH [--symbol NAME]` | add `--verbose` for line numbers → use with `get_codeblock` |
 | "Show me just this function/class/block around line N" | `get_codeblock --file PATH --outline` (map) → `--line N --query` (text) | use `--level K` to zoom in/out the nesting ladder |
 | "Quick glance: what public API does this Python file expose?" | `show_pyfile_api FILE.py` | treat as hint only; verify with raw code when precision matters |
-| "Create or refresh a card for FILE" | `make_interface_card FILE --cards-dir <HQ>/__map` (re-run = MERGE, prose kept) | then fill `<|Agent: …|>` placeholders → run `validate_cards` |
+| "Create or refresh a card for FILE" | `make_interface_card FILE --cards-dir <HQ>/__map` (re-run = MERGE, prose kept) | then fill `<|fillN|>` placeholders → run `validate_cards` |
 | "Are my cards valid / up-to-date?" | `validate_cards` (format) + `check_cards_freshness` (stale vs source) | fix issues before trusting cards for reasoning |
 | "Mass find-and-replace across many files" | `replace_in_files FOLDER MASK -r FIND WITH --dry-run` | add `-m 'EXPR'` guard if context-sensitive; confirm dry-run then run without it |
 | "Split a monster file — see its block graph / move named blocks to new files" | `split_monster --file FILE --investigate` (graph, families, starting `--split`); `split_monster --file FILE --split LINE TARGET ... --out-script OUT.py`; `split_monster --rebase OUT.py --write` (re-anchor an old script after the source changed) (`LINE` or `12,34,45` per target; `.md` → `replace`/STUB in script, code → `cut`) | `split_monster__TLDR.md`; edit generated `OUT.py` (STUB, imports), then `python OUT.py` → `--apply` |
@@ -69,7 +69,7 @@ graph_from_cards --file CHANGED.py --edges in      # upstream dependents (who br
 ### Pattern C: Creating/updating a card
 ```
 make_interface_card FILE.py --cards-dir <HQ>/__map     # write/refresh <HQ>/__map/FILE.py.md (MERGE keeps prose)
-# You (the agent) now fill all <|Agent: …|> placeholders by reading the actual code.
+# You (the agent) now fill all <|fillN|> placeholders by reading the actual code.
 validate_cards                                           # verify format compliance
 check_cards_freshness                                    # confirm freshness status
 ```
@@ -110,7 +110,7 @@ All CLI tools run from project root: `python __HQ/tools/<name>.py [args]`
 
 | Tool | One-liner |
 |------|-----------|
-| `make_interface_card.py FILE [--force]` | Stamp a card skeleton from source (facts auto-filled, prose as `<\|Agent:\…\|>`) |
+| `make_interface_card.py FILE [--force]` | Stamp a card skeleton from source (facts auto-filled, prose as `<\|fillN\|>`) |
 | `validate_cards.py` | Gate cards against CARD_FORMAT contract; reports issues and awaiting-agent markers |
 | `check_cards_freshness.py` | Which cards are stale vs source (git/mtime) + orphans |
 | `graph_from_cards.py [--view tree\|depth]` | Project topology from cards: modules, edges, hotspots, cycles, focus slices |

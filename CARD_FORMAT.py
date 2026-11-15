@@ -22,10 +22,12 @@
     - b.py                        независимых добавления правят РАЗНЫЕ строки, не одну
                                    и ту же (git-мердж сходится сам, не гарантированный
                                    конфликт).
-    <|Agent:07 … |>                строка-ДИРЕКТИВА (ЛЛМ: описание или удалить). Номер
-                                   уникален в карточке -> строка адресуема: якорь
-                                   `<|Agent:07 ` (с пробелом) не повторяется. См.
-                                   number_directives().
+    <|fill7|>                      ДИРЕКТИВА (ЛЛМ: описание или удалить). Номер уникален
+                                   в карточке -> маркер адресуем целиком (`|>` закрывает,
+                                   `fill7` не префикс `fill70`). ЧТО писать — по месту
+                                   (секция/строка), а не по тексту маркера: правила —
+                                   Guide__MakeCard.md Step 3, шапка FILL_HEADER над H1
+                                   на него ссылается. См. number_directives().
 
     Тот же приём («одно значение — одна строка», Plan02 pt.1+2) — в `Package layout`
     (`known submodules (re-exported from):` + `- modname` построчно) и в `In-Project
@@ -73,11 +75,16 @@
 
 Привязка «заголовок ↔ переменная» прямая:  `##` → H2_SECTIONS ,  `###` → H3_API_SUBSECTIONS .
 
-ЕДИНЫЙ маркер обращения к агенту — `<|Agent: … |>` (строй через agent(), детектируй через
+ЕДИНЫЙ маркер обращения к агенту — `<|fillN|>` (строй через agent(), детектируй через
 is_agent_directive() / has_agent_directive()). Выбран так, чтобы НЕ встречаться в коде (в py/cs/ts
 `<|` — не синтаксис) и в markdown (тег не может начинаться с `|`, рендерится как есть). Незаполненная
 директива в карточке = статус «ждёт прохода агента» (валидатор сообщает это, но НЕ как ошибку).
-Детекторы терпят и легаси-форму `<Agent: …>` — карточки в работе не ломаются.
+Детекторы терпят старые формы `<|Agent:NN … |>` и `<Agent: …>` — карточки в работе не ломаются,
+перештамп переводит их в `<|fillN|>` (REQ-018).
+
+ШАПКА `<!-- Fill each … -->` (FILL_HEADER) — ПЕРВАЯ строка карточки, НАД H1, пока в ней есть
+хоть одна директива: ссылка на гайд, где расписано, что писать в каждом месте. Все читатели ищут H1 как
+первую строку `# ` и всё выше пропускают, поэтому сводка «первая непустая после H1» цела.
 """
 
 import re
@@ -152,7 +159,7 @@ BUILD_FACTS_SECTION = "Build facts"
 #     | Backend scheduler | 21 | `ggml_backend_sched_new` | 12: src 5, … |  prefix -> kind)
 #
 #     ### What each family is for (one line per family — free text)
-#     - `Backend scheduler` — <|Agent:07 … |>              PROSE, keyed by family name; survives
+#     - `Backend scheduler` — <|fill7|>                    PROSE, keyed by family name; survives
 #                                                           re-stamps; a vanished family -> Salvage
 #
 # The marker line makes such a Public API valid without H4 entries; the named source must exist.
@@ -233,7 +240,7 @@ def is_seam_contract_line(line):
 # Маркер пустой секции/ячейки. Парсер принимает и вариант в бэктиках: `(none)`.
 EMPTY = "(none)"
 
-# ЕДИНЫЙ маркер директивы агенту: `<|Agent: … |>`. Строй только через agent(); детектируй
+# ЕДИНЫЙ маркер директивы агенту: `<|fillN|>`. Строй только через agent(); детектируй
 # через is_agent_directive() (поле ЦЕЛИКОМ = директива) / has_agent_directive() (есть где-либо).
 # Bump on any change that affects the card's ON-DISK FORMAT (section names, table
 # columns, list-vs-single-line facts, directive marker) — cards have real external
@@ -241,7 +248,9 @@ EMPTY = "(none)"
 # into every card as its LAST line (see version_comment()/is_version_comment() below) so
 # an already-written card carries its own provenance — a version number that only lives
 # in this file tells you nothing about files stamped by an older copy of the tool.
-VERSION = "1.3.0"
+# 1.4.0 (REQ-018): directive `<|fillN|>` + one FILL_HEADER above the H1 (was a full sentence
+# per slot, `<|Agent:NN … |>`).
+VERSION = "1.4.0"
 
 _VERSION_RE = re.compile(r"^<!--\s*card-format:\s*(\S+)\s*-->\s*$")
 
@@ -257,63 +266,71 @@ def is_version_comment(line):
     return bool(_VERSION_RE.match(line.strip()))
 
 
-AGENT_OPEN = "<|Agent:"
+# Маркер `<|fillN|>` (REQ-018). Раньше в КАЖДОМ слоте стояла фраза-инструкция
+# (`<|Agent:07 describe the actual mechanism … |>`, до 150 знаков): агент читал её сотни раз
+# и цитировал целиком в old_string каждой правки. Теперь что писать — по МЕСТУ слота, правила
+# в Guide__MakeCard.md Step 3 (FILL_HEADER ссылается). Замер (Qwen3.6/Gemma-4): `<|fill5|>` = 4 токена; цифры режутся по
+# одной, поэтому номер без ведущего нуля. Голые `{{5}}`/`[[5]]` короче, но встречаются в коде
+# (C++ brace-init, f-строки, Jinja, `[[nodiscard]]`) — детекторы спутали бы их с фактами.
+AGENT_OPEN = "<|fill"
 AGENT_CLOSE = "|>"
-# новую `<|Agent:…|>` и легаси `<Agent:…>` (для терпимого чтения карточек в работе).
-_AGENT_RE = re.compile(r"<\|?Agent:.*?\|?>", re.S)
+# Старые формы — только для чтения карточек в работе; перештамп переводит их в новую.
+_LEGACY_OPENS = ("<|Agent:", "<Agent:")
+# Порядок важен: сначала точные формы, легаси `<Agent:…>` — последней (у неё нет `|`).
+_AGENT_RE = re.compile(r"<\|fill\d*\|>|<\|Agent:.*?\|>|<Agent:.*?>", re.S)
 
 
-def agent(msg):
-    """Собрать директиву агенту единым маркером: agent('why?') -> '<|Agent: why? |>'."""
-    return f"{AGENT_OPEN} {msg.strip()} {AGENT_CLOSE}"
+def agent():
+    """Директива агенту: '<|fill|>'; номер ставит number_directives() над готовой карточкой."""
+    return f"{AGENT_OPEN}{AGENT_CLOSE}"
 
 
 def is_agent_directive(text):
-    """True, если (stripped) поле ЦЕЛИКОМ = незаполненная директива-плейсхолдер (new/legacy)."""
+    """True, если (stripped) поле ЦЕЛИКОМ = незаполненная директива-плейсхолдер (любая форма)."""
     s = text.strip().strip("`").strip()
-    return s.startswith(AGENT_OPEN) or s.startswith("<Agent:")
+    return bool(re.match(r"<\|fill\d*\|>", s)) or s.startswith(_LEGACY_OPENS)
 
 
 def has_agent_directive(text):
-    """True, если ГДЕ-ЛИБО в тексте осталась незаполненная директива агенту (new/legacy)."""
+    """True, если ГДЕ-ЛИБО в тексте осталась незаполненная директива агенту (любая форма)."""
     return bool(_AGENT_RE.search(text))
 
 
-# Нумерация директив. Текст директивы в одной карточке повторяется десятками
-# байт-в-байт одинаковых строк (по одной на каждый элемент Public API), поэтому
-# АДРЕСОВАТЬ конкретную было нельзя: правка «замени вот эту» не выражается через
-# уникальный old_string. Номер ставится СРАЗУ ПОСЛЕ двоеточия, а не в конец, по
-# двум причинам: (1) AGENT_OPEN остаётся префиксом, поэтому is_agent_directive и
-# _AGENT_RE продолжают работать без правок и старые карточки читаются как раньше;
-# (2) короткий уникальный якорь оказывается в НАЧАЛЕ строки — для адресации
-# достаточно `<|Agent:07 `, всю фразу копировать не надо.
-#
-# Уникальность якоря включает завершающий ПРОБЕЛ: без него `<|Agent:10` был бы
-# префиксом `<|Agent:100` в карточке со >99 директивами. С пробелом якорь
-# однозначен при любом их числе.
+# Нумерация директив. Маркеры в карточке одинаковы, поэтому АДРЕСОВАТЬ конкретный без номера
+# нельзя: правка «замени вот этот» не выражается через уникальный old_string. Закрывающая `|>`
+# делает маркер уникальным целиком: `<|fill1|>` не префикс `<|fill10|>`.
 #
 # Номер ПОЗИЦИОННЫЙ, не стабильный: добавили функцию — последующие сдвинулись.
 # Осознанно: стабильность нужна только сценарию «отштамповали → заполнили часть →
 # перештамповали», он редкий; зато нумерация не зависит от имён и языка и не может
 # разойтись с фактическим содержимым карточки.
-_AGENT_NUM_RE = re.compile(r"(<\|?Agent:)(?:\s*\d+)?\s*")
-
-
 def number_directives(text, start=1):
-    """Перенумеровать все директивы в тексте карточки: `<|Agent:07 … |>`.
+    """Перенумеровать все директивы в тексте карточки: `<|fill7|>`.
 
-    Идемпотентна: уже стоящий номер СНИМАЕТСЯ и ставится заново, поэтому повторный
-    штамп (merge протаскивает незаполненные директивы из старой карточки вместе с
-    их прежними номерами) не даёт `<|Agent:07 03 why?`. Форма маркера сохраняется:
-    legacy `<Agent:` не переписывается в новую — штамп не трогает то, что не его.
+    Идемпотентна: уже стоящий номер СНИМАЕТСЯ и ставится заново (merge протаскивает
+    незаполненные директивы из старой карточки вместе с их прежними номерами). Старые формы
+    (`<|Agent:07 … |>`, `<Agent: …>`) переписываются в `<|fillN|>` (REQ-018): их текст больше
+    не нужен — что писать, говорит место (Guide__MakeCard.md Step 3).
     """
     counter = [start - 1]
 
     def _repl(m):
         counter[0] += 1
-        return f"{m.group(1)}{counter[0]:02d} "
+        return f"{AGENT_OPEN}{counter[0]}{AGENT_CLOSE}"
 
-    return _AGENT_NUM_RE.sub(_repl, text)
+    return _AGENT_RE.sub(_repl, text)
+
+
+# Шапка над H1 — одна строка-ссылка: что писать в каждом месте, расписано в Guide__MakeCard.md
+# Step 3 (исполнитель читает гайд раз на пачку). Полный список прямо в шапке стоил ~156 токенов
+# на карточку — больше, чем экономят короткие маркеры (замер на sim, REQ-018).
+# В тексте шапки нет `<|fill` с цифрой, поэтому детекторы её директивой не считают.
+FILL_HEADER = "<!-- Fill each <|fillN|> by its place: __HQ/guides/Guide__MakeCard.md Step 3 -->"
+
+
+def is_fill_header(line):
+    """True, если строка — шапка FILL_HEADER (по префиксу: переживает правку формулировки)."""
+    return line.strip().startswith("<!-- Fill each ")
 
 
 # Синонимы старых/иноязычных токенов -> канон (для миграции и терпимого чтения).

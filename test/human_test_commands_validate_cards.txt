@@ -9,7 +9,7 @@
 
 # validate_cards: full set; pending (#1) is NOT an error; awaiting-agent is a STATUS, not an error.
 # expect: "checked N cards, 0 with issues"; a dep whose SOURCE exists but card not built yet is
-#         listed under "pending (...)" (exit 0). Cards still holding <|Agent:...|> directives are
+#         listed under "pending (...)" (exit 0). Cards still holding <|fillN|> directives are
 #         listed under "awaiting agent (...)" with the sections that need a pass (exit stays 0).
 #         Only a File Path resolving to NEITHER a card NOR a source is a real issue (exit 1).
 
