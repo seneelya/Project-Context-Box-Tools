@@ -451,6 +451,26 @@ def _fast_filter_symbols(target_content: str, language: str, target_names: Set[s
     return sorted(set(syms), key=len, reverse=True)
 
 
+# File text per path, checked against (mtime_ns, size) on every read: a downstream scan reads the
+# whole tree once per target, so a bulk stamp re-opened each file ~50 times (36k opens on 192
+# targets). A changed file has a new stat and is re-read.
+_TEXT_CACHE: Dict[str, Tuple[int, int, str]] = {}
+_TEXT_CACHE_MAX = 8192
+
+
+def _read_text_cached(fpath: str) -> str:
+    st = os.stat(fpath)
+    hit = _TEXT_CACHE.get(fpath)
+    if hit is not None and hit[0] == st.st_mtime_ns and hit[1] == st.st_size:
+        return hit[2]
+    with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
+        content = fh.read()
+    if len(_TEXT_CACHE) >= _TEXT_CACHE_MAX:
+        _TEXT_CACHE.clear()
+    _TEXT_CACHE[fpath] = (st.st_mtime_ns, st.st_size, content)
+    return content
+
+
 def scan_downstream(
     project_root: str,
     handler: "LanguageHandler",
@@ -496,14 +516,13 @@ def scan_downstream(
         if wants is not None and not wants(fpath):
             continue
         try:
-            with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
-                content = fh.read()
-                lines = content.splitlines(keepends=True)
+            content = _read_text_cached(fpath)
         except OSError:
             continue
 
         if fast_re is not None and not fast_re.search(content):
             continue
+        lines = content.splitlines(keepends=True)
 
         symbols_dict, symbol_lines_dict, dyn = handler.analyze_file(
             fpath, lines, target_names, project_root, target_path_abs if has_file else None

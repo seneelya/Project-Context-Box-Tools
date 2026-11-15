@@ -9,6 +9,12 @@ from typing import Dict, List, Set, Tuple
 
 from ..core import LanguageHandler, resolve_relative_import
 
+# Code-line indices per file TEXT. Target-independent, but a downstream scan re-tokenizes every
+# file of the tree once per target — `make_interface_card --all` on 192 files spent 86 of 166 s
+# here (each file ~50 times). Keyed by the text itself, so an edited file is never served stale.
+_CODE_LINES_CACHE: Dict[str, Set[int]] = {}
+_CODE_LINES_CACHE_MAX = 4096
+
 
 def _relative_import_root_dir(filepath: str, dots: int) -> Path:
     """The directory a RELATIVE import (`dots` leading dots) is anchored to — walking up
@@ -154,18 +160,22 @@ class PythonHandler(LanguageHandler):
         is treated as code, because dropping a real usage is worse than an occasional
         phantom from a doc mention.
         """
-        n = len(content_lines)
-        all_idx = set(range(n))
+        src = "".join(content_lines)
+        hit = _CODE_LINES_CACHE.get(src)
+        if hit is not None:
+            return set(hit)               # callers may mutate: hand out a copy
         code_lines: Set[int] = set()
         code_types = {tokenize.NAME, tokenize.NUMBER, tokenize.OP}
         try:
-            src = "".join(content_lines)
             for tok in tokenize.generate_tokens(io.StringIO(src).readline):
                 if tok.type in code_types:
                     for row in range(tok.start[0], tok.end[0] + 1):
                         code_lines.add(row - 1)  # tokenize rows are 1-based
         except (tokenize.TokenError, IndentationError, SyntaxError, ValueError):
-            return all_idx  # fail open: never drop a real usage on a parse error
+            code_lines = set(range(len(content_lines)))  # fail open: never drop a real usage
+        if len(_CODE_LINES_CACHE) >= _CODE_LINES_CACHE_MAX:
+            _CODE_LINES_CACHE.clear()
+        _CODE_LINES_CACHE[src] = frozenset(code_lines)
         return code_lines
 
     def find_symbol_usages(self, filepath: str, content_lines: List[str], names: Set[str]) -> Dict[str, List[int]]:
