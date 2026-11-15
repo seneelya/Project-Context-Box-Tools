@@ -511,6 +511,20 @@ def _parse_keyed_bullets(body, h3_title):
     return out
 
 
+def _prose_keeping_slots(lines, is_prose):
+    """Тело прозаического раздела для переноса: строки-проза + директивы НА СВОИХ МЕСТАХ.
+
+    Пусто, если прозы нет (одни директивы/пустота) — тогда штамп ставит свою директиву.
+    Если проза есть, директивы рядом с ней НЕ выбрасываются: раздел, где агент дописал строку
+    (история «Task63: moved …»), но слот не заполнил, остаётся «ждёт агента». Раньше фильтр
+    снимал директиву, а остаток считался заполненным разделом — слот молча пропадал
+    (sim, src/motion/track_world.*). Директивы старых форм перенумерует number_directives.
+    """
+    if not any(ln.strip() and is_prose(ln) and not _is_ph(ln) for ln in lines):
+        return []
+    return [ln for ln in lines if _is_ph(ln) or is_prose(ln)]
+
+
 def _parse_old_prose(text, lang=None):
     """Проза человека из существующей карточки, по ключу-имени. -> dict слотов."""
     lines = text.splitlines()
@@ -560,9 +574,9 @@ def _parse_old_prose(text, lang=None):
             # the import list itself is FACT (re-rendered from the source every stamp); only
             # the language knows what its import line looks like (C/C++ `#include`, C# `using`)
             is_imp = (stamp_langs.get(lang) if lang else stamp_langs.get("python")).import_line
-            note = [ln for ln in body if ln.strip() and not _is_ph(ln)
-                    and ln.strip() != "external imports:"
-                    and not is_imp(ln.strip())]
+            note = _prose_keeping_slots(
+                [ln for ln in body if ln.strip()],
+                lambda ln: ln.strip() != "external imports:" and not is_imp(ln.strip()))
             if note:
                 P["ext_note"] = note
         elif name.startswith("Salvage"):
@@ -590,7 +604,7 @@ def _parse_old_prose(text, lang=None):
                             j += 1
                         body2 = body[j:]              # new bullet form — skip the whole run
                     break
-            keep = [ln for ln in body2 if ln.strip() and not _is_ph(ln)]
+            keep = _prose_keeping_slots([ln for ln in body2 if ln.strip()], lambda ln: True)
             if keep:
                 P["sections"]["Package layout"] = keep
         elif name == cf.RUNTIME_SEAMS_SECTION:
@@ -607,8 +621,8 @@ def _parse_old_prose(text, lang=None):
             # other section here never gets told to write cf.EMPTY as a real answer, so for them
             # a bare "(none)" still means "nothing kept" as before.
             drop_empty_marker = name != "Discrepancies"
-            keep = [ln for ln in body if not _is_ph(ln)
-                    and (not drop_empty_marker or ln.strip() != cf.EMPTY)]
+            keep = _prose_keeping_slots(
+                body, lambda ln: not drop_empty_marker or ln.strip() != cf.EMPTY)
             # paragraphs survive: blank lines INSIDE the prose are kept (one), only the edges are
             # trimmed — dropping them all glued paragraphs together on the first re-stamp
             out = []

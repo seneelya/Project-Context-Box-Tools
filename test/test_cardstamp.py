@@ -443,6 +443,33 @@ def test_agent_directive_marker():
     check("marker uses collision-proof <| |>", cf.AGENT_OPEN == "<|fill" and cf.AGENT_CLOSE == "|>")
 
 
+def test_restamp_keeps_slot_next_to_prose_line():
+    """Директива + строка прозы в одном разделе (sim: «Task63: moved …» под незаполненным
+    «How it works»): перештамп держит ОБЕ — слот не теряется, раздел остаётся awaiting.
+    Раньше фильтр снимал директиву, остаток считался заполненным разделом."""
+    fresh = mic.build_card(_PR, _FILE)
+    hist = "2026-11-14 (Plan27-Task63): moved from `src/core` to `src/motion`."
+    card = re.sub(r"(## How it works\n\n<\|fill\d+\|>\n)", r"\1\n" + hist + "\n", fresh, count=1)
+    card = re.sub(r"(## Discrepancies\n\n<\|fill\d+\|>\n)", r"\1\nnote kept.\n", card, count=1)
+    check("fixture: history line placed under How it works", hist in card and "note kept." in card)
+    rep = {"new_entries": [], "preserved_entries": [], "salvaged": [], "renamed": [], "kept_sections": []}
+    again = mic.build_card(_PR, _FILE, mic._parse_old_prose(card, "python"), rep)
+    how = again.split("## How it works", 1)[1].split("## Doc links", 1)[0]
+    disc = again.split("## Discrepancies", 1)[1]
+    check("How it works keeps its slot", _FILL_RE.search(how) is not None)
+    check("How it works keeps the prose line", hist in how)
+    check("slot stays above the prose line", how.index("<|fill") < how.index(hist))
+    check("Discrepancies keeps slot + prose", _FILL_RE.search(disc) is not None and "note kept." in disc)
+    check("no slot lost", len(_FILL_RE.findall(again)) == len(_FILL_RE.findall(card)))
+    # 1.3-форма в том же раскладе (как откаченные агентом карточки sim)
+    old = re.sub(r"<\|fill(\d+)\|>", lambda m: f"<|Agent:{int(m.group(1)):02d} old text |>", card)
+    again13 = mic.build_card(_PR, _FILE, mic._parse_old_prose(old, "python"), dict(rep))
+    check("1.3 form: no slot lost either", len(_FILL_RE.findall(again13)) == len(_FILL_RE.findall(card))
+          and hist in again13)
+    check("re-stamp is stable", mic.build_card(_PR, _FILE, mic._parse_old_prose(again, "python"),
+                                               dict(rep)) == again)
+
+
 def test_number_directives_migrates_old_forms():
     """REQ-018: перенумерация переводит любую форму в `<|fillN|>`; `fill1` не префикс `fill10`."""
     src = "a <|Agent:07 why? |>\nb <Agent: legacy>\nc <|fill9|>\nd <|fill|>\n"
@@ -903,6 +930,7 @@ def main():
     test_is_empty()
     test_agent_directive_marker()
     test_number_directives_migrates_old_forms()
+    test_restamp_keeps_slot_next_to_prose_line()
     test_restamp_old_format_keeps_prose_and_drops_header_when_done()
     test_validate_pending_vs_broken()
     test_resolver_submodule_and_docstring()
