@@ -89,10 +89,11 @@ def entry_key(sig):
     `(`; `T x = v` -> x; a block `... buffer Meta {…} meta` -> Meta; `struct S` -> S."""
     s = re.sub(r"^\s*layout\s*\([^)]*\)\s*", "", sig or "")
     s = s.split("{", 1)[0]
-    if "(" in s:
-        ids = _ID.findall(s.split("(", 1)[0])
-    elif "=" in s:
-        ids = _ID.findall(s.split("=", 1)[0])
+    eq, par = s.find("="), s.find("(")
+    if eq >= 0 and (par < 0 or eq < par):    # `T x[N] = T[N](...)`: the initializer is never the name
+        ids = _ID.findall(re.sub(r"\[[^\]]*\]", "", s[:eq]))
+    elif par >= 0:
+        ids = _ID.findall(s[:par])
     else:
         ids = _ID.findall(re.sub(r"\[[^\]]*\]", "", s))
     return ids[-1] if ids else None

@@ -128,6 +128,9 @@ def test_entry_key():
     check("spec const", ek("layout(constant_id = 0) const bool kFast = true") == "kFast")
     check("shared array", ek("shared float tile[32]") == "tile")
     check("struct", ek("struct Pair") == "Pair")
+    check("REQ-022 ctor init", ek("dvec3 g_rel = dvec3(0)") == "g_rel")
+    check("REQ-022 array init", ek("bool g_have[3] = bool[3](false, false, false)") == "g_have")
+    check("REQ-022 const nested", ek("const dvec3 K = dvec3(vec3(1), 2)") == "K")
 
 
 def test_std430():
@@ -289,6 +292,33 @@ def test_merge(root):
     check("re-stamp byte-stable", mic.build_card(root, rel, old_prose=op2) == again)
 
 
+GLOBALS = """#version 450
+dvec3 g_rel = dvec3(0);
+bool g_have[3] = bool[3](false, false, false);
+const dvec3 K = dvec3(vec3(1.0), 2.0);
+shared float s_tile[64];
+uint g_mode = 0u;
+"""
+
+
+def test_merge_globals(root):
+    """REQ-022: globals with a parenthesised initializer keep their prose on re-stamp."""
+    import re
+    rel = "shaders/globals.glsl"
+    with open(os.path.join(root, *rel.split("/")), "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(GLOBALS)
+    n = [0]
+
+    def fill(m):
+        n[0] += 1
+        return f"Prose {n[0]}."
+    filled = re.sub(r"<\|fill\d+\|>", fill, _card(root, rel))
+    again = mic.build_card(root, rel, old_prose=mic._parse_old_prose(filled, "glsl"))
+    check("globals: no salvage", "## Salvage" not in again)
+    check("globals: no new fill", not re.search(r"<\|fill\d+\|>", again))
+    check("globals: every prose kept", all(f"Prose {i}." in again for i in range(1, n[0] + 1)))
+
+
 def main():
     if not gt.available():
         sys.stdout.write("SKIP: GLSL grammar missing (install the wheel from wheels/)\n")
@@ -300,6 +330,7 @@ def main():
         _write(root)
         test_cards(root)
         test_merge(root)
+        test_merge_globals(root)
     test_many_units()
     test_host_link()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
