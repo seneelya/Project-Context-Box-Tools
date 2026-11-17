@@ -1391,3 +1391,24 @@ def test_moved_python_blocks_are_separated_by_two_blank_lines_and_script_runs_fr
         r = subprocess.run([sys.executable, str(Path(d, "move.py")), "--undo"], cwd=TOOLS_DIR,
                            capture_output=True, text=True, encoding="utf-8", errors="replace")
         assert r.returncode == 0 and not Path(d, "u.py").exists(), r.stdout + r.stderr
+
+
+def test_nested_cpp_pass_carries_no_includes():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "a.hpp")
+        src.write_text("#pragma once\n#include <string>\n#include <vector>\n\nnamespace n {\n\nclass A {\npublic:\n"
+                       "    int one() const {\n        return 1;\n    }\n    int two() const {\n        return 2;\n    }\n"
+                       "};\n\n} // namespace n\n", encoding="utf-8")
+        tgt = Path(d, "b.hpp")
+        tgt.write_text("#pragma once\n\nnamespace n {\n\nclass B {\npublic:\n    int zero() const {\n"
+                       "        return 0;\n    }\n};\n\n} // namespace n\n", encoding="utf-8")
+        script = str(Path(d, "move.py"))
+        r = run_cli("--file", str(src), "--split", "12", str(tgt), "--level", "2", "--after", "7",
+                    "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        assert "add_import('#include" not in Path(script).read_text(encoding="utf-8")
+        r = _run(script, "--apply")
+        assert r.returncode == 0, r.stdout + r.stderr
+        out = tgt.read_text(encoding="utf-8")
+        assert out.startswith("#pragma once\n\nnamespace n {") and "#include" not in out
+        assert "        return 0;\n    }\n\n    int two() const {\n        return 2;\n    }\n};" in out

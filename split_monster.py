@@ -1518,7 +1518,9 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
         list_names[target] = list_name
         out.append(f"{list_name} = [{', '.join(var_names)}]")
 
-        needed = _needed_imports_for_target(linked[target], source_imports, lang, ext)
+        # nested blocks bring no imports — not even a language's carry-always ones (C/C++ includes)
+        needed = (_needed_imports_for_target(linked[target], source_imports, lang, ext)
+                  if linked[target] else {})
         cross_specs = set()
         if graph:
             for spec, (kind, items) in graph["cross"].get(target, {}).items():

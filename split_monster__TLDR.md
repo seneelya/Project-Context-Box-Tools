@@ -61,7 +61,8 @@ split_monster.py --file m.py --split 8 o.py --level 2 --after 123 --out-script m
 
 The place is an **anchor block of the target**, named by its line from that map (its start line; a
 line inside a block = the innermost block holding it): `--after N` right after it, `--before N`
-right before it, `--into N` as its last child (before a closing `}`). `--level` and the anchor
+right before it, `--into N` as its last child (before a closing `}`) — in a C++ class that is the
+last access section (often `private:`); to land in `public:` use `--after` a method there. `--level` and the anchor
 belong to their `--split`; lists spread over its lines like in get_codeblock. The script gets
 `cXX = place(cXX, after=123, indent=4, expect=…)`: the indent is the anchor's (`into` — its
 children's), you may change it (int = spaces, a whitespace string, `None` = text as is); `expect`
