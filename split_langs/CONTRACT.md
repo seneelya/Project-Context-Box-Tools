@@ -20,7 +20,9 @@ LOUDLY at load (`ValueError`), not as silently empty hints. Unclaimed extensions
 
 ## Optional (defaults in `_Defaults`)
 
-`HAS_NAMES=True` · `CUT_LEVEL=1` (md: 0) · `STUBS=False` (md: True — source keeps a stub) ·
+`HAS_NAMES=True` · `CUT_LEVEL=1` (md: 0; the default level of `--split`, an explicit `--level`
+overrides it — a block resolved deeper than 1 in a non-`STUBS` language is NESTED: the core moves it
+without calling the name/import hooks) · `STUBS=False` (md: True — source keeps a stub) ·
 `CONSUMERS=False` (make_interface_card understands the language) · `GRAPH=False` (True needs
 `file_spec(from, to)` and `import_insert_index(segs, ext)`) · `ref_pattern(name)` · `exported_names(text)` (+ `ENFORCES_PRIVACY`, `dangling_exports(lines, names)`,
 `reexport_line(names, spec)`) · `notes(lines, ext)` (warnings for the generated script) · `syntax_ok(data, ext)` (default: get_codeblock's tree-sitter `has_error`).

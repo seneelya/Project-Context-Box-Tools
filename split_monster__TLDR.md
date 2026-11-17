@@ -1,7 +1,7 @@
 # split_monster
 
-Splits a monster file: moves named top-level blocks into other files **byte-for-byte** (block text
-never passes through the model) and generates the imports / re-exports / `export` lines around
+Splits a monster file: moves named blocks into other files **byte-for-byte** (block text
+never passes through the model) — top-level ones by default, any nested block with `--level` and generates the imports / re-exports / `export` lines around
 them. You decide the grouping (`line -> target_file`); it expands that into a throwaway,
 hand-editable Python script; you review/tweak it (append short override lines, never rewrite
 existing ones), run it, run your tests, and fix forward. Rationale and history:
@@ -12,6 +12,8 @@ workflow in short.
 — `LINE` is a block's start line (get it from `get_codeblock --outline` first), or several lines
 for the **same** target in one flag: `--split 12,34,45 "part.md"`. Repeat `--split` for other
 target files; order in the flags doesn't matter (the generator restores source order on its own).
+A line inside a method / inner block takes the **top-level** block that holds it, unless you give
+`--level` (see *Nested blocks* below).
 
 **Markdown:** same CLI; use heading lines from `get_codeblock --file FILE --outline --level 4`
 (or higher). Each `--split` cuts the **heading section** that contains that line (H1..H6), not
@@ -36,6 +38,32 @@ get_codeblock.py --file big.md --outline --level 4
 split_monster.py --file big.md --split 120 "part-a.md" --split 340 "part-b.md" --out-script move.py
 python move.py --apply
 ```
+
+## Nested blocks: `--level`, `--at`, `place()`
+
+`--level L` (after its `--split`) takes the block `get_codeblock --line LINE --level L` shows — a
+method, an inner `if`, a handler inside an object literal; a list spreads over the split's lines
+like in get_codeblock, so top-level and nested blocks go to one file in one request:
+
+```
+split_monster.py --file m.py --split 15,8 o.py --level 1,2 --at 0,5 --out-script move.py
+```
+
+`--at N` = the target line (as the target is now) the block goes BEFORE; 0 / none = head of the
+body. The script gets `cXX = place(cXX, line=N, indent=K)` with a SUGGESTED indent (the indent of
+target line N; before a closing `}` — of the sibling above). You decide: change `line` / `indent`
+(int = spaces, or a whitespace string; `None` = text as is). `indent` shifts the whole block keeping
+each line's indent relative to its first line (Python: lines inside a multi-line string untouched).
+A blank line is added on a side whose neighbour is not an opener/closer.
+
+**The move of a nested block is MECHANICAL** — the tool removes it in one file and makes it appear
+in another; it does not wire it up: no imports, no name hints, no graph/re-export, nothing about
+`self`, closures or the class it left. It guarantees the mechanics only: no line lost or invented,
+indentation shifted as you said. If a file stops parsing (a class left with no body, a method put
+at the wrong depth) the split is **not** rolled back: `PARSE BROKEN` names the file (Python: the
+line), exit code **4**; fix it by hand (e.g. `pass`) or `python move.py --undo`. Top-level splits
+keep the hard rollback. An inner block inside an outer one that moves to the same file is merged
+into it (moved once); to a different file — refused.
 
 ## What's in the generated script
 
@@ -86,8 +114,8 @@ python move.py --apply
 
 | Kind | Cut blocks | Auto `add_import` |
 | --- | --- | --- |
-| `.js` `.mjs` `.ts` `.tsx` `.jsx` | top-level landmarks (`get_codeblock --outline`) | ESM `import` only |
-| `.py` | top-level (classes/functions, assignments) | `import` / `from … import` (via `ast`) |
+| `.js` `.mjs` `.ts` `.tsx` `.jsx` | top-level landmarks (`get_codeblock --outline`); nested with `--level` | ESM `import` only (top-level blocks) |
+| `.py` | top-level (classes/functions, assignments); nested with `--level` | `import` / `from … import` (via `ast`, top-level blocks) |
 | `.md` | heading sections (prefer heading line; `--outline --level 4+`) | no; hint = other sections linking `#anchor` |
 | `.cs` `.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cu` `.cuh` … (generic tree-sitter module) | cut/replace + name hints (names/identifiers come from get_codeblock; namespace/`extern "C"`/`#ifdef` frames are looked into) | every top-level `using` (C#) / unconditional `#include` (C/C++) of the source is carried into each target (no name → header map without a compile; prune by hand); conditional includes and a `namespace` the blocks leave are WARNED about |
 | other get_codeblock languages (css, sh, …) | cut/replace work; **no name hints / auto imports** (script says so) | no |
@@ -105,11 +133,14 @@ Fixtures used: `test/topLevel/*`, `test/mdSRC/*`, `test/tsSRC/dyn/*.mjs`. Regres
 generated `cut`/`replace` line number by the block's recorded fingerprint and touches nothing else.
 Same text elsewhere = moved; same name but edited text = shown as CHANGED, taken only with
 `--accept-changed`; not found = left as is (the run will still refuse it). Hand-written calls
-without `expect=` are listed for you to check.
+without `expect=` are listed for you to check. A nested block (`level=`) is found by its text alone (it has no
+name), its `level=` updated if the code around it changed depth; `place(...)` lines are not
+touched (they point into the target).
 
-To drop something from the plan: **append** a short reassignment at the bottom (e.g.
-`SOME_BLOCKS = [c01]` to keep only `c01`) — never edit/comment an existing line, that means
-retyping it in full for no reason.
+To drop something from the plan: add a short reassignment **before** the `monster.write` /
+`monster.cut` lines at the bottom (they run in order — a line after them comes too late), e.g.
+`SOME_BLOCKS = [c01]` to keep only `c01` — never edit/comment an existing line, that means
+retyping it in full for no reason (changing the numbers in a `place(...)` line is the exception).
 
 ## Taking only this tool out of the toolkit
 

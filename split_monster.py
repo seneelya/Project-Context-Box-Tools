@@ -127,16 +127,20 @@ def _default_cut_level(source_file):
 # --------------------------------------------------------------------------- primitives
 
 class Block:
-    """A byte-exact top-level code range pulled from one source file."""
+    """A byte-exact code range pulled from one source file (a top-level landmark, or — with an
+    explicit `level` — a nested block: method, inner `if`, handler inside a literal)."""
 
-    __slots__ = ("source_file", "start", "end", "text", "level")
+    __slots__ = ("source_file", "start", "end", "text", "level", "nested", "at", "indent")
 
-    def __init__(self, source_file, start, end, text, level=1):
+    def __init__(self, source_file, start, end, text, level=1, nested=False):
         self.source_file = source_file
         self.start = start
         self.end = end
         self.text = text
         self.level = level
+        self.nested = nested   # moved mechanically: no names / imports / graph, parse failure = warning
+        self.at = None         # target line to insert BEFORE (None = head of the target body)
+        self.indent = None     # new base indent in the target (None = text as is)
 
     def __repr__(self):
         return f"Block({self.source_file!r}, {self.start}, {self.end})"
@@ -147,8 +151,8 @@ class Replace(Block):
 
     __slots__ = ("replacement",)
 
-    def __init__(self, source_file, start, end, text, level, replacement):
-        super().__init__(source_file, start, end, text, level)
+    def __init__(self, source_file, start, end, text, level, replacement, nested=False):
+        super().__init__(source_file, start, end, text, level, nested)
         self.replacement = replacement
 
     def __repr__(self):
@@ -193,12 +197,15 @@ def cut(source_file, line, level=None, expect=None):
     Resolves immediately (not lazily) via get_codeblock addressing — no escalation, no
     guessing the end line myself. Default `level` is file-kind specific (see
     `_default_cut_level`): top-level landmarks for code, innermost heading section for
-    Markdown. Pass `level` explicitly to override.
+    Markdown. Pass `level` explicitly to take the block `get_codeblock --line N --level L` shows
+    (method, inner block) — it is moved mechanically: no imports / names, see `place`.
     """
+    lang = split_langs.for_file(source_file)
     if level is None:
-        level = _default_cut_level(source_file)
+        level = lang.CUT_LEVEL
     res = _gcb_get_codeblock(source_file, line_num=line, level=level, query=True)
-    block = Block(source_file, res["start"], res["end"], res["text"], res["level"])
+    nested = not lang.STUBS and res["level"] > 1
+    block = Block(source_file, res["start"], res["end"], res["text"], res["level"], nested)
     _check_expected(block, expect, line)
     return block
 
@@ -212,7 +219,64 @@ def replace(source_file, line, replacement, level=None, expect=None):
     is still the section content moved to the target).
     """
     b = cut(source_file, line, level=level, expect=expect)
-    return Replace(b.source_file, b.start, b.end, b.text, b.level, replacement)
+    return Replace(b.source_file, b.start, b.end, b.text, b.level, replacement, b.nested)
+
+
+def place(block, line=None, indent=None):
+    """Where `block` lands in its target and how deep — the agent's decision, the tool only does it.
+
+    `line` = target line (as the target is NOW, before this script) the block goes BEFORE;
+    None = head of the body, len+1 = the end. `indent` = the block's new base indent: an int (spaces)
+    or a whitespace string; every line keeps its indent RELATIVE to the block's first line (Python:
+    lines inside a multi-line string are left alone); None = text as is. Returns the block."""
+    if line is not None and (not isinstance(line, int) or line < 1):
+        raise ValueError(f"place(line={line!r}): a target line number >= 1, or None for the head")
+    if indent is not None and not (isinstance(indent, int) and indent >= 0 or
+                                   isinstance(indent, str) and indent.strip(" \t") == ""):
+        raise ValueError(f"place(indent={indent!r}): spaces count (int >= 0) or a whitespace string")
+    block.at = line
+    block.indent = indent
+    _reindent(block.text, indent, Path(block.source_file).suffix.lower())  # fail at plan time, not mid-apply
+    return block
+
+
+def _string_interior_rows(text):
+    """Python: 1-based rows that begin INSIDE a multi-line string (their indent is string content).
+    None when the text does not tokenize (then every line is shifted)."""
+    import io
+    import tokenize
+    rows = set()
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+            if tok.type == tokenize.STRING or tok.type == getattr(tokenize, "FSTRING_MIDDLE", -1):
+                rows.update(range(tok.start[0] + 1, tok.end[0] + 1))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return None
+    return rows
+
+
+def _reindent(text, indent, ext=""):
+    """`text` with its base indent (the first non-blank line's) replaced by `indent`. Blank lines stay
+    as they are; a line indented LESS than the base is an error (the block would not stay one block)."""
+    if indent is None:
+        return text
+    new = " " * indent if isinstance(indent, int) else indent
+    segs = re.findall(r"[^\n]*\n|[^\n]+", text)
+    first = next((s for s in segs if s.strip()), "")
+    base = first[:len(first) - len(first.lstrip(" \t"))]
+    if base == new:
+        return text
+    skip = (_string_interior_rows(text) or set()) if ext == ".py" else set()
+    out = []
+    for row, s in enumerate(segs, start=1):
+        if not s.strip() or row in skip:
+            out.append(s)
+            continue
+        if not s.startswith(base):
+            raise ValueError(f"place(indent=...): line {row} of the block is indented less than its "
+                             f"first line — cannot shift it as one piece: {s.rstrip()[:60]!r}")
+        out.append(new + s[len(base):])
+    return "".join(out)
 
 
 def add_import(text):
@@ -278,11 +342,45 @@ def _reconstruct_body(blocks):
     ordered = sorted(blocks, key=lambda b: b.start, reverse=True)
     body_texts = []
     for b in ordered:
-        body_texts.insert(0, b.text)
+        body_texts.insert(0, _placed_text(b))
     lines = []
     for text in body_texts:
         lines.extend(text.splitlines())
     return lines
+
+
+def _placed_text(b):
+    """The text a block lands with in its target: `.text`, shifted by `place(indent=...)`."""
+    return _reindent(b.text, getattr(b, "indent", None), Path(b.source_file).suffix.lower())
+
+
+def _insert_placed(raw, blocks, eol, target_file):
+    """`raw` (the target as it is) with every `place(line=...)` block inserted BEFORE that line —
+    numbers refer to the target before this run; same line = source order. Returns the new raw."""
+    segs = _segments(raw)
+    if segs and not segs[-1].endswith("\n"):
+        segs[-1] += eol
+    for b in sorted(blocks, key=lambda b: (b.at, b.start), reverse=True):
+        if not 1 <= b.at <= len(segs) + 1:
+            raise ValueError(f"place(line={b.at}) for block [{b.start}-{b.end}]: {target_file} has "
+                             f"{len(segs)} line(s) — use 1..{len(segs) + 1}")
+        text = _placed_text(b).replace("\r\n", "\n")
+        if not text.endswith("\n"):
+            text += "\n"
+        new = _segments(text.replace("\n", eol))
+        i = b.at - 1
+        prev = segs[i - 1].strip() if i > 0 else ""
+        nxt = segs[i].strip() if i < len(segs) else ""
+        if prev and not prev.endswith(_OPENERS):      # a blank line from the neighbours, not inside `{`/`:`
+            new.insert(0, eol)
+        if nxt and not nxt.startswith(_CLOSERS):
+            new.append(eol)
+        segs[i:i] = new
+    return "".join(segs)
+
+
+_OPENERS = ("{", "(", "[", ":")
+_CLOSERS = ("}", ")", "]")
 
 
 def _append_lines(segs, lines, eol):
@@ -355,6 +453,17 @@ def _tidy_seam(segs, i):
         del segs[i:i + min(b1, b2)]             # 2+2 blanks -> 2, not 4
 
 
+def _parse_error_at(data, ext):
+    """` (line N: msg)` for Python — where the agent has to look; '' for other languages."""
+    if ext.lower() != ".py":
+        return ""
+    try:
+        compile(data.decode("utf-8", "replace").lstrip("\ufeff"), "<split>", "exec")
+    except SyntaxError as e:
+        return f" (line {e.lineno}: {e.msg})"
+    return ""
+
+
 def _syntax_ok(data, ext):
     """True / False / None (= this format has no syntax check) — the language's own hook."""
     try:
@@ -380,6 +489,7 @@ class _Monster:
         self._run = None         # usage record of this move.py run (logged once, at exit)
         self._plan = []          # (target, blocks, imports, lines) — shown by the dry-run summary
         self._moved = {}         # name -> {"from": "file:start-end", "to": target} — for failure hints
+        self._mechanical = False  # a nested block moved: a file that stops parsing is reported, not rolled back
 
     def _note(self, **kv):
         """Accumulate the run's usage record; the first call arms the at-exit log write."""
@@ -546,15 +656,28 @@ class _Monster:
 
     def write(self, target_file, blocks, imports=None, append=None):
         """Write `blocks`/`imports` into `target_file` (dedup imports; new blocks go BEFORE
-        whatever body is already there). `append` = generated lines added at the END (block text is
-        never touched). Only ever touches `target_file` — never `source_file`."""
+        whatever body is already there; a block given `place(line=N)` goes before line N of the target
+        instead). `append` = generated lines added at the END (block text is never touched, only
+        shifted by `place(indent=...)`). Only ever touches `target_file` — never `source_file`."""
         imports = imports or []
         header = _dedup_preserve_order([imp.text for imp in imports])
-        new_body = _reconstruct_body(blocks)
-
         target = Path(target_file)
+        placed = [b for b in blocks if getattr(b, "at", None) is not None]
+        if placed and not target.exists():
+            far = [b.at for b in placed if b.at != 1]
+            if far:
+                raise ValueError(f"place(line={far[0]}): {target_file} does not exist yet — "
+                                 f"only line=1 / None (head of the new file)")
+            placed = []
+        head = [b for b in blocks if b not in placed]
+        new_body = _reconstruct_body(head)
+        if any(getattr(b, "nested", False) for b in blocks):
+            self._mechanical = True
+
         if target.exists():
             old_raw, eol, bom = _read_raw(target)
+            if placed:
+                old_raw = _insert_placed(old_raw, placed, eol, target_file)
             old_header, old_body = _split_header_body(old_raw.replace("\r\n", "\n"))
             header = _dedup_preserve_order(old_header + header)
             body = new_body + old_body  # this batch goes BEFORE whatever was already there
@@ -603,6 +726,8 @@ class _Monster:
                 raise ValueError(
                     f"block from {b.source_file!r} passed to monster.cut({source_file!r})"
                 )
+        if any(getattr(b, "nested", False) for b in blocks):
+            self._mechanical = True
         if not _is_apply():
             print(f"[dry-run] would cut {len(blocks)} block(s) from {source_file}")
             self._dry_summary(source_file, blocks, imports)
@@ -639,6 +764,8 @@ class _Monster:
                 raise TypeError(
                     f"monster.replace expects Replace from replace(), got {type(b).__name__}"
                 )
+        if any(getattr(b, "nested", False) for b in blocks):
+            self._mechanical = True
         if not _is_apply():
             print(f"[dry-run] would replace {len(blocks)} block(s) in {source_file}")
             self._dry_summary(source_file, blocks, imports)
@@ -701,10 +828,12 @@ class _Monster:
            (a deduplicated import line is the one tolerated exception).
         2. Nothing invented: lines that appeared are only imports / replacement stubs.
         3. Nothing stopped parsing (only where it parsed before).
-        On a failure every touched file is restored byte-for-byte and the run exits 1."""
+        On a failure every touched file is restored byte-for-byte and the run exits 1 — except a
+        parse failure when a NESTED block moved (mechanical move: the agent wires it up by hand):
+        then the split stays, the broken files are named, and the run exits 4 (`--undo` reverts)."""
         if not self._before:
             return
-        before, after, problems = Counter(), Counter(), []
+        before, after, problems, broken = Counter(), Counter(), [], []
         for path, old in self._before.items():
             if old is not None:
                 before.update(_nonblank(old))
@@ -714,7 +843,7 @@ class _Monster:
             ext = Path(path).suffix
             if now is not None and _syntax_ok(now, ext) is False and \
                     (old is None or _syntax_ok(old, ext) is not False):
-                problems.append(f"{path}: no longer parses after the move")
+                broken.append(f"{path}: no longer parses after the move{_parse_error_at(now, ext)}")
         present = set(after)
         lost = {ln: n for ln, n in (before - after).items()
                 if not (_IMPORT_LINE_RE.match(ln) and ln in present)}
@@ -725,6 +854,8 @@ class _Monster:
         if extra:
             sample = "; ".join(f"{n}x {ln[:60]!r}" for ln, n in list(extra.items())[:5])
             problems.append(f"{sum(extra.values())} line(s) INVENTED: {sample}")
+        if broken and not self._mechanical:
+            problems.extend(broken)
         if problems:
             for path, old in self._before.items():
                 if old is None:
@@ -737,6 +868,16 @@ class _Monster:
             for pr in problems:
                 print(f"  - {pr}", file=sys.stderr)
             sys.exit(1)
+        if broken:
+            print(f"verified: {sum(before.values())} non-blank line(s) conserved across "
+                  f"{len(self._before)} file(s)")
+            print("PARSE BROKEN — NOT rolled back (a nested block was moved mechanically; wire it up "
+                  "by hand, or `python <this script> --undo`):", file=sys.stderr)
+            for pr in broken:
+                print(f"  - {pr}", file=sys.stderr)
+            self._before, self._added, self._repl = {}, Counter(), Counter()
+            self._note(outcome="applied_parse_broken", problems=len(broken))
+            sys.exit(4)
         print(f"verified: {sum(before.values())} non-blank line(s) conserved across "
               f"{len(self._before)} file(s), all parse")
         self._report_undefined()
@@ -846,7 +987,7 @@ def _help_lines(source_kind="code"):
     it go re-read split_monster.py's source to find out."""
     import inspect
 
-    entries = [("cut", cut), ("replace", replace), ("add_import", add_import),
+    entries = [("cut", cut), ("replace", replace), ("add_import", add_import), ("place", place),
                ("monster.write", _Monster.write), ("monster.cut", _Monster.cut),
                ("monster.replace", _Monster.replace),
                ("monster.consumers", _Monster.consumers)]
@@ -1075,11 +1216,46 @@ _MANUAL_APPEND_NOTE = [
     "# 'кандидат' ниже (если есть) — не единственный способ забрать что-то ещё в перенос.",
     "# Тул работает без графа ссылок и мог не увидеть/не предложить нужное, если оно лежит",
     "# не рядом с целью (например константу из другого конца файла). В этом случае можно",
-    "# найти нужный диапазон самому (get_codeblock --outline) и дописать снизу —",
+    "# найти нужный диапазон самому (get_codeblock --outline) и дописать ПЕРЕД строками",
+    "# monster.write/monster.cut внизу (они выполняются по порядку — строка после них опоздает) —",
     "# cut(FILE, LINE) или replace(FILE, LINE, STUB) + STUB='…\\n', присвоить cXX/rXX,",
     "# добавить в _BLOCKS и в monster.cut или monster.replace. Перегенерировать не нужно.",
+    "# Вложенный блок: cut(FILE, LINE, level=L) — тот, что показывает get_codeblock --line LINE",
+    "# --level L; place(cXX, line=N, indent=K) — вставить перед строкой N цели со сдвигом отступа.",
     "# --- конец ---",
 ]
+
+
+def _target_indent(target, at):
+    """Indent of the line a block inserted before `at` lines up with: the next non-blank line at/after
+    `at`, else the last non-blank one before it; (indent, "why") — a SUGGESTION for place()."""
+    try:
+        lines = Path(target).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return 0, "цели ещё нет"
+    if at is None:
+        return 0, "голова цели"
+    after = [(i, ln) for i, ln in enumerate(lines[at - 1:], start=at) if ln.strip()]
+    before = [(i, ln) for i, ln in enumerate(lines[:at - 1], start=1) if ln.strip()]
+    pick = after[0] if after else (before[-1] if before else None)
+    if pick and before and pick[1].lstrip().startswith(_CLOSERS):
+        pick = before[-1]          # `};` closes the container — line up with the sibling above it
+    if pick is None:
+        return 0, "цель пустая"
+    i, ln = pick
+    ws = ln[:len(ln) - len(ln.lstrip(" \t"))]
+    return (len(ws) if set(ws) <= {" "} else ws), f"как у строки {i} цели"
+
+
+def _place_lines(varname, b, target, at):
+    """The generated `place(...)` call: where the block lands and a suggested indent — the agent's to change."""
+    first = next((ln for ln in b.text.splitlines() if ln.strip()), "")
+    own = len(first) - len(first.lstrip(" \t"))
+    indent, why = _target_indent(target, at)
+    where = f"перед строкой {at} цели" if at is not None else "в голову цели"
+    return [f"# место: {where}; отступ {indent!r} — {why} (у блока сейчас {own}). Решение агента: "
+            f"поменяй line/indent, indent=None — текст как есть",
+            f"{varname} = place({varname}, line={at!r}, indent={indent!r})"]
 
 
 def generate(file_path, splits, out_path, project_root=".", check=None, check_cwd=None, check_timeout=600):
@@ -1099,9 +1275,40 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
 
     by_target = {}
     seen_ranges = {}  # (start, end) -> target already claimed for this exact resolved range
-    for line_no, target in splits:
-        block = cut(file_path, line_no)
+    asked = {}        # id(block) -> (line_no, level asked or None, at or None)
+    for item in splits:
+        line_no, target, level, at = (tuple(item) + (None, None))[:4]
+        block = cut(file_path, line_no, level=level)
         key = (block.start, block.end)
+        inner_of = outer_of = None
+        for (s0, e0), t0 in seen_ranges.items():
+            if (s0, e0) == key:
+                continue
+            if s0 <= block.start and block.end <= e0:
+                inner_of = (s0, e0, t0)
+            elif block.start <= s0 and e0 <= block.end:
+                outer_of = (s0, e0, t0)
+            else:
+                continue
+            if t0 != target:
+                raise ValueError(
+                    f"--split {line_no} resolves to [{block.start}-{block.end}], which overlaps "
+                    f"[{s0}-{e0}] already going to {t0!r} — a line can move only once: drop the inner "
+                    f"block (it travels inside the outer one) or take the outer one apart.")
+        if inner_of:       # same target: it already travels inside the outer block
+            print(f"# note: --split {line_no} [{block.start}-{block.end}] lies inside [{inner_of[0]}-"
+                  f"{inner_of[1]}] going to the same file — moves with it, not twice")
+            continue
+        if outer_of:       # same target: the outer block takes the inner ones already planned
+            gone = [b for b in by_target[target] if block.start <= b.start and b.end <= block.end]
+            by_target[target] = [b for b in by_target[target] if b not in gone]
+            for b in gone:
+                seen_ranges.pop((b.start, b.end), None)
+                print(f"# note: [{b.start}-{b.end}] lies inside --split {line_no} [{block.start}-"
+                      f"{block.end}] going to the same file — moves with it, not twice")
+        if at is not None and at != 1 and not Path(target).exists():
+            raise ValueError(f"--at {at} for --split {line_no}: {target} does not exist yet — "
+                             f"only the head of a new file (no --at, or 1)")
         prev_target = seen_ranges.get(key)
         if prev_target is not None:
             if prev_target != target:
@@ -1116,15 +1323,19 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
                   f"([{block.start}-{block.end}]) — deduped, not written twice")
             continue
         seen_ranges[key] = target
+        asked[id(block)] = (line_no, level, at)
         by_target.setdefault(target, []).append(block)
 
-    graph = _split_graph(file_path, lang, ext, by_target, all_lines, project_root)
+    # nested blocks move mechanically: no names, imports or graph — those are about top-level names
+    linked = {t: [b for b in bl if not b.nested] for t, bl in by_target.items()}
+    graph = _split_graph(file_path, lang, ext, {t: bl for t, bl in linked.items() if bl},
+                         all_lines, project_root)
 
     out = [
         f"# сгенерировано: split_monster --file {file_path} --split ...",
         "import sys",
         f'sys.path.insert(0, r"{_HERE}")',
-        "from split_monster import cut, replace, add_import, monster",
+        "from split_monster import cut, replace, add_import, place, monster",
         "monster.handle_undo()  # `python this_script.py --undo` puts every touched file back (originals saved at --apply)",
         f"monster.expect_source({file_path!r}, {src_hash!r})  # warns if the file changed since; blocks re-checked",
         "",
@@ -1171,7 +1382,8 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
         var_names = []
         for b in blocks:
             tag += 1
-            same_level_rows = [r for r in outline if r["level"] == b.level]
+            line_no, level_asked, at = asked[id(b)]
+            same_level_rows = [] if b.nested else [r for r in outline if r["level"] == b.level]
             for cand, position in _orphan_candidates(same_level_rows, b.start, b.end):
                 key = (cand["start"], cand["end"])
                 if key in printed_candidates or _already_claimed(cand):
@@ -1182,13 +1394,27 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
                     f"уровень {b.level}, {position} блока [{b.start}-{b.end}] — забрать: "
                     f"cut({file_path!r}, {cand['start']}), присвоить своему cXX"
                 )
-            for h in _hint_lines(b, all_lines, top_level_names, lang, ext):
+            if b.nested:
+                out.append(f"# ВЛОЖЕННЫЙ блок (уровень {b.level}): перенос МЕХАНИЧЕСКИЙ — тул убирает его здесь "
+                           f"и проявляет в {target!r}, скобки/отступы целы; импорты, имена, self/замыкания, "
+                           f"место (line) и отступ (indent) — решает агент. Цель/источник не парсится → "
+                           f"не откат, код 4.")
+            for h in ([] if b.nested else _hint_lines(b, all_lines, top_level_names, lang, ext)):
                 out.append(h)
-            names = lang.declared_names(b.text, ext)
+            names = [] if b.nested else lang.declared_names(b.text, ext)
             if len(names) > 1:
                 out.append(f"# банд: {len(names)} объявлений в одном диапазоне — "
                             f"{', '.join(names)}")
             out.append(_preview_line(b, lang, ext))
+            level_arg, cut_line = "", b.start
+            if level_asked is not None:
+                level_arg = f"level={b.level}, "
+                try:   # the block's own first line must address the same block, else keep the asked line
+                    again = cut(file_path, b.start, level=b.level)
+                    if (again.start, again.end) != (b.start, b.end):
+                        cut_line = line_no
+                except Exception:
+                    cut_line = line_no
             varname = f"c{tag:02d}"
             if is_md:
                 stubname = f"STUB_{tag:02d}"
@@ -1198,12 +1424,14 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
                 )
                 out.append(f'{stubname} = ""')
                 out.append(
-                    f"{varname} = replace({file_path!r}, {b.start}, {stubname}, "
+                    f"{varname} = replace({file_path!r}, {cut_line}, {stubname}, {level_arg}"
                     f"expect={_fingerprint(b.text)!r})  #{tag}"
                 )
             else:
-                out.append(f"{varname} = cut({file_path!r}, {b.start}, "
+                out.append(f"{varname} = cut({file_path!r}, {cut_line}, {level_arg}"
                            f"expect={_fingerprint(b.text)!r})  #{tag}")
+            if b.nested or at is not None:
+                out.extend(_place_lines(varname, b, target, at))
             var_names.append(varname)
             all_symbols.extend(names)
         out.append("")
@@ -1211,7 +1439,7 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
         list_names[target] = list_name
         out.append(f"{list_name} = [{', '.join(var_names)}]")
 
-        needed = _needed_imports_for_target(blocks, source_imports, lang, ext)
+        needed = _needed_imports_for_target(linked[target], source_imports, lang, ext)
         cross_specs = set()
         if graph:
             for spec, (kind, items) in graph["cross"].get(target, {}).items():
@@ -1291,6 +1519,30 @@ _REBASE_PREVIEW_RE = re.compile(r"^# (?P<decl>.*?)  \[(?P<s>\d+)-(?P<e>\d+)\]\s*
 _REBASE_HASH_RE = re.compile(r"^(?P<pre>monster\.expect_source\((?:'[^']*'|\"[^\"]*\"), )['\"][0-9a-f]+['\"]")
 
 
+def _nested_hits(src_file, segs, fp, level, old_range):
+    """Blocks of the CURRENT source whose text has fingerprint `fp` — for a `cut(..., level=L)` call.
+    The outline has no inner blocks (`if`, loops), so: slide a window of the old block's length over
+    the lines, and keep a window only if get_codeblock still addresses exactly it (at L, or the level
+    it is at now — wrapping/unwrapping code shifts levels)."""
+    if not old_range:
+        return []
+    size = old_range[2] - old_range[1] + 1
+    found = []
+    for k in range(0, len(segs) - size + 1):
+        if _fingerprint("".join(segs[k:k + size])) != fp:
+            continue
+        start, end = k + 1, k + size
+        for lv in [level] + [x for x in range(1, 10) if x != level]:
+            try:
+                b = cut(src_file, start, level=lv)
+            except Exception:
+                continue
+            if (b.start, b.end) == (start, end):
+                found.append(b)
+                break
+    return found
+
+
 def rebase(script_path, write=False, accept_changed=False):
     """Re-anchor an existing generated script to the CURRENT source — without regenerating it.
 
@@ -1332,9 +1584,12 @@ def rebase(script_path, write=False, accept_changed=False):
     for b in by_range.values():
         by_fp.setdefault(_fingerprint(b.text), []).append(b)
 
+    src_segs = _segments(_read_raw(src_file)[0])
+
     report, unresolved = [], 0
     for i, m in calls:
         old_line, fp = int(m.group("line")), m.group("fp")
+        lvl = re.search(r"\blevel=(\d+)", m.group("mid"))
         decl, old_range = None, None
         for j in range(i - 1, max(i - 6, -1), -1):
             pm = _REBASE_PREVIEW_RE.match(lines[j])
@@ -1342,11 +1597,12 @@ def rebase(script_path, write=False, accept_changed=False):
                 decl, old_range = pm.group("decl"), (j, int(pm.group("s")), int(pm.group("e")))
                 break
         new_block, how = None, None
-        hits = by_fp.get(fp, [])
+        hits = (_nested_hits(src_file, src_segs, fp, int(lvl.group(1)), old_range)
+                if lvl else by_fp.get(fp, []))
         if hits:
             new_block = min(hits, key=lambda b: abs(b.start - old_line))
             how = "same" if new_block.start == old_line else "moved"
-        else:
+        elif not lvl:   # a nested block has no name to look for — its text or nothing
             name = lang.name_from_decl(decl) if decl else None
             named = [b for b in by_range.values() if name and name in lang.declared_names(b.text, ext)]
             if len(named) == 1:
@@ -1365,7 +1621,10 @@ def rebase(script_path, write=False, accept_changed=False):
                           f"TEXT differs — review it, then re-run with --accept-changed")
             continue
         new_fp = fp if how == "moved" else _fingerprint(new_block.text)
-        lines[i] = f"{m.group('pre')}{new_block.start}{m.group('mid')}'{new_fp}'{m.group('post')}"
+        mid = m.group("mid")
+        if lvl:
+            mid = re.sub(r"\blevel=\d+", f"level={new_block.level}", mid)
+        lines[i] = f"{m.group('pre')}{new_block.start}{mid}'{new_fp}'{m.group('post')}"
         if old_range:
             j = old_range[0]
             lines[j] = lines[j].replace(f"[{old_range[1]}-{old_range[2]}]", f"[{new_block.start}-{new_block.end}]")
@@ -1538,6 +1797,9 @@ _CLI_EPILOG = """
   1. get_codeblock --file F --outline            — границы блоков (.md: --level 4+)
      split_monster --file F --investigate        — граф блоков, хабы, семьи, стартовая команда
   2. split_monster --file F --split LINES TARGET ... --out-script move.py [--check "ТЕСТЫ"]
+     вложенные блоки: --split 15,8 o.py --level 1,2 --at 0,5 — уровень как в get_codeblock --level,
+     --at = строка цели, ПЕРЕД которой встанет блок; в скрипте place(cXX, line=N, indent=K) —
+     отступ предложен, решает агент. Перенос вложенного — МЕХАНИЧЕСКИЙ: без импортов/имён/графа.
   3. python move.py            — dry-run: план, таблица файлов, ничего не пишет
      python move.py --apply    — разрез; verify (ничего не потеряно/не выдумано, всё парсится,
                                  иначе откат), затем --check (если задан)
@@ -1546,7 +1808,8 @@ _CLI_EPILOG = """
   Источник изменился после генерации → split_monster --rebase move.py [--write] (ручные правки
   скрипта не трогаются); блок по строке другой текст → стоп, обход --force.
   Коды выхода move.py: 0 ок · 1 verify откатил · 2 план устарел (блок не тот) · 3 разрез применён,
-  --check упал.
+  --check упал · 4 разрез с вложенным блоком применён, но файл не парсится (без отката: доправить
+  руками или --undo).
 
 Языки (модуль на язык — split_langs/, контракт split_langs/CONTRACT.md):
   .py                      — имена/импорты через ast; реэкспорт из источника (публичные имена и имена,
@@ -1561,7 +1824,8 @@ _CLI_EPILOG = """
 Что в сгенерированном скрипте: cut/replace с отпечатками блоков (expect=…), add_import на каждую цель,
 SOURCE_IMPORTS (что нужно остатку источника), предупреждения (# NOTE / # WARNING), «кандидаты» —
 комментарии-сироты рядом с переносимыми блоками (забрать вручную), monster.consumers (кто снаружи
-импортирует имена). Правка скрипта = ДОПИСАТЬ короткую строку снизу, существующие не переписывать.
+импортирует имена), place() для вложенных/--at блоков. Правка скрипта = ДОПИСАТЬ короткую строку
+ПЕРЕД monster.write/monster.cut внизу, существующие не переписывать (числа в place() — можно).
 Подсказки по именам — по идентификаторам (ast / tree-sitter), не полноценный резолвер: проверяйте.
 
 Лог использования: CONFIG__TOOLS.LOG_ENABLED_TOOLS содержит "split_monster" → LOG_DIR/split_monster.log.jsonl.
@@ -1593,6 +1857,35 @@ def _cli(argv=None):
         _log_call(record)
 
 
+class _SplitAction(argparse.Action):
+    """`--split LINES TARGET` — opens a group that the following `--level` / `--at` refine."""
+
+    def __call__(self, parser, ns, values, option_string=None):
+        groups = getattr(ns, self.dest, None) or []
+        groups.append({"lines": values[0], "target": values[1], "level": None, "at": None})
+        setattr(ns, self.dest, groups)
+
+
+class _SplitOptAction(argparse.Action):
+    """`--level` / `--at` — belong to the nearest `--split` BEFORE them (get_codeblock-style list)."""
+
+    def __call__(self, parser, ns, values, option_string=None):
+        groups = getattr(ns, "split", None)
+        if not groups:
+            parser.error(f"{option_string} относится к --split — ставь его ПОСЛЕ своего --split")
+        key = self.dest
+        if groups[-1][key] is not None:
+            parser.error(f"{option_string} дважды для одного --split ({groups[-1]['lines']} {groups[-1]['target']})")
+        groups[-1][key] = values
+
+
+def _broadcast(values, n):
+    """get_codeblock rule: one value -> every line; shorter list -> its last value repeats; extra ignored."""
+    if not values:
+        return [None] * n
+    return [values[min(i, len(values) - 1)] for i in range(n)]
+
+
 def _cli_impl(argv=None):
     p = argparse.ArgumentParser(
         prog="split_monster",
@@ -1610,9 +1903,22 @@ def _cli_impl(argv=None):
         help="файл-монстр (py/js/ts/tsx/cs/cpp/md/… — см. список языков ниже); блоки режет get_codeblock",
     )
     p.add_argument(
-        "--split", nargs=2, action="append", metavar=("LINE", "TARGET"),
+        "--split", nargs=2, action=_SplitAction, metavar=("LINE", "TARGET"),
         help="номер строки (или список через запятую: 12,34,45) + целевой файл; "
              "флаг повторяемый — каждая пара LINE TARGET. Обязателен без --investigate/--rebase.",
+    )
+    p.add_argument(
+        "--level", action=_SplitOptAction, metavar="L[,L...]",
+        help="уровень блока для строк СВОЕГО --split (стоит после него): тот блок, который показывает "
+             "get_codeblock --line LINE --level L (1 = верхний, по умолчанию). Список раскладывается по "
+             "строкам как в get_codeblock (короче — повторяется последнее). Уровень > 1 = ВЛОЖЕННЫЙ блок: "
+             "перенос механический — без импортов/имён/графа; место и отступ в цели — place() в скрипте.",
+    )
+    p.add_argument(
+        "--at", action=_SplitOptAction, metavar="N[,N...]",
+        help="строка цели (как она есть сейчас), ПЕРЕД которой встанет блок своего --split; 0 = голова "
+             "(по умолчанию). Скрипт получит place(cXX, line=N, indent=K) с предложенным отступом "
+             "(как у строки N) — агент правит число.",
     )
     p.add_argument(
         "--out-script",
@@ -1657,9 +1963,12 @@ def _cli_impl(argv=None):
         p.error("--split и --out-script обязательны (кроме --investigate/--rebase)")
 
     splits = []
-    for line_token, target in args.split:
-        for line_no in _parse_split_line_token(line_token):
-            splits.append((line_no, target))
+    for g in args.split:
+        lines = _parse_split_line_token(g["lines"])
+        levels = _broadcast(_parse_split_line_token(g["level"]) if g["level"] else None, len(lines))
+        ats = _broadcast(_parse_split_line_token(g["at"]) if g["at"] else None, len(lines))
+        for line_no, level, at in zip(lines, levels, ats):
+            splits.append((line_no, g["target"], level, at or None))
     generate(args.file, splits, args.out_script, project_root=args.project_root,
              check=args.check, check_cwd=args.check_cwd, check_timeout=args.check_timeout)
 

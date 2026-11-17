@@ -248,8 +248,13 @@ def test_generate_accepts_comma_separated_lines_for_one_target():
         )
         assert result.returncode == 0, result.stderr
         text = Path(out_script).read_text(encoding="utf-8")
-        assert text.count("= replace(") == 2
-        assert "MERGED_BLOCKS = [c01, c02]" in text
+        # line 9 is an H3 inside the H2 that line 5 takes, same target -> it moves inside it, not twice
+        # (planning both used to cut overlapping ranges; verify would roll the whole split back)
+        assert text.count("= replace(") == 1
+        assert "MERGED_BLOCKS = [c01]" in text
+        assert "moves with it, not twice" in result.stdout
+        result = run_cli("--file", src, "--split", "9,5", str(Path(d) / "merged.md"), "--out-script", out_script)
+        assert result.returncode == 0 and "MERGED_BLOCKS = [c01]" in Path(out_script).read_text(encoding="utf-8")
 
 
 def test_generate_dedupes_lines_that_resolve_to_the_same_band():
@@ -1149,7 +1154,182 @@ def test_help_is_current():
     """--help must describe what the tool does NOW (a stale help misleads the agent that reads it)."""
     out = run_cli("--help").stdout
     for must in ("--investigate", "--check", "--undo", "--rebase", "split_langs", "move.py.undo",
-                 "verify", "Коды выхода"):
+                 "verify", "Коды выхода", "--level", "--at", "place(", "МЕХАНИЧЕСКИЙ"):
         assert must in out, must
     for stale in ("(v0)", "НЕ РЕАЛИЗОВАНО", "Python import и Markdown — нет"):
         assert stale not in out, stale
+
+
+# --------------------------------------------------------------------------- nested blocks (--level / --at / place)
+
+NESTED_PY = (
+    "import os\n"
+    "\n"
+    "\n"
+    "class Big:\n"
+    "    def a(self):\n"
+    "        return os.sep\n"
+    "\n"
+    "    def b(self):\n"
+    "        doc = \"\"\"\n"
+    "keep me at column 0\n"
+    "\"\"\"\n"
+    "        return self.a() + doc\n"
+    "\n"
+    "\n"
+    "def top():\n"
+    "    return Big().b()\n"
+)
+NESTED_TARGET = (
+    "class Other:\n"
+    "    def x(self):\n"
+    "        return 1\n"
+    "\n"
+    "    def y(self):\n"
+    "        return 2\n"
+)
+
+
+def _nested_setup(d, *extra):
+    src = Path(d, "m.py")
+    src.write_text(NESTED_PY, encoding="utf-8")
+    tgt = Path(d, "o.py")
+    tgt.write_text(NESTED_TARGET, encoding="utf-8")
+    script = str(Path(d, "move.py"))
+    r = run_cli("--file", str(src), "--split", "15,8", str(tgt), *extra, "--out-script", script)
+    return src, tgt, script, r
+
+
+def test_nested_and_top_level_blocks_go_to_one_file_in_one_request():
+    with tempfile.TemporaryDirectory() as d:
+        src, tgt, script, r = _nested_setup(d, "--level", "1,2", "--at", "0,5")
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "level=2" in text and "ВЛОЖЕННЫЙ блок (уровень 2)" in text
+        assert "place(c02, line=5, indent=4)" in text            # suggestion: indent of target line 5
+        r = _run(script, "--apply")
+        assert r.returncode == 0, r.stdout + r.stderr
+        out = tgt.read_text(encoding="utf-8")
+        assert "def top():" in out
+        assert "        return 1\n\n    def b(self):\n" in out            # inside Other
+        assert "        return self.a() + doc\n\n    def y(self):" in out  # blank-separated from y
+        assert "\nkeep me at column 0\n" in out                  # string interior is not shifted
+        rest = src.read_text(encoding="utf-8")
+        assert "def b(self)" not in rest and "def a(self)" in rest
+        assert _run(script, "--undo").returncode == 0
+        assert src.read_text(encoding="utf-8") == NESTED_PY
+        assert tgt.read_text(encoding="utf-8") == NESTED_TARGET
+
+
+def test_nested_block_gets_no_imports_or_names():
+    with tempfile.TemporaryDirectory() as d:
+        src, tgt, script, r = _nested_setup(d, "--level", "1,2", "--at", "0,5")
+        text = Path(script).read_text(encoding="utf-8")
+        consumers = text.split("\nmonster.consumers(")[1].split(")")[0]
+        assert "'top'" in consumers and "'b'" not in consumers   # only the top-level block is linked
+
+
+def test_place_shifts_indent_relative_and_refuses_a_less_indented_line():
+    assert sm._reindent("    def f():\n        return 1\n", 0) == "def f():\n    return 1\n"
+    assert sm._reindent("def f():\n    return 1\n", "\t") == "\tdef f():\n\t    return 1\n"
+    assert sm._reindent("    x = 1\n\n    y = 2\n", 8) == "        x = 1\n\n        y = 2\n"
+    assert sm._reindent("    x = 1\n", None) == "    x = 1\n"
+    try:
+        sm._reindent("    a\nb\n", 0)
+    except ValueError as e:
+        assert "indented less" in str(e)
+    else:
+        raise AssertionError("a line left of the block's first line must be refused")
+
+
+def test_nested_move_that_breaks_parsing_stays_applied_exit_4_and_undo_works():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "s.py")
+        original = "class One:\n    def only(self):\n        return 1\n\n\nx = 1\n"
+        src.write_text(original, encoding="utf-8")
+        script = str(Path(d, "move.py"))
+        r = run_cli("--file", str(src), "--split", "2", str(Path(d, "n.py")), "--level", "2",
+                    "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        assert "place(c01, line=None, indent=0)" in Path(script).read_text(encoding="utf-8")
+        r = _run(script, "--apply")
+        assert r.returncode == 4, r.stdout + r.stderr
+        assert "PARSE BROKEN" in r.stderr and "s.py" in r.stderr and "(line " in r.stderr
+        assert Path(d, "n.py").read_text(encoding="utf-8") == "def only(self):\n    return 1\n"
+        assert "def only" not in src.read_text(encoding="utf-8")        # NOT rolled back
+        assert _run(script, "--undo").returncode == 0
+        assert src.read_text(encoding="utf-8") == original and not Path(d, "n.py").exists()
+
+
+def test_top_level_parse_failure_still_rolls_back():
+    """Only a NESTED move relaxes the parse check — a plain top-level split keeps the hard rollback."""
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "s.py")
+        original = "def f():\n    return 1\n\n\nx = 1\n"
+        src.write_text(original, encoding="utf-8")
+        script = str(Path(d, "move.py"))
+        assert run_cli("--file", str(src), "--split", "1", str(Path(d, "n.py")),
+                       "--out-script", script).returncode == 0
+        text = Path(script).read_text(encoding="utf-8")
+        text = text.replace("\nmonster.write(", "\nc01 = place(c01, indent=4)\nmonster.write(", 1)
+        Path(script).write_text(text, encoding="utf-8")
+        r = _run(script, "--apply")
+        assert r.returncode == 1 and "VERIFY FAILED" in r.stderr, r.stdout + r.stderr
+        assert src.read_text(encoding="utf-8") == original and not Path(d, "n.py").exists()
+
+
+def test_inner_block_inside_an_outer_one_already_moving_is_refused():
+    with tempfile.TemporaryDirectory() as d:
+        src, tgt, script, r = _nested_setup(d)
+        r = run_cli("--file", str(src), "--split", "4", str(tgt), "--split", "8", str(Path(d, "z.py")),
+                    "--level", "2", "--out-script", script)
+        assert r.returncode != 0 and "overlaps" in (r.stderr + r.stdout)
+
+
+def test_level_and_at_must_follow_their_split():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d)
+        r = run_cli("--file", src, "--level", "2", "--split", "3", str(Path(d, "t.js")),
+                    "--out-script", str(Path(d, "m.py")))
+        assert r.returncode == 2 and "ПОСЛЕ своего --split" in r.stderr
+
+
+def test_at_needs_an_existing_target_beyond_line_1():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write_fixture(d)
+        r = run_cli("--file", src, "--split", "3", str(Path(d, "new.js")), "--at", "4",
+                    "--out-script", str(Path(d, "m.py")))
+        assert r.returncode != 0 and "does not exist yet" in (r.stderr + r.stdout)
+
+
+def test_js_handler_from_a_literal_into_another_literal_lines_up_with_the_sibling():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "h.js")
+        src.write_text("export const handlers = {\n  alpha(req) {\n    return 1;\n  },\n"
+                       "  beta(req) {\n    return 2;\n  },\n};\n", encoding="utf-8")
+        tgt = Path(d, "g.js")
+        tgt.write_text("export const more = {\n    gamma() {\n        return 3;\n    },\n};\n",
+                       encoding="utf-8")
+        script = str(Path(d, "move.py"))
+        r = run_cli("--file", str(src), "--split", "2", str(tgt), "--level", "2", "--at", "5",
+                    "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        assert "place(c01, line=5, indent=4)" in Path(script).read_text(encoding="utf-8")
+        r = _run(script, "--apply")
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert tgt.read_text(encoding="utf-8") == (
+            "export const more = {\n    gamma() {\n        return 3;\n    },\n\n"
+            "    alpha(req) {\n      return 1;\n    },\n};\n")
+        assert "alpha" not in src.read_text(encoding="utf-8")
+
+
+def test_rebase_reanchors_a_nested_block_by_its_text():
+    import re as _re
+    with tempfile.TemporaryDirectory() as d:
+        src, tgt, script, r = _nested_setup(d, "--level", "1,2", "--at", "0,5")
+        src.write_text("import sys\n# shifted\n" + NESTED_PY, encoding="utf-8")
+        r = run_cli("--rebase", script, "--write")
+        assert r.returncode == 0, r.stdout + r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert _re.search(r"cut\('[^']*m\.py', 10, level=2, expect=", text), text
+        assert _run(script, "--apply").returncode == 0
