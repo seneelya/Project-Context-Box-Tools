@@ -13,7 +13,7 @@ workflow in short.
 for the **same** target in one flag: `--split 12,34,45 "part.md"`. Repeat `--split` for other
 target files; order in the flags doesn't matter (the generator restores source order on its own).
 A line inside a method / inner block takes the **top-level** block that holds it, unless you give
-`--level` (see *Nested blocks* below).
+`--level` (see *Nested blocks* below — a separate pass into existing files).
 
 **Markdown:** same CLI; use heading lines from `get_codeblock --file FILE --outline --level 4`
 (or higher). Each `--split` cuts the **heading section** that contains that line (H1..H6), not
@@ -39,31 +39,39 @@ split_monster.py --file big.md --split 120 "part-a.md" --split 340 "part-b.md" -
 python move.py --apply
 ```
 
-## Nested blocks: `--level`, `--at`, `place()`
+## Nested blocks: `--level` + `--after` / `--before` / `--into` (a second pass)
 
-`--level L` (after its `--split`) takes the block `get_codeblock --line LINE --level L` shows — a
-method, an inner `if`, a handler inside an object literal; a list spreads over the split's lines
-like in get_codeblock, so top-level and nested blocks go to one file in one request:
+A method, an inner `if`, a handler inside an object literal — the block `get_codeblock --line LINE
+--level L` shows. Nested blocks are a **separate pass, only into files that already exist** (a
+line in a file this run creates is unknown): cut the top level first, then
 
 ```
-split_monster.py --file m.py --split 15,8 o.py --level 1,2 --at 0,5 --out-script move.py
+get_codeblock.py --file o.py --outline          # the target's map: where it goes
+split_monster.py --file m.py --split 8 o.py --level 2 --after 123 --out-script move2.py
 ```
 
-`--at N` = the target line (as the target is now) the block goes BEFORE; 0 / none = head of the
-body. The script gets `cXX = place(cXX, line=N, indent=K)` with a SUGGESTED indent (the indent of
-target line N; before a closing `}` — of the sibling above). You decide: change `line` / `indent`
-(int = spaces, or a whitespace string; `None` = text as is). `indent` shifts the whole block keeping
-each line's indent relative to its first line (Python: lines inside a multi-line string untouched).
-A blank line is added on a side whose neighbour is not an opener/closer.
+The place is an **anchor block of the target**, named by its line from that map (its start line; a
+line inside a block = the innermost block holding it): `--after N` right after it, `--before N`
+right before it, `--into N` as its last child (before a closing `}`). `--level` and the anchor
+belong to their `--split`; lists spread over its lines like in get_codeblock. The script gets
+`cXX = place(cXX, after=123, indent=4, expect=…)`: the indent is the anchor's (`into` — its
+children's), you may change it (int = spaces, a whitespace string, `None` = text as is); `expect`
+refuses the run if the target changed at the anchor (`--force` passes). The shift keeps each line's
+indent relative to the block's first line (Python: lines inside a multi-line string untouched). A
+blank line is added on a side whose neighbour is not an opener/closer.
+
+Refused: a nested block without an anchor, into a file that does not exist, nested and top-level
+blocks in one run, an anchor on a top-level block, an inner block inside an outer one bound for
+another file (bound for the same file — it moves inside the outer one, once).
 
 **The move of a nested block is MECHANICAL** — the tool removes it in one file and makes it appear
 in another; it does not wire it up: no imports, no name hints, no graph/re-export, nothing about
-`self`, closures or the class it left. It guarantees the mechanics only: no line lost or invented,
-indentation shifted as you said. If a file stops parsing (a class left with no body, a method put
-at the wrong depth) the split is **not** rolled back: `PARSE BROKEN` names the file (Python: the
-line), exit code **4**; fix it by hand (e.g. `pass`) or `python move.py --undo`. Top-level splits
-keep the hard rollback. An inner block inside an outer one that moves to the same file is merged
-into it (moved once); to a different file — refused.
+`self`, closures or the class it left (Python: `UNDEFINED (static)` after the run lists names the
+target now lacks). It guarantees the mechanics only: no line lost or invented, indentation shifted
+as you said. If a file stops parsing (a class left with no body; an `if` taken without its `else`
+— get_codeblock's `if` block does not hold the `else`) the split is **not** rolled back: `PARSE
+BROKEN` names the file (Python: the line), exit code **4**; fix it by hand (e.g. `pass`) or
+`python move.py --undo`. Top-level splits keep the hard rollback.
 
 ## What's in the generated script
 
@@ -135,7 +143,7 @@ Same text elsewhere = moved; same name but edited text = shown as CHANGED, taken
 `--accept-changed`; not found = left as is (the run will still refuse it). Hand-written calls
 without `expect=` are listed for you to check. A nested block (`level=`) is found by its text alone (it has no
 name), its `level=` updated if the code around it changed depth; `place(...)` lines are not
-touched (they point into the target).
+touched (they point into the target; their `expect=` guards the anchor).
 
 To drop something from the plan: add a short reassignment **before** the `monster.write` /
 `monster.cut` lines at the bottom (they run in order — a line after them comes too late), e.g.

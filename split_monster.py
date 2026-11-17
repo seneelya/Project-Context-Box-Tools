@@ -130,7 +130,7 @@ class Block:
     """A byte-exact code range pulled from one source file (a top-level landmark, or — with an
     explicit `level` — a nested block: method, inner `if`, handler inside a literal)."""
 
-    __slots__ = ("source_file", "start", "end", "text", "level", "nested", "at", "indent")
+    __slots__ = ("source_file", "start", "end", "text", "level", "nested", "at", "indent", "anchor")
 
     def __init__(self, source_file, start, end, text, level=1, nested=False):
         self.source_file = source_file
@@ -139,8 +139,9 @@ class Block:
         self.text = text
         self.level = level
         self.nested = nested   # moved mechanically: no names / imports / graph, parse failure = warning
-        self.at = None         # target line to insert BEFORE (None = head of the target body)
-        self.indent = None     # new base indent in the target (None = text as is)
+        self.anchor = None     # (mode, line, expect) from place(): after / before / into a target block
+        self.at = None         # target line to insert BEFORE — resolved from `anchor` at write time
+        self.indent = None     # new base indent in the target (None = text as is, "auto" = the anchor's)
 
     def __repr__(self):
         return f"Block({self.source_file!r}, {self.start}, {self.end})"
@@ -222,22 +223,60 @@ def replace(source_file, line, replacement, level=None, expect=None):
     return Replace(b.source_file, b.start, b.end, b.text, b.level, replacement, b.nested)
 
 
-def place(block, line=None, indent=None):
-    """Where `block` lands in its target and how deep — the agent's decision, the tool only does it.
+def place(block, after=None, before=None, into=None, indent="auto", expect=None):
+    """Where a NESTED block lands: next to / inside a block that ALREADY exists in its target file.
 
-    `line` = target line (as the target is NOW, before this script) the block goes BEFORE;
-    None = head of the body, len+1 = the end. `indent` = the block's new base indent: an int (spaces)
-    or a whitespace string; every line keeps its indent RELATIVE to the block's first line (Python:
-    lines inside a multi-line string are left alone); None = text as is. Returns the block."""
-    if line is not None and (not isinstance(line, int) or line < 1):
-        raise ValueError(f"place(line={line!r}): a target line number >= 1, or None for the head")
-    if indent is not None and not (isinstance(indent, int) and indent >= 0 or
-                                   isinstance(indent, str) and indent.strip(" \t") == ""):
-        raise ValueError(f"place(indent={indent!r}): spaces count (int >= 0) or a whitespace string")
-    block.at = line
+    Exactly one anchor — the line of a target block as `get_codeblock --outline` shows it (its start
+    line; a line inside a block = the innermost block holding it): `after=N` right after that block,
+    `before=N` right before it, `into=N` as its last child (before a closing `}`). `indent` = the
+    block's new base indent: "auto" = the anchor's (after/before) or its children's (into), an int
+    (spaces) or a whitespace string; None = text as is. Every line keeps its indent RELATIVE to the
+    block's first line (Python: lines inside a multi-line string are left alone). `expect` = the
+    anchor block's fingerprint: the target changed there since the plan -> refused (--force passes)."""
+    given = [(m, n) for m, n in (("after", after), ("before", before), ("into", into)) if n is not None]
+    if len(given) != 1:
+        raise ValueError("place(): exactly one of after= / before= / into= (a target block's line)")
+    mode, n = given[0]
+    if not isinstance(n, int) or n < 1:
+        raise ValueError(f"place({mode}={n!r}): a target line number >= 1")
+    if indent not in (None, "auto") and not (isinstance(indent, int) and indent >= 0 or
+                                             isinstance(indent, str) and indent.strip(" \t") == ""):
+        raise ValueError(f"place(indent={indent!r}): \"auto\", spaces count (int >= 0), a whitespace string or None")
+    block.anchor = (mode, n, expect)
     block.indent = indent
-    _reindent(block.text, indent, Path(block.source_file).suffix.lower())  # fail at plan time, not mid-apply
+    if indent != "auto":
+        _reindent(block.text, indent, Path(block.source_file).suffix.lower())  # fail at plan time, not mid-apply
     return block
+
+
+def _resolve_anchor(target_file, mode, n):
+    """(insert-before line, indent, anchor block) for an anchor in `target_file` as it is now."""
+    a = _gcb_get_codeblock(str(target_file), line_num=n, level=0, query=True)
+    segs = _segments(_read_raw(target_file)[0])
+
+    def lead(line):
+        return line[:len(line) - len(line.lstrip(" \t"))]
+
+    first = next((ln for ln in a["text"].splitlines() if ln.strip()), "")
+    own = lead(first)
+    if mode == "after":
+        return a["end"] + 1, own, a
+    if mode == "before":
+        return a["start"], own, a
+    closes = segs[a["end"] - 1].strip().startswith(_CLOSERS)
+    at = a["end"] if closes else a["end"] + 1
+    body = [k for k in range(a["start"] + 1, at) if segs[k - 1].strip()]
+    if not body:                                   # empty body: one step deeper than the anchor
+        return at, own + ("\t" if "\t" in own else "    "), a
+    last = body[-1]
+    try:                                           # the child that holds the last body line
+        child = _gcb_get_codeblock(str(target_file), line_num=last, level=a["level"] + 1, query=True)
+        if child["level"] == a["level"] + 1 and child["start"] > a["start"]:
+            cfirst = next((ln for ln in child["text"].splitlines() if ln.strip()), "")
+            return at, lead(cfirst), a
+    except Exception:
+        pass
+    return at, lead(segs[last - 1]), a
 
 
 def _string_interior_rows(text):
@@ -355,14 +394,14 @@ def _placed_text(b):
 
 
 def _insert_placed(raw, blocks, eol, target_file):
-    """`raw` (the target as it is) with every `place(line=...)` block inserted BEFORE that line —
+    """`raw` (the target as it is) with every placed block inserted BEFORE its resolved line `.at` —
     numbers refer to the target before this run; same line = source order. Returns the new raw."""
     segs = _segments(raw)
     if segs and not segs[-1].endswith("\n"):
         segs[-1] += eol
     for b in sorted(blocks, key=lambda b: (b.at, b.start), reverse=True):
         if not 1 <= b.at <= len(segs) + 1:
-            raise ValueError(f"place(line={b.at}) for block [{b.start}-{b.end}]: {target_file} has "
+            raise ValueError(f"insert line {b.at} for block [{b.start}-{b.end}]: {target_file} has "
                              f"{len(segs)} line(s) — use 1..{len(segs) + 1}")
         text = _placed_text(b).replace("\r\n", "\n")
         if not text.endswith("\n"):
@@ -656,19 +695,35 @@ class _Monster:
 
     def write(self, target_file, blocks, imports=None, append=None):
         """Write `blocks`/`imports` into `target_file` (dedup imports; new blocks go BEFORE
-        whatever body is already there; a block given `place(line=N)` goes before line N of the target
-        instead). `append` = generated lines added at the END (block text is never touched, only
+        whatever body is already there; a block given `place(after=/before=/into=N)` goes next to /
+        into that existing block of the target instead). `append` = generated lines added at the END (block text is never touched, only
         shifted by `place(indent=...)`). Only ever touches `target_file` — never `source_file`."""
         imports = imports or []
         header = _dedup_preserve_order([imp.text for imp in imports])
         target = Path(target_file)
-        placed = [b for b in blocks if getattr(b, "at", None) is not None]
+        placed = [b for b in blocks if getattr(b, "anchor", None) is not None]
         if placed and not target.exists():
-            far = [b.at for b in placed if b.at != 1]
-            if far:
-                raise ValueError(f"place(line={far[0]}): {target_file} does not exist yet — "
-                                 f"only line=1 / None (head of the new file)")
-            placed = []
+            raise ValueError(f"place(...): {target_file} does not exist — a nested block goes only into "
+                             f"an EXISTING file (cut the top level first, then a second pass)")
+        for b in placed:                       # every anchor against the target as it is BEFORE this run
+            mode, n, expect = b.anchor
+            b.at, auto, a = _resolve_anchor(target, mode, n)
+            if expect and _fingerprint(a["text"]) != expect:
+                msg = (f"anchor {mode}={n} in {target_file} is now [{a['start']}-{a['end']}] — not the "
+                       f"block the plan was made for (the target changed)")
+                if "--force" not in sys.argv:
+                    for path, old in self._before.items():   # an earlier target of this run is undone
+                        if old is None:
+                            Path(path).unlink(missing_ok=True)
+                        else:
+                            Path(path).write_bytes(old)
+                    print(f"ERROR: {msg}. Fix the line in place(...), or pass --force."
+                          + (" Files written so far were restored." if self._before else ""), file=sys.stderr)
+                    self._note(outcome="refused_anchor_mismatch")
+                    sys.exit(2)
+                print(f"WARNING (--force): {msg}", file=sys.stderr)
+            if b.indent == "auto":
+                b.indent = auto
         head = [b for b in blocks if b not in placed]
         new_body = _reconstruct_body(head)
         if any(getattr(b, "nested", False) for b in blocks):
@@ -1221,41 +1276,26 @@ _MANUAL_APPEND_NOTE = [
     "# cut(FILE, LINE) или replace(FILE, LINE, STUB) + STUB='…\\n', присвоить cXX/rXX,",
     "# добавить в _BLOCKS и в monster.cut или monster.replace. Перегенерировать не нужно.",
     "# Вложенный блок: cut(FILE, LINE, level=L) — тот, что показывает get_codeblock --line LINE",
-    "# --level L; place(cXX, line=N, indent=K) — вставить перед строкой N цели со сдвигом отступа.",
+    "# --level L; place(cXX, after=N | before=N | into=N, indent=K) — рядом с / внутрь блока цели,",
+    "# что начинается на строке N (карта get_codeblock --outline цели), со сдвигом отступа.",
     "# --- конец ---",
 ]
 
 
-def _target_indent(target, at):
-    """Indent of the line a block inserted before `at` lines up with: the next non-blank line at/after
-    `at`, else the last non-blank one before it; (indent, "why") — a SUGGESTION for place()."""
-    try:
-        lines = Path(target).read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeDecodeError):
-        return 0, "цели ещё нет"
-    if at is None:
-        return 0, "голова цели"
-    after = [(i, ln) for i, ln in enumerate(lines[at - 1:], start=at) if ln.strip()]
-    before = [(i, ln) for i, ln in enumerate(lines[:at - 1], start=1) if ln.strip()]
-    pick = after[0] if after else (before[-1] if before else None)
-    if pick and before and pick[1].lstrip().startswith(_CLOSERS):
-        pick = before[-1]          # `};` closes the container — line up with the sibling above it
-    if pick is None:
-        return 0, "цель пустая"
-    i, ln = pick
-    ws = ln[:len(ln) - len(ln.lstrip(" \t"))]
-    return (len(ws) if set(ws) <= {" "} else ws), f"как у строки {i} цели"
-
-
-def _place_lines(varname, b, target, at):
-    """The generated `place(...)` call: where the block lands and a suggested indent — the agent's to change."""
+def _place_lines(varname, b, target, anchor):
+    """The generated `place(...)` call: the anchor, a suggested indent (the agent's to change) and the
+    anchor block's fingerprint (a target edited there since the plan is refused)."""
+    mode, n = anchor
+    at, indent, a = _resolve_anchor(target, mode, n)
     first = next((ln for ln in b.text.splitlines() if ln.strip()), "")
     own = len(first) - len(first.lstrip(" \t"))
-    indent, why = _target_indent(target, at)
-    where = f"перед строкой {at} цели" if at is not None else "в голову цели"
-    return [f"# место: {where}; отступ {indent!r} — {why} (у блока сейчас {own}). Решение агента: "
-            f"поменяй line/indent, indent=None — текст как есть",
-            f"{varname} = place({varname}, line={at!r}, indent={indent!r})"]
+    shown = len(indent) if set(indent) <= {" "} else indent
+    label = next((ln.strip() for ln in a["text"].splitlines() if ln.strip()), "?")[:60]
+    where = {"after": "после", "before": "перед", "into": "последним ребёнком в"}[mode]
+    why = "как у его детей" if mode == "into" else "как у якоря"
+    return [f"# место: {where} [{a['start']}-{a['end']}] {label}  (вставка перед строкой {at} цели); "
+            f"отступ {shown!r} — {why} (у блока сейчас {own}). Решение агента: поменяй якорь/indent",
+            f"{varname} = place({varname}, {mode}={n}, indent={shown!r}, expect={_fingerprint(a['text'])!r})"]
 
 
 def generate(file_path, splits, out_path, project_root=".", check=None, check_cwd=None, check_timeout=600):
@@ -1275,9 +1315,10 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
 
     by_target = {}
     seen_ranges = {}  # (start, end) -> target already claimed for this exact resolved range
-    asked = {}        # id(block) -> (line_no, level asked or None, at or None)
+    asked = {}        # id(block) -> (line_no, level asked or None, anchor or None)
+    top_anchor = None
     for item in splits:
-        line_no, target, level, at = (tuple(item) + (None, None))[:4]
+        line_no, target, level, at = (tuple(item) + (None, None))[:4]   # at = anchor (mode, line)
         block = cut(file_path, line_no, level=level)
         key = (block.start, block.end)
         inner_of = outer_of = None
@@ -1306,9 +1347,19 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
                 seen_ranges.pop((b.start, b.end), None)
                 print(f"# note: [{b.start}-{b.end}] lies inside --split {line_no} [{block.start}-"
                       f"{block.end}] going to the same file — moves with it, not twice")
-        if at is not None and at != 1 and not Path(target).exists():
-            raise ValueError(f"--at {at} for --split {line_no}: {target} does not exist yet — "
-                             f"only the head of a new file (no --at, or 1)")
+        if block.nested:
+            if not Path(target).exists():
+                raise ValueError(
+                    f"--split {line_no} --level {level}: {target} does not exist — a nested block goes only "
+                    f"into an EXISTING file (its outline shows where). Cut the top level first, then a "
+                    f"second pass for the nested blocks.")
+            if at is None:
+                raise ValueError(
+                    f"--split {line_no} --level {level} is a nested block: say where it goes in {target} — "
+                    f"--after N / --before N / --into N (N = a block's line from get_codeblock --outline of "
+                    f"the target).")
+        elif at is not None and top_anchor is None:
+            top_anchor = (line_no, at[0])     # reported after the mixed-pass check (that one says more)
         prev_target = seen_ranges.get(key)
         if prev_target is not None:
             if prev_target != target:
@@ -1326,6 +1377,15 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
         asked[id(block)] = (line_no, level, at)
         by_target.setdefault(target, []).append(block)
 
+    kinds = {b.nested for bl in by_target.values() for b in bl}
+    if kinds == {True, False}:
+        raise ValueError(
+            "top-level and nested blocks in one run: nested blocks are a SEPARATE pass (into files that "
+            "already exist) — run the top-level split first, then a second split_monster for the nested ones.")
+    if top_anchor:
+        raise ValueError(
+            f"--{top_anchor[1]} for --split {top_anchor[0]}: anchors are for nested blocks only (--level >= 2); "
+            f"a top-level block goes to the head of its file as before.")
     # nested blocks move mechanically: no names, imports or graph — those are about top-level names
     linked = {t: [b for b in bl if not b.nested] for t, bl in by_target.items()}
     graph = _split_graph(file_path, lang, ext, {t: bl for t, bl in linked.items() if bl},
@@ -1397,8 +1457,7 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
             if b.nested:
                 out.append(f"# ВЛОЖЕННЫЙ блок (уровень {b.level}): перенос МЕХАНИЧЕСКИЙ — тул убирает его здесь "
                            f"и проявляет в {target!r}, скобки/отступы целы; импорты, имена, self/замыкания, "
-                           f"место (line) и отступ (indent) — решает агент. Цель/источник не парсится → "
-                           f"не откат, код 4.")
+                           f"якорь и отступ — решает агент. Цель/источник не парсится → не откат, код 4.")
             for h in ([] if b.nested else _hint_lines(b, all_lines, top_level_names, lang, ext)):
                 out.append(h)
             names = [] if b.nested else lang.declared_names(b.text, ext)
@@ -1430,7 +1489,7 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
             else:
                 out.append(f"{varname} = cut({file_path!r}, {cut_line}, {level_arg}"
                            f"expect={_fingerprint(b.text)!r})  #{tag}")
-            if b.nested or at is not None:
+            if at is not None:
                 out.extend(_place_lines(varname, b, target, at))
             var_names.append(varname)
             all_symbols.extend(names)
@@ -1797,9 +1856,12 @@ _CLI_EPILOG = """
   1. get_codeblock --file F --outline            — границы блоков (.md: --level 4+)
      split_monster --file F --investigate        — граф блоков, хабы, семьи, стартовая команда
   2. split_monster --file F --split LINES TARGET ... --out-script move.py [--check "ТЕСТЫ"]
-     вложенные блоки: --split 15,8 o.py --level 1,2 --at 0,5 — уровень как в get_codeblock --level,
-     --at = строка цели, ПЕРЕД которой встанет блок; в скрипте place(cXX, line=N, indent=K) —
-     отступ предложен, решает агент. Перенос вложенного — МЕХАНИЧЕСКИЙ: без импортов/имён/графа.
+     ВЛОЖЕННЫЕ блоки — отдельный (второй) проход, только в СУЩЕСТВУЮЩИЕ файлы:
+       get_codeblock --file o.py --outline                    — карта цели: куда ставить
+       split_monster --file F --split 8 o.py --level 2 --after 123 --out-script move2.py
+     --level как в get_codeblock; якорь — блок цели по его строке из карты: --after / --before /
+     --into (последним ребёнком). В скрипте place(cXX, after=123, indent=K) — отступ от якоря,
+     решает агент. Перенос вложенного — МЕХАНИЧЕСКИЙ: без импортов/имён/графа.
   3. python move.py            — dry-run: план, таблица файлов, ничего не пишет
      python move.py --apply    — разрез; verify (ничего не потеряно/не выдумано, всё парсится,
                                  иначе откат), затем --check (если задан)
@@ -1824,7 +1886,7 @@ _CLI_EPILOG = """
 Что в сгенерированном скрипте: cut/replace с отпечатками блоков (expect=…), add_import на каждую цель,
 SOURCE_IMPORTS (что нужно остатку источника), предупреждения (# NOTE / # WARNING), «кандидаты» —
 комментарии-сироты рядом с переносимыми блоками (забрать вручную), monster.consumers (кто снаружи
-импортирует имена), place() для вложенных/--at блоков. Правка скрипта = ДОПИСАТЬ короткую строку
+импортирует имена), place() для вложенных блоков. Правка скрипта = ДОПИСАТЬ короткую строку
 ПЕРЕД monster.write/monster.cut внизу, существующие не переписывать (числа в place() — можно).
 Подсказки по именам — по идентификаторам (ast / tree-sitter), не полноценный резолвер: проверяйте.
 
@@ -1858,16 +1920,17 @@ def _cli(argv=None):
 
 
 class _SplitAction(argparse.Action):
-    """`--split LINES TARGET` — opens a group that the following `--level` / `--at` refine."""
+    """`--split LINES TARGET` — opens a group that the following `--level` / `--after|--before|--into` refine."""
 
     def __call__(self, parser, ns, values, option_string=None):
         groups = getattr(ns, self.dest, None) or []
-        groups.append({"lines": values[0], "target": values[1], "level": None, "at": None})
+        groups.append({"lines": values[0], "target": values[1], "level": None,
+                       "after": None, "before": None, "into": None})
         setattr(ns, self.dest, groups)
 
 
 class _SplitOptAction(argparse.Action):
-    """`--level` / `--at` — belong to the nearest `--split` BEFORE them (get_codeblock-style list)."""
+    """`--level` / `--after|--before|--into` — belong to the nearest `--split` BEFORE them (get_codeblock-style list)."""
 
     def __call__(self, parser, ns, values, option_string=None):
         groups = getattr(ns, "split", None)
@@ -1912,14 +1975,18 @@ def _cli_impl(argv=None):
         help="уровень блока для строк СВОЕГО --split (стоит после него): тот блок, который показывает "
              "get_codeblock --line LINE --level L (1 = верхний, по умолчанию). Список раскладывается по "
              "строкам как в get_codeblock (короче — повторяется последнее). Уровень > 1 = ВЛОЖЕННЫЙ блок: "
-             "перенос механический — без импортов/имён/графа; место и отступ в цели — place() в скрипте.",
+             "перенос механический — без импортов/имён/графа, отдельным проходом в существующий файл; место — "
+             "--after/--before/--into, отступ — place() в скрипте.",
     )
-    p.add_argument(
-        "--at", action=_SplitOptAction, metavar="N[,N...]",
-        help="строка цели (как она есть сейчас), ПЕРЕД которой встанет блок своего --split; 0 = голова "
-             "(по умолчанию). Скрипт получит place(cXX, line=N, indent=K) с предложенным отступом "
-             "(как у строки N) — агент правит число.",
-    )
+    for mode, what in (("after", "сразу ПОСЛЕ блока"), ("before", "сразу ПЕРЕД блоком"),
+                       ("into", "последним ребёнком блока (перед закрывающей `}`)")):
+        p.add_argument(
+            f"--{mode}", action=_SplitOptAction, metavar="N[,N...]",
+            help=f"для ВЛОЖЕННЫХ блоков своего --split (обязателен один из --after/--before/--into): "
+                 f"{what} цели, который начинается на строке N (карта get_codeblock --outline цели; строка "
+                 f"внутри блока = самый внутренний). Цель должна СУЩЕСТВОВАТЬ. Скрипт получит "
+                 f"place(cXX, {mode}=N, indent=K) — отступ предложен от якоря, агент правит.",
+        )
     p.add_argument(
         "--out-script",
         help="куда записать сгенерированный скрипт. Обязателен, если не передан --investigate/--rebase.",
@@ -1966,11 +2033,19 @@ def _cli_impl(argv=None):
     for g in args.split:
         lines = _parse_split_line_token(g["lines"])
         levels = _broadcast(_parse_split_line_token(g["level"]) if g["level"] else None, len(lines))
-        ats = _broadcast(_parse_split_line_token(g["at"]) if g["at"] else None, len(lines))
-        for line_no, level, at in zip(lines, levels, ats):
-            splits.append((line_no, g["target"], level, at or None))
-    generate(args.file, splits, args.out_script, project_root=args.project_root,
-             check=args.check, check_cwd=args.check_cwd, check_timeout=args.check_timeout)
+        modes = [m for m in ("after", "before", "into") if g[m]]
+        if len(modes) > 1:
+            p.error(f"--split {g['lines']} {g['target']}: только один из --after/--before/--into")
+        anchors = ([(modes[0], n) for n in _broadcast(_parse_split_line_token(g[modes[0]]), len(lines))]
+                   if modes else [None] * len(lines))
+        for line_no, level, anchor in zip(lines, levels, anchors):
+            splits.append((line_no, g["target"], level, anchor))
+    try:
+        generate(args.file, splits, args.out_script, project_root=args.project_root,
+                 check=args.check, check_cwd=args.check_cwd, check_timeout=args.check_timeout)
+    except ValueError as e:      # a refused plan is a message for the agent, not a traceback
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

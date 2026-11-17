@@ -1154,13 +1154,14 @@ def test_help_is_current():
     """--help must describe what the tool does NOW (a stale help misleads the agent that reads it)."""
     out = run_cli("--help").stdout
     for must in ("--investigate", "--check", "--undo", "--rebase", "split_langs", "move.py.undo",
-                 "verify", "Коды выхода", "--level", "--at", "place(", "МЕХАНИЧЕСКИЙ"):
+                 "verify", "Коды выхода", "--level", "--after", "--into", "place(", "МЕХАНИЧЕСКИЙ"):
         assert must in out, must
     for stale in ("(v0)", "НЕ РЕАЛИЗОВАНО", "Python import и Markdown — нет"):
         assert stale not in out, stale
 
 
-# --------------------------------------------------------------------------- nested blocks (--level / --at / place)
+
+# --------------------------------------------------------------------------- nested blocks (REQ-019)
 
 NESTED_PY = (
     "import os\n"
@@ -1190,30 +1191,32 @@ NESTED_TARGET = (
 )
 
 
-def _nested_setup(d, *extra):
+def _nested_setup(d, *extra, lines="8", level="2"):
     src = Path(d, "m.py")
     src.write_text(NESTED_PY, encoding="utf-8")
     tgt = Path(d, "o.py")
     tgt.write_text(NESTED_TARGET, encoding="utf-8")
     script = str(Path(d, "move.py"))
-    r = run_cli("--file", str(src), "--split", "15,8", str(tgt), *extra, "--out-script", script)
+    r = run_cli("--file", str(src), "--split", lines, str(tgt), "--level", level, *extra,
+                "--out-script", script)
     return src, tgt, script, r
 
 
-def test_nested_and_top_level_blocks_go_to_one_file_in_one_request():
+def test_nested_after_anchor_lands_next_to_the_block_with_its_indent():
     with tempfile.TemporaryDirectory() as d:
-        src, tgt, script, r = _nested_setup(d, "--level", "1,2", "--at", "0,5")
+        src, tgt, script, r = _nested_setup(d, "--after", "2")
         assert r.returncode == 0, r.stderr
         text = Path(script).read_text(encoding="utf-8")
         assert "level=2" in text and "ВЛОЖЕННЫЙ блок (уровень 2)" in text
-        assert "place(c02, line=5, indent=4)" in text            # suggestion: indent of target line 5
+        assert "place(c01, after=2, indent=4, expect=" in text
+        assert "после [2-3] def x(self):" in text
+        assert "\nmonster.consumers(" not in text and "add_import(" not in text.split("--- конец ---")[1]
         r = _run(script, "--apply")
         assert r.returncode == 0, r.stdout + r.stderr
-        out = tgt.read_text(encoding="utf-8")
-        assert "def top():" in out
-        assert "        return 1\n\n    def b(self):\n" in out            # inside Other
-        assert "        return self.a() + doc\n\n    def y(self):" in out  # blank-separated from y
-        assert "\nkeep me at column 0\n" in out                  # string interior is not shifted
+        assert tgt.read_text(encoding="utf-8") == (
+            "class Other:\n    def x(self):\n        return 1\n\n"
+            "    def b(self):\n        doc = \"\"\"\nkeep me at column 0\n\"\"\"\n        return self.a() + doc\n\n"
+            "    def y(self):\n        return 2\n")                       # string interior not shifted
         rest = src.read_text(encoding="utf-8")
         assert "def b(self)" not in rest and "def a(self)" in rest
         assert _run(script, "--undo").returncode == 0
@@ -1221,12 +1224,36 @@ def test_nested_and_top_level_blocks_go_to_one_file_in_one_request():
         assert tgt.read_text(encoding="utf-8") == NESTED_TARGET
 
 
-def test_nested_block_gets_no_imports_or_names():
+def test_nested_into_and_before_anchors():
     with tempfile.TemporaryDirectory() as d:
-        src, tgt, script, r = _nested_setup(d, "--level", "1,2", "--at", "0,5")
-        text = Path(script).read_text(encoding="utf-8")
-        consumers = text.split("\nmonster.consumers(")[1].split(")")[0]
-        assert "'top'" in consumers and "'b'" not in consumers   # only the top-level block is linked
+        src, tgt, script, r = _nested_setup(d, "--into", "1")
+        assert r.returncode == 0 and "place(c01, into=1, indent=4," in Path(script).read_text(encoding="utf-8")
+        assert _run(script, "--apply").returncode == 0
+        assert tgt.read_text(encoding="utf-8").endswith("        return 2\n\n    def b(self):\n"
+                                                        "        doc = \"\"\"\nkeep me at column 0\n\"\"\"\n"
+                                                        "        return self.a() + doc\n")
+    with tempfile.TemporaryDirectory() as d:
+        src, tgt, script, r = _nested_setup(d, "--before", "5")
+        assert r.returncode == 0, r.stderr
+        assert _run(script, "--apply").returncode == 0
+        out = tgt.read_text(encoding="utf-8")
+        assert out.index("def x") < out.index("def b") < out.index("def y")
+
+
+def test_nested_pass_refusals():
+    with tempfile.TemporaryDirectory() as d:
+        src, tgt, script, r = _nested_setup(d, "--after", "2", lines="15,8", level="1,2")
+        assert r.returncode == 1 and "SEPARATE pass" in r.stderr and "Traceback" not in r.stderr
+        src, tgt, script, r = _nested_setup(d)                               # no anchor
+        assert r.returncode == 1 and "--after N / --before N / --into N" in r.stderr
+        r = run_cli("--file", str(src), "--split", "8", str(Path(d, "new.py")), "--level", "2",
+                    "--after", "1", "--out-script", script)
+        assert r.returncode == 1 and "does not exist" in r.stderr
+        r = run_cli("--file", str(src), "--split", "15", str(tgt), "--after", "2", "--out-script", script)
+        assert r.returncode == 1 and "nested blocks only" in r.stderr
+        r = run_cli("--file", str(src), "--split", "8", str(tgt), "--level", "2", "--after", "2",
+                    "--into", "1", "--out-script", script)
+        assert r.returncode == 2 and "только один" in r.stderr
 
 
 def test_place_shifts_indent_relative_and_refuses_a_less_indented_line():
@@ -1247,18 +1274,20 @@ def test_nested_move_that_breaks_parsing_stays_applied_exit_4_and_undo_works():
         src = Path(d, "s.py")
         original = "class One:\n    def only(self):\n        return 1\n\n\nx = 1\n"
         src.write_text(original, encoding="utf-8")
+        tgt = Path(d, "n.py")
+        tgt.write_text("class N:\n    pass\n", encoding="utf-8")
         script = str(Path(d, "move.py"))
-        r = run_cli("--file", str(src), "--split", "2", str(Path(d, "n.py")), "--level", "2",
+        r = run_cli("--file", str(src), "--split", "2", str(tgt), "--level", "2", "--into", "1",
                     "--out-script", script)
         assert r.returncode == 0, r.stderr
-        assert "place(c01, line=None, indent=0)" in Path(script).read_text(encoding="utf-8")
         r = _run(script, "--apply")
         assert r.returncode == 4, r.stdout + r.stderr
         assert "PARSE BROKEN" in r.stderr and "s.py" in r.stderr and "(line " in r.stderr
-        assert Path(d, "n.py").read_text(encoding="utf-8") == "def only(self):\n    return 1\n"
+        assert tgt.read_text(encoding="utf-8") == "class N:\n    pass\n\n    def only(self):\n        return 1\n"
         assert "def only" not in src.read_text(encoding="utf-8")        # NOT rolled back
         assert _run(script, "--undo").returncode == 0
-        assert src.read_text(encoding="utf-8") == original and not Path(d, "n.py").exists()
+        assert src.read_text(encoding="utf-8") == original
+        assert tgt.read_text(encoding="utf-8") == "class N:\n    pass\n"
 
 
 def test_top_level_parse_failure_still_rolls_back():
@@ -1271,22 +1300,24 @@ def test_top_level_parse_failure_still_rolls_back():
         assert run_cli("--file", str(src), "--split", "1", str(Path(d, "n.py")),
                        "--out-script", script).returncode == 0
         text = Path(script).read_text(encoding="utf-8")
-        text = text.replace("\nmonster.write(", "\nc01 = place(c01, indent=4)\nmonster.write(", 1)
+        text = text.replace("\nmonster.write(", "\nc01.indent = 4\nmonster.write(", 1)
         Path(script).write_text(text, encoding="utf-8")
         r = _run(script, "--apply")
         assert r.returncode == 1 and "VERIFY FAILED" in r.stderr, r.stdout + r.stderr
         assert src.read_text(encoding="utf-8") == original and not Path(d, "n.py").exists()
 
 
-def test_inner_block_inside_an_outer_one_already_moving_is_refused():
+def test_inner_block_inside_an_outer_one_to_another_file_is_refused():
     with tempfile.TemporaryDirectory() as d:
-        src, tgt, script, r = _nested_setup(d)
-        r = run_cli("--file", str(src), "--split", "4", str(tgt), "--split", "8", str(Path(d, "z.py")),
-                    "--level", "2", "--out-script", script)
-        assert r.returncode != 0 and "overlaps" in (r.stderr + r.stdout)
+        src, tgt, script, r = _nested_setup(d, "--after", "2")
+        z = Path(d, "z.py")
+        z.write_text("class Z:\n    pass\n", encoding="utf-8")
+        r = run_cli("--file", str(src), "--split", "5", str(tgt), "--level", "2", "--after", "2",
+                    "--split", "6", str(z), "--level", "3", "--into", "1", "--out-script", script)
+        assert r.returncode == 1 and "overlaps" in r.stderr
 
 
-def test_level_and_at_must_follow_their_split():
+def test_level_and_anchor_must_follow_their_split():
     with tempfile.TemporaryDirectory() as d:
         src = _write_fixture(d)
         r = run_cli("--file", src, "--level", "2", "--split", "3", str(Path(d, "t.js")),
@@ -1294,15 +1325,17 @@ def test_level_and_at_must_follow_their_split():
         assert r.returncode == 2 and "ПОСЛЕ своего --split" in r.stderr
 
 
-def test_at_needs_an_existing_target_beyond_line_1():
+def test_anchor_moved_in_the_target_is_refused_and_nothing_stays_written():
     with tempfile.TemporaryDirectory() as d:
-        src = _write_fixture(d)
-        r = run_cli("--file", src, "--split", "3", str(Path(d, "new.js")), "--at", "4",
-                    "--out-script", str(Path(d, "m.py")))
-        assert r.returncode != 0 and "does not exist yet" in (r.stderr + r.stdout)
+        src, tgt, script, r = _nested_setup(d, "--after", "2")
+        tgt.write_text("# a new first line\n" + NESTED_TARGET, encoding="utf-8")    # line 2 is now `class Other`
+        changed = tgt.read_text(encoding="utf-8")
+        r = _run(script, "--apply")
+        assert r.returncode == 2 and "anchor after=2" in r.stderr, r.stdout + r.stderr
+        assert tgt.read_text(encoding="utf-8") == changed and src.read_text(encoding="utf-8") == NESTED_PY
 
 
-def test_js_handler_from_a_literal_into_another_literal_lines_up_with_the_sibling():
+def test_js_handler_into_another_literal_goes_before_its_closer():
     with tempfile.TemporaryDirectory() as d:
         src = Path(d, "h.js")
         src.write_text("export const handlers = {\n  alpha(req) {\n    return 1;\n  },\n"
@@ -1311,10 +1344,10 @@ def test_js_handler_from_a_literal_into_another_literal_lines_up_with_the_siblin
         tgt.write_text("export const more = {\n    gamma() {\n        return 3;\n    },\n};\n",
                        encoding="utf-8")
         script = str(Path(d, "move.py"))
-        r = run_cli("--file", str(src), "--split", "2", str(tgt), "--level", "2", "--at", "5",
+        r = run_cli("--file", str(src), "--split", "2", str(tgt), "--level", "2", "--into", "1",
                     "--out-script", script)
         assert r.returncode == 0, r.stderr
-        assert "place(c01, line=5, indent=4)" in Path(script).read_text(encoding="utf-8")
+        assert "place(c01, into=1, indent=4," in Path(script).read_text(encoding="utf-8")
         r = _run(script, "--apply")
         assert r.returncode == 0, r.stdout + r.stderr
         assert tgt.read_text(encoding="utf-8") == (
@@ -1326,7 +1359,7 @@ def test_js_handler_from_a_literal_into_another_literal_lines_up_with_the_siblin
 def test_rebase_reanchors_a_nested_block_by_its_text():
     import re as _re
     with tempfile.TemporaryDirectory() as d:
-        src, tgt, script, r = _nested_setup(d, "--level", "1,2", "--at", "0,5")
+        src, tgt, script, r = _nested_setup(d, "--after", "2")
         src.write_text("import sys\n# shifted\n" + NESTED_PY, encoding="utf-8")
         r = run_cli("--rebase", script, "--write")
         assert r.returncode == 0, r.stdout + r.stderr
