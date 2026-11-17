@@ -1210,7 +1210,8 @@ def test_nested_after_anchor_lands_next_to_the_block_with_its_indent():
         assert "level=2" in text and "ВЛОЖЕННЫЙ блок (уровень 2)" in text
         assert "place(c01, after=2, indent=4, expect=" in text
         assert "после [2-3] def x(self):" in text
-        assert "\nmonster.consumers(" not in text and "add_import(" not in text.split("--- конец ---")[1]
+        assert "\nmonster.consumers(" not in text and "\nO_IMPORTS = []\n" in text   # no names, no imports
+        assert "O_IMPORTS += [add_import(" in text and "--undo" in text          # how to add one / undo
         r = _run(script, "--apply")
         assert r.returncode == 0, r.stdout + r.stderr
         assert tgt.read_text(encoding="utf-8") == (

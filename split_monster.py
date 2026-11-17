@@ -1457,7 +1457,10 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
             if b.nested:
                 out.append(f"# ВЛОЖЕННЫЙ блок (уровень {b.level}): перенос МЕХАНИЧЕСКИЙ — тул убирает его здесь "
                            f"и проявляет в {target!r}, скобки/отступы целы; импорты, имена, self/замыкания, "
-                           f"якорь и отступ — решает агент. Цель/источник не парсится → не откат, код 4.")
+                           f"якорь и отступ — решает агент. Нужен импорт в цели — допиши "
+                           f"{_safe_ident(target)}_IMPORTS += [add_import('...')] перед monster.write. "
+                           f"Цель/источник не парсится после --apply → НЕ откат, код 4, PARSE BROKEN называет "
+                           f"файл/строку: доправь руками (pass, импорт) или python <скрипт> --undo.")
             for h in ([] if b.nested else _hint_lines(b, all_lines, top_level_names, lang, ext)):
                 out.append(h)
             names = [] if b.nested else lang.declared_names(b.text, ext)

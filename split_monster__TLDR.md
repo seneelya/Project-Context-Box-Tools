@@ -31,6 +31,15 @@ python move.py --apply     # cuts monster.js, writes a.js/b.js, verifies, then r
 python move.py --undo      # put everything back (originals in move.py.undo/)
 ```
 
+Second pass — a method / inner block into a file that ALREADY exists (see *Nested blocks*):
+
+```
+get_codeblock.py --file b.js --outline                              # the target's map: anchor lines
+get_codeblock.py --file monster.js --line 140                       # the ladder: which level is the method
+split_monster.py --file monster.js --split 140 "b.js" --level 2 --into 12 --out-script move2.py
+python move2.py --apply
+```
+
 Markdown example:
 
 ```
