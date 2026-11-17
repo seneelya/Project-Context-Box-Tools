@@ -62,6 +62,9 @@ contact_lab (`T:\Agents\contact_lab`, 17 Nov 2026) — первый проект
 
 ## Как проверить
 
+Фикстуры: `test/secret/contact_lab_shaders/` (приватные, в `.gitignore`: код владельца, не публикуется) — настоящие шейдеры contact_lab без правок: замкнутое дерево `batch.comp`
+(10 файлов) и отдельный `safety_screen.comp`; что в них искать — в `README.md` той папки.
+
 * contact_lab: `LANGUAGE = ["cpp", "glsl"]`, `STAMP_DIRS = ["src", "include", "shaders"]`; `make_interface_card --all`
   штампует 30 файлов шейдеров без ошибок и отказов.
 * Карточка `shaders/batch_pass.glsl`: `pass_point`, `pass_inside` и включающий её `batch.comp`. Карточка
