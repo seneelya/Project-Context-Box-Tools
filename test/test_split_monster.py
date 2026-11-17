@@ -1367,3 +1367,27 @@ def test_rebase_reanchors_a_nested_block_by_its_text():
         text = Path(script).read_text(encoding="utf-8")
         assert _re.search(r"cut\('[^']*m\.py', 10, level=2, expect=", text), text
         assert _run(script, "--apply").returncode == 0
+
+
+# --------------------------------------------------------------------------- blind-test findings (Haiku, 2026-11-17)
+
+def test_moved_python_blocks_are_separated_by_two_blank_lines_and_script_runs_from_anywhere():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "m.py")
+        src.write_text("def a():\n    return 1\n\n\ndef b():\n    return 2\n\n\ndef c():\n    return 3\n",
+                       encoding="utf-8")
+        r = subprocess.run([sys.executable, TOOL_PATH, "--file", "m.py", "--split", "1,5", "u.py",
+                            "--out-script", "move.py"], cwd=d, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        assert r.returncode == 0, r.stderr
+        # run from ANOTHER folder: relative paths in the script still point into d
+        r = subprocess.run([sys.executable, str(Path(d, "move.py")), "--apply"], cwd=TOOLS_DIR,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert Path(d, "u.py").read_text(encoding="utf-8").endswith(
+            "def a():\n    return 1\n\n\ndef b():\n    return 2\n")
+        assert "UNDEFINED (static): none" in r.stdout              # the check ran and found nothing
+        assert not Path(TOOLS_DIR, "u.py").exists()
+        r = subprocess.run([sys.executable, str(Path(d, "move.py")), "--undo"], cwd=TOOLS_DIR,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0 and not Path(d, "u.py").exists(), r.stdout + r.stderr

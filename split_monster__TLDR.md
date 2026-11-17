@@ -119,7 +119,10 @@ BROKEN` names the file (Python: the line), exit code **4**; fix it by hand (e.g.
   `append=` in `monster.write/cut/replace`; block text is never edited. `NOTE export:` in the script
   says which. To skip one, append `X_APPEND = []` at the bottom of the script.
 * **tidy seams:** cutting a block leaves the larger of the two surrounding blank runs, not their
-  sum; a new import block gets a blank line before the code below it.
+  sum; a new import block gets a blank line before the code below it; blocks written one after
+  another into a target are separated by blank lines (Python: two, others: one).
+* **run it from anywhere:** the script `chdir`s to the folder `split_monster` ran in, so its relative
+  paths keep working; the undo folder sits next to the script.
 * **safety (always on)**: `monster.expect_source(file, hash)` only WARNS if `--file` changed since
   generation; every `cut(..., expect=<block fingerprint>)` re-checks its own block text — same text
   (file changed elsewhere) = proceeds, different text (lines shifted/edited) = stops, unless

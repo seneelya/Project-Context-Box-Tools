@@ -383,9 +383,20 @@ def _reconstruct_body(blocks):
     for b in ordered:
         body_texts.insert(0, _placed_text(b))
     lines = []
-    for text in body_texts:
+    gap = [""] * _block_gap(blocks)
+    for k, text in enumerate(body_texts):
+        if k:
+            lines.extend(gap)
         lines.extend(text.splitlines())
     return lines
+
+
+def _block_gap(blocks):
+    """Blank lines between moved blocks written one after another: PEP 8's two for Python, one
+    elsewhere (the cut leaves the source's blank runs behind, so the target needs its own)."""
+    if not blocks:
+        return 1
+    return 2 if Path(blocks[0].source_file).suffix.lower() in (".py", ".pyi") else 1
 
 
 def _placed_text(b):
@@ -735,7 +746,7 @@ class _Monster:
                 old_raw = _insert_placed(old_raw, placed, eol, target_file)
             old_header, old_body = _split_header_body(old_raw.replace("\r\n", "\n"))
             header = _dedup_preserve_order(old_header + header)
-            body = new_body + old_body  # this batch goes BEFORE whatever was already there
+            body = new_body + ([""] * _block_gap(head) if new_body and old_body else []) + old_body  # this batch goes BEFORE whatever was already there
         else:
             eol, bom = ("\n", False)
             if blocks and Path(blocks[0].source_file).exists():
@@ -847,10 +858,11 @@ class _Monster:
     def _report_undefined(self):
         """Python only: names a touched file now uses but does not define/import (new ones only —
         what the file already lacked before the split is not our doing). A warning, never a rollback."""
-        total = 0
+        total = checked = 0
         for path, old in self._before.items():
             if Path(path).suffix.lower() != ".py" or not Path(path).exists():
                 continue
+            checked += 1
             now = _py_undefined(Path(path).read_bytes().decode("utf-8", "replace").lstrip("\ufeff"))
             was = set(_py_undefined(old.decode("utf-8", "replace").lstrip("\ufeff"))) if old else set()
             fresh = [n for n in now if n not in was]
@@ -859,6 +871,8 @@ class _Monster:
                 where = [f"{n} (now in {self._moved[n]['to']})" if n in self._moved else n for n in fresh]
                 print(f"UNDEFINED (static): {path}: {', '.join(where)} — used but not defined/imported there",
                       file=sys.stderr)
+        if checked and not total:
+            print(f"UNDEFINED (static): none — every name the {checked} touched .py file(s) use is defined or imported")
         self._note(undefined=total)
 
     def _dry_summary(self, source_file, blocks, imports):
@@ -1393,8 +1407,11 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
 
     out = [
         f"# сгенерировано: split_monster --file {file_path} --split ...",
+        "import os",
         "import sys",
         f'sys.path.insert(0, r"{_HERE}")',
+        "sys.argv[0] = os.path.abspath(sys.argv[0])  # the undo folder sits next to this script",
+        f'os.chdir(r"{os.getcwd()}")  # relative paths below are relative to where split_monster ran',
         "from split_monster import cut, replace, add_import, place, monster",
         "monster.handle_undo()  # `python this_script.py --undo` puts every touched file back (originals saved at --apply)",
         f"monster.expect_source({file_path!r}, {src_hash!r})  # warns if the file changed since; blocks re-checked",
