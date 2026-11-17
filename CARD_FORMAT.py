@@ -64,6 +64,11 @@
         | Target | Symbol | Kind | Shape | Why |
         |---|---|---|---|---|
         | `promo_engine.py` | `apply_discount` | by-path | dependent | loaded by feature flag |
+        | `src/safety_screen.cpp` | `screen_core<float>` | twin | equal | CPU twin of main |
+
+    ## Other                       ОПЦИОНАЛЬНАЯ (REQ-021 п.4): свободный текст агента для
+                                   всего, чему нет места выше; штамп не создаёт, при
+                                   перештамповке переезжает как есть.
 
     <!-- card-format: X.Y.Z -->    ПОСЛЕДНЯЯ строка файла (см. VERSION ниже) — какой
                                    версией контракта проштампована ЭТА карточка.
@@ -188,12 +193,19 @@ def api_in_source_file(line):
 # (штамп её не трогает, кроме строки-контракта — см. make_interface_card.py); Kind/Shape — два
 # НЕЗАВИСИМЫХ закрытых словаря, любая комбинация валидна.
 RUNTIME_SEAMS_SECTION = "Runtime seams"
+
+# "## Other" — ОПЦИОНАЛЬНАЯ H2-секция (REQ-021 п.4): свободный текст агента для всего, чему нет
+# места в других секциях. Штамп её не создаёт и директиву туда не ставит; при перештамповке она
+# переезжает как есть (абзацы сохраняются), после Runtime seams, перед Salvage.
+OTHER_SECTION = "Other"
 SEAM_COLUMNS = ["Target", "Symbol", "Kind", "Shape", "Why"]
 
 # Kind (канал): по какому механизму существует связь. file/event неоднозначны по направлению
 # без явной пометки — допускают суффикс через ":". by-path/process/http однозначны конвенцией
 # "строку пишет инициатор/загрузчик", суффикс для них не предусмотрен.
-SEAM_KIND_BASE = ["by-path", "process", "http", "file", "event", "vtable", "registry"]
+# twin (REQ-021 p.4): the same logic written twice (a CPU function and its GLSL shader) — no call
+# between them, but they must change together; symmetric, so no direction suffix.
+SEAM_KIND_BASE = ["by-path", "process", "http", "file", "event", "vtable", "registry", "twin"]
 SEAM_KIND_SUFFIXES = {
     "file": ["reads", "writes", "reads+writes"],
     "event": ["emits", "listens"],
@@ -250,7 +262,8 @@ EMPTY = "(none)"
 # in this file tells you nothing about files stamped by an older copy of the tool.
 # 1.4.0 (REQ-018): directive `<|fillN|>` + one FILL_HEADER above the H1 (was a full sentence
 # per slot, `<|Agent:NN … |>`).
-VERSION = "1.4.0"
+# 1.5.0 (REQ-021 p.4): Runtime seams Kind `twin`; optional free-text `## Other`, kept on re-stamp.
+VERSION = "1.5.0"
 
 _VERSION_RE = re.compile(r"^<!--\s*card-format:\s*(\S+)\s*-->\s*$")
 

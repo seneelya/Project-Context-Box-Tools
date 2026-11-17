@@ -767,6 +767,33 @@ def test_seam_section_preserved_and_contract_refreshed():
     check("fresh contract line written", cf.seam_contract_line() in merged)
 
 
+def test_twin_kind_and_other_section():
+    """REQ-021 п.4: Kind `twin` валиден (без суффикса); `## Other` штамп не создаёт, а
+    существующая переезжает как есть (абзацы целы), после Runtime seams; перештамп стабилен."""
+    check("twin is a valid Kind", cf.is_valid_seam_kind("twin"))
+    check("twin takes no suffix", not cf.is_valid_seam_kind("twin:reads"))
+    fresh = mic.build_card(_PR, _FILE, None, {})
+    check("Other never created", f"## {cf.OTHER_SECTION}" not in fresh)
+    card_text = (
+        "# chat.py\n\nSummary.\n\n"
+        "## Runtime seams\n\n"
+        "| Target | Symbol | Kind | Shape | Why |\n"
+        "|---|---|---|---|---|\n"
+        "| `src/x.cpp` | `core` | twin | equal | CPU twin — change both |\n\n"
+        "## Other\n\n"
+        "First paragraph.\n- a bullet\n\nSecond paragraph after a blank line.\n"
+    )
+    op = mic._parse_old_prose(card_text, "python")
+    merged = mic.build_card(_PR, _FILE, op, {})
+    check("Other kept with its paragraphs",
+          "## Other\n\nFirst paragraph.\n- a bullet\n\nSecond paragraph after a blank line.\n" in merged)
+    check("Other after Runtime seams",
+          merged.index("## Runtime seams") < merged.index("## Other"))
+    check("twin row kept", "| `src/x.cpp` | `core` | twin | equal |" in merged)
+    again = mic.build_card(_PR, _FILE, mic._parse_old_prose(merged, "python"), {})
+    check("re-stamp with Other is byte-stable", again == merged)
+
+
 def test_seam_hint_when_detected_no_section():
     """Нет секции, но детектор нашёл подозрительный паттерн -> report['seam_hint']; секция
     сама НЕ создаётся (никакой пустой директивы, Plan03/Vision07)."""
@@ -951,6 +978,7 @@ def main():
     test_merge_marker_on_signature_change_and_rename()
     test_force_guard_refuses_on_prose_then_discard_prose_works()
     test_seam_section_preserved_and_contract_refreshed()
+    test_twin_kind_and_other_section()
     test_seam_hint_when_detected_no_section()
     test_seam_scanner_patterns()
     test_seam_validate_kind_shape_target()

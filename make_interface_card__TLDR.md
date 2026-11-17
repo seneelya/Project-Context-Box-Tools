@@ -148,6 +148,10 @@ an entry (a stage file, or a part nobody includes) + all it includes, transitive
   dynamic-connection patterns and prints the lines — it does not write a card or decide
   Kind/Shape/Why, that's still the agent's call. The stamp itself never invents the section: an
   existing `## Runtime seams` is kept byte-for-byte (only its contract-note line refreshes); a
-  missing one only ever gets a one-line hint, never an empty placeholder.
+  missing one only ever gets a one-line hint, never an empty placeholder. Kind `twin` (card-format
+  1.5.0) = the same logic written twice with no call between them (a CPU function and its GLSL
+  shader) — they change together.
+* **`## Other`** (card-format 1.5.0) — optional free text of the agent for what fits no section;
+  never created by the stamp, moved over as is on every re-stamp (after Runtime seams).
 
 Contract of the format it writes = `CARD_FORMAT.py`. Authoring recipe = `__HQ/guides/Guide__MakeCard.md`.

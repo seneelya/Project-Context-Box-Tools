@@ -114,7 +114,6 @@ contact_lab (17 Nov 2026) — первый проект C++ + Vulkan на шаб
 - Тесты: `test/test_glsl_stamp.py` 50/0 (синтетика); приватная проверка REQ —
   `test/secret/contact_lab_shaders/check_req021.py` (в `.gitignore`). check 169/0, test_cardstamp 186/0,
   test_cpp 150/0, restamp 21/0, golden 16/16, name_resolver 55/0, views 57/0, test_glsl/test_glsl_env PASS.
-- Не сделано: п.4 (слот `## Twins`).
 
 ## Результат п.3 — 2026-11-18, Opus: связь шейдер ↔ хост
 
@@ -131,3 +130,16 @@ contact_lab (17 Nov 2026) — первый проект C++ + Vulkan на шаб
   `graph_from_cards --file shaders/batch.comp` → used-by `src/gpu_context.cpp`. `validate_cards` 93 clean.
 - Тесты `test_glsl_stamp` 60/0 (+10: ветки CMake, две сборки одного исходника, по имени, по конфигу,
   ненайденная, выключено без glsl); регрессия зелёная.
+
+## Результат п.4 — 2026-11-18, Opus (решение владелицы: близнец — рантайм-связь)
+
+- Не отдельный `## Twins`, а вид связи `twin` в `## Runtime seams` (без суффикса направления, обычно Shape
+  `equal`): `| src/safety_screen.cpp | screen_core<float> | twin | equal | CPU twin of main — change both |`.
+  Граф (`--view seams-mermaid`) видит такие пары, как и другие строки таблицы.
+- Новая необязательная секция `## Other` — свободный текст агента для всего, чему нет места в других
+  разделах. Штамп её не создаёт и директиву туда не ставит; при перештамповке она переезжает как есть
+  (абзацы целы), после Runtime seams.
+- card-format 1.4.0 → 1.5.0. `--help-seams`, `Guide__MakeCard.md` Step 3, TLDR, `CARD_FORMAT.py`.
+  test_cardstamp 193/0 (+7), регрессия зелёная.
+- Пример `LANGUAGE` в комментарии конфига шаблона переписан: пять языков, один язык — `"csharp"`,
+  несколько — `["python", "typescript"]` и `["cpp", "glsl"]`; настоящая строка единственная.

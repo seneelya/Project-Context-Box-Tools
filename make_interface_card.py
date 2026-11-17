@@ -615,6 +615,16 @@ def _parse_old_prose(text, lang=None):
             keep = [ln for ln in body if ln.strip() and not cf.is_seam_contract_line(ln)]
             if keep:
                 P["sections"][cf.RUNTIME_SEAMS_SECTION] = keep
+        elif name == cf.OTHER_SECTION:
+            # free text of the agent (REQ-021 p.4): moves over as is, inner blank lines kept (one)
+            out = []
+            for ln in body:
+                if ln.strip() or (out and out[-1].strip()):
+                    out.append(ln)
+            while out and not out[-1].strip():
+                out.pop()
+            if out:
+                P["sections"][cf.OTHER_SECTION] = out
         elif name in ("How it works", "Doc links", "Discrepancies"):
             # Discrepancies' own directive instructs "else write (none)" — that literal answer
             # IS the agent's deliberate, filled-in verdict, not an unfilled slot (REQ-009). Every
@@ -885,6 +895,15 @@ def build_card(project_root, file, old_prose=None, report=None):
     elif seam_scanner.scan(target_abs):
         report["seam_hint"] = True
 
+    # ---- Other (optional free text, REQ-021 p.4): never created, never a directive, kept as is ----
+    other = op["sections"].get(cf.OTHER_SECTION)
+    if other:
+        lines.append("")
+        lines.append(f"## {cf.OTHER_SECTION}")
+        lines.append("")
+        lines.extend(other)
+        report["kept_sections"].append(cf.OTHER_SECTION)
+
     # ---- Salvage: проза записей, которых в коде больше нет (не теряем молча) ----
     old_salv = op["sections"].get("Salvage", [])
     orphans = [nm for nm, e in op["entries"].items()
@@ -1015,6 +1034,8 @@ def _seams_help_text():
         "                     `/* .compute = */ backend_compute,` — the caller never names the callee)",
         "  registry           the target is registered into a list/registry and found at runtime",
         "                     (C/C++: `register_backend(ggml_backend_cuda_reg())`, often under #ifdef)",
+        "  twin               the same logic written twice, no call between them — they must change",
+        "                     together (a CPU function and its GLSL shader); usually Shape `equal`",
         "",
         "Shape (independent axis — any Kind can be any Shape):",
         "  dependent   disappearance of the target breaks the CONSUMING side",
@@ -1029,6 +1050,10 @@ def _seams_help_text():
         "|---|---|---|---|---|",
         "| `promo_engine.py` | `apply_discount` | by-path | dependent | loaded by feature flag; "
         "signature must match |",
+        "| `src/safety_screen.cpp` | `screen_core<float>` | twin | equal | CPU twin of this shader's "
+        "main — change both |",
+        "",
+        f"Anything that fits no section: '## {cf.OTHER_SECTION}' — optional free text, kept as is on re-stamp.",
         "",
         "See: <file> --info-seams   — scan one file for suspected dynamic-connection patterns",
         "     (grep-based hint only; Kind/Shape/Why are always the agent's call, not the tool's).",
