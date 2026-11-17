@@ -1436,3 +1436,49 @@ def test_top_level_into_an_existing_cpp_header_keeps_its_comment_and_pragma_on_t
         cpp = split_langs.for_ext(".hpp")
         assert cpp.import_insert_index(["// head\n", "// more\n", "\n", "int x;\n"], ".hpp") == 3
         assert cpp.import_insert_index(["int x;\n"], ".hpp") == 0
+
+
+# --------------------------------------------------------------------------- REQ-020: --investigate core / class inside
+
+STAR_PY = (
+    "import csv\nimport io\nimport json\n\n\n"
+    "class Item:\n    pass\n\n\n"
+    "def norm(raw):\n    return raw.strip()\n\n\n"
+    "def money(v):\n    return f'{v:.2f}'\n\n\n"
+    "class Store:\n"
+    "    def __init__(self):\n        self.items = {}\n\n"
+    "    def add(self, k):\n        self.items[norm(k)] = Item()\n        return k\n\n"
+    "    def take(self, k):\n        return self.items.pop(norm(k))\n\n"
+    "    def size(self):\n        return len(self.items)\n\n"
+    "    def report(self):\n        return money(self.size())\n\n"
+    "    def export_csv(self):\n        buf = io.StringIO()\n        csv.writer(buf).writerow(list(self.items))\n"
+    "        return buf.getvalue()\n\n"
+    "    def export_json(self):\n        return json.dumps(list(self.items))\n"
+)
+
+
+def test_investigate_keeps_the_core_and_peels_its_feeders_and_looks_inside_the_class():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "store.py")
+        src.write_text(STAR_PY, encoding="utf-8")
+        out = run_cli("--file", str(src), "--investigate").stdout
+        assert "core: Store" in out and "STAYS in the source" in out
+        assert '--split 6,10,14 "store_Store_deps.py"' in out          # Item, norm, money — not Store
+        assert "inside Store" in out
+        line = next(ln for ln in out.splitlines() if "export_csv@" in ln)
+        assert "export_json@" in line and "only they use: csv, io, json" in line
+        assert "--level 2 --into" in out
+        assert "__init__@" not in out                                  # the constructor stays with the class
+
+
+def test_investigate_does_not_look_inside_a_function_or_a_small_class():
+    with tempfile.TemporaryDirectory() as d:
+        body = "".join(f"  const h{k} = () => {{\n    return {k};\n  }};\n" for k in range(12))
+        src = Path(d, "comp.js")
+        src.write_text("import { x } from './x.js';\n\nexport function Panel() {\n" + body + "  return x;\n}\n",
+                       encoding="utf-8")
+        assert "inside " not in run_cli("--file", str(src), "--investigate").stdout   # closures, not methods
+        small = Path(d, "small.py")
+        small.write_text("class A:\n    def a(self):\n        return 1\n\n\n" + "".join(
+            f"def f{k}():\n    return {k}\n\n\n" for k in range(12)), encoding="utf-8")
+        assert "inside " not in run_cli("--file", str(small), "--investigate").stdout  # not most of the file

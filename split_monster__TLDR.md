@@ -219,8 +219,18 @@ with its line range, size, what it declares, which OTHER blocks of the same file
 it; **hubs** (`*`, used by many — a shared file or they stay); **families** (>= 2 blocks linked by
 "uses", hubs and orchestrators left out — the natural pieces to peel off); **lone blocks**;
 **orchestrators** (use >= 5 blocks) with the families they lean on (hint where each should live);
-and a starting `--split …` command that peels the families off and leaves the core. Identifier scan,
-not a resolver; the grouping stays your decision. Markdown/other languages: use `get_codeblock
+**core** — when one family is most of the file and is a star around its biggest block (that block
+uses the rest and is at least as big as all of them), the block STAYS and the ones only it uses are
+offered together (`<stem>_<core>_deps`) instead of moving the whole file; and a starting `--split …`
+command that peels the families off and leaves the core.
+
+**Inside a big class:** when a `class`/`struct` is more than half of the file, its members (level 2)
+are listed in groups — linked by calls (`self.x` / `this.x`), a shared name prefix (`export_csv`,
+`export_json`) and imports only a minority of members use; the constructor stays with the class. A
+small group that alone uses some import (`only they use: csv, io, json`) gets a ready second-pass
+command (`--level 2 --into …`, see *Nested blocks*) — its line numbers are of the file as it is now,
+so after a first pass run `--investigate` again. A function whose inner closures are level 2 (a JS
+component) is not looked into. Identifier scan, not a resolver; the grouping stays your decision. Markdown/other languages: use `get_codeblock
 --outline`. Dry-run of `move.py` now prints a plan table (files / blocks / imports / lines).
 
 ## Not built yet

@@ -1817,6 +1817,135 @@ def _clusters(blocks, excluded):
     return sorted(groups.values(), key=lambda g: blocks[g[0]]["start"])
 
 
+def _cores(blocks, groups, total):
+    """A family that is most of the file and is a star around its biggest block: that block (uses >= 2
+    of the family, at least as big as all the others together) is the CORE — it stays; peeling the
+    family would move the whole file."""
+    cores = set()
+    for g in groups:
+        if len(g) < 3:
+            continue
+        lines = sum(blocks[i]["lines"] for i in g)
+        big = max(g, key=lambda i: blocks[i]["lines"])
+        if lines * 2 >= total and sum(1 for j in blocks[big]["uses"] if j in g) >= 2 \
+                and blocks[big]["lines"] * 2 >= lines:
+            cores.add(big)
+    return cores
+
+
+_CLASS_DECL_RE = re.compile(r"\b(class|struct)\b")   # a real class — not a function whose inner closures are level 2
+
+
+def _first_code_offset(all_lines, b):
+    """Offset of a block's first line that is not a comment / decorator / blank (its declaration)."""
+    for k in range(b["lines"]):
+        st = all_lines[b["start"] - 1 + k].strip()
+        if st and not st.startswith(("#", "//", "/*", "*", "@", "[")):
+            return k
+    return 0
+
+
+_SELF_ATTR_RE = re.compile(r"\b(?:self|this)\s*(?:\.|->)\s*(\w+)")
+_MEMBER_NAME_RE = re.compile(r"(?:\bdef|\bfunction)\s+(\w+)|(~?\w+)\s*(?:<[^>]*>)?\s*\(")
+_CTOR_NAMES = {"__init__", "constructor", "__new__", "__post_init__"}
+
+
+def _investigate_class(file_path, lang, ext, all_lines, cls, cls_label):
+    """Inside a class that is most of the file: its methods (get_codeblock level 2) — size, calls among
+    them, the source's imports / file functions they use — linked by calls, a shared name prefix and
+    imports only a minority of methods use. Groups as facts; one without the constructor that alone
+    uses some import is a candidate for a second (nested) pass."""
+    rows = [r for r in _gcb_outline_rows(file_path)
+            if r["level"] == 2 and not r.get("filler") and cls["start"] <= r["start"] and r["end"] <= cls["end"]]
+    members = []
+    for r in rows:
+        m = _MEMBER_NAME_RE.search(r["text"])
+        if not m:
+            continue
+        text = "\n".join(all_lines[r["start"] - 1:r["end"]])
+        ids = set(lang.identifiers(text, ext)) | set(_SELF_ATTR_RE.findall(text))
+        members.append({"name": m.group(1) or m.group(2), "start": r["start"], "end": r["end"],
+                        "lines": r["end"] - r["start"] + 1, "ids": ids})
+    if len(members) < 3:
+        return
+    names = {mb["name"] for mb in members}
+    imported = {local for info in lang.source_imports(all_lines, ext).values()
+                if not info.get("always") for _, local in info["items"]}
+    file_names = set(lang.top_level_names(all_lines, ext)) - set(cls["names"])
+    for mb in members:
+        mb["calls"] = sorted(mb["ids"] & names - {mb["name"]})
+        mb["imports"] = sorted(mb["ids"] & imported)
+        mb["funcs"] = sorted(mb["ids"] & file_names)
+    users = {}
+    for k, mb in enumerate(members):
+        for n in mb["imports"]:
+            users.setdefault(n, set()).add(k)
+    rare = {n for n, ks in users.items() if len(ks) * 2 < len(members)}
+    parent = list(range(len(members)))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def join(a, b):
+        parent[find(a)] = find(b)
+
+    idx = {mb["name"]: k for k, mb in enumerate(members)}
+    ctor = {k for k, mb in enumerate(members) if mb["name"] in _CTOR_NAMES or mb["name"] in cls["names"]}
+    for k, mb in enumerate(members):
+        if k in ctor:
+            continue
+        for c in mb["calls"]:
+            if idx[c] not in ctor:
+                join(k, idx[c])
+        for n in mb["imports"]:
+            if n in rare:
+                for j in users[n]:
+                    if j not in ctor:
+                        join(k, j)
+    pre = {}
+    for k, mb in enumerate(members):
+        head = mb["name"].strip("_").split("_")[0]
+        if k not in ctor and "_" in mb["name"].strip("_") and len(head) >= 3:
+            pre.setdefault(head, []).append(k)
+    for ks in pre.values():
+        for k in ks[1:]:
+            join(ks[0], k)
+    groups = {}
+    for k in range(len(members)):
+        if k not in ctor:
+            groups.setdefault(find(k), []).append(k)
+    groups = sorted(groups.values(), key=lambda g: members[g[0]]["start"])
+    total = sum(mb["lines"] for mb in members)
+    print(f"\ninside {cls_label} [{cls['start']}-{cls['end']}, {cls['lines']} lines — most of the file]: "
+          f"{len(members)} member blocks, {total} lines. Groups (calls / shared name prefix / imports only "
+          f"a minority of members use); the constructor stays with the class:")
+    cands = []
+    for k, g in enumerate(groups):
+        tag = chr(ord("a") + k) if k < 26 else f"g{k}"
+        own = sorted({n for i in g for n in members[i]["imports"]
+                      if n in rare and users[n] <= set(g)})
+        funcs = sorted({n for i in g for n in members[i]["funcs"]})
+        lines = sum(members[i]["lines"] for i in g)
+        print(f"  {tag} [{lines:>4} lines] " + ", ".join(f"{members[i]['name']}@{members[i]['start']}" for i in g)
+              + (f" — only they use: {', '.join(own)}" if own else "")
+              + (f" — file functions: {', '.join(funcs[:5])}" if funcs else ""))
+        if own and lines * 2 <= total and any(not members[i]["name"].startswith("__") for i in g):
+            cands.append(g)                 # a small group apart by its own imports — not the class's bulk,
+                                            # not protocol dunders (`__deepcopy__` belongs to the class)
+    if not cands:
+        print("  (no group stands apart by its own imports — a split inside this class is your call)")
+        return
+    print("second pass (REQ-019) for a group above: move its methods into a class that ALREADY exists in "
+          "another file (a mixin / base the class then inherits) — create that file first; line numbers are "
+          "of the file AS IT IS NOW — after a first pass run --investigate again. E.g.:")
+    for g in cands[:3]:
+        print(f"  split_monster.py --file {file_path} --split {','.join(str(members[i]['start']) for i in g)} "
+              f"<existing file> --level 2 --into <its class line> --out-script move2.py")
+
+
 def investigate(file_path, project_root="."):
     """The picture of a monster file for the one who decides the split: every top-level block with
     its size, what it declares, which other blocks of the SAME file it uses and who uses it;
@@ -1854,9 +1983,13 @@ def investigate(file_path, project_root="."):
         print(f"\nhubs (*) — used by >= {hub_min} blocks, kept out of the clusters; usually a shared file "
               f"or they stay in the source: " + ", ".join(label(i) for i in sorted(hubs)))
     orch = {i for i, b in enumerate(blocks) if len(b["uses"]) >= _ORCH_MIN and i not in hubs}
-    groups = _clusters(blocks, hubs | orch)
+    cores = _cores(blocks, _clusters(blocks, hubs | orch), total)
+    groups = _clusters(blocks, hubs | orch | cores)
     families = [g for g in groups if len(g) >= 2]
-    singles = [g[0] for g in groups if len(g) == 1]
+    feeders = {c: [g[0] for g in groups if len(g) == 1 and blocks[g[0]]["used_by"]
+                   and set(blocks[g[0]]["used_by"]) <= {c}] for c in sorted(cores)}
+    fed = {j for js in feeders.values() for j in js}
+    singles = [g[0] for g in groups if len(g) == 1 and g[0] not in fed]
     letter = {}
     print(f"\nfamilies (>= 2 blocks linked by 'uses'; hubs and orchestrators left out) — {len(families)}:")
     stem, suffix = Path(file_path).stem, Path(file_path).suffix
@@ -1874,6 +2007,13 @@ def investigate(file_path, project_root="."):
             tname += "_"
         taken.add(tname)
         split_args.append((",".join(str(blocks[i]["start"]) for i in g), f"{stem}_{tname}{suffix}"))
+    for c, js in feeders.items():
+        print(f"core: {label(c)} [{blocks[c]['lines']} lines] — the biggest block, it uses the rest of its "
+              f"family: it STAYS in the source" + (f"; only it uses (they can go together): "
+                                                    + ", ".join(label(j) for j in js) if js else ""))
+        if js:
+            tname = re.sub(r"\W+", "_", blocks[c]["names"][0]).strip("_") or "core"
+            split_args.append((",".join(str(blocks[j]["start"]) for j in js), f"{stem}_{tname}_deps{suffix}"))
     if singles:
         print("lone blocks (no link to another non-orchestrator block): " + ", ".join(label(i) for i in singles))
     if orch:
@@ -1890,6 +2030,10 @@ def investigate(file_path, project_root="."):
               " ".join(f'--split {ln} "{t}"' for ln, t in split_args) + " --out-script move.py")
     else:
         print("  (no family to peel off — the blocks are one tangle or independent; decide by the table above)")
+    big = [i for i, b in enumerate(blocks) if b["lines"] >= 20 and b["lines"] * 2 > total
+           and _CLASS_DECL_RE.search(all_lines[b["start"] - 1 + _first_code_offset(all_lines, b)])]
+    for i in big:
+        _investigate_class(file_path, lang, ext, all_lines, blocks[i], label(i))
     return 0
 
 
@@ -2039,9 +2183,11 @@ def _cli_impl(argv=None):
         "--investigate", action="store_true",
         help=(
             "картина файла-монстра для решения о разрезе: все top-level блоки (размер, что объявляют, "
-            "какие другие блоки ЭТОГО файла используют и кто использует их), хабы, кластеры и "
-            "стартовая команда --split. Только факты + предложение; группировку решаете вы. "
-            "Ничего не пишет."
+            "какие другие блоки ЭТОГО файла используют и кто использует их), хабы, кластеры, ядро "
+            "(самый большой блок, который пользуется остальными, остаётся; его зависимости — одной "
+            "группой) и стартовая команда --split. Класс больше половины файла — ещё и группы его "
+            "методов с готовой командой второго прохода (--level 2). Только факты + предложение; "
+            "группировку решаете вы. Ничего не пишет."
         ),
     )
     p.add_argument("--project-root", default=".", help="корень проекта: monster.consumers, реэкспорт имён, cwd для --check")
