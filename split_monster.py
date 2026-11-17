@@ -503,6 +503,16 @@ def _tidy_seam(segs, i):
         del segs[i:i + min(b1, b2)]             # 2+2 blanks -> 2, not 4
 
 
+def _short_path(path, width=44):
+    """A path for the dry-run table: relative to the cwd when it is inside it, else `…` + its tail."""
+    p = str(path)
+    try:
+        p = os.path.relpath(p)
+    except ValueError:            # another drive on Windows
+        pass
+    return p if len(p) <= width else "…" + p[-(width - 1):]
+
+
 def _parse_error_at(data, ext):
     """` (line N: msg)` for Python — where the agent has to look; '' for other languages."""
     if ext.lower() != ".py":
@@ -885,8 +895,8 @@ class _Monster:
         print("[dry-run] plan:")
         print(f"  {'file':<44} {'blocks':>6} {'imports':>7} {'lines':>6}")
         for target, nb, ni, nl in self._plan:
-            print(f"  {target[-44:]:<44} {nb:>6} {ni:>7} {nl:>6}")
-        print(f"  {str(source_file)[-44:]:<44} {'':>6} {len(imports or []):>7} "
+            print(f"  {_short_path(target):<44} {nb:>6} {ni:>7} {nl:>6}")
+        print(f"  {_short_path(source_file):<44} {'':>6} {len(imports or []):>7} "
               f"{total:>6} -> ~{total - moved + len(imports or [])} after")
         self._plan = []
 
