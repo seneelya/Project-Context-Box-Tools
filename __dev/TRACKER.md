@@ -309,3 +309,5 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ Приёмка в contact_lab (деплой + конфиг `LANGUAGE = ["cpp", "glsl"]`, `STAMP_DIRS` + `shaders`, ключ `GLSL_INCLUDE_DIRS` руками): 30 карточек шейдеров, C++ без изменений, `validate_cards` чистый. Правки в contact_lab не закоммичены — на проверку владелице.
 - ✅ CRLF после деплоя: файлы узнаются (UPTODATE), CONFLICT нет.
 - → open: REQ-021 п.3 (связь шейдер ↔ хост через CMake и `<name>_spv.h`), п.4 (слот `## Twins`), ловушка `#   LANGUAGE = "python"` в комментарии конфига.
+- ✅ REQ-021 п.3: связь шейдер ↔ хост (`glsl_host.py`): `X_spv.h` в C++ → исходник шейдера (ветки CMake / имя / конфиг `GLSL_HOST`), зависимость в карточке C++, `built as` в карточке `.comp`, ребро в графе. test_glsl_stamp 60/0. contact_lab: задеплоено и перештамповано (19 сборок), НЕ закоммичено — рядом незакоммиченная правка `CMakeLists.txt` местного агента. Найдено: строка 171 CMakeLists contact_lab склеивает два пути в DEPENDS — передано местному агенту.
+- → open: REQ-021 п.4 (слот `## Twins`), ловушка `#   LANGUAGE = "python"` в комментарии конфига.

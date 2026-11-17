@@ -114,4 +114,20 @@ contact_lab (`T:\Agents\contact_lab`, 17 Nov 2026) — первый проект
 - Тесты: `test/test_glsl_stamp.py` 50/0 (синтетика); приватная проверка REQ —
   `test/secret/contact_lab_shaders/check_req021.py` (в `.gitignore`). check 169/0, test_cardstamp 186/0,
   test_cpp 150/0, restamp 21/0, golden 16/16, name_resolver 55/0, views 57/0, test_glsl/test_glsl_env PASS.
-- Не сделано: п.3 (CMake `glslc` → `<name>_spv.h` → C++), п.4 (слот `## Twins`).
+- Не сделано: п.4 (слот `## Twins`).
+
+## Результат п.3 — 2026-11-18, Opus: связь шейдер ↔ хост
+
+- `find_code_usage/glsl_host.py`, включается, только если в LANGUAGE есть `glsl`. Имена сборок берутся из C++:
+  `#include "X_spv.h"`, которого нет в дереве. Исходник и дефайны ищутся по порядку: конфиг
+  `GLSL_HOST["builds"]` → ветка CMake `if(v STREQUAL "X") set(...) -D...` → единственный stage-файл с именем X.
+  Не найден — include остаётся внешним, а факты называют сборку («source not found»). Шаблоны заголовка и
+  символа задаются в `GLSL_HOST` (по умолчанию `{name}_spv.h` / `{name}_spv`).
+- Карточка C++: шейдер стал зависимостью проекта (`X_spv` | `embedded spv`), в Build facts — `embeds shaders`
+  (исходник, дефайны, функция, где используется массив). Карточка `.comp`: `built as` (сборки, дефайны,
+  заголовок, функции-пользователи). Граф связывает их по таблице зависимостей.
+- contact_lab: 19 сборок, все найдены (3 — из веток CMake: `batch.comp` с `BATCH_OP=0/1/3`). Карточка
+  `gpu_context.cpp`: 19 строк зависимостей, проза сохранена, добавился один слот why для `shaders/*`.
+  `graph_from_cards --file shaders/batch.comp` → used-by `src/gpu_context.cpp`. `validate_cards` 93 clean.
+- Тесты `test_glsl_stamp` 60/0 (+10: ветки CMake, две сборки одного исходника, по имени, по конфигу,
+  ненайденная, выключено без glsl); регрессия зелёная.
