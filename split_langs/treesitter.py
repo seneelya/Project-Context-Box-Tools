@@ -200,7 +200,13 @@ def import_insert_index(segs, ext=""):
             except OSError:
                 pass
     last = 0
-    for i, seg in enumerate(segs[:200]):
-        if re.match(r"\s*#\s*include\b", seg):
+    for i, seg in enumerate(segs[:200]):         # after the last #include, else after `#pragma once`
+        if re.match(r"\s*#\s*(include\b|pragma\s+once\b)", seg):
             last = i + 1
-    return last
+    if last:
+        return last
+    i = 0                                        # else after the leading comment block, not above it
+    while i < len(segs) and (segs[i].lstrip().startswith(("//", "/*", "*")) or
+                             (i and not segs[i].strip() and segs[i - 1].lstrip().startswith(("//", "*")))):
+        i += 1
+    return i if i < len(segs) else 0

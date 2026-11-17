@@ -746,40 +746,52 @@ class _Monster:
             if b.indent == "auto":
                 b.indent = auto
         head = [b for b in blocks if b not in placed]
-        new_body = _reconstruct_body(head)
         if any(getattr(b, "nested", False) for b in blocks):
             self._mechanical = True
+        body = _reconstruct_body(head)          # head blocks in source order, blank lines between
+        gap = _block_gap(head)
 
         if target.exists():
             old_raw, eol, bom = _read_raw(target)
             if placed:
                 old_raw = _insert_placed(old_raw, placed, eol, target_file)
-            old_header, old_body = _split_header_body(old_raw.replace("\r\n", "\n"))
-            header = _dedup_preserve_order(old_header + header)
-            body = new_body + ([""] * _block_gap(head) if new_body and old_body else []) + old_body  # this batch goes BEFORE whatever was already there
+            lang_t, ext_t = split_langs.for_file(target_file), target.suffix.lower()
+            segs = _segments(old_raw)
+            if segs and not segs[-1].endswith("\n"):
+                segs[-1] += eol
+            n_imports = len(_insert_imports(segs, imports, eol, lang_t, ext_t))   # after its include band
+            if body:                                # new blocks: after the import band, before the old code
+                at = lang_t.import_insert_index(segs, ext_t)
+                while at < len(segs) and not segs[at].strip():
+                    at += 1
+                chunk = ([""] if at > 0 and segs[at - 1].strip() else []) + body
+                if at < len(segs) and segs[at].strip():
+                    chunk += [""] * gap
+                segs[at:at] = [ln + eol for ln in chunk]
+            _append_lines(segs, append or [], eol)
+            final = "".join(segs)
         else:
             eol, bom = ("\n", False)
             if blocks and Path(blocks[0].source_file).exists():
                 _, eol, bom = _read_raw(blocks[0].source_file)  # new file inherits source's EOL/BOM
-            body = new_body
-
-        lines = list(header)
-        if header and body:
-            lines.append("")
-        lines.extend(body)
-        if append:
-            if lines and lines[-1].strip():
+            n_imports = len(header)
+            lines = list(header)
+            if header and body:
                 lines.append("")
-            lines.extend(append)
-        final = "\n".join(lines) + ("\n" if lines else "")
+            lines.extend(body)
+            if append:
+                if lines and lines[-1].strip():
+                    lines.append("")
+                lines.extend(append)
+            final = ("\n".join(lines) + ("\n" if lines else "")).replace("\n", eol)
 
         self._note(targets=self._run_get("targets", 0) + 1,
                    blocks=self._run_get("blocks", 0) + len(blocks),
                    imports=self._run_get("imports", 0) + len(imports))
         if not _is_apply():
             print(f"[dry-run] would write {target_file}: "
-                  f"{len(header)} import(s), {len(blocks)} block(s)")
-            self._plan.append((str(target_file), len(blocks), len(header),
+                  f"{n_imports} import(s), {len(blocks)} block(s)")
+            self._plan.append((str(target_file), len(blocks), n_imports,
                                sum(b.end - b.start + 1 for b in blocks)))
             return
         self._snap(target_file)
@@ -789,8 +801,8 @@ class _Monster:
         for ln in append or []:
             self._added.update(_nonblank(ln.encode("utf-8")))
         target.parent.mkdir(parents=True, exist_ok=True)
-        _write_raw(target, final.replace("\n", eol), bom)
-        print(f"wrote {target_file}: {len(header)} import(s), {len(blocks)} block(s)")
+        _write_raw(target, final, bom)
+        print(f"wrote {target_file}: {n_imports} import(s), {len(blocks)} block(s)")
 
     def cut(self, source_file, blocks, imports=None, append=None):
         """Remove `blocks`' exact ranges from `source_file` — every block must belong to this

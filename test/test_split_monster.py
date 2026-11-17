@@ -1412,3 +1412,27 @@ def test_nested_cpp_pass_carries_no_includes():
         out = tgt.read_text(encoding="utf-8")
         assert out.startswith("#pragma once\n\nnamespace n {") and "#include" not in out
         assert "        return 0;\n    }\n\n    int two() const {\n        return 2;\n    }\n};" in out
+
+
+def test_top_level_into_an_existing_cpp_header_keeps_its_comment_and_pragma_on_top():
+    """Includes go after the target's own #include / #pragma once, new blocks after them — the file's
+    leading comment and `#pragma once` stay first; the rest of the target stays byte-for-byte."""
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "a.cpp")
+        src.write_text("#include <string>\n\nint helper(int x) {\n    return x;\n}\n\nint other() {\n    return 2;\n}\n",
+                       encoding="utf-8")
+        tgt = Path(d, "b.hpp")
+        old = "// b.hpp - helpers\n// second comment line\n#pragma once\n\nint kept() {\n    return 0;\n}\n"
+        tgt.write_text(old, encoding="utf-8")
+        script = str(Path(d, "move.py"))
+        assert run_cli("--file", str(src), "--split", "3", str(tgt), "--out-script", script).returncode == 0
+        r = _run(script, "--apply")
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert tgt.read_text(encoding="utf-8") == (
+            "// b.hpp - helpers\n// second comment line\n#pragma once\n#include <string>\n\n"
+            "int helper(int x) {\n    return x;\n}\n\nint kept() {\n    return 0;\n}\n")
+    with tempfile.TemporaryDirectory() as d:          # no #pragma once: after the leading comment
+        import split_langs
+        cpp = split_langs.for_ext(".hpp")
+        assert cpp.import_insert_index(["// head\n", "// more\n", "\n", "int x;\n"], ".hpp") == 3
+        assert cpp.import_insert_index(["int x;\n"], ".hpp") == 0
