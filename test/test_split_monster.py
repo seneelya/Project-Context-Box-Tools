@@ -1482,3 +1482,13 @@ def test_investigate_does_not_look_inside_a_function_or_a_small_class():
         small.write_text("class A:\n    def a(self):\n        return 1\n\n\n" + "".join(
             f"def f{k}():\n    return {k}\n\n\n" for k in range(12)), encoding="utf-8")
         assert "inside " not in run_cli("--file", str(small), "--investigate").stdout  # not most of the file
+
+
+def test_new_python_file_has_two_blank_lines_after_its_imports():
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "m.py")
+        src.write_text("import os\n\n\ndef a():\n    return os.sep\n\n\ndef b():\n    return 1\n", encoding="utf-8")
+        script = str(Path(d, "move.py"))
+        assert run_cli("--file", str(src), "--split", "4", str(Path(d, "u.py")), "--out-script", script).returncode == 0
+        assert _run(script, "--apply").returncode == 0
+        assert Path(d, "u.py").read_text(encoding="utf-8") == "import os\n\n\ndef a():\n    return os.sep\n"

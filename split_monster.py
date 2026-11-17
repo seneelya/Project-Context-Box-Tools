@@ -777,7 +777,7 @@ class _Monster:
             n_imports = len(header)
             lines = list(header)
             if header and body:
-                lines.append("")
+                lines.extend([""] * gap)        # imports -> code: PEP 8's two blank lines for Python
             lines.extend(body)
             if append:
                 if lines and lines[-1].strip():
