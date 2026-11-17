@@ -62,14 +62,16 @@ MAP_DIR = "__map"
 # ---------------------------------------------------------------------------
 # LANGUAGE: default language(s) for tools that support --language / bulk scans.
 #
-# THREE canonical languages exist right now — "js"/"ts"/"tsx" are NOT separate
-# languages, they're all just spellings for ONE canonical language:
+# FIVE canonical languages exist right now; the short forms are spellings of
+# the SAME language, not separate ones:
 #
 #   canonical      accepted short forms (any of these, case-insensitive)
 #   ---------      -----------------------------------------------------
 #   "python"       "py"
 #   "typescript"   "ts", "js", "tsx"      <- .js/.jsx/.ts/.tsx are ALL this one
 #   "csharp"       "cs"
+#   "cpp"          "c", "c++", "cxx", "cuda", "cu"   <- C, C++ and CUDA
+#   "glsl"         "shader", "shaders"    <- .comp .glsl .vert .frag .geom .tesc .tese
 #
 # TypeScript and JavaScript are handled as the exact same language on purpose
 # (one parser/handler covers both) — write "typescript" (or "ts"/"js", they're
@@ -77,13 +79,15 @@ MAP_DIR = "__map"
 # to pick.
 #
 # Single language (most projects):
-#   LANGUAGE = "python"
+#   LANGUAGE = "csharp"
 #
-# A POLYGLOT project sets a LIST instead of a single string — this is the
-# two-language example: a Python backend + a JS/TS frontend in the same tree:
+# A POLYGLOT project sets a LIST instead of a single string, e.g.
+#   a Python backend + a JS/TS frontend in the same tree:
 #   LANGUAGE = ["python", "typescript"]
-# make_interface_card --all then stamps both; with a single value it stamps only
-# that language and says nothing about the files it skipped, which is how a
+#   a C++ library + its GLSL compute shaders:
+#   LANGUAGE = ["cpp", "glsl"]
+# make_interface_card --all then stamps all of them; with a single value it stamps
+# only that language and says nothing about the files it skipped, which is how a
 # python+JS tree quietly gets half a map. Per-file analysis is polyglot either
 # way (the language comes from the file's extension) — this setting only picks
 # what a BULK pass looks at. `--language py,ts` (or `all`) overrides per run,
