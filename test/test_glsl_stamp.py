@@ -184,6 +184,29 @@ def test_cards(root):
     check("orphan: not called", "not called in this unit: `lonely`" in _facts(orphan))
 
 
+def test_many_units():
+    """A library part in 3+ units: one row per function across the units; identical per-unit
+    blocks merge; a global const used by others is NOT a Consumed-internals entry."""
+    lib = "const uint K_ONE = 1;\nfloat sq(float x) { return x * x; }\nfloat quad(float x) { return sq(sq(x)); }\n"
+    ent = '#include "lib.glsl"\nvoid main() { float y = quad(%s) + float(K_ONE); }\n'
+    files = {"s/lib.glsl": lib, "s/a.comp": ent % "1.0", "s/b.comp": ent % "2.0",
+             "s/c.comp": '#include "lib.glsl"\nvoid main() { float y = sq(3.0); }\n'}
+    with tempfile.TemporaryDirectory() as root:
+        for rel, text in files.items():
+            p = os.path.join(root, *rel.split("/"))
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(text)
+        card = _card(root, "s/lib.glsl")
+        f = _facts(card)
+        check("units: compact header", "call sites per unit (×sites/copies from `main`" in f)
+        # c.comp: quad is not called there, yet its 2 sites of sq are compiled -> 3 sites, 1 copy
+        check("units: sq row", "- `sq` — `a.comp` ×2/2, `b.comp` ×2/2, `c.comp` ×3/1" in f)
+        check("units: quad row (0 in c)", "- `quad` — `a.comp` ×1/1, `b.comp` ×1/1, `c.comp` ×0" in f)
+        check("units: no per-unit detail", "in unit `" not in f)
+        check("const not a consumed internal", "Consumed internals" not in card and "K_ONE" in f)
+
+
 def test_merge(root):
     """Prose survives a re-stamp; a second re-stamp is byte-stable."""
     import re
@@ -208,6 +231,7 @@ def main():
         _write(root)
         test_cards(root)
         test_merge(root)
+    test_many_units()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
 

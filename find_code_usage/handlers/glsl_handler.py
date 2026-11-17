@@ -4,8 +4,8 @@ GLSL has no linker and no per-symbol import: a part sees what the entry point in
 it. So a consumer is any OTHER file of a compile unit that contains the target
 (`glsl_tree.GlslTree.units_of`) and that uses one of the target's names:
 - a function — by its CALLS (tree-sitter `function_call`, comments and prototypes never count);
-- any other declared name (block instance, struct, const, spec constant, shared) — by a word
-  match on code lines.
+- any other declared name (block instance, struct, spec constant, shared, global) — by a word
+  match on code lines. Global `const`s are not counted (the card sums them by prefix).
 Kind: `unit <entry>` (several units: comma-joined). Files outside the units are never opened.
 """
 
@@ -31,7 +31,9 @@ def target_names(target_abs: str) -> Tuple[Set[str], Dict[str, str]]:
         else:                                   # an unnamed block exposes its fields directly
             for f in b["fields"]:
                 other[f["name"]] = b["name"]
-    for k in ("structs", "spec", "shared", "consts", "vars"):
+    # global `const`s are NOT consumer facts: a part may hold 200 field indices used everywhere —
+    # the card counts them by prefix instead (they would all land in "Consumed internals")
+    for k in ("structs", "spec", "shared", "vars"):
         for x in a.get(k, []):
             other.setdefault(x["name"], x["name"])
     return funcs, {w: s for w, s in other.items() if w not in funcs}

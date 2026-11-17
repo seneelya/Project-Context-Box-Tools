@@ -165,6 +165,9 @@ def _const_groups(consts):
 
 
 _SITES_DETAIL = 30      # above this many call sites a function is summarised per file
+_UNITS_DETAIL = 3       # from this many units on, call sites are one row per function across units
+_SITES_HEAD = ("call sites of the functions defined here (each is a full inlined copy; "
+               "copies from `main` = through every caller, all #if variants together):")
 
 
 def _n_fn(calls):
@@ -195,7 +198,8 @@ def _copies(edges):
 
 
 def _unit_lines(tree, target_abs, entry, files, a, ana):
-    """Call facts of the target inside one unit."""
+    """Call facts of the target inside one unit -> (called rows, {fn: (sites, copies|None)},
+    uncalled names, the other lines: calls into other files, reached through, forward decls)."""
     g = _engine()
     tkey = os.path.normcase(os.path.abspath(target_abs))
     spec = set()
@@ -221,6 +225,7 @@ def _unit_lines(tree, target_abs, entry, files, a, ana):
                 d[c["name"]] = d.get(c["name"], 0) + 1
     copies = _copies(edges) if has_main else {}
     out = []
+    summ = {}
     # calls OF the functions defined here
     called, uncalled = [], []
     for name in dict.fromkeys(mine):
@@ -230,6 +235,7 @@ def _unit_lines(tree, target_abs, entry, files, a, ana):
             if cs:
                 sites.append(("here" if k == tkey else f"`{tree.rel(f)}`", cs))
         n = sum(len(cs) for _w, cs in sites)
+        summ[name] = (n, copies.get(name) if has_main and n else None)
         if not n:
             uncalled.append(name)
             continue
@@ -241,12 +247,6 @@ def _unit_lines(tree, target_abs, entry, files, a, ana):
         cp = copies.get(name)
         cps = f", {cp} copies from `main`" if has_main and cp is not None and cp != n else ""
         called.append(f"- `{name}` ×{n}{cps} — {where}")
-    if called:
-        out.append("call sites of the functions defined here (each is a full inlined copy; "
-                   "copies from `main` = through every caller, all #if variants together):")
-        out.extend(_cap(called))
-    if uncalled:
-        out.append("not called in this unit: " + _names(uncalled))
     # calls FROM here into other files of the unit
     into = {}
     for c in a["calls"]:
@@ -289,7 +289,7 @@ def _unit_lines(tree, target_abs, entry, files, a, ana):
         protos.append(f"`{p['name']}` (defined {at})")
     if protos:
         out.append("forward declarations: " + ", ".join(protos))
-    return out
+    return called, summ, uncalled, out
 
 
 def fact_sections(project_root, target_abs, declared_surface):
@@ -354,14 +354,43 @@ def fact_sections(project_root, target_abs, declared_surface):
             cache[k] = g.analyze(p)
         return cache[k]
 
-    many = len(units) > 1
-    for entry in sorted(units, key=tree.rel):
-        ul = _unit_lines(tree, target_abs, entry, units[entry], a, ana)
-        if not ul:
-            continue
-        if many:
-            lines.append(f"in unit `{tree.rel(entry)}`:")
-        lines.extend(ul)
+    res = [(tree.rel(e),) + _unit_lines(tree, target_abs, e, units[e], a, ana)
+           for e in sorted(units, key=tree.rel)]
+    if len(res) < _UNITS_DETAIL:
+        for rel, called, _summ, uncalled, rest in res:
+            if not (called or uncalled or rest):
+                continue
+            if len(res) > 1:
+                lines.append(f"in unit `{rel}`:")
+            if called:
+                lines.append(_SITES_HEAD)
+                lines.extend(_cap(called))
+            if uncalled:
+                lines.append("not called in this unit: " + _names(uncalled))
+            lines.extend(rest)
+    else:
+        # a shared library part (math64 in 7 units): one row per function across the units —
+        # the callers themselves are in the callers' cards ("calls into other files")
+        mine = list(dict.fromkeys(fn["name"] for fn in a["functions"] if fn["name"] != "main"))
+        if mine:
+            lines.append(f"call sites per unit (×sites/copies from `main`; each unit is compiled on its "
+                         f"own, all #if variants together; the callers are in their own cards):")
+            rows = []
+            for name in mine:
+                parts = []
+                for rel, _c, summ, _u, _r in res:
+                    n, cp = summ.get(name, (0, None))
+                    parts.append(f"`{os.path.basename(rel)}` ×{n}" + (f"/{cp}" if cp is not None else ""))
+                rows.append(f"- `{name}` — " + ", ".join(parts))
+            lines.extend(_cap(rows))
+        groups = {}
+        for rel, _c, _s, _u, rest in res:
+            if rest:
+                groups.setdefault(tuple(rest), []).append(rel)
+        for rest, rels in groups.items():
+            lines.append(("in units " if len(rels) > 1 else "in unit ")
+                         + ", ".join(f"`{r}`" for r in rels) + ":")
+            lines.extend(rest)
     if a["errors"]:
         lines.append(f"parse errors: {a['errors']} region(s) tree-sitter could not read — read the code")
     return [("Shader facts", lines)] if lines else []
