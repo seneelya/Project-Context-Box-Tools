@@ -109,8 +109,8 @@ contact_lab (`T:\Agents\contact_lab`, 17 Nov 2026) — первый проект
   `scan_events`; `solve_chi64` ← `kepler64_shared.glsl` через `propagate64`; в карточке
   `kepler64_shared`: `solve_chi64` ×1, 40 копий от `main`.
 - Мелкое: деплой узнаёт файлы, которые git проекта перевёл в CRLF, — 138 UPTODATE, новые версии
-  UPDATE, не CONFLICT. Ловушка `#   LANGUAGE = "python"` в комментарии конфига — не тронута (решение
-  владелицы).
+  UPDATE, не CONFLICT. Ловушка `#   LANGUAGE = "python"` в комментарии конфига — не тронута, вопрос
+  к владелице.
 - Тесты: `test/test_glsl_stamp.py` 50/0 (синтетика); приватная проверка REQ —
   `test/secret/contact_lab_shaders/check_req021.py` (в `.gitignore`). check 169/0, test_cardstamp 186/0,
   test_cpp 150/0, restamp 21/0, golden 16/16, name_resolver 55/0, views 57/0, test_glsl/test_glsl_env PASS.
