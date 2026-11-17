@@ -15,6 +15,7 @@ Match your current goal to exactly one path below. Do not guess which tool fits;
 | "What does this project look like? What depends on what?" | `graph_from_cards` (`--view depth`) | then `--file PATH` for focus slice |
 | "I need to work on FILE — give me its context" | `collect_card_bundle FILE --depth 1..2` | then read the bundle, not raw sources |
 | "Who uses this file / symbol? What breaks if I change it?" | `find_code_usage --file PATH [--symbol NAME]` | add `--verbose` for line numbers → use with `get_codeblock` |
+| "Where in the docs (.md) was this discussed? I don't know the exact words" | `python -m byeori index __HQ && python -m byeori search __HQ "phrase"` (external; not installed → install, see `__HQ/guides/Guide__DocSearch.md`) | open hits with `get_codeblock --file F`; exact names → grep |
 | "Show me just this function/class/block around line N" | `get_codeblock --file PATH --outline` (map) → `--line N --query` (text) | use `--level K` to zoom in/out the nesting ladder |
 | "Quick glance: what public API does this Python file expose?" | `show_pyfile_api FILE.py` | treat as hint only; verify with raw code when precision matters |
 | "Create or refresh a card for FILE" | `make_interface_card FILE --cards-dir <HQ>/__map` (re-run = MERGE, prose kept) | then fill `<|fillN|>` placeholders → run `validate_cards` |
