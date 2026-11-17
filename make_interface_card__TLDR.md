@@ -100,6 +100,15 @@ an entry (a stage file, or a part nobody includes) + all it includes, transitive
   the function is defined. A function with more than 30 sites is summarised per file.
 * Includes: own folder, then `GLSL_INCLUDE_DIRS` (optional config key, root-relative), then a
   unique path-suffix match — the C/C++ rules. Engine: `find_code_usage/glsl_tree.py`.
+* **Shader <-> host** (when LANGUAGE has `glsl`; `find_code_usage/glsl_host.py`): a C++
+  `#include "X_spv.h"` that is not in the tree names a build X. Its source and defines: config
+  `GLSL_HOST["builds"]` -> a CMake branch `if(<var> STREQUAL "X") set(...) -D...` (files in
+  `GLSL_HOST["cmake"]`, default `CMakeLists.txt`) -> a unique stage file named X. The C++ card then
+  has the shader as an In-Project dependency (`X_spv` | `embedded spv` — the graph links them) and
+  `embeds shaders` in Build facts (source, defines, the function using the array); the `.comp` card
+  has `built as` (each build, its defines, header, user functions). Patterns: `GLSL_HOST["header"]`
+  = `"{name}_spv.h"`, `["symbol"]` = `"{name}_spv"`. A build with no source stays external and is
+  named in the facts — never guessed.
 
 ## The three facts it fills
 

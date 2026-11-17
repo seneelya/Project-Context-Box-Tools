@@ -27,10 +27,20 @@ class CppResolver(ImportResolver):
         if scan is None:
             return []
         tree = tree_for(project_root)
+        from ..glsl_host import host_for
+        host = host_for(project_root)
         out = []
         for inc in scan.includes:
             tgt, how = tree.resolve(target_file, inc)
             raw = inc.raw()
+            name = host.build_for_spec(inc.spec) if tgt is None else None
+            if name and host.builds[name]["source"]:
+                # a generated shader header (REQ-021 p.3): the dependency is the shader source
+                out.append(ImportInfo(raw_line=raw, module_name=inc.spec,
+                                      symbol_names=[host.symbol(name)],
+                                      resolved_path=host.builds[name]["source"],
+                                      kind=f"conditional({inc.cond})" if inc.cond else "embedded spv"))
+                continue
             if tgt is None:
                 tags = [t for t in (_TAG.get(how), f"if {inc.cond}" if inc.cond else None) if t]
                 if tags:

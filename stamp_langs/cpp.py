@@ -457,6 +457,24 @@ def _seam_lines(hits, decls, scan):
     return out
 
 
+def _shader_lines(project_root, target_abs, tree):
+    """Embedded shaders this file includes (REQ-021 p.3, `find_code_usage/glsl_host.py`): which
+    GLSL source and defines each `<name>_spv.h` is built from, and where the array is used."""
+    from find_code_usage.glsl_host import host_for
+    host = host_for(project_root)
+    k = os.path.normcase(os.path.abspath(target_abs))
+    mine = [n for n, b in sorted(host.builds.items()) if any(os.path.normcase(u) == k for u in b["users"])]
+    if not mine:
+        return []
+    rows = []
+    for n in mine:
+        b = host.builds[n]
+        fns = next((fs for u, fs in host.uses(n) if os.path.normcase(u) == k), [])
+        src = (f"`{tree.rel(b['source'])}`" + "".join(f" -D{d}" for d in b["defines"])) if b["source"]             else "source not found (set CONFIG__TOOLS.GLSL_HOST builds)"
+        rows.append(f"- `{host.symbol(n)}` ← {src}" + (f" — in {_names([f'`{x}`' for x in fns])}" if fns else ""))
+    return [f"embeds shaders ({len(mine)}, generated `{host.header('<name>')}` — built by CMake):"] + _cap(rows, str)
+
+
 def fact_sections(project_root, target_abs, declared_surface):
     """-> [(title, [lines])] — the `## Build facts` section (pure fact, re-stamped)."""
     import seam_scanner
@@ -505,6 +523,8 @@ def fact_sections(project_root, target_abs, declared_surface):
         more = len(reach) - len({os.path.normcase(x[0]) for x in incl})
         if more > 0:
             lines.append(f"reached transitively by {more} more file(s)")
+
+    lines.extend(_shader_lines(project_root, target_abs, tree))
 
     hits = seam_scanner.scan(target_abs, "cpp")
     if hits:

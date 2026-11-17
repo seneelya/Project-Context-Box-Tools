@@ -149,8 +149,13 @@ DECL_BACKEND = "auto"
 #                         root. Only limits WHERE cards are written — links use the whole root.
 #   GLSL_INCLUDE_DIRS  -> GLSL (REQ-021): where `#include "x.glsl"` is looked up after the file's
 #                         own folder (glslc -I), root-relative. Empty -> unique path-suffix match.
+#   GLSL_HOST          -> GLSL (REQ-021 p.3): how C++ gets a shader. Missing keys = defaults:
+#                         {"header": "{name}_spv.h", "symbol": "{name}_spv",
+#                          "cmake": ["CMakeLists.txt"],   # scanned for `if(v STREQUAL "name")` branches
+#                          "builds": {"name": {"source": "shaders/x.comp", "defines": ["A=1"]}}}
 # ---------------------------------------------------------------------------
 GLSL_INCLUDE_DIRS = []
+GLSL_HOST = {}
 CPP_INCLUDE_DIRS = []
 CPP_STRIP_MACROS = []
 CPP_WRAPPER_MACROS = []

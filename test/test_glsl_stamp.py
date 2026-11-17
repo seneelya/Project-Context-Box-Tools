@@ -207,6 +207,75 @@ def test_many_units():
         check("const not a consumed internal", "Consumed internals" not in card and "K_ONE" in f)
 
 
+HOST_TREE = {
+    "__HQ/tools/CONFIG__TOOLS.py": 'LANGUAGE = ["cpp", "glsl"]\n%s\n',
+    "CMakeLists.txt": """foreach(shader multi_a multi_b single)
+    set(source "${shader}")
+    set(defines)
+    if(shader STREQUAL "multi_a")   # two builds of one source
+        set(source multi)
+        set(defines -DMODE=1)
+    elseif(shader STREQUAL "multi_b")
+        set(source multi)
+        set(defines -DMODE=2 -DFAST)
+    endif()
+endforeach()
+""",
+    "shaders/multi.comp": "void main() {}\n",
+    "shaders/single.comp": "void main() {}\n",
+    "shaders/odd.comp": "void main() {}\n",
+    "src/host.cpp": """#include "multi_a_spv.h"
+#include "multi_b_spv.h"
+#include "single_spv.h"
+#include "missing_spv.h"
+#include "renamed_spv.h"
+namespace app {
+const unsigned* pick(int which) {
+    if (which == 0) return multi_a_spv;
+    if (which == 1) return multi_b_spv;
+    if (which == 2) return renamed_spv;
+    return single_spv;
+}
+}
+""",
+}
+
+
+def _write_tree(root, tree, config_extra=""):
+    for rel, text in tree.items():
+        p = os.path.join(root, *rel.split("/"))
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text % config_extra if rel.endswith("CONFIG__TOOLS.py") else text)
+
+
+def test_host_link():
+    """REQ-021 p.3: `<name>_spv.h` in C++ -> the shader source (CMake branches, the name, the config);
+    both cards say it; off when LANGUAGE has no glsl."""
+    with tempfile.TemporaryDirectory() as root:
+        _write_tree(root, HOST_TREE,
+                    'GLSL_HOST = {"builds": {"renamed": {"source": "shaders/odd.comp", "defines": ["X=3"]}}}')
+        cpp = _card(root, "src/host.cpp")
+        check("host: cmake branch -> dep row", "| `multi` | `shaders/multi.comp` | `multi_a_spv` | embedded spv |" in cpp)
+        check("host: second build of one source", "| `multi` | `shaders/multi.comp` | `multi_b_spv` | embedded spv |" in cpp)
+        check("host: by name", "| `single` | `shaders/single.comp` | `single_spv` | embedded spv |" in cpp)
+        check("host: by config", "| `odd` | `shaders/odd.comp` | `renamed_spv` | embedded spv |" in cpp)
+        check("host: unresolved stays external", '#include "missing_spv.h"  [not in tree]' in cpp)
+        check("host: build facts with defines + function",
+              "- `multi_b_spv` ← `shaders/multi.comp` -DMODE=2 -DFAST — in `app::pick`" in cpp)
+        check("host: unresolved named in facts", "- `missing_spv` ← source not found" in cpp)
+        comp = _card(root, "shaders/multi.comp")
+        check("host: shader card built as",
+              "- `multi_a` -DMODE=1 → `multi_a_spv.h` (`multi_a_spv`), used by `src/host.cpp` in `app::pick`" in comp)
+        check("host: shader card two builds", "built as (2):" in comp)
+    with tempfile.TemporaryDirectory() as root:
+        tree = dict(HOST_TREE)
+        tree["__HQ/tools/CONFIG__TOOLS.py"] = 'LANGUAGE = "cpp"\n%s\n'
+        _write_tree(root, tree)
+        cpp = _card(root, "src/host.cpp")
+        check("host: off without glsl", "embedded spv" not in cpp and '#include "multi_a_spv.h"  [not in tree]' in cpp)
+
+
 def test_merge(root):
     """Prose survives a re-stamp; a second re-stamp is byte-stable."""
     import re
@@ -232,6 +301,7 @@ def main():
         test_cards(root)
         test_merge(root)
     test_many_units()
+    test_host_link()
     sys.stdout.write(f"\n{'-' * 50}\n{_PASS} passed, {_FAIL} failed\n")
     return 1 if _FAIL else 0
 

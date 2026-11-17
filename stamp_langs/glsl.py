@@ -292,6 +292,28 @@ def _unit_lines(tree, target_abs, entry, files, a, ana):
     return called, summ, uncalled, out
 
 
+def _host_lines(project_root, target_abs, tree):
+    """How the host gets this entry (REQ-021 p.3): the builds made from it (defines), the embedded
+    header, and the C++ functions that use the array (`find_code_usage/glsl_host.py`)."""
+    from find_code_usage.glsl_host import host_for
+    host = host_for(project_root)
+    names = host.builds_of(target_abs)
+    if not host.on:
+        return []
+    if not names:
+        return ["host: no C++ file includes a header built from it (not embedded, or GLSL_HOST "
+                "does not match the build)"]
+    out = [f"built as ({len(names)}):"]
+    for n in names:
+        b = host.builds[n]
+        defs = "".join(f" -D{d}" for d in b["defines"])
+        used = []
+        for u, fns in host.uses(n):
+            used.append(f"`{tree.rel(u)}`" + (" in " + ", ".join(f"`{x}`" for x in fns[:_NAMES_MAX]) if fns else ""))
+        out.append(f"- `{n}`{defs} → `{host.header(n)}` (`{host.symbol(n)}`), used by " + "; ".join(used))
+    return out
+
+
 def fact_sections(project_root, target_abs, declared_surface):
     """-> [(title, [lines])] — the `## Shader facts` section (pure fact, re-stamped)."""
     g = _engine()
@@ -318,6 +340,9 @@ def fact_sections(project_root, target_abs, declared_surface):
         lines.append("included by: " + ", ".join(
             f"`{tree.rel(s)}`" + (f" [if {c}]" if c else "")
             for s, c, _l in sorted(incl, key=lambda x: tree.rel(x[0]))))
+
+    if ext in g.STAGE_EXTS:
+        lines.extend(_host_lines(project_root, target_abs, tree))
 
     for b in a["blocks"]:
         if b["kind"] == "push_constant" or "std430" in [x.replace(" ", "") for x in b["layout"]] \
