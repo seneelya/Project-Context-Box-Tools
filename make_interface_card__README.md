@@ -69,6 +69,15 @@ make_interface_card.py --all --language py,ts                     # bulk: пол
 разрешаются. Что именно пишется в карточку и какие ключи конфига — `make_interface_card__TLDR.md`
 § C/C++; замысел — `__dev/vision/Vision09__cpp-stamp.md`, план — `__dev/plans/Plan08__cpp-stamp.md`.
 
+## GLSL (REQ-021) — коротко
+
+Модуль `stamp_langs/glsl.py` + движок `find_code_usage/glsl_tree.py` (дерево `#include` — тот же
+сканер, что у C/C++; разбор файла — GLSL-профиль get_codeblock). Работает в единицах компиляции:
+точка входа + всё, что она включает. `## Shader facts`: стадия и `local_size`, интерфейс (блоки,
+размер push по std430), места вызова функций с метками `#if` и спец-констант, копии от `main`.
+Связь с хостом — `find_code_usage/glsl_host.py`: `X_spv.h` в C++ → исходник шейдера (ветки CMake,
+имя, ключ `GLSL_HOST`). Подробно — `make_interface_card__TLDR.md` § GLSL.
+
 ## Механизм: как собирается свежий (не merge) штемпель
 
 1. **Определить язык** файла по расширению — реестр **`stamp_langs/`** (модуль на язык; форма,

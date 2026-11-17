@@ -29,6 +29,8 @@ validate_cards.py --cards-dir path/__map --project-root <R> # custom cards dir
   that looks like a project path (has a `/` or a known source extension, and isn't a
   `scheme://` URL) resolves like a `File Path` — pending if the source exists without a card
   yet, error if neither exists. Free text that doesn't look path-like (an external binary, a
-  bus name, a URL) is never resolved and never an error — just not an edge.
+  bus name, a URL) is never resolved and never an error — just not an edge. Kind `twin` (1.5.0) =
+  the same logic written twice (a CPU function and its shader).
+* **`Other`** (optional, 1.5.0) — free text, not checked; its absence is never flagged.
 
 Green = done. Used both by the card author (self-check) and by an auditor (see `Guide__AuditCards`).

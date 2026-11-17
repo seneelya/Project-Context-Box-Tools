@@ -61,7 +61,7 @@ plugin_loader.py: Possible Dynamic import [__import__, import_module]
 | `--file PATH` | Путь к исследуемому файлу: абсолютный, или относительный — сначала от project-root, потом от cwd (есть в обоих -> root + предупреждение) | `_engine/auth.py`, `src/analyzer.ts` |
 | `--module NAME` | Имя модуля (альтернатива --file; в v1 не используется активно) | `auth_module` |
 | `--module-names N1,N2,...` | Дополнительные имена по которым этот модуль можно импортировать | `_secret_module,auth_core` |
-| `--language LNG` | Язык обработчика/резолвера (поддерживает Python, TypeScript/JS, C#). По умолчанию автодетект по расширению файла или python | `python`, `typescript`, `csharp` |
+| `--language LNG` | Язык обработчика/резолвера (Python, TypeScript/JS, C#, C/C++/CUDA, GLSL). По умолчанию автодетект по расширению файла или python | `python`, `typescript`, `csharp`, `cpp`, `glsl` |
 | `--incoming` | Показать upstream зависимости (откуда целевой файл импортирует символы) вместо downstream consumers | (без значения) |
 | `--verbose` | Группировать вывод по символам с номерами строк, типами загрузки и уровнями блоков (работает только в default mode); добавляет легенду формата | (без значения) |
 | `--project-root PATH` | Root directory to scan for imports (default: CONFIG__TOOLS.PROJECT_ROOT if set and existing, else current dir); `@` = config value explicitly | `/workspace/SRC/memohood`, `.` |
@@ -332,7 +332,7 @@ Regex-based подход не идеален — он видит текст, а 
 
 ❌ Полное извлечение символов из dynamic imports (только флажим что есть)  
 ❌ Runtime сборка имени строками (`getattr(sys.modules[...], ...)`) без прямого упоминания target name  
-❌ Языки кроме Python, TypeScript/JS, C# — но архитектура готова для расширения через LanguageHandler
+❌ Языки кроме Python, TypeScript/JS, C#, C/C++/CUDA, GLSL — но архитектура готова для расширения через LanguageHandler
 
 ---
 
