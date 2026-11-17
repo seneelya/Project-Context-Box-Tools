@@ -2,7 +2,7 @@
 
 ## Зачем это нужно (контекст извне)
 
-contact_lab (`T:\Agents\contact_lab`, 17 Nov 2026) — первый проект C++ + Vulkan на шаблоне. `make_interface_card --all`
+contact_lab (17 Nov 2026) — первый проект C++ + Vulkan на шаблоне. `make_interface_card --all`
 с `LANGUAGE = "cpp"` проштамповал 63 файла `src/` и `include/`. 30 файлов GLSL в `shaders/` (17 `.comp` — точки входа,
 13 `.glsl` — включаемые части) остались без карточек: их расширения не берёт ни один модуль `stamp_langs/`, файл
 отвергается (exit 2). Парсер при этом уже есть: `get_codeblock` читает GLSL (колесо capsule1,
