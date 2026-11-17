@@ -147,7 +147,10 @@ DECL_BACKEND = "auto"
 #   CPP_PAIRS          -> header <-> implementation the same-stem rule misses {"a.h": "b.cpp"}.
 #   STAMP_DIRS         -> default ZONE of `make_interface_card --all` (subpaths); empty = whole
 #                         root. Only limits WHERE cards are written — links use the whole root.
+#   GLSL_INCLUDE_DIRS  -> GLSL (REQ-021): where `#include "x.glsl"` is looked up after the file's
+#                         own folder (glslc -I), root-relative. Empty -> unique path-suffix match.
 # ---------------------------------------------------------------------------
+GLSL_INCLUDE_DIRS = []
 CPP_INCLUDE_DIRS = []
 CPP_STRIP_MACROS = []
 CPP_WRAPPER_MACROS = []

@@ -127,7 +127,7 @@ All CLI tools run from project root: `python __HQ/tools/<name>.py [args]`
 | File | One-liner |
 |------|-----------|
 | `CARD_FORMAT.py` | Card format contract: section names, deps columns, aliases — the schema cards must follow |
-| `CONFIG__TOOLS.py` | Per-project defaults: PROJECT_ROOT (sources), MAP_DIR + LOG_DIR (relative to the HQ), LANGUAGE, TEST_DIRS, DECL_BACKEND, C/C++: CPP_INCLUDE_DIRS / CPP_STRIP_MACROS / CPP_WRAPPER_MACROS / CPP_PAIRS, STAMP_DIRS (zone of `--all`) |
+| `CONFIG__TOOLS.py` | Per-project defaults: PROJECT_ROOT (sources), MAP_DIR + LOG_DIR (relative to the HQ), LANGUAGE, TEST_DIRS, DECL_BACKEND, C/C++: CPP_INCLUDE_DIRS / CPP_STRIP_MACROS / CPP_WRAPPER_MACROS / CPP_PAIRS, GLSL: GLSL_INCLUDE_DIRS, STAMP_DIRS (zone of `--all`) |
 
 Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-apply examples).
 
@@ -156,6 +156,9 @@ Each CLI tool has a one-screen TLDR: `__HQ/tools/<name>__TLDR.md` (glance-and-ap
     `tree-sitter-cpp` for declarations (no regex fallback); `#include`/`#if` facts are a plain
     directive scan and need nothing. `#if` conditions are TAGGED on edges, never resolved — see
     `make_interface_card__TLDR.md` § C/C++.
+  - GLSL shaders (`make_interface_card`, `find_code_usage`): the GLSL grammar wheel from `wheels/`
+    (the refusal prints its `pip install`). Cards work in compile units (entry + its includes) and
+    count call sites / inlined copies — `make_interface_card__TLDR.md` § GLSL.
   - Install grammars: `<python> -m pip install -r get_codeblock/requirements.txt` (no numpy/torch
     cascade; needs Python >= 3.10). All CLI tools force UTF-8 stdout (cards/commits are often Cyrillic).
 

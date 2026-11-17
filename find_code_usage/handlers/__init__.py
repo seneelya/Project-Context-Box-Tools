@@ -18,6 +18,7 @@ def get_handler(language: str) -> LanguageHandler:
         "cpp": _make_cpp_handler,
         "c": _make_cpp_handler,
         "c++": _make_cpp_handler,
+        "glsl": _make_glsl_handler,
         # Add more here as they are implemented
     }
 
@@ -29,7 +30,7 @@ def get_handler(language: str) -> LanguageHandler:
     return factory()
 
 
-_CANONICAL = ("python", "typescript", "csharp", "cpp")
+_CANONICAL = ("python", "typescript", "csharp", "cpp", "glsl")
 
 
 def language_for_file(path: str):
@@ -64,3 +65,8 @@ def _make_csharp_handler():
 def _make_cpp_handler():
     from .cpp_handler import CppHandler
     return CppHandler()
+
+
+def _make_glsl_handler():
+    from .glsl_handler import GlslHandler
+    return GlslHandler()

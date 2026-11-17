@@ -18,6 +18,7 @@ def get_resolver(language: str) -> ImportResolver:
         "cpp": _make_cpp_resolver,
         "c": _make_cpp_resolver,
         "c++": _make_cpp_resolver,
+        "glsl": _make_glsl_resolver,
     }
 
     factory = factories.get(language.lower())
@@ -49,3 +50,8 @@ def _make_csharp_resolver():
 def _make_cpp_resolver():
     from .cpp_resolver import CppResolver
     return CppResolver()
+
+
+def _make_glsl_resolver():
+    from .glsl_resolver import GlslResolver
+    return GlslResolver()

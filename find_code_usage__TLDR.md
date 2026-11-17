@@ -33,6 +33,13 @@ files are rescanned, a tool code change drops the cache. Delete it any time; `TO
 turns it off, `TOOLS_CACHE_DIR` moves it. On llama.cpp (1445 files) the tree builds in 0.35 s warm
 vs 5 s cold.
 
+**GLSL** (`.comp .glsl .vert .frag .geom .tesc .tese`, REQ-021): no linker — a part sees what the
+entry included before it. A consumer is any OTHER file of a compile unit (entry + its includes,
+transitively) that CALLS the target's function (tree-sitter calls: comments and prototypes don't
+count) or uses its block instance / const / struct name. Kind `unit <entry>`. `--incoming` = the
+target's own `#include`s (same lookup, `GLSL_INCLUDE_DIRS`; cache `glsl_scan.json`). Engine:
+`find_code_usage/glsl_tree.py`.
+
 ## Filtering
 
 * **`--symbol NAME[,NAME]`** — Post-filter the output to one or a few symbols. Works in

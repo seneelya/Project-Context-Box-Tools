@@ -9,7 +9,7 @@ given by the slot's place (`__HQ/guides/Guide__MakeCard.md` Step 3); a one-line
 `<!-- Fill each … -->` header above the H1 points there (always present, filled or not). A re-stamp rewrites old `<|Agent:NN … |>` / `<Agent: …>` into
 `<|fillN|>` and keeps the prose.
 
-**Target:** `make_interface_card.py <file> [--project-root R] [--out PATH | --cards-dir D] [--force [--discard-prose]]` — multilingual (py/ts/cs/C/C++/CUDA). `<file>` also as `--file`, same thing.
+**Target:** `make_interface_card.py <file> [--project-root R] [--out PATH | --cards-dir D] [--force [--discard-prose]]` — multilingual (py/ts/cs/C/C++/CUDA/GLSL). `<file>` also as `--file`, same thing.
 
 **`--project-root`** — card-tool rule. `--project-root` not given -> implicitly `CONFIG__TOOLS.PROJECT_ROOT` of this tool's own `__HQ` (must exist; missing config -> refuses, never a silent cwd; a RELATIVE value must still contain this tool). `@` -> same, explicit, unchecked. Literal path -> as given. Cards: `--cards-dir` > `CONFIG__TOOLS.MAP_DIR` (relative to `__HQ`) > `<root>/__map/`; an explicit `--project-root` always means `<root>/__map/` (Vision08). `--cards-dir D` with a single `<file>` and no `--out` writes `D/<file>.md`; with `--all` it is the target folder.
 
@@ -35,7 +35,7 @@ run: comma/space separated, `all` for every known language, short forms `py/ts/j
 accepted. The pass now prints the languages and extensions it went by, even on success.
 
 **Languages = registry `stamp_langs/`** (one module per language, shape frozen in
-`stamp_langs/CONTRACT.md`). Today: python, typescript (ts/tsx/js/jsx), csharp, cpp (C/C++/CUDA). A file whose extension
+`stamp_langs/CONTRACT.md`). Today: python, typescript (ts/tsx/js/jsx), csharp, cpp (C/C++/CUDA), glsl (shaders). A file whose extension
 no module claims is REFUSED (exit 2) — it is never stamped as Python.
 Per-FILE analysis was always polyglot — only the bulk selection was not.
 
@@ -76,6 +76,30 @@ shared with get_codeblock).
   (`get_codeblock --name f`), so an edit that shifts lines does not rewrite the card (git noise).
 * **Speed:** the include tree comes from the scan cache (`find_code_usage__TLDR.md` § C/C++);
   a zone of 36 llama.cpp files restamps in ~8 s.
+
+## GLSL shaders — what is different (REQ-021)
+
+`.comp .glsl .vert .frag .geom .tesc .tese` (`LANGUAGE = ["cpp", "glsl"]`, alias `shader`). Needs
+the GLSL grammar wheel (`wheels/`, the refusal prints the `pip install`). GLSL has no linker: a
+`.glsl` part sees what the entry point included BEFORE it. So the stamp works in COMPILE UNITS =
+an entry (a stage file, or a part nobody includes) + all it includes, transitively.
+* **Public API**: functions (`main` too), interface blocks (H3 Interfaces — `layout(std430,
+  binding = 0) readonly buffer In {…} src`, fields listed under it), structs, specialization
+  constants, `shared` and other globals. Global `const`s are NOT entries (a part may hold 200 field
+  indices) — `all_defs` + a count by prefix in the facts. Consumers = OTHER files of the units that
+  call the function / use the block instance name.
+* **`## Shader facts`** (pure fact, rebuilt every stamp): stage and `local_size_*`, `compiled in`
+  (the units), `included by`, push_constant / fixed std430 block size in bytes (the host struct
+  must match), global constants by prefix, `#if` zones (tagged, not resolved — `-DBATCH_OP=1`
+  builds are not split), then per unit: **call sites** of every function defined here (by file and
+  calling function, `[if X]` for `#if`, `[spec kX]` / `[spec !kX]` when an `if`/`&&`/`?:` on the
+  way names a specialization constant) and **copies from `main`** (sites × copies of each caller —
+  every GLSL call site is a full inlined copy in the driver compile; all `#if` variants counted
+  together); `calls into other files of the unit`; `reached through those calls` (other files'
+  functions inlined only transitively, with the first foreign hop); forward declarations and where
+  the function is defined. A function with more than 30 sites is summarised per file.
+* Includes: own folder, then `GLSL_INCLUDE_DIRS` (optional config key, root-relative), then a
+  unique path-suffix match — the C/C++ rules. Engine: `find_code_usage/glsl_tree.py`.
 
 ## The three facts it fills
 

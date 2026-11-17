@@ -333,13 +333,22 @@ def cpp_config(project_root: str) -> dict:
 
 class Tree:
     """All C/C++ files under a root + include resolution + the forward/reverse include graph.
-    Built once per root per process (cheap: directive scan only)."""
+    Built once per root per process (cheap: directive scan only).
+
+    The same preprocessor serves GLSL (`#include` of GL_GOOGLE_include_directive): a subclass
+    sets EXTS / CACHE and its own config (`glsl_tree.GlslTree`)."""
+
+    EXTS = CPP_EXTS
+    CACHE = "cpp_scan"
+
+    def _config(self) -> dict:
+        return cpp_config(self.root)
 
     def __init__(self, project_root: str):
         from .core import collect_files
         self.root = os.path.abspath(project_root)
-        self.cfg = cpp_config(self.root)
-        self.files = [os.path.abspath(p) for p in collect_files(self.root, CPP_EXTS)]
+        self.cfg = self._config()
+        self.files = [os.path.abspath(p) for p in collect_files(self.root, self.EXTS)]
         self.fileset = {os.path.normcase(p) for p in self.files}
         self.by_base: Dict[str, List[str]] = {}
         for p in self.files:
@@ -397,7 +406,7 @@ class Tree:
             # Directive scans come from the on-disk cache (Plan09 step 1); resolution is always
             # redone — it depends on the set of files and CPP_INCLUDE_DIRS, and is cheap.
             from .scan_cache import ScanCache, source_version
-            cache = ScanCache(self.root, "cpp_scan", source_version(__file__))
+            cache = ScanCache(self.root, self.CACHE, source_version(__file__))
             fwd = {}
             for p in self.files:
                 d = cache.get(p)

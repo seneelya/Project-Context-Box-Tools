@@ -8,7 +8,7 @@
 import importlib
 import os
 
-_MODULES = ("python", "typescript", "csharp", "cpp")
+_MODULES = ("python", "typescript", "csharp", "cpp", "glsl")
 
 _DECLARED_KEYS = ("docstring_first", "exports", "all_defs", "reexports")
 

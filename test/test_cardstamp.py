@@ -897,7 +897,7 @@ def test_seam_legacy_section_rename_via_aliases():
 def test_stamp_langs_registry():
     """Plan08 шаг 0: язык — запись в реестре; незнакомое расширение НЕ становится python."""
     import stamp_langs
-    check("registry knows 4 langs", stamp_langs.known() == ["cpp", "csharp", "python", "typescript"])
+    check("registry knows 5 langs", stamp_langs.known() == ["cpp", "csharp", "glsl", "python", "typescript"])
     check("for_file .tsx -> typescript", stamp_langs.for_file("a/b.tsx").NAME == "typescript")
     check("for_file .h -> cpp (not python)", stamp_langs.for_file("ggml.h").NAME == "cpp")
     check("for_file .zz -> None (not python)", stamp_langs.for_file("x.zz") is None)
