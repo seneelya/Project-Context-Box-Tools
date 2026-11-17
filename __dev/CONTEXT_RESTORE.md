@@ -116,6 +116,7 @@ T:/AgentsWork/venv/Scripts/python.exe test/test_name_resolver.py     # 55/0
 T:/AgentsWork/venv/Scripts/python.exe test/test_views.py             # 57/0
 T:/AgentsWork/venv/Scripts/python.exe test/test_glsl.py              # 6 files / 204 lines / 22 functions + mask adversarial checks (all synthetic)
 T:/AgentsWork/venv/Scripts/python.exe test/test_glsl_env.py          # 6 PASS: native missing / legacy / Windows+Linux artifacts / other platform / vendored
+T:/AgentsWork/venv/Scripts/python.exe test/test_glsl_stamp.py        # 50/0 GLSL card stamp (REQ-021, synthetic)
 T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py --quiet  # HIGH 0 except CRASH=71 (old cp1252 fixture); LOW LEVEL=5 known
 ```
 

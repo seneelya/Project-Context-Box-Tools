@@ -82,3 +82,36 @@ contact_lab (`T:\Agents\contact_lab`, 17 Nov 2026) — первый проект
 ## Приоритет
 
 Средний: карта C++ уже работает; без GLSL правка шейдеров идёт через `get_codeblock` и grep, как до шаблона.
+
+## Результат — 2026-11-18, Opus (пункты 1–2; 3 и 4 — следующим шагом)
+
+- `stamp_langs/glsl.py` + движок `find_code_usage/glsl_tree.py` (дерево `#include` = сканер C/C++ на
+  расширениях GLSL, кэш `glsl_scan`; разбор файла — tree-sitter профиля get_codeblock), хэндлер и
+  резолвер `find_code_usage`. Новый необязательный ключ `GLSL_INCLUDE_DIRS`. Поправок CONTRACT нет —
+  хватило имеющихся хуков (`entry_key`, `import_line`, `fact_sections`, `source_edges`).
+- **Единица компиляции** = точка входа (stage-файл или часть, которую никто не включает) + всё, что она
+  включает. Потребители и места вызова считаются внутри единиц: `batch_coast.glsl` зовёт `pass_inside`,
+  хотя не включает `batch_pass.glsl` — их обоих включает `batch.comp`.
+- Public API: функции, блоки интерфейса (H3 Interfaces, поля списком), structs, спец-константы, `shared`.
+  Глобальные `const` — не записи (в `batch_coast` их 142), а счёт по префиксам в фактах; и не потребители
+  (иначе все уходили в «Consumed internals» с директивой — первая раскатка дала карточку в 788 строк).
+- `## Shader facts`: стадия и `local_size`, `compiled in`, `included by`, размер push / std430-блока в
+  байтах, `#if`-зоны (помечены, не разрешены), места вызова каждой функции по файлам и вызывающим
+  функциям с метками `[if BATCH_OP == 1]` и `[spec kTrackPipeline]` / `[spec !kX]` (условие `if`/`&&`/`?:`
+  на спец-константе), **копии от `main`** (места × копии вызывающих — каждая копия инлайнится; варианты
+  `#if` вместе), вызовы в другие файлы единицы, «достаётся через эти вызовы» (с первым чужим шагом),
+  предварительные объявления. Часть в 3+ единицах — одна строка на функцию: `×мест/копий` по единицам.
+- Проверка «Как проверить» — все пункты (contact_lab, после деплоя): `--all` 93 файла → 30 новых
+  карточек шейдеров, 63 C++ слиты без изменений (git чистый по `__map/src`, `__map/include`), 0 ошибок,
+  5,6 с; `validate_cards` 93 clean; `graph_from_cards --file shaders/batch_pass.glsl` видит `batch.comp`.
+  `batch_pass`: `pass_point`, `pass_inside`, включает `batch.comp`. `safety_screen`: 6 блоков с binding
+  0–5, push `Params` 7 полей с `base`, 28 байт, `local_size_x = 64`. `batch_coast`: `bisect` ×1 в
+  `scan_events`; `solve_chi64` ← `kepler64_shared.glsl` через `propagate64`; в карточке
+  `kepler64_shared`: `solve_chi64` ×1, 40 копий от `main`.
+- Мелкое: деплой узнаёт файлы, которые git проекта перевёл в CRLF, — 138 UPTODATE, новые версии
+  UPDATE, не CONFLICT. Ловушка `#   LANGUAGE = "python"` в комментарии конфига — не тронута (решение
+  владелицы).
+- Тесты: `test/test_glsl_stamp.py` 50/0 (синтетика); приватная проверка REQ —
+  `test/secret/contact_lab_shaders/check_req021.py` (в `.gitignore`). check 169/0, test_cardstamp 186/0,
+  test_cpp 150/0, restamp 21/0, golden 16/16, name_resolver 55/0, views 57/0, test_glsl/test_glsl_env PASS.
+- Не сделано: п.3 (CMake `glslc` → `<name>_spv.h` → C++), п.4 (слот `## Twins`).
