@@ -317,3 +317,4 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - ✅ REQ-022: ключ глобальной GLSL-переменной с инициализатором в скобках — её имя (`entry_key`: `=` раньше `(`). test_glsl_stamp 66/0. Не задеплоено в живой проект.
 - → open: `test/test__replace_in_files.py` — 15/21 и до правки; прогон удаляет свои фикстуры из рабочей копии (восстанавливать `git checkout -- test/test__replace_in_files/fixtures`).
 - ✅ Поиск по смыслу в доках — правило шаблона: byeori (закреплённый коммит c6decd5, не установлен → поставить), `__HQ/guides/Guide__DocSearch.md`, строка в START и в TOOLS.md; Vexor — запасной, без автоустановки. Индекс `.byeori/` — в `.git/info/exclude` проекта.
+- ✅ contact_lab: задеплоены фикс REQ-022 (`23d6da1`) и правило поиска byeori (`e98ec13`), оба в master, не запушены. Отложенный коммит тулов/карточек из REQ-021 проект сделал сам. `__HQ/CONTEXT_RESTORE.md` там изменён проектом — деплой его пропускает (CONFLICT), не форсить.
