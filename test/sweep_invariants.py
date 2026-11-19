@@ -216,13 +216,14 @@ def line_kinds(blocks, line, lines):
         nests = outer["start"] <= inner["start"] and inner["end"] <= outer["end"]
         o = f"[{outer['start']}-{outer['end']}]/lvl{outer['level']} {_tag(outer, lines)!r}"
         i = f"[{inner['start']}-{inner['end']}]/lvl{inner['level']} {_tag(inner, lines)!r}"
-        if not nests:
-            if (outer["level"] == inner["level"]
-                    and outer["end"] == line and inner["start"] == line):
-                out.append(("SIBLING", f"{o} meets {i} at the hit line — shared brace "
-                                        f"boundary, not a nesting break"))
-            else:
-                out.append(("RANGE", f"{o} does not span {i}"))
+        # checked before nesting: a one-line sibling (`} catch (_) {}`) fits inside its neighbour
+        sibling = (outer["level"] == inner["level"]
+                   and outer["end"] == line and inner["start"] == line)
+        if sibling:
+            out.append(("SIBLING", f"{o} meets {i} at the hit line — shared brace "
+                                    f"boundary, not a nesting break"))
+        elif not nests:
+            out.append(("RANGE", f"{o} does not span {i}"))
         elif outer["level"] >= inner["level"]:
             out.append(("LEVEL", f"{o} then nested {i} — level not deeper"))
     return out
