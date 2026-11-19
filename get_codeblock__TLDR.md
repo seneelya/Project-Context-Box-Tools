@@ -138,6 +138,9 @@ excess ignored). Same three modes as single-line, just merged:
   stay inside their line. The importable API (`get_codeblock(..., query=True)["text"]`,
   `views.Source.lines`) keeps the file's own endings (CRLF stays CRLF); the printed picture is
   `\n`-only.
+- **Not UTF-8?** Read anyway: cp1251 when the text has Russian words, else cp1252, last resort
+  latin-1 (never fails, rows stay). The header says so: `File: … · not UTF-8, read as cp1251`.
+  Reading only — a tool that WRITES the file (split_monster, replace_in_files) still wants UTF-8.
 - Outline **numbers named blocks** (functions/classes/methods/rules). In JS/TS that includes
   name-bound arrows/functions (`const Foo = () => {…}`, `value: () => {…}`, class fields) — React
   components show up; expression-bodied arrows and anonymous inline callbacks stay out by design.

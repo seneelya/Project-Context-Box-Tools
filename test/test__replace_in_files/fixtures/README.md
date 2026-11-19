@@ -1,4 +1,4 @@
-# Project Documentation — Getting Started Guide
+# Project Documentation â€” Getting Started Guide
 
 This document provides an overview of the project architecture and setup instructions.
 

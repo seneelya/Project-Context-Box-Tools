@@ -36,7 +36,7 @@ class CacheService:
         self.store.pop(key, None)
         
     def clear_all(self):
-        """Reset the entire cache — removes all stored entries immediately."""
+        """Reset the entire cache â€” removes all stored entries immediately."""
         self.store.clear()
 
 

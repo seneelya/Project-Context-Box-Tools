@@ -161,8 +161,8 @@ def _is_func(node):
 def declarations(path):
     """Every declared name in the file with its line (1-based), in file order."""
     backend, spec = resolve(os.path.splitext(path)[1])
-    with open(path, "rb") as fh:
-        root = backend.root(fh.read())
+    from .physical_lines import read_source
+    root = backend.root(read_source(path))
     out: List[Decl] = []
     # frames that QUALIFY what they hold (C++ namespace); preprocessor frames (`#ifdef X`) do not
     scoping = set(getattr(getattr(spec, "ls", None), "transparent_parents", ()) or ())

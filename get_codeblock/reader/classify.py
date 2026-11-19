@@ -11,6 +11,7 @@ import re
 from .ir import Block, Role
 from .profiles.presets import NAME_TYPES
 from .registry import resolve
+from ..physical_lines import read_source
 
 
 # Признаки лицензионного блока — язык-независимо (по содержимому коммента, не по языку).
@@ -171,8 +172,7 @@ class Classifier:
 def classify_file(path, depth=0):
     ext = os.path.splitext(path)[1]
     backend, spec = resolve(ext)
-    with open(path, 'rb') as f:
-        src = f.read()
+    src = read_source(path)
     root = backend.root(src)
     return Classifier(spec).classify(root, level=1, depth=depth)
 
@@ -294,8 +294,7 @@ def filler_container_at(path, line):
 
     ОДИН источник правды с `--outline`/`--dot`, не дублирует группировку."""
     backend, spec = resolve(os.path.splitext(path)[1])
-    with open(path, 'rb') as f:
-        root = backend.root(f.read())
+    root = backend.root(read_source(path))
     chain, _levels = _containing_chain(root, spec, line)
     if not chain:
         return None
@@ -329,8 +328,7 @@ def _chain_rungs(path, line):
     """(chain, rungs, n_lines): `_containing_chain` + its rung form — shared by `ladder_at`
     and `leaf_landmark_at` (one derivation of starts/labels, the map's own)."""
     backend, spec = resolve(os.path.splitext(path)[1])
-    with open(path, 'rb') as f:
-        src = f.read()
+    src = read_source(path)
     root = backend.root(src)
     n_lines = max(src.count(b'\n') + (0 if src.endswith(b'\n') else 1), 1)
     chain, levels = _containing_chain(root, spec, line)
@@ -405,8 +403,7 @@ def line_level_at(path, idx):
     последнего звена цепочки (`_containing_chain`) — landmark/frame level или, если
     цепочка кончилась filler'ом, его level. Пустая строка вне всего — 1 (file-scope)."""
     backend, spec = resolve(os.path.splitext(path)[1])
-    with open(path, 'rb') as f:
-        root = backend.root(f.read())
+    root = backend.root(read_source(path))
     chain, levels = _containing_chain(root, spec, idx + 1)
     if not chain:
         return 1
@@ -452,9 +449,8 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
     focus_line задан → карта ТОЛЬКО блока-цели (K-предок строки, K=focus_level): цель на
     уровне 1, её тело — вглубь. Решает монстро-классы: развернуть один блок как отдельный файл."""
     backend, spec = resolve(os.path.splitext(path)[1])
-    with open(path, 'rb') as f:
-        source = f.read()
-        root = backend.root(source)
+    source = read_source(path)
+    root = backend.root(source)
     clf = Classifier(spec)
     if focus_line is not None:
         chain, levels = _containing_chain(root, spec, focus_line)

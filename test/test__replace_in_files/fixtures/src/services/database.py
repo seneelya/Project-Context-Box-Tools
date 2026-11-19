@@ -1,4 +1,4 @@
-"""Database service module — connection pooling and query execution."""
+"""Database service module â€” connection pooling and query execution."""
 
 import psycopg2
 from contextlib import contextmanager

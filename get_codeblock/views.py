@@ -21,6 +21,7 @@ read with both ends snapped to blocks.
 from pathlib import Path
 
 from get_codeblock.core import read_lines, resolve, make_comment_delims
+from get_codeblock.physical_lines import source_encoding
 
 
 class UnsupportedFormat(ValueError):
@@ -90,7 +91,12 @@ def _file_header(file_path, lines):
     the file path, and every one of them should say how big the file is (useful
     orientation, e.g. judging how big a --level escalation would be) the same way.
     Fix it here once, not separately in survey/outline/query."""
-    return f"File: {file_path} ({len(lines)} lines)"
+    try:
+        enc = source_encoding(file_path)
+    except OSError:
+        enc = None
+    note = f" · not UTF-8, read as {enc}" if enc else ""
+    return f"File: {file_path} ({len(lines)} lines){note}"
 
 
 def _check_line(src, line):
