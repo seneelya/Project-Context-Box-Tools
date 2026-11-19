@@ -37,6 +37,10 @@ mode: name -> lines -> the existing `--line` render.
   the preamble (decorators + glued comments). A body node that starts after `{` breaks this in the
   brace engine (`_level_of_row` is body-strict) — that is why PowerShell is not a brace profile.
 - A returned rung always contains the line (#7); a filler band is a legitimate container (#9).
+- Every read of a source goes through `physical_lines.read_source` / `read_lines` (UTF-8, else
+  cp1251/cp1252/latin-1, re-encoded to UTF-8): tree-sitter byte offsets, text lines and labels must
+  come from the SAME bytes. A new `open(path, 'rb')` that skips it breaks non-UTF-8 files again.
+- C++ `template_declaration` is the rung, not the function inside it (`address._DEF_WRAPPERS`).
 - Shared `LangSpec`s in `handlers/` are not edited (#5) — copies in the profile (`cpp.py`).
 - Python keeps two engines (tree-sitter map, indentation addressing) aligned on the end convention;
   forcing `.py` through the brace engine was rejected (python `block` starts at the 1st statement).

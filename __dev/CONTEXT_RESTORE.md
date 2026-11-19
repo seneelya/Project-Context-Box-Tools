@@ -3,11 +3,12 @@
 This file is about the tools and the template only. A downstream project's state (its plans,
 tracker, task) lives in that project's `__HQ/` — restore it from there, never from here.
 
-**Sol completed REQ-017 (2026-11-01):** first read `__dev/CONTEXT_RESTORE_SOL.md`
-and `__dev/review/REQ017_PREAMBLE.md`. Base commit446411f already includes Plan12/13.
-REQ-017 implementation0.10.1, all-line comparison and enhanced sweep are complete;
-next Claude review/commit. No commits/deploys. All raw/private evidence remains outside
-this repo under T:/AgentsWork/glsl-wheel-plan10/req017/.
+**Next session (2026-11-19):** do **Plan14** `__dev/plans/Plan14__module-purpose-for-importers.md`
+(owner's go given; steps 1-5, step 6 only on a separate go). Read the plan, then the tail of
+`__dev/TRACKER.md`. Read code with `get_codeblock` (owner's rule, written in the plan).
+Not deployed anywhere yet: REQ-023, non-UTF-8 reading (get_codeblock 0.11.0), `(auto)` Why lines.
+REQ-018 (only p.3 was open; own header + Plan14 cover it) and REQ-023 wait for the owner's word
+before the `DONE__` rename.
 
 ## Read, in order (don't wander the repo)
 
@@ -29,7 +30,7 @@ commit this repo FIRST (an unknown blob is reported as CONFLICT).
 
 ## State (2026-10-07)
 
-- **get_codeblock 0.10.1** — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
+- **get_codeblock 0.11.0** (non-UTF-8 files read as cp1251/cp1252/latin-1, 2026-11-19) — languages: Python, TS/JS/TSX, C#, C/C++/CUDA, CSS/SCSS, Markdown (+ YAML
   frontmatter = `meta:` block), YAML, plain text, shell `.sh`, PowerShell `.ps1`, batch `.bat`,
   GLSL `.glsl .vert .frag .geom .comp .tesc .tese .vs .fs` (supplied capsule1 wheel).
   `--name` (name -> lines -> the existing `--line` render). C/C++ macros cut before parsing,
