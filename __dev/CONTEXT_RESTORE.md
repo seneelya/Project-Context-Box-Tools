@@ -91,7 +91,7 @@ closed. After any get_codeblock change: run
 | Project | What | How |
 |---|---|---|
 | `y:\SRC\llama.cpp_mix` | whole HQ (tools, guides, roles) | `deploy_hq.py --apply` (commit its HQ first) |
-| `t:\AgentsWork\hermes-filetools` | all tools, NOT the deploy | copy git-tracked tool files; keep its `CONFIG__TOOLS.py`, `hermes_python.py`, `hermes-py.cmd` |
+| `t:\AgentsWork\hermes-filetools` | whole HQ (tools, guides, START) | `deploy_hq.py --apply` (2026-11-20: 0 CONFLICT; its own `CONFIG__TOOLS.py`, `hermes_python.py`, `hermes-py.cmd` are not template files) |
 | `t:\AgentsWork\hermes-filetools\vendor\get_codeblock` | get_codeblock package, shipped inside that plugin | its own `vendor/sync_get_codeblock.py` mirrors a COMMIT of this repo (commit here first); it also UNPACKS `wheels/*.whl` into `vendor/tree_sitter_glsl_spec/` (no install: Hermes rebuilds its venv in a new folder) |
 | `y:\AgentsWork\dVOrbitals\sim` | whole HQ (tools, guides, roles) | `deploy_hq.py --apply`; deploy from a clean `git worktree` of the COMMIT when this working copy has uncommitted work; its 8 project-modified HQ docs stay CONFLICT (never `--force`) |
 | `t:\AgentsWork\dVOrbitals\dvOrbital__GDD` | get_codeblock only | copy `get_codeblock/`, `get_codeblock.py`, `get_codeblock__*.md`; keep its config |
