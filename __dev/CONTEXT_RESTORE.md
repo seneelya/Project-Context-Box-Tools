@@ -3,11 +3,11 @@
 This file is about the tools and the template only. A downstream project's state (its plans,
 tracker, task) lives in that project's `__HQ/` — restore it from there, never from here.
 
-**Next session (2026-11-19):** do **Plan14** `__dev/plans/Plan14__module-purpose-for-importers.md`
-(owner's go given; steps 1-5, step 6 only on a separate go). Read the plan, then the tail of
-`__dev/TRACKER.md`. Read code with `get_codeblock` (owner's rule, written in the plan).
-Not deployed anywhere yet: REQ-023, non-UTF-8 reading (get_codeblock 0.11.0), `(auto)` Why lines.
-REQ-018 and REQ-023 are `DONE__`.
+**State (2026-11-20):** Plan14 steps 1-5 DONE (card-format 1.6.0, `Why for importers:` -> importers'
+`(auto)` Why lines); step 6 only on a separate go from the owner. No next task set: read the tail of
+`__dev/TRACKER.md` and ask the owner. Deployed: hermes-filetools (regular `deploy_hq.py` now, cards
+re-stamped 1.6.0). NOT deployed: contact_lab, sim (REQ-023, get_codeblock 0.11.0, Plan14).
+Open requests: REQ-014, REQ-016.
 
 ## Read, in order (don't wander the repo)
 

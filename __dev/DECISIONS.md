@@ -69,3 +69,7 @@ Format: `- <decision> — <one-line why>`
 
 
 - Plan13 V3 accepts no NEW #6 mismatches after full before/after comparison (owner decision, 2026-11-01) — five identical blank-preamble cases are known REQ-017; general preamble addressing stays outside Plan13.
+- No MCP server for the tools (owner, 2026-11-20): a command line + the tools' Python APIs already do the job; JSON schemas for what a CLI says is a needless layer.
+- No bundled log/data extractor (owner, 2026-11-20, after comparing Opterium `any_txt_parser`): the agent writes a one-off Python script for logs, which is exact for the task.
+- No file sizes / tokens in the map (owner, 2026-11-20): noise; a file's size and structure come from `get_codeblock --outline`.
+- Tools are not compiled (owner, 2026-11-20): it kills copy-deploy; the slow spot is known and is not to be touched.
