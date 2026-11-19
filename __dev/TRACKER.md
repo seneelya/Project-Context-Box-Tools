@@ -318,3 +318,10 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 - → open: `test/test__replace_in_files.py` — 15/21 и до правки; прогон удаляет свои фикстуры из рабочей копии (восстанавливать `git checkout -- test/test__replace_in_files/fixtures`).
 - ✅ Поиск по смыслу в доках — правило шаблона: byeori (закреплённый коммит c6decd5, не установлен → поставить), `__HQ/guides/Guide__DocSearch.md`, строка в START и в TOOLS.md; Vexor — запасной, без автоустановки. Индекс `.byeori/` — в `.git/info/exclude` проекта.
 - ✅ contact_lab: задеплоены фикс REQ-022 (`23d6da1`) и правило поиска byeori (`e98ec13`), оба в master, не запушены. Отложенный коммит тулов/карточек из REQ-021 проект сделал сам. `__HQ/CONTEXT_RESTORE.md` там изменён проектом — деплой его пропускает (CONFLICT), не форсить.
+
+## 2026-11-19 — REQ-023: split_monster, C++
+
+- ✅ REQ-021, REQ-022 переименованы в `DONE__`.
+- ✅ REQ-023: (1) уникальные имена списков для целей с одним стемом (`X_H_BLOCKS` / `X_CPP_BLOCKS`), совпадение — отказ; (2) `get_codeblock --line` в C++ берёт весь `template_declaration` с комментарием — `--split` переносит шаблон целиком; (3) verify предупреждает о висящем `template`. test_split_monster 79/0, check 169/0, golden 16/16, test_cpp 150/0.
+- → open: полный sweep `--check-query` показал CRASH=71, QUERY=23 в 4 файлах — НЕ C++ с шаблонами (там 0 до и после), к правке не относятся; какие файлы — не записано, разобрать отдельно.
+- → open: REQ-023 не задеплоен в contact_lab; не переименован в `DONE__` — ждёт приёмки.

@@ -357,6 +357,25 @@ def _nonblank(data):
     return [ln.strip() for ln in text.splitlines() if ln.strip()]
 
 
+_TEMPLATE_HEAD_RE = re.compile(r"^template\s*<.*>$")
+_CPP_EXTS = {".c", ".cc", ".cpp", ".cxx", ".c++", ".h", ".hh", ".hpp", ".hxx", ".h++", ".inl", ".ipp", ".tpp", ".cu", ".cuh"}
+
+
+def _template_heads(data):
+    """[(template line, the declaration line after it, line no)] of a C++ file: a `template <...>`
+    alone on its line belongs to the next non-blank, non-comment line."""
+    lines = data.decode("utf-8", "replace").lstrip("﻿").splitlines()
+    out = []
+    for i, ln in enumerate(lines):
+        head = ln.strip()
+        if not _TEMPLATE_HEAD_RE.match(head):
+            continue
+        nxt = next((x.strip() for x in lines[i + 1:]
+                    if x.strip() and not x.strip().startswith(("//", "/*", "*"))), "<end of file>")
+        out.append((head, nxt, i + 1))
+    return out
+
+
 _HEADER_LINE_RE = re.compile(r"^\s*(import\b|from\s+\S+\s+import\b|const\s+\S+\s*=\s*require\()")
 
 
@@ -971,9 +990,27 @@ class _Monster:
             sys.exit(4)
         print(f"verified: {sum(before.values())} non-blank line(s) conserved across "
               f"{len(self._before)} file(s), all parse")
+        self._report_dangling_templates()
         self._report_undefined()
         self._before, self._added, self._repl = {}, Counter(), Counter()  # run closed
         self._note(outcome="applied_verified")
+
+    def _report_dangling_templates(self):
+        """A `template <...>` line that now heads another declaration than before was cut off its
+        own one (moved without it, or left behind) — it changes the meaning of the code it now
+        heads, and verify cannot see it: every line is kept and everything parses."""
+        cpp = [p for p in self._before if Path(p).suffix.lower() in _CPP_EXTS]
+        was = Counter((h, n) for p in cpp if self._before[p] is not None
+                      for h, n, _ in _template_heads(self._before[p]))
+        for p in cpp:
+            if not Path(p).exists():
+                continue
+            for h, n, no in _template_heads(Path(p).read_bytes()):
+                if was[(h, n)] > 0:
+                    was[(h, n)] -= 1
+                    continue
+                print(f"WARNING dangling template: {p}:{no} `{h}` now heads `{n[:60]}` — it was cut off "
+                      f"its own declaration; move it by hand (or `python <this script> --undo`)")
 
     def consumers(self, file_path, symbols, project_root="."):
         """Print (not fix) who outside `file_path` imports each of `symbols` — must be called
@@ -1044,6 +1081,27 @@ def _safe_ident(target_file):
     stem = Path(target_file).stem
     ident = re.sub(r"\W+", "_", stem).strip("_").upper()
     return ident or "TARGET"
+
+
+def _target_idents(targets):
+    """Unique list-name prefix per target: the stem; stem + extension when stems clash (`x.h` / `x.cpp`)
+    or the stem is the reserved SOURCE. Still equal (`a/x.h` / `b/x.h`) -> refuse: one name would
+    overwrite the other's block list in the script."""
+    base = {t: _safe_ident(t) for t in targets}
+    count = Counter(base.values())
+    out = {}
+    for t, b in base.items():
+        if count[b] > 1 or b == "SOURCE":
+            ext = re.sub(r"\W+", "_", Path(t).suffix).strip("_").upper()
+            b = f"{b}_{ext}" if ext else b
+        out[t] = b
+    clash = Counter(out.values())
+    dup = sorted(t for t, b in out.items() if clash[b] > 1)
+    if dup:
+        raise ValueError(
+            f"targets {', '.join(repr(t) for t in dup)} give one list name {out[dup[0]]}_BLOCKS in the "
+            f"script — give them different file names (or split in two passes).")
+    return out
 
 
 def _generated_script_api_header(source_kind):
@@ -1477,6 +1535,7 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
     def _already_claimed(cand):
         return any(s <= cand["start"] and cand["end"] <= e for s, e in seen_ranges)
 
+    idents = _target_idents(by_target)
     for target, blocks in by_target.items():
         var_names = []
         for b in blocks:
@@ -1497,7 +1556,7 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
                 out.append(f"# ВЛОЖЕННЫЙ блок (уровень {b.level}): перенос МЕХАНИЧЕСКИЙ — тул убирает его здесь "
                            f"и проявляет в {target!r}, скобки/отступы целы; импорты, имена, self/замыкания, "
                            f"якорь и отступ — решает агент. Нужен импорт в цели — допиши "
-                           f"{_safe_ident(target)}_IMPORTS += [add_import('...')] перед monster.write. "
+                           f"{idents[target]}_IMPORTS += [add_import('...')] перед monster.write. "
                            f"Цель/источник не парсится после --apply → НЕ откат, код 4, PARSE BROKEN называет "
                            f"файл/строку: доправь руками (pass, импорт) или python <скрипт> --undo.")
             for h in ([] if b.nested else _hint_lines(b, all_lines, top_level_names, lang, ext)):
@@ -1536,7 +1595,7 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
             var_names.append(varname)
             all_symbols.extend(names)
         out.append("")
-        list_name = f"{_safe_ident(target)}_BLOCKS"
+        list_name = f"{idents[target]}_BLOCKS"
         list_names[target] = list_name
         out.append(f"{list_name} = [{', '.join(var_names)}]")
 
@@ -1554,16 +1613,16 @@ def generate(file_path, splits, out_path, project_root=".", check=None, check_cw
         imp_var_names = []
         for i, (specifier, (kind, items)) in enumerate(needed.items(), start=1):
             line_text = lang.render_import(specifier, kind, items)
-            impname = f"{_safe_ident(target)}_IMP{i:02d}"
+            impname = f"{idents[target]}_IMP{i:02d}"
             if specifier in cross_specs:
                 out.append("# between the files of this split (names the moved blocks use from each other / the source):")
             out.append(f"{impname} = add_import({line_text!r})")
             imp_var_names.append(impname)
-        imports_list_name = f"{_safe_ident(target)}_IMPORTS"
+        imports_list_name = f"{idents[target]}_IMPORTS"
         import_list_names[target] = imports_list_name
         out.append(f"{imports_list_name} = [{', '.join(imp_var_names)}]")
         if graph and graph["appends"].get(target):
-            append_names[target] = f"{_safe_ident(target)}_APPEND"
+            append_names[target] = f"{idents[target]}_APPEND"
             out.append(f"{append_names[target]} = [{graph['appends'][target]!r}]")
         out.append("")
 

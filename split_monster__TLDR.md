@@ -164,6 +164,11 @@ To drop something from the plan: add a short reassignment **before** the `monste
 `SOME_BLOCKS = [c01]` to keep only `c01` — never edit/comment an existing line, that means
 retyping it in full for no reason (changing the numbers in a `place(...)` line is the exception).
 
+List names come from the target's stem (`route_twin.h` -> `ROUTE_TWIN_BLOCKS`); targets with one stem get
+the extension too (`X_H_BLOCKS` / `X_CPP_BLOCKS`), and two that would still clash (`a/x.h`, `b/x.h`) are refused.
+C++: a `template <...>` declaration is one block with its comment; after `--apply` a `template` line that
+now heads another declaration is reported as `WARNING dangling template`.
+
 ## Taking only this tool out of the toolkit
 
 Keep the folder layout, run from the folder that holds `split_monster.py` (Python >= 3.10,

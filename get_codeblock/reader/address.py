@@ -61,21 +61,27 @@ def _is_standalone_body(node, parent, ls):
             and parent.type not in ls.transparent_parents)
 
 
+# C++ `template <...>` wraps the definition: the rung is the whole wrapper (outermost of
+# `template<> template<>`), so a line on `template` / its comment / the header gives one block.
+_DEF_WRAPPERS = {'template_declaration'}
+
+
 def _collect(root, ls):
     """Один обход: рунги адресации (node, parent) + все brace-тела (sr,er,transparent)."""
     blocks, bodies = [], []
 
-    def walk(node, parent):
+    def walk(node, parent, wrap=None):
         t = node.type
         if t in ls.body_types:
             transparent = parent is not None and parent.type in ls.transparent_parents
             bodies.append((node.start_row, node.end_row, transparent))
         if (t in ls.named_def or t in ls.control) and _has_body(node, ls):
-            blocks.append((node, parent))
+            blocks.append(wrap or (node, parent))
         elif _is_standalone_body(node, parent, ls):
             blocks.append((node, parent))
+        inner = (wrap or (node, parent)) if t in _DEF_WRAPPERS else None
         for c in node.children():
-            walk(c, node)
+            walk(c, node, inner)
 
     walk(root, None)
     return blocks, bodies
@@ -189,7 +195,7 @@ def _bound_ancestor_label(value_node, spec):
 
 def _block_label(node, parent, spec):
     ls = spec.ls
-    if node.type in ls.named_def or node.type in ls.control:
+    if node.type in ls.named_def or node.type in ls.control or node.type in _DEF_WRAPPERS:
         return spec.name(node)
     ptype = parent.type if parent is not None else ''
     if node.type in ('object', 'object_pattern'):

@@ -1492,3 +1492,64 @@ def test_new_python_file_has_two_blank_lines_after_its_imports():
         assert run_cli("--file", str(src), "--split", "4", str(Path(d, "u.py")), "--out-script", script).returncode == 0
         assert _run(script, "--apply").returncode == 0
         assert Path(d, "u.py").read_text(encoding="utf-8") == "import os\n\n\ndef a():\n    return os.sep\n"
+
+
+def test_targets_with_one_stem_get_their_own_lists_and_twins_are_refused():
+    # REQ-023 (1): x.h and x.cpp once shared X_BLOCKS — the second list overwrote the first
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "a.cpp")
+        src.write_text("struct Body { int m; };\n\nint helper(int x) { return x; }\n\nint user(int y) { return y; }\n",
+                       encoding="utf-8")
+        script = str(Path(d, "move.py"))
+        r = run_cli("--file", str(src), "--split", "1", str(Path(d, "x.h")),
+                    "--split", "3", str(Path(d, "x.cpp")), "--out-script", script)
+        assert r.returncode == 0, r.stderr
+        text = Path(script).read_text(encoding="utf-8")
+        assert "X_H_BLOCKS = [c01]" in text and "X_CPP_BLOCKS = [c02]" in text, text
+        assert "X_H_IMPORTS" in text and "X_CPP_IMPORTS" in text
+        assert _run(script, "--apply").returncode == 0
+        assert "struct Body" in Path(d, "x.h").read_text(encoding="utf-8")
+        assert "helper" not in Path(d, "x.h").read_text(encoding="utf-8")
+        assert "int helper" in Path(d, "x.cpp").read_text(encoding="utf-8")
+        assert src.read_text(encoding="utf-8").strip() == "int user(int y) { return y; }"
+        Path(d, "p").mkdir(), Path(d, "q").mkdir()
+        src.write_text("int a1() { return 1; }\n\nint a2() { return 2; }\n", encoding="utf-8")
+        r = run_cli("--file", str(src), "--split", "1", str(Path(d, "p", "y.h")),
+                    "--split", "3", str(Path(d, "q", "y.h")), "--out-script", script)
+        assert r.returncode != 0 and "one list name Y_H_BLOCKS" in (r.stdout + r.stderr), r.stdout + r.stderr
+
+
+TEMPLATE_CPP = ("namespace ns {\n// two lines\n// of comment\ntemplate <class T>\nT f(T x) {\n  return x;\n}\n\n"
+                "// plain\nint g(int y) {\n  return y;\n}\n}\n")
+
+
+def test_template_moves_whole_from_any_of_its_lines():
+    # REQ-023 (2): comment, `template <...>` and header all address [2-7]; nothing stays behind
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "a.cpp")
+        for line in (2, 4, 5):
+            src.write_text(TEMPLATE_CPP, encoding="utf-8")
+            assert sm.cut(str(src), line).start == 2 and sm.cut(str(src), line).end == 7, line
+        script = str(Path(d, "move.py"))
+        assert run_cli("--file", str(src), "--split", "4", str(Path(d, "x.h")),
+                       "--out-script", script).returncode == 0
+        r = _run(script, "--apply")
+        assert r.returncode == 0 and "dangling template" not in r.stdout, r.stdout + r.stderr
+        assert "template" not in src.read_text(encoding="utf-8")
+        assert Path(d, "x.h").read_text(encoding="utf-8").startswith("// two lines\n// of comment\ntemplate <class T>\nT f")
+
+
+def test_verify_warns_about_a_template_cut_off_its_declaration(capsys):
+    # REQ-023 (3): every line kept and parsing — but `template <class T>` now heads `int g`
+    with tempfile.TemporaryDirectory() as d:
+        src = Path(d, "a.cpp")
+        src.write_text(TEMPLATE_CPP, encoding="utf-8")
+        m = sm._Monster()
+        m._before = {str(src): src.read_bytes()}
+        src.write_text(TEMPLATE_CPP.replace("T f(T x) {\n  return x;\n}\n\n// plain\n", ""), encoding="utf-8")
+        m._report_dangling_templates()
+        out = capsys.readouterr().out
+        assert "WARNING dangling template" in out and "a.cpp:4" in out and "`int g(int y) {`" in out, out
+        src.write_text(TEMPLATE_CPP, encoding="utf-8")
+        m._report_dangling_templates()
+        assert capsys.readouterr().out == ""
