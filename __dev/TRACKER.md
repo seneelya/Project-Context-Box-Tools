@@ -323,5 +323,5 @@ ProjectStarter/memohood/hermes-filetools. → next: nothing queued.
 
 - ✅ REQ-021, REQ-022 переименованы в `DONE__`.
 - ✅ REQ-023: (1) уникальные имена списков для целей с одним стемом (`X_H_BLOCKS` / `X_CPP_BLOCKS`), совпадение — отказ; (2) `get_codeblock --line` в C++ берёт весь `template_declaration` с комментарием — `--split` переносит шаблон целиком; (3) verify предупреждает о висящем `template`. test_split_monster 79/0, check 169/0, golden 16/16, test_cpp 150/0.
-- → open: полный sweep `--check-query` показал CRASH=71, QUERY=23 в 4 файлах — НЕ C++ с шаблонами (там 0 до и после), к правке не относятся; какие файлы — не записано, разобрать отдельно.
+- → open: полный sweep `--check-query`: CRASH=71, QUERY=23 — все в трёх фикстурах `test/test__replace_in_files/fixtures/` (README.md, services/database.py, services/internal/cache.py): в каждом одно длинное тире в cp1252 (байт 0x97), файлы не UTF-8 — `get_codeblock` падает трейсбеком `UnicodeDecodeError` (`physical_lines.read_lines`, strict). LEVEL=5 — `tsSRC2/core/schemas.ts`, `} catch (_) {` на строке закрытия `try` (уровень не глубже), LOW. К REQ-023 не относятся. Решить: что делает gcb на не-UTF-8 файле.
 - → open: REQ-023 не задеплоен в contact_lab; не переименован в `DONE__` — ждёт приёмки.
