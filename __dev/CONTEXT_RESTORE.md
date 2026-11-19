@@ -7,8 +7,7 @@ tracker, task) lives in that project's `__HQ/` — restore it from there, never 
 (owner's go given; steps 1-5, step 6 only on a separate go). Read the plan, then the tail of
 `__dev/TRACKER.md`. Read code with `get_codeblock` (owner's rule, written in the plan).
 Not deployed anywhere yet: REQ-023, non-UTF-8 reading (get_codeblock 0.11.0), `(auto)` Why lines.
-REQ-018 (only p.3 was open; own header + Plan14 cover it) and REQ-023 wait for the owner's word
-before the `DONE__` rename.
+REQ-018 and REQ-023 are `DONE__`.
 
 ## Read, in order (don't wander the repo)
 
