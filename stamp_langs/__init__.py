@@ -48,6 +48,12 @@ class _Defaults:
         return None
 
     @staticmethod
+    def own_pair(project_root, target_abs):
+        """[rel] of the file(s) this one implements (C/C++: `x.cpp` -> its `x.h`). Their Why line
+        is stamped ready (OWN_PAIR_WHY), not left to the agent: the answer is always the same."""
+        return []
+
+    @staticmethod
     def import_line(line):
         """Is this line an external-import FACT line (the resolver's raw_line), not prose?"""
         return line.startswith(("import ", "from "))

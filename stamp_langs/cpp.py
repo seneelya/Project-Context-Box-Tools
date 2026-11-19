@@ -373,6 +373,11 @@ def _pair(project_root, target_abs):
     return [tree.rel(p) for p in pick]
 
 
+def own_pair(project_root, target_abs):
+    """An implementation file -> the header(s) it implements (`_pair`); a header -> []."""
+    return [] if _is_header(target_abs) else _pair(project_root, target_abs)
+
+
 # numeric literals (0xFFFFFFFF, 201703L, 1u, 1.5f) — their letters are NOT identifiers
 _NUMBER = re.compile(r"\b(?:0[xX][0-9a-fA-F]+|\d[\w.]*)")
 

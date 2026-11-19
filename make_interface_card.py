@@ -199,10 +199,18 @@ def _by_folder(files):
 WHY_FOLD_MIN = 5
 
 
-def _why_lines(keys, key_dir, why):
+# Why of the file's own header (`x.cpp` -> `x.h`, stamp_langs `own_pair`): always the same answer,
+# so it is stamped ready instead of asked. Prose an agent wrote there instead is kept.
+OWN_PAIR_WHY = "its own header: the declarations this file implements."
+
+
+def _why_lines(keys, key_dir, why, ready=None):
     """Why bullets: an import with written prose keeps its own line (never folded); unwritten
     imports of one folder fold into `folder/*` (N: names) once there are WHY_FOLD_MIN of them —
-    or whenever that group already has prose. The group's prose is keyed by `folder/*`."""
+    or whenever that group already has prose. The group's prose is keyed by `folder/*`.
+    `ready` {key: text}: lines the stamp answers itself (own header) — never folded."""
+    ready = ready or {}
+    why = {**{k: t for k, t in ready.items() if k not in why}, **why}
     groups = defaultdict(list)
     for k in keys:
         if k not in why:
@@ -827,8 +835,12 @@ def build_card(project_root, file, old_prose=None, report=None):
         lines.append("|---|---|---|---|")
         seen_keys = []  # first-seen order, deduped — drives the Why list below
         key_dir = {}    # import key -> its folder (Why folding)
+        own = {p.replace(os.sep, "/") for p in stamp_langs.get(lang).own_pair(project_root, target_abs)}
+        ready = {}      # import key -> Why the stamp answers itself
         for r in resolved:
             key = os.path.basename(r["file"]).rsplit(".", 1)[0]
+            if r["file"].replace(os.sep, "/") in own:
+                ready[key] = OWN_PAIR_WHY
             if key not in seen_keys:
                 seen_keys.append(key)
                 key_dir[key] = os.path.dirname(r["file"]).replace(os.sep, "/") or "."
@@ -840,7 +852,7 @@ def build_card(project_root, file, old_prose=None, report=None):
                 lines.append(f"| `{key}` | `{r['file']}` |  | {kind} |")
         lines.append("")
         lines.append("### Why these imports are used (one line per import — free text)")
-        lines.extend(_why_lines(seen_keys, key_dir, op["why"]))
+        lines.extend(_why_lines(seen_keys, key_dir, op["why"], ready))
     else:
         lines.append(cf.EMPTY)
     lines.append("")
