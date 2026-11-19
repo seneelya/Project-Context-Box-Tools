@@ -153,5 +153,10 @@ an entry (a stage file, or a part nobody includes) + all it includes, transitive
   shader) — they change together.
 * **`## Other`** (card-format 1.5.0) — optional free text of the agent for what fits no section;
   never created by the stamp, moved over as is on every re-stamp (after Runtime seams).
+* **`Why for importers:`** (card-format 1.6.0) — optional line under the summary, written by an
+  agent/person, kept on re-stamp. Each importer's Why line for that module becomes
+  `(auto) <its text>` (own header still wins). The dep's card is read AS ON DISK: after writing a
+  field, re-stamp the importers (`check_cards_freshness` lists them). A Why line starting with
+  `(auto)` is the stamp's; an agent who rewrites it drops the mark and the line is kept.
 
 Contract of the format it writes = `CARD_FORMAT.py`. Authoring recipe = `__HQ/guides/Guide__MakeCard.md`.

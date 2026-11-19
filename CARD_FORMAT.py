@@ -9,6 +9,10 @@
 
     <one-line summary>             сводка: ПЕРВАЯ НЕПУСТАЯ строка после H1
                                    (пустая строка после заголовка — ок, так пишет ЛЛМ)
+    Why for importers: <one line>  НЕОБЯЗАТЕЛЬНАЯ строка сразу под сводкой (1.6.0, Plan14):
+                                   роль модуля, одна для ВСЕХ импортёров (базовые типы).
+                                   Проза; штамп копирует её в Why импортёров как `(auto) …`.
+                                   Сводкой не считается (FOR_IMPORTERS, for_importers_text()).
 
     ## <H2_SECTION>                каждый  ##  = элемент H2_SECTIONS (все, по порядку);
                                    у пакета (__init__) — H2_SECTIONS_PACKAGE.
@@ -96,6 +100,39 @@ import re
 
 # H1 = ТОЛЬКО имя файла. Сводка = ПЕРВАЯ НЕПУСТАЯ строка после H1 (пустые строки после
 # заголовков допустимы — контракт подогнан под ЛЛМ-паттерн «пустая строка после ## »).
+
+# "Why for importers:" (1.6.0, Plan14) — OPTIONAL one line right under the summary, only for a
+# module whose role is the same for every importer (base types: `vec3.h`). Prose of a person/agent,
+# kept on re-stamp; the stamp copies its text into each importer's Why line as `(auto) <text>`.
+# It is never the summary: every "first non-empty line after H1" reader skips it.
+FOR_IMPORTERS = "Why for importers:"
+
+
+def for_importers_text(line):
+    """`Why for importers: X` -> 'X' ('' when the value is empty); any other line -> None."""
+    s = line.strip()
+    if not s.startswith(FOR_IMPORTERS):
+        return None
+    return s[len(FOR_IMPORTERS):].strip()
+
+
+# A Why line (In-Project Dependencies) that starts with AUTO_MARK is the stamp's own: rewritten on
+# every stamp; an agent who rewrites it drops the mark and the line becomes prose, kept.
+# Sources: the own header (`x.cpp` -> `x.h`) and a dep's FOR_IMPORTERS field (`(auto) <field>`).
+AUTO_MARK = "(auto)"
+OWN_PAIR_WHY = f"{AUTO_MARK} its own header: the declarations this file implements."
+
+
+def for_importers_of(card_text):
+    """The field's value in a whole card (before the first `## `), or None: no line, an empty
+    value, or a directive — nothing an importer could be given."""
+    for ln in card_text.splitlines():
+        if ln.strip().startswith("## "):
+            break
+        v = for_importers_text(ln)
+        if v is not None:
+            return v if v and not has_agent_directive(v) else None
+    return None
 
 # Обязательные  ## (H2)  для МОДУЛЬНОЙ карточки, в этом порядке. Секция не обнаружена -> тело EMPTY.
 # "Dependencies Internal/External" переименованы в "In-Project/External Dependencies" (Plan03
@@ -263,7 +300,8 @@ EMPTY = "(none)"
 # 1.4.0 (REQ-018): directive `<|fillN|>` + one FILL_HEADER above the H1 (was a full sentence
 # per slot, `<|Agent:NN … |>`).
 # 1.5.0 (REQ-021 p.4): Runtime seams Kind `twin`; optional free-text `## Other`, kept on re-stamp.
-VERSION = "1.5.0"
+# 1.6.0 (Plan14): optional `Why for importers:` line under the summary; importers' Why `(auto)`.
+VERSION = "1.6.0"
 
 _VERSION_RE = re.compile(r"^<!--\s*card-format:\s*(\S+)\s*-->\s*$")
 

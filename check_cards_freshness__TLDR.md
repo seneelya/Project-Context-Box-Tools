@@ -30,4 +30,9 @@ check_cards_freshness.py --project-root <R>     # a foreign project -> <R>/__map
   the local git cannot resolve, e.g. a container Linux path read from Windows) silently lands
   HERE and the verdict is mostly noise — run the tool in the environment that owns the worktree.
 
+* **`(auto)` Why lines** (card-format 1.6.0) — a card fresh against its source is still listed
+  (`lag=0s  (auto) Why: …`) when an `(auto)` Why line no longer matches its dep's
+  `Why for importers:` line, or a dep got that line while this card still has a directive there.
+  Re-stamping fixes it. Lines an agent wrote (no `(auto)`) are not judged.
+
 Use it to decide WHICH cards to re-stamp (`make_interface_card --force`) after code changes.

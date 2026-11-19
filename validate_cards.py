@@ -97,10 +97,24 @@ def validate_card(path, cards_dir, unresolved_raw, project_root, seam_rows=None)
                     continue
                 if t.startswith("#"):
                     break
+                if cf.for_importers_text(t) is not None:
+                    continue          # `Why for importers:` is not the summary (Plan14)
                 summary = t
                 break
         if not summary:
             issues.append("empty summary (first non-empty line after H1)")
+        # `Why for importers:` (Plan14) — optional, one line, with a value
+        fi = []
+        for line in lines[idx + 1:]:
+            if line.strip().startswith("## "):
+                break
+            v = cf.for_importers_text(line)
+            if v is not None:
+                fi.append(v)
+        if len(fi) > 1:
+            issues.append(f"`{cf.FOR_IMPORTERS}` twice: keep one line")
+        if any(not v or cf.is_agent_directive(v) for v in fi):
+            issues.append(f"`{cf.FOR_IMPORTERS}` without a value: write the role or delete the line")
 
     # секции
     secs = _sections(lines)

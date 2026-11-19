@@ -33,7 +33,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from graph_from_cards import resolve_cards_dir, resolve_project_root
+import CARD_FORMAT as cf
+from graph_from_cards import _cells, _is_sep, resolve_cards_dir, resolve_project_root
 
 # сколько коммитов на путь храним из обхода истории (для перечня у outdated-карточек)
 _HIST_CAP = 30
@@ -265,7 +266,70 @@ def check(cards_dir, root):
             outdated.append({"card": card, "lag": float(src_ct - base), "note": note})
         else:
             fresh.append(card)
+    # Plan14: a card fresh against its source can still carry an `(auto)` Why line that no
+    # longer matches its dependency's `Why for importers:` field — the re-stamp rewrites it
+    fields = {}
+    for card in list(fresh):
+        reason = _auto_why_stale(card, cards_dir, fields)
+        if reason:
+            fresh.remove(card)
+            outdated.append({"card": card, "lag": 0.0, "note": f"(auto) Why: {reason}"})
     return {"fresh": fresh, "outdated": outdated, "orphan": orphan, "layouts": layouts}
+
+
+def _dep_field(cards_dir, file_rel, cache):
+    """`Why for importers:` of the dep's card (cached per run), or None."""
+    if file_rel not in cache:
+        try:
+            cache[file_rel] = cf.for_importers_of((cards_dir / (file_rel + ".md")).read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            cache[file_rel] = None
+    return cache[file_rel]
+
+
+def _auto_why_stale(card, cards_dir, cache):
+    """First mismatch of the card's Why list with its deps' fields, as text; None when in step.
+    Stale: an `(auto)` line whose dep's field is different or gone; a directive under a dep that
+    has a field. Prose lines (no mark) are the agent's — not judged here (Plan14 step 6)."""
+    try:
+        text = card.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    key_path, section, in_why = {}, None, False
+    for ln in text.splitlines():
+        s = ln.strip()
+        if s.startswith("## "):
+            section, in_why = cf.canon(s[3:].strip()), False
+            continue
+        if section != "In-Project Dependencies":
+            continue
+        if s.startswith("### "):
+            in_why = s[4:].strip().lower().startswith("why")
+            continue
+        if not in_why:
+            c = _cells(s) if s.startswith("|") else []
+            if not _is_sep(c):
+                if len(c) >= 2 and c[0] != "Import":
+                    key_path.setdefault(c[0], c[1])
+            continue
+        if not s.startswith("- `") or " — " not in s:
+            continue
+        head, why = s[2:].split(" — ", 1)
+        key = head[1:head.index("`", 1)] if "`" in head[1:] else head.strip("`")
+        members = [m.strip() for m in head.split(":", 1)[1].rstrip(")").split(",")]             if head.endswith(")") and ":" in head else [key]
+        if why.startswith(cf.AUTO_MARK):
+            if why == cf.OWN_PAIR_WHY:
+                continue
+            field = _dep_field(cards_dir, key_path.get(key, ""), cache) if key in key_path else None
+            if field is None:
+                return f"`{key}`: its card has no `{cf.FOR_IMPORTERS}` any more"
+            if why != f"{cf.AUTO_MARK} {field}":
+                return f"`{key}`: its card's `{cf.FOR_IMPORTERS}` changed"
+        elif cf.has_agent_directive(why):
+            for m in members:
+                if m in key_path and _dep_field(cards_dir, key_path[m], cache):
+                    return f"`{m}`: its card has `{cf.FOR_IMPORTERS}`, the line is still a directive"
+    return None
 
 
 def _lag(seconds):

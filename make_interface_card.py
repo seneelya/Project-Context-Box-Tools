@@ -202,8 +202,30 @@ WHY_FOLD_MIN = 5
 # A Why line the stamp writes itself starts with AUTO_MARK: the stamp owns it and rewrites it on
 # every stamp (its text follows the tool). An agent who rewrites the line drops the mark -> prose,
 # kept for good. Own header (`x.cpp` -> `x.h`, stamp_langs `own_pair`): always the same answer.
-AUTO_MARK = "(auto)"
-OWN_PAIR_WHY = f"{AUTO_MARK} its own header: the declarations this file implements."
+AUTO_MARK = cf.AUTO_MARK            # on-disk format facts: CARD_FORMAT (freshness reads them too)
+OWN_PAIR_WHY = cf.OWN_PAIR_WHY
+
+_DEP_FIELD = {}   # card path -> (mtime_ns, value): --all reads the same dep card for many importers
+
+
+def _dep_for_importers(cards_dir, file_rel):
+    """Plan14: `Why for importers:` of a dependency's card, or None (no cards dir / card / field).
+    It is the dep's card AS ON DISK: with --all a field written just now reaches an importer on
+    that importer's next stamp (and `check_cards_freshness` says which importers are stale)."""
+    if not cards_dir:
+        return None
+    path = _card_path(cards_dir, file_rel.replace(os.sep, "/"))
+    try:
+        mt = os.stat(path).st_mtime_ns
+        hit = _DEP_FIELD.get(path)
+        if hit and hit[0] == mt:
+            return hit[1]
+        with open(path, encoding="utf-8") as fh:
+            val = cf.for_importers_of(fh.read())
+    except (OSError, UnicodeDecodeError):
+        return None
+    _DEP_FIELD[path] = (mt, val)
+    return val
 
 
 def _why_lines(keys, key_dir, why, ready=None):
@@ -546,7 +568,7 @@ def _parse_old_prose(text, lang=None):
     # Same for the FILL_HEADER (REQ-018): it sits above the H1, rebuilt every stamp.
     lines = [ln for ln in lines if not cf.is_version_comment(ln) and not cf.is_fill_header(ln)]
     P = {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {},
-         "family_why": {}}
+         "family_why": {}, "for_importers": None}
 
     h1 = next((i for i, ln in enumerate(lines)
                if ln.strip().startswith("# ") and not ln.strip().startswith("## ")), None)
@@ -557,8 +579,11 @@ def _parse_old_prose(text, lang=None):
                 break
             if not s or s.startswith("docstring 1st line:") or _is_ph(ln):
                 continue
-            P["summary"] = s
-            break
+            if cf.for_importers_text(s) is not None:
+                P["for_importers"] = s          # Plan14: prose line, kept as written
+                continue
+            if P["summary"] is None:
+                P["summary"] = s
 
     secs, cur = [], None
     for ln in lines:
@@ -659,7 +684,7 @@ def _parse_old_prose(text, lang=None):
 _SALVAGE_H2 = "Salvage (dropped by re-stamp — move what you need above, or delete)"
 
 
-def build_card(project_root, file, old_prose=None, report=None):
+def build_card(project_root, file, old_prose=None, report=None, cards_dir=None):
     lang = _lang(file)
     fname = os.path.basename(file)
     is_pkg = cf.is_package(fname)
@@ -674,6 +699,7 @@ def build_card(project_root, file, old_prose=None, report=None):
     file_rel = os.path.relpath(target_abs, project_root).replace(os.sep, "/")
 
     op = old_prose or {"summary": None, "entries": {}, "why": {}, "ext_note": [], "sections": {}}
+    op.setdefault("for_importers", None)
     op.setdefault("family_why", {})
     if report is None:
         report = {}
@@ -745,6 +771,11 @@ def build_card(project_root, file, old_prose=None, report=None):
         report["kept_sections"].append("summary")
     else:
         lines.append(DIRECTIVE_SUMMARY)
+    if op["for_importers"]:
+        # Plan14: written by a person/agent, never created by the stamp; its text feeds the
+        # importers' `(auto)` Why lines (see `_for_importers_ready`)
+        lines.append(op["for_importers"])
+        report["kept_sections"].append("for_importers")
     if declared["docstring_first"]:
         lines.append(f"docstring 1st line: {declared['docstring_first']}")
     lines.append("")
@@ -842,7 +873,11 @@ def build_card(project_root, file, old_prose=None, report=None):
         for r in resolved:
             key = os.path.basename(r["file"]).rsplit(".", 1)[0]
             if r["file"].replace(os.sep, "/") in own:
-                ready[key] = OWN_PAIR_WHY
+                ready[key] = OWN_PAIR_WHY            # own header wins over the dep's field
+            elif key not in ready:
+                field = _dep_for_importers(cards_dir, r["file"])
+                if field:
+                    ready[key] = f"{AUTO_MARK} {field}"
             if key not in seen_keys:
                 seen_keys.append(key)
                 key_dir[key] = os.path.dirname(r["file"]).replace(os.sep, "/") or "."
@@ -957,7 +992,7 @@ def _card_path(cards_dir, file_rel):
     return os.path.join(str(cards_dir), file_rel + ".md")
 
 
-def _stamp_to_file(project_root_abs, file_rel, out_path, force, discard_prose=False):
+def _stamp_to_file(project_root_abs, file_rel, out_path, force, discard_prose=False, cards_dir=None):
     """Штемпелит один файл В out_path. На существующей карточке — MERGE (если не --force).
     `--force` на карточке с непустой прозой без `discard_prose` НЕ пишет — возвращает 'blocked'
     (REQ-004: force — дешёвый флаг из мышечной памяти, а стирает дорогую человеческую прозу).
@@ -974,7 +1009,13 @@ def _stamp_to_file(project_root_abs, file_rel, out_path, force, discard_prose=Fa
     if force:
         old_prose = None  # настоящий force: не мерджим, даже если распарсили выше для guard'а
     report = {}
-    card = build_card(project_root_abs, file_rel, old_prose, report)
+    if cards_dir is None:
+        # single-file stamp: the cards dir is where this card goes (`<cards_dir>/<file>.md`)
+        suffix = os.path.normpath(file_rel + ".md")
+        full = os.path.normpath(os.path.abspath(out_path))
+        if full.endswith(os.sep + suffix):
+            cards_dir = full[:-len(suffix) - 1]
+    card = build_card(project_root_abs, file_rel, old_prose, report, cards_dir)
     out_dir = os.path.dirname(os.path.abspath(out_path))
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
@@ -1004,6 +1045,8 @@ def _prose_blocks(op):
     """Сколько прозных блоков реально заполнено (не пусто, не директива) — считает guard --force."""
     n = sum(1 for e in op.get("entries", {}).values() if e["desc"])
     if op.get("summary"):
+        n += 1
+    if op.get("for_importers"):
         n += 1
     return n + len(op.get("why", {})) + len(op.get("sections", {}))
 
@@ -1183,7 +1226,7 @@ def _stamp_all(project_root_abs, force, language=None, discard_prose=False, reco
         rel = rel_path(abs_path, project_root_abs)
         try:
             status, rep = _stamp_to_file(project_root_abs, rel, _card_path(cards_dir, rel),
-                                          force, discard_prose)
+                                          force, discard_prose, cards_dir)
             counts[status] += 1
             if status == "blocked":
                 sys.stderr.write(f"  BLOCKED {rel}: has prose ({rep['prose_blocks']} blocks); "
@@ -1338,7 +1381,9 @@ def _main_impl(record):
         # Без --out — просто печать штемпеля в stdout (без merge: файла-цели нет).
         record["mode"] = "preview"
         report = {}
-        print(build_card(project_root_abs, target_file, None, report))
+        # deps' `Why for importers:` come from the project's cards (read only)
+        cards_dir = resolve_cards_dir(args.cards_dir, args.project_root, project_root_abs)
+        print(build_card(project_root_abs, target_file, None, report, cards_dir))
         if report.get("seam_hint"):
             record["seam_hint"] = True
             sys.stderr.write(

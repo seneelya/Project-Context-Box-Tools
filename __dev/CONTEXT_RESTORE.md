@@ -38,8 +38,8 @@ commit this repo FIRST (an unknown blob is reported as CONFLICT).
   `as_text` == CLI stdout) and `block_range` (both ends of a line range snapped to blocks); the CLI
   is parse_args -> view -> render. For callers that want data, not text — never one mega-render.
   Usage stats and a replay of logged calls (guard for refactors): `__dev/usage/`.
-- **Card stamp** (`make_interface_card`) — CARD_FORMAT 1.5.0 (`<|fillN|>` directives, Runtime seams
-  Kind `twin`, optional `## Other`); C/C++ via `stamp_langs/cpp.py` (API families, "API: in source"
+- **Card stamp** (`make_interface_card`) — CARD_FORMAT 1.6.0 (`<|fillN|>` directives, Runtime seams
+  Kind `twin`, optional `## Other`, optional `Why for importers:` -> importers' `(auto)` Why, Plan14); C/C++ via `stamp_langs/cpp.py` (API families, "API: in source"
   header cards, name anchors instead of line numbers, Why folded by folder); GLSL via
   `stamp_langs/glsl.py` (REQ-021: compile units, call sites and inlined copies, shader <-> host link
   `find_code_usage/glsl_host.py`); `--all --stale`; scan cache `_cache/`. `graph_from_cards --file`

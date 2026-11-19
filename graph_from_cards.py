@@ -248,7 +248,8 @@ def parse_card(path, cards_dir):
             if _DASH.search(head):                       # легаси: "# name — summary"
                 summary = _DASH.split(head, 1)[1].strip()
             continue
-        if name_seen and not summary and s and not s.startswith("#"):
+        if (name_seen and not summary and s and not s.startswith("#")
+                and cf.for_importers_text(s) is None):         # Plan14 field is not the summary
             summary = s                                  # новая форма: сводка на след. строке
         if s.startswith("## "):
             title = cf.canon(s[3:].strip())

@@ -32,5 +32,7 @@ validate_cards.py --cards-dir path/__map --project-root <R> # custom cards dir
   bus name, a URL) is never resolved and never an error — just not an edge. Kind `twin` (1.5.0) =
   the same logic written twice (a CPU function and its shader).
 * **`Other`** (optional, 1.5.0) — free text, not checked; its absence is never flagged.
+* **`Why for importers:`** (optional, 1.6.0, under the summary) — never taken for the summary;
+  flagged when empty / a directive, or written twice.
 
 Green = done. Used both by the card author (self-check) and by an auditor (see `Guide__AuditCards`).
