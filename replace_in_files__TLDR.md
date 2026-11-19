@@ -32,6 +32,8 @@ replace_in_files.py --path @ --mask "*.md" --find "OLD" --with "NEW" --dry-run
 * **`--recurse`** — recurse into subfolders (bare run is top-level only).
 * **`--verbose`** — shows the changed lines with their line numbers, not just a count.
 * Masks `*`/`*.*` are refused for `--apply` (too broad) — forced to dry-run regardless.
+* A file that is not UTF-8 is **skipped and left as is** (`skipped (not UTF-8, left as is): path`, counted in the
+  summary) - writing it back as UTF-8 would change every non-ASCII byte. Recode it first if it must change.
 * Dangerous system paths (`/etc/`, `C:\Windows`, …) and binary extensions are refused outright.
 * Escapes `\n \t \r \\` in `--find`/`--with` are decoded (insert real newlines/tabs); `--match` is
   left as raw Python, not escape-decoded.

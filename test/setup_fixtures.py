@@ -1,10 +1,12 @@
 """Fixture generator for replace_in_files tests."""
 
 import os
+import tempfile
 
 
-# Test fixtures directory path (same as original test file)
-FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "test__replace_in_files", "fixtures")
+# Generated fresh for every test and removed after it: a temp dir, not a folder in the repo
+# (a committed copy went stale and was swept by other tests). Written as UTF-8 on every OS.
+FIXTURES_DIR = os.path.join(tempfile.gettempdir(), f"replace_in_files_fixtures_{os.getpid()}")
 
 
 def setup_fixtures():
@@ -51,7 +53,7 @@ def setup_fixtures():
         "\n"
         "Last updated: 2024-03-15 by Engineering Team\n"
     )
-    with open(os.path.join(FIXTURES_DIR, "README.md"), "w") as f:
+    with open(os.path.join(FIXTURES_DIR, "README.md"), "w", encoding="utf-8") as f:
         f.write(readme_content)
 
     # Python module with realistic code structure
@@ -122,7 +124,7 @@ def setup_fixtures():
         "    validate_config(cfg)\n"
         '    print("Configuration loaded successfully")\n'
     )
-    with open(os.path.join(FIXTURES_DIR, "config_loader.py"), "w") as f:
+    with open(os.path.join(FIXTURES_DIR, "config_loader.py"), "w", encoding="utf-8") as f:
         f.write(py_content)
 
     # Subdirectory file for --recurse tests (nested structure)
@@ -179,7 +181,7 @@ def setup_fixtures():
         '    """Factory function to instantiate DatabaseService with given config."""\n'
         "    return DatabaseService(config)\n"
     )
-    with open(os.path.join(subdir, "database.py"), "w") as f:
+    with open(os.path.join(subdir, "database.py"), "w", encoding="utf-8") as f:
         f.write(db_content)
 
     # Another subdirectory file (deeper nesting)
@@ -232,14 +234,14 @@ def setup_fixtures():
         "# Global singleton instance for application-wide caching\n"
         "cache = CacheService(default_ttl=600)\n"
     )
-    with open(os.path.join(deep_dir, "cache.py"), "w") as f:
+    with open(os.path.join(deep_dir, "cache.py"), "w", encoding="utf-8") as f:
         f.write(cache_content)
 
     # Create a .git directory to test skipping behavior
     git_dir = os.path.join(FIXTURES_DIR, ".git")
     os.makedirs(git_dir, exist_ok=True)
 
-    with open(os.path.join(git_dir, "config"), "w") as f:
+    with open(os.path.join(git_dir, "config"), "w", encoding="utf-8") as f:
         f.write("[core]\n\trepositoryformatversion = 0\n")
 
 

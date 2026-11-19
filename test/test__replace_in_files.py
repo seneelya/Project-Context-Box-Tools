@@ -9,7 +9,6 @@ import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # test/ directory
 UTILS_DIR = os.path.dirname(SCRIPT_DIR)                  # __HQ/tools/ (one level up from test/)
-FIXTURES_DIR = os.path.join(SCRIPT_DIR, "test__replace_in_files", "fixtures")
 
 UTIL_PATH = os.path.join(UTILS_DIR, "replace_in_files.py")
 
@@ -61,7 +60,7 @@ def test_simple_replace_dry_run_default():
     setup_fixtures()
 
     # Read original content
-    with open(os.path.join(FIXTURES_DIR, "README.md")) as f:
+    with open(os.path.join(FIXTURES_DIR, "README.md"), encoding="utf-8") as f:
         orig = f.read()
 
     out, err, code = run_tool(
@@ -73,7 +72,7 @@ def test_simple_replace_dry_run_default():
     assert "replacement(s)" in out.lower()
 
     # Verify file NOT modified
-    with open(os.path.join(FIXTURES_DIR, "README.md")) as f:
+    with open(os.path.join(FIXTURES_DIR, "README.md"), encoding="utf-8") as f:
         after = f.read()
     assert orig == after, "Dry-run should not modify files"
 
@@ -88,7 +87,7 @@ def test_simple_replace_with_apply():
     )
 
     # Check config_loader.py: function name changed everywhere
-    with open(os.path.join(FIXTURES_DIR, "config_loader.py")) as f:
+    with open(os.path.join(FIXTURES_DIR, "config_loader.py"), encoding="utf-8") as f:
         content = f.read()
 
     assert "def build_default_config()" in content
@@ -106,7 +105,7 @@ def test_recurse_flag():
     )
 
     # cache.py in deep subdir should be modified
-    with open(os.path.join(FIXTURES_DIR, "src", "services", "internal", "cache.py")) as f:
+    with open(os.path.join(FIXTURES_DIR, "src", "services", "internal", "cache.py"), encoding="utf-8") as f:
         content = f.read()
     assert "TTLCacheService" in content
 
@@ -122,7 +121,7 @@ def test_no_recurse_skips_subdirs():
     )
 
     # database.py in subdir should be unchanged
-    with open(os.path.join(FIXTURES_DIR, "src", "services", "database.py")) as f:
+    with open(os.path.join(FIXTURES_DIR, "src", "services", "database.py"), encoding="utf-8") as f:
         content = f.read()
     assert "DatabaseService" in content
 
@@ -138,7 +137,7 @@ def test_match_guard():
         "--apply"
     )
 
-    with open(os.path.join(FIXTURES_DIR, "README.md")) as f:
+    with open(os.path.join(FIXTURES_DIR, "README.md"), encoding="utf-8") as f:
         content = f.read()
 
     # Lines starting with "-" should now start with "*"
@@ -159,7 +158,7 @@ def test_wildcard_mask_forces_dry_run():
     )
 
     # README.md should be unchanged (forced dry-run)
-    with open(os.path.join(FIXTURES_DIR, "README.md")) as f:
+    with open(os.path.join(FIXTURES_DIR, "README.md"), encoding="utf-8") as f:
         content = f.read()
     assert "Python 3.10+" in content
 
@@ -174,7 +173,7 @@ def test_dry_run_applies_over_apply():
         "--apply", "--dry-run"  # both flags present
     )
 
-    with open(os.path.join(FIXTURES_DIR, "config_loader.py")) as f:
+    with open(os.path.join(FIXTURES_DIR, "config_loader.py"), encoding="utf-8") as f:
         content = f.read()
     assert "def load_config(config_path=None):" in content
 
@@ -192,7 +191,7 @@ def test_skip_git_dir():
     )
 
     # File in .git should be unchanged
-    with open(os.path.join(FIXTURES_DIR, ".git", "config")) as f:
+    with open(os.path.join(FIXTURES_DIR, ".git", "config"), encoding="utf-8") as f:
         content = f.read()
     assert "repositoryformatversion" in content
 
@@ -353,6 +352,27 @@ def test_at_alias_resolves_to_project_root():
     assert "Scanning" in combined, "@ alias should resolve to a valid directory path"
 
 
+def test_non_utf8_file_is_skipped_untouched():
+    """A cp1251 file in the mask is skipped by name and left byte-for-byte; the others still change."""
+    setup_fixtures()
+    legacy = os.path.join(FIXTURES_DIR, "legacy.py")
+    data = "# Привет\ndef load_config():\n    pass\n".encode("cp1251")
+    with open(legacy, "wb") as f:
+        f.write(data)
+
+    out, err, code = run_tool(
+        FIXTURES_DIR, "*.py", "--find", "def load_config", "--with", "def parse_config", "--apply"
+    )
+
+    assert code == 0, err
+    assert "skipped (not UTF-8, left as is): legacy.py" in out, out
+    assert "1 file(s) skipped (not UTF-8)" in out, out
+    with open(legacy, "rb") as f:
+        assert f.read() == data
+    with open(os.path.join(FIXTURES_DIR, "config_loader.py"), encoding="utf-8") as f:
+        assert "def parse_config" in f.read()
+
+
 # ============================================================================
 # Main runner
 # ============================================================================
@@ -383,6 +403,7 @@ def main():
         # New tests — safety and validation
         test_match_syntax_error_before_run,
         test_whitelist_dirs_enforces_allowed_paths,
+        test_non_utf8_file_is_skipped_untouched,
     ]
 
     passed = 0
@@ -432,7 +453,7 @@ def test_whitelist_dirs_enforces_allowed_paths():
     config_path = os.path.join(os.path.dirname(__file__), "..", "CONFIG__TOOLS.py")
 
     # Save original content
-    with open(config_path, "r") as f:
+    with open(config_path, "r", encoding="utf-8", newline="") as f:
         original_config = f.read()
 
     try:
@@ -442,7 +463,7 @@ def test_whitelist_dirs_enforces_allowed_paths():
             'WHITELIST_DIRS = ["/nonexistent/path/that/does/not/exist"]'
         )
 
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8", newline="") as f:
             f.write(modified_config)
 
         # Run tool — all files should be blocked by whitelist
@@ -458,7 +479,7 @@ def test_whitelist_dirs_enforces_allowed_paths():
 
     finally:
         # Restore original config
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8", newline="") as f:
             f.write(original_config)
 
 

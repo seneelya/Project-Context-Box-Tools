@@ -120,11 +120,11 @@ T:/AgentsWork/venv/Scripts/python.exe test/test_views.py             # 57/0
 T:/AgentsWork/venv/Scripts/python.exe test/test_glsl.py              # 6 files / 204 lines / 22 functions + mask adversarial checks (all synthetic)
 T:/AgentsWork/venv/Scripts/python.exe test/test_glsl_env.py          # 6 PASS: native missing / legacy / Windows+Linux artifacts / other platform / vendored
 T:/AgentsWork/venv/Scripts/python.exe test/test_glsl_stamp.py        # 50/0 GLSL card stamp (REQ-021, synthetic)
-T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py --quiet  # HIGH 0 except CRASH=71 (old cp1252 fixture); LOW LEVEL=5 known
+T:/AgentsWork/venv/Scripts/python.exe test/sweep_invariants.py --quiet  # all 0 HIGH/LOW (2026-11-19); SIBLING = expected noise
 ```
 
-`test__replace_in_files.py` is old (15/21) and DELETES fixtures when failing:
-`git checkout -- test/test__replace_in_files/fixtures`.
+`test__replace_in_files.py` 22/22: fixtures are generated as UTF-8 into a temp dir per test and removed
+(no copy in the repo any more).
 
 ## Gotchas
 

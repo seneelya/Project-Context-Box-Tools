@@ -166,12 +166,15 @@ def _check_file_safety(filepath, blacklist_dirs):
 # Core processing — applies ONE replacement rule to one file
 # ---------------------------------------------------------------------------
 def process_file(filepath, find_text, with_text, match_expr=None, dry_run=False, verbose=False, warned_expressions=None):
-    """Apply replacement to one file. Returns (count, hit_linenos)."""
+    """Apply replacement to one file. Returns (count, hit_linenos), or None for a file that is not UTF-8 (left untouched)."""
     if warned_expressions is None:
         warned_expressions = set()
 
-    with open(filepath, "r", encoding="utf-8", newline="") as f:
-        lines = f.readlines()
+    try:
+        with open(filepath, "r", encoding="utf-8", newline="") as f:
+            lines = f.readlines()
+    except UnicodeDecodeError:
+        return None    # not UTF-8: writing it back as UTF-8 would change every non-ASCII byte -> skip
 
     count = 0
     hits = []
@@ -495,11 +498,17 @@ def main():
     total = 0
     changed_files = 0
 
+    skipped = 0
     for fpath in safe_files:
-        n, hits = process_file(
+        result = process_file(
             fpath, find_text, with_text, match_expr,
             dry_run=effective_dry_run, verbose=verbose, warned_expressions=warned_expressions
         )
+        if result is None:
+            skipped += 1
+            print(f"  skipped (not UTF-8, left as is): {os.path.relpath(fpath, resolved_root)}")
+            continue
+        n, hits = result
         total += n
 
         if n:
@@ -521,7 +530,8 @@ def main():
 
     verb = "would change" if effective_dry_run else "changed"
     mode_tag = "\033[1;93mDRY-RUN\033[0m (nothing written)" if effective_dry_run else "\033[1;32mAPPLIED\033[0m"
-    print(f"{mode_tag} — {verb}: {total} replacement(s) in {changed_files} file(s)")
+    skip_note = f"; {skipped} file(s) skipped (not UTF-8)" if skipped else ""
+    print(f"{mode_tag} — {verb}: {total} replacement(s) in {changed_files} file(s){skip_note}")
 
 
 if __name__ == "__main__":
