@@ -199,9 +199,11 @@ def _by_folder(files):
 WHY_FOLD_MIN = 5
 
 
-# Why of the file's own header (`x.cpp` -> `x.h`, stamp_langs `own_pair`): always the same answer,
-# so it is stamped ready instead of asked. Prose an agent wrote there instead is kept.
-OWN_PAIR_WHY = "its own header: the declarations this file implements."
+# A Why line the stamp writes itself starts with AUTO_MARK: the stamp owns it and rewrites it on
+# every stamp (its text follows the tool). An agent who rewrites the line drops the mark -> prose,
+# kept for good. Own header (`x.cpp` -> `x.h`, stamp_langs `own_pair`): always the same answer.
+AUTO_MARK = "(auto)"
+OWN_PAIR_WHY = f"{AUTO_MARK} its own header: the declarations this file implements."
 
 
 def _why_lines(keys, key_dir, why, ready=None):
@@ -495,8 +497,8 @@ def _parse_why_section(body, P):
         else:
             key, why = item.split(" — ", 1)
         key, why = key.strip().strip("`").strip(), why.strip()
-        if key and why and not _is_ph(why) and why != cf.EMPTY:
-            P["why"][key] = why
+        if key and why and not _is_ph(why) and why != cf.EMPTY and not why.startswith(AUTO_MARK):
+            P["why"][key] = why       # an `(auto)` line is the stamp's own: rewritten, never kept
 
 
 def _parse_keyed_bullets(body, h3_title):

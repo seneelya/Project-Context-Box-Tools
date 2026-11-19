@@ -21,6 +21,7 @@ TREE = {
     "src/z.cpp": '#include "y.h"\nint z() { return g(); }\n',
 }
 READY = f"- `x` — {mic.OWN_PAIR_WHY}"
+assert mic.OWN_PAIR_WHY.startswith("(auto) ")
 FAILS = []
 
 
@@ -54,6 +55,10 @@ def main():
         kept = mic.build_card(root, "src/x.cpp", old_prose=mic._parse_old_prose(edited, "cpp"))
         check("agent's own text kept", "- `x` — declares f; also the shared tolerance." in _why(kept), _why(kept))
 
+        stale = card.replace(READY, "- `x` — (auto) an older wording of the stamp.")
+        fresh = mic.build_card(root, "src/x.cpp", old_prose=mic._parse_old_prose(stale, "cpp"))
+        check("(auto) line rewritten", READY in _why(fresh) and "older wording" not in fresh, _why(fresh))
+
         old_form = card.replace(READY, "- `x` — <|fill9|>")
         upgraded = mic.build_card(root, "src/x.cpp", old_prose=mic._parse_old_prose(old_form, "cpp"))
         check("old directive -> ready line", READY in _why(upgraded), _why(upgraded))
@@ -63,7 +68,7 @@ def main():
         header = mic.build_card(root, "src/x.h")
         check("header has no ready line", mic.OWN_PAIR_WHY not in header)
 
-    print(f"{7 - len(FAILS)}/7 passed")
+    print(f"{8 - len(FAILS)}/8 passed")
     return 1 if FAILS else 0
 
 
