@@ -114,7 +114,7 @@ backends/
   batch.py       — core2: .bat/.cmd без парсера, метка `:label` = раздел (как заголовок markdown).
   python_ast.py  — фолбек .py без грамматики (громкий нотис; только для .0, не для адресации)
 analyzers/    — Analyzer'ы (Рецепт C) по расширению: `registry.analyzers(ext)`. Сейчас один —
-                `md_callout.py` (REQ-024: callout под заголовком md → `description`)
+                `md_callout.py` (REQ-024: callout в теле md-секции → `description`)
 label.py      — backend-agnostic лейблер filler-полосы: band → список имён (оглавление)
 classify.py   — backend-agnostic .0-классификатор (КАРТА) + focus + render + CLI + generic
                 АДРЕСАЦИЯ (`ladder_at`/`line_level_at`/`filler_container_at` — Vision04 для

@@ -131,11 +131,12 @@ excess ignored). Same three modes as single-line, just merged:
   `@mixin`/`@include`/`@function` WITH parameters parse imperfectly (css grammar), but nested
   rule sets, `&` nesting and `@media`/`@supports` are solid; a TOP-LEVEL `$var: value;` used to
   blow up the whole file's parse and is now masked into a comment before parsing.
-- **Markdown section summary.** A typed callout (`> [!info] …`, any type) as the first non-blank
-  line under a heading shows after the heading in `--outline` (and `--dot`, outline batch), set off
-  by two spaces like a code block's comment: `### kLawCapture  [info] The capture law: …` — whole
-  callout joined into one line, cut at 200 chars. A plain `> quote`, or a callout after body text,
-  shows nothing. `--query` and block ranges are unchanged: the callout stays in the section body.
+- **Markdown section note.** A typed callout (`> [!info] …`) in a section's own body (up to its
+  first child heading; fenced code skipped) shows after the heading in `--outline` (and `--dot`,
+  outline batch), set off by two spaces like a code block's comment:
+  `### kLawCapture  [info] The capture law: …` — whole callout joined into one line, cut at 200
+  chars. Several → by type: `summary`, `info`, `note`, any other, `warning` last; first of the best
+  type wins. A plain `> quote` shows nothing. `--query` and block ranges are unchanged: the callout stays in the section body.
 - **A `--line` that resolves to nothing is `Missing`, not an error.** Every mode prints what did
   resolve plus a commented `Missing: line N — out of range (1-M)` / `— no block found`, and exits 0;
   exit 1 only when NONE of the requested lines resolved (`--name` with nothing similar: exit 2).

@@ -39,7 +39,30 @@ after
 
 Some text.
 
-> [!info] not first, ignored
+> [!info] after a paragraph
+
+## Priority
+
+> [!warning] careful
+> [!tip] a tip
+text
+> [!note] a note
+
+> [!Summary] the gist
+
+> [!info] later info
+
+## Warning only
+
+text
+
+> [!warning] only this
+
+## In fence
+
+```
+> [!info] inside code
+```
 
 ## Plain quote
 
@@ -86,7 +109,10 @@ def test_outline(d):
         long = r["Long"]
         check(f"cap 200 {nl!r}", long.startswith("[tldr] ") and long.endswith("…")
               and 190 < len(long) - len("[tldr] ") <= 201)
-        check(f"paragraph first {nl!r}", r["Paragraph first"] is None)
+        check(f"anywhere in own body {nl!r}", r["Paragraph first"] == "[info] after a paragraph")
+        check(f"summary beats the rest {nl!r}", r["Priority"] == "[summary] the gist")
+        check(f"warning when alone {nl!r}", r["Warning only"] == "[warning] only this")
+        check(f"fenced callout ignored {nl!r}", r["In fence"] is None)
         check(f"plain quote {nl!r}", r["Plain quote"] is None and r["Doc"] is None)
         check(f"heading then subheading {nl!r}", r["Parent"] is None)
         check(f"type on its own line {nl!r}", r["Child right away"] == "[warning] Body of the warning.")
