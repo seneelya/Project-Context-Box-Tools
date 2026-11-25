@@ -22,6 +22,7 @@ Match your current goal to exactly one path below. Do not guess which tool fits;
 | "Are my cards valid / up-to-date?" | `validate_cards` (format) + `check_cards_freshness` (stale vs source) | fix issues before trusting cards for reasoning |
 | "Mass find-and-replace across many files" | `replace_in_files FOLDER MASK -r FIND WITH --dry-run` | add `-m 'EXPR'` guard if context-sensitive; confirm dry-run then run without it |
 | "Split a monster file — see its block graph / move named blocks to new files" | `split_monster --file FILE --investigate` (graph, families, starting `--split`); `split_monster --file FILE --split LINE TARGET ... --out-script OUT.py`; `split_monster --rebase OUT.py --write` (re-anchor an old script after the source changed) (`LINE` or `12,34,45` per target; `.md` → `replace`/STUB in script, code → `cut`) | `split_monster__TLDR.md`; edit generated `OUT.py` (STUB, imports), then `python OUT.py` → `--apply` |
+| "Do my docs carry their summary callouts? Which sections lack `> [!info]`?" | `check_doc_info <dir|file.md> [--all]` (a block fails when fewer than half of its child sections have a callout) | `check_doc_info__TLDR.md`; then `get_codeblock --outline` to see the summaries |
 
 **RULE:** If your task is not in this table, fall back to:
 1. Source analysis tools (`find_code_usage`, `get_codeblock`) for facts about code.
