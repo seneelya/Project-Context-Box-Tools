@@ -6,7 +6,7 @@ tracker, task) lives in that project's `__HQ/` — restore it from there, never 
 **State (2026-11-25):** REQ-024 DONE in code, get_codeblock 0.12.0: md `--outline` shows a section's
 callout note (`reader/analyzers/md_callout.py`, CONTRACT Recipe C — the first Analyzer wired into the
 live map). Guides (Doc, DocSearch, Outline): a `> [!info]` note per section is mandatory. Pushed.
-REQ-024 not renamed `DONE__` — waits for the owner's acceptance. Plan14 steps 1-5 DONE (card-format
+REQ-024 renamed `DONE__` (owner accepted). Plan14 steps 1-5 DONE (card-format
 1.6.0); step 6 only on a separate go. No next task set: read the tail of `__dev/TRACKER.md` and ask
 the owner. Deployed: hermes-filetools (up to Plan14, NOT REQ-024). NOT deployed: contact_lab, sim
 (REQ-023, get_codeblock 0.11.0/0.12.0, Plan14, REQ-024). Open requests: REQ-014, REQ-016.
