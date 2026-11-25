@@ -10,7 +10,7 @@ import re
 
 from .ir import Block, Role
 from .profiles.presets import NAME_TYPES
-from .registry import resolve
+from .registry import resolve, analyzers
 from ..physical_lines import read_source
 
 
@@ -439,6 +439,24 @@ def _focus_head(spec, node, level, start_override=None):
     return Block(Role.LANDMARK, spec.unwrap_def(node).type, s, e, level, name=spec.name(node))
 
 
+def _describe(tree, found, source):
+    """Analyzer pass (CONTRACT.md, Recipe C; invariants 3-4): fill `description` only; a
+    failing analyzer leaves the block as is."""
+    if not found:
+        return
+    text = source.decode('utf-8', 'replace')
+
+    def walk(items):
+        for b in items:
+            for an in found:
+                try:
+                    b.description = b.description or an.describe(b, text)
+                except Exception:
+                    pass
+            walk(b.children or [])
+    walk(tree)
+
+
 def outline_rows(path, deep=False, focus_line=None, focus_level=0):
     """Unified-outline (Vision03): `.0`-строки для адаптивного outline в core.py.
     Landmark'и раскрыты вглубь. deep=False (`--outline`) — filler только на уровне файла;
@@ -500,13 +518,17 @@ def outline_rows(path, deep=False, focus_line=None, focus_level=0):
             tree = [head]
     else:
         tree = clf.classify(root, level=1, depth=_OUTLINE_FULL_DEPTH, top_filler_only=not deep)
+    _describe(tree, analyzers(os.path.splitext(path)[1]), source)
     rows = []
 
     def walk(items):
         for b in items:
             text = b.name if b.name else '~' + b.kind + (f' x{b.count}' if b.count > 1 else '')
-            rows.append({'level': b.level, 'start': b.start, 'end': b.end, 'text': text,
-                         'frame': b.role is Role.FRAME, 'filler': b.role is Role.FILLER})
+            row = {'level': b.level, 'start': b.start, 'end': b.end, 'text': text,
+                   'frame': b.role is Role.FRAME, 'filler': b.role is Role.FILLER}
+            if b.description:
+                row['description'] = b.description
+            rows.append(row)
             if b.children:
                 walk(b.children)
 

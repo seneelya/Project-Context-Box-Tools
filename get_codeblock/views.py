@@ -197,7 +197,13 @@ def render_outline(view, src):
     labels = ["  " * (r['level'] - 1) + _mark(r) for r in rows]
     width = max(len(s) for s in labels)
     for r, label in zip(rows, labels):
-        yield 'meta', c(f"{label.ljust(width)} [{r['start']}-{r['end']}] {r['text']}")
+        yield 'meta', c(f"{label.ljust(width)} [{r['start']}-{r['end']}] {_with_note(r)}")
+
+
+def _with_note(r):
+    """Row label + its Analyzer note (md callout, REQ-024), set off by two spaces like a
+    code block's own comment."""
+    return f"{r['text']}  {r['description']}" if r.get('description') else r['text']
 
 
 # -- boxed rows: ladder and outline batch -------------------------------------------------
@@ -370,7 +376,7 @@ def outline_batch_view(src, line_nums, levels, deep=False):
     block_list = sorted((merged[k] for k in order), key=lambda r: (r['start'], -r['end']))
     base_level = min((r['level'] for r in block_list), default=0)
     block_rows = [{'kind': 'block', 'level': r['level'], 'start': r['start'], 'end': r['end'],
-                   'text': r['text'], 'indent': r['level'] - base_level,
+                   'text': _with_note(r), 'indent': r['level'] - base_level,
                    'frame': r.get('frame'), 'filler': r.get('filler')}
                   for r in block_list]
     return {'n': len(line_nums), 'errors': errors, 'rows': error_rows + block_rows,

@@ -28,6 +28,13 @@ def _python_backend_spec():
     return TSBackend(prof.langspec, prof.node_rules), TreeSitterSpec(prof)
 
 
+def analyzers(ext):
+    """Analyzers of a format (CONTRACT.md, Recipe C): the optional meaning pass that fills
+    `Block.description`. Most formats have none -> []."""
+    from .analyzers import analyzers_for
+    return analyzers_for(ext)
+
+
 def resolve(ext):
     """(Backend, Spec) под расширение, или ValueError. Единый вход: ветка на нужный
     backend по формату (tree-sitter-код / markdown / позже docx/pdf). Язык tree-sitter

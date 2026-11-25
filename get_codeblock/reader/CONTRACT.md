@@ -113,6 +113,8 @@ backends/
                    (`script_block`) начинается ПОСЛЕ `{` — brace-модель дала бы уровни не те (инв. 6).
   batch.py       — core2: .bat/.cmd без парсера, метка `:label` = раздел (как заголовок markdown).
   python_ast.py  — фолбек .py без грамматики (громкий нотис; только для .0, не для адресации)
+analyzers/    — Analyzer'ы (Рецепт C) по расширению: `registry.analyzers(ext)`. Сейчас один —
+                `md_callout.py` (REQ-024: callout под заголовком md → `description`)
 label.py      — backend-agnostic лейблер filler-полосы: band → список имён (оглавление)
 classify.py   — backend-agnostic .0-классификатор (КАРТА) + focus + render + CLI + generic
                 АДРЕСАЦИЯ (`ladder_at`/`line_level_at`/`filler_container_at` — Vision04 для
@@ -652,6 +654,14 @@ class LicenseAnalyzer:   # protocol.Analyzer
 ```
 
 Прогонять опционально: нет анализатора → блоки рендерятся структурным лейблом (инвариант 4).
+
+**Подключение (REQ-024, 2026-11-25).** Анализаторы формата — `registry.analyzers(ext)` →
+`analyzers/__init__.analyzers_for` (новый — одна строка там же). Пост-проход —
+`classify._describe` в `outline_rows` (обычная и focus-карта): ставит только `description`,
+исключение анализатора глотается. Строка карты несёт `description`, только если он есть;
+`views._with_note` дописывает его к имени через два пробела, как коммент-преамбулу у кода
+(outline, `--dot`, outline batch). Имя (`text`) остаётся голым: `--name`, лестница и подписи
+лестницы (`_outline_label_index`) его не видят. Для кода анализаторов нет — вывод прежний.
 
 ## Ссылки на главные правила
 
