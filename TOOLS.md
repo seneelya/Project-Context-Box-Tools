@@ -23,6 +23,7 @@ Match your current goal to exactly one path below. Do not guess which tool fits;
 | "Mass find-and-replace across many files" | `replace_in_files FOLDER MASK -r FIND WITH --dry-run` | add `-m 'EXPR'` guard if context-sensitive; confirm dry-run then run without it |
 | "Split a monster file — see its block graph / move named blocks to new files" | `split_monster --file FILE --investigate` (graph, families, starting `--split`); `split_monster --file FILE --split LINE TARGET ... --out-script OUT.py`; `split_monster --rebase OUT.py --write` (re-anchor an old script after the source changed) (`LINE` or `12,34,45` per target; `.md` → `replace`/STUB in script, code → `cut`) | `split_monster__TLDR.md`; edit generated `OUT.py` (STUB, imports), then `python OUT.py` → `--apply` |
 | "Do my docs carry their summary callouts? Which sections lack `> [!info]`?" | `check_doc_info <dir|file.md> [--all]` (a block fails when fewer than half of its child sections have a callout) | `check_doc_info__TLDR.md`; then `get_codeblock --outline` to see the summaries |
+| "Do the names and paths my docs quote still exist in the code?" (ROUGH) | `check_doc_names <dir|file.md> [--root SRC] [--hq HQ]` (backticked identifiers and paths; `<!-- check_doc_names: ignore ... -->` silences math symbols) | `check_doc_names__TLDR.md`; a finding is a question, not a verdict |
 
 **RULE:** If your task is not in this table, fall back to:
 1. Source analysis tools (`find_code_usage`, `get_codeblock`) for facts about code.
