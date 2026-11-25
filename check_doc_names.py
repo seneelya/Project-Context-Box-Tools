@@ -143,7 +143,8 @@ def main():
     hq = Path(a.hq) if a.hq else TOOLS_DIR.parent
     skip |= ALWAYS_SKIP
     code = list(walk(root, skip, lambda f: Path(f).suffix.lower() in CODE_EXT or f == 'CMakeLists.txt'))
-    src_rel = [f.relative_to(root).as_posix() for f in walk(root, skip, lambda f: True)]
+    # paths may name generated files (build/*_spv.h): every file counts, only the words skip the blacklist
+    src_rel = [f.relative_to(root).as_posix() for f in walk(root, ALWAYS_SKIP, lambda f: True)]
     hq_rel = [f.relative_to(hq).as_posix() for f in walk(hq, {'.git', '__pycache__'}, lambda f: True)]
     stems = {Path(r).stem for r in src_rel + hq_rel}
     words = set()
