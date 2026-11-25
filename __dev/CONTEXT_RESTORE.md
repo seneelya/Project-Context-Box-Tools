@@ -3,11 +3,14 @@
 This file is about the tools and the template only. A downstream project's state (its plans,
 tracker, task) lives in that project's `__HQ/` — restore it from there, never from here.
 
-**State (2026-11-20):** Plan14 steps 1-5 DONE (card-format 1.6.0, `Why for importers:` -> importers'
-`(auto)` Why lines); step 6 only on a separate go from the owner. No next task set: read the tail of
-`__dev/TRACKER.md` and ask the owner. Deployed: hermes-filetools (regular `deploy_hq.py` now, cards
-re-stamped 1.6.0). NOT deployed: contact_lab, sim (REQ-023, get_codeblock 0.11.0, Plan14).
-Open requests: REQ-014, REQ-016.
+**State (2026-11-25):** REQ-024 DONE in code, get_codeblock 0.12.0: md `--outline` shows a section's
+callout note (`reader/analyzers/md_callout.py`, CONTRACT Recipe C — the first Analyzer wired into the
+live map). Guides (Doc, DocSearch, Outline): a `> [!info]` note per section is mandatory. Pushed.
+REQ-024 not renamed `DONE__` — waits for the owner's acceptance. Plan14 steps 1-5 DONE (card-format
+1.6.0); step 6 only on a separate go. No next task set: read the tail of `__dev/TRACKER.md` and ask
+the owner. Deployed: hermes-filetools (up to Plan14, NOT REQ-024). NOT deployed: contact_lab, sim
+(REQ-023, get_codeblock 0.11.0/0.12.0, Plan14, REQ-024). Open requests: REQ-014, REQ-016.
+Full sweep (`sweep_invariants.py`) is long (>10 min): run it only before a big commit, not per tweak.
 
 ## Read, in order (don't wander the repo)
 
