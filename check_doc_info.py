@@ -87,7 +87,21 @@ def files_of(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description='Find markdown files whose sections lack summary callouts.')
+    ap = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='Find markdown files whose sections lack their summary callouts (> [!info] ...).',
+        epilog='''the rule (MIN_SHARE 0.5 in the header):
+  inside every heading block, and the file's top level, at least half of the direct child
+  sections carry a typed callout:   > [!info] <the main fact of the section>
+  any type counts (info, note, summary ...), anywhere in the section's own body before the
+  next heading; a plain "> quote" does not; code blocks are skipped.
+  Not every section needs one, so the check is by share, not per section.
+
+why: get_codeblock --outline shows the callout after the title, so the outline reads as an
+  annotated table of contents (Guide__Doc, Guide__Outline).
+
+exit: 0 all files pass, 1 a file has problems, 2 a path not found.
+more: check_doc_info__TLDR.md''')
     ap.add_argument('paths', nargs='+', help='markdown files or directories')
     ap.add_argument('--all', action='store_true', help='also list the files that pass')
     a = ap.parse_args()
