@@ -129,7 +129,22 @@ def docs_of(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description='ROUGH check: do the code names a doc quotes still exist in the code?')
+    ap = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='ROUGH check: do the code names and file paths a markdown doc quotes still exist?',
+        epilog='''what it checks (every `backticked` token, code blocks skipped):
+  a file token  (known extension, or a folder ending with /) must exist under the sources,
+                the HQ or the doc's folder; globs and placeholders work: src/x.*, TASKn.md
+  a name token  shaped like code (CamelCase, snake_case, kConst, ALL_CAPS) must be a whole
+                word of some code file, or a file's stem (get_codeblock, Doc__10)
+
+rough, not a proof:
+  a name left only in a comment passes; a math symbol (r_apo) alarms; the doc's sentences
+  are not checked. Silence false alarms per doc, anywhere in it (invisible when rendered):
+      <!-- check_doc_names: ignore r_apo FLT_MAX -->
+
+exit: 0 nothing reported, 1 something not found, 2 bad arguments.
+more: check_doc_names__TLDR.md''')
     ap.add_argument('paths', nargs='+', help='markdown docs or directories')
     ap.add_argument('--root', help='the sources (default: CONFIG__TOOLS.PROJECT_ROOT)')
     ap.add_argument('--hq', help='the HQ whose files a doc may name (default: the folder above this tool)')
